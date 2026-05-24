@@ -12,7 +12,7 @@ Trellis app code should use the main `@lupinum/trellis` runtime helpers instead.
 
 | Package            | Version    |
 | ------------------ | ---------- |
-| `@lupinum/trellis` | `0.4.0`    |
+| `@lupinum/trellis` | `0.1.0`    |
 | `convex`           | `^1.38.0`  |
 | `convex-helpers`   | `^0.1.117` |
 

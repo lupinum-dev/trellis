@@ -25,7 +25,7 @@ The first clean public release line is:
 
 | Package                   | Version | Audience                                                             |
 | ------------------------- | ------: | -------------------------------------------------------------------- |
-| `@lupinum/trellis`        | `0.4.0` | Nuxt + Convex app teams                                              |
+| `@lupinum/trellis`        | `0.1.0` | Nuxt + Convex app teams                                              |
 | `@lupinum/trellis-bridge` | `0.1.0` | Package authors building Trellis-aware Convex component integrations |
 
 `@lupinum/trellis-bridge` is not a beginner app API. Use it when you are

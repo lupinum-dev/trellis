@@ -338,7 +338,7 @@ describe('optimistic-updates fluent API', () => {
   })
 
   // ==========================================================================
-  // v0.4.0: standalone helpers (prependTo, appendTo, removeFrom, updateIn)
+  // Standalone helpers (prependTo, appendTo, removeFrom, updateIn)
   // ==========================================================================
 
   describe('standalone helpers', () => {

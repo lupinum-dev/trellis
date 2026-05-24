@@ -71,7 +71,7 @@ node scripts/check-pack-workspace-refs.mjs
    settings:
 
 ```bash
-npm publish .pack/lupinum-trellis-0.4.0.tgz --access public --otp <code>
+npm publish .pack/lupinum-trellis-0.1.0.tgz --access public --otp <code>
 npm publish .pack/lupinum-trellis-bridge-0.1.0.tgz --access public --otp <code>
 ```
 

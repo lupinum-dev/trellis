@@ -1,7 +1,7 @@
 {
   "name": "Trellis release compatibility",
   "releaseStack": {
-    "@lupinum/trellis": "0.4.0",
+    "@lupinum/trellis": "0.1.0",
     "@lupinum/trellis-bridge": "0.1.0"
   },
   "tracked": {
