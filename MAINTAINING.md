@@ -36,8 +36,26 @@ Publishing is intentionally manual. The `release:publish` script exits with a
 failure message so nobody, human or agent, can accidentally push packages to
 npm.
 
-1. Start from a clean working tree on the release branch.
-2. Update package versions and compatibility data intentionally.
+Set the version once and use it throughout the release:
+
+```bash
+VERSION=0.1.0
+```
+
+1. Start from a clean working tree on the release branch:
+
+```bash
+git status --short
+```
+
+2. Update package versions and compatibility data intentionally:
+
+- Root `package.json` version.
+- `compatibility.json` release stack.
+- Package compatibility docs such as `README.md` and
+  `packages/trellis-bridge/README.md`.
+- `MAINTAINING.md` examples if this runbook includes versioned commands.
+
 3. Generate release notes:
 
 ```bash
@@ -64,20 +82,112 @@ pnpm run release:pack
 tar -tzf .pack/lupinum-trellis-*.tgz | less
 tar -tzf .pack/lupinum-trellis-bridge-*.tgz | less
 node scripts/check-pack-workspace-refs.mjs
+for file in .pack/*.tgz; do
+  echo "$file $(shasum -a 256 "$file" | cut -d' ' -f1)"
+done
 ```
 
-8. Commit the release prep. Do not commit `.pack/` artifacts.
-9. Publish only the inspected tarballs, after the owner has reviewed npm package
-   settings:
+8. Confirm the packed manifests are the intended public packages:
 
 ```bash
-npm publish .pack/lupinum-trellis-0.1.0.tgz --access public --otp <code>
-npm publish .pack/lupinum-trellis-bridge-0.1.0.tgz --access public --otp <code>
+for file in .pack/*.tgz; do
+  echo "$file"
+  tar -xOf "$file" package/package.json | node -e "let s=''; process.stdin.on('data', d => s += d).on('end', () => { const p = JSON.parse(s); console.log(JSON.stringify({ name: p.name, version: p.version, private: p.private, peerDependencies: p.peerDependencies, publishConfig: p.publishConfig }, null, 2)) })"
+done
+```
+
+9. Commit the release prep. Do not commit `.pack/`, `.pack-check/`, `dist/`,
+   `.nuxt/`, or `.output/` artifacts:
+
+```bash
+git add CHANGELOG.md MAINTAINING.md README.md compatibility.json package.json packages/trellis-bridge/README.md
+git commit -m "chore: prepare v${VERSION} release"
+```
+
+10. Create and push an annotated tag. Use an annotated tag because
+    `git push --follow-tags` does not push lightweight tags:
+
+```bash
+git tag -a "v${VERSION}" -m "v${VERSION}"
+git push origin main --follow-tags
+```
+
+If a lightweight tag was already created locally, push it explicitly:
+
+```bash
+git push origin "v${VERSION}"
+```
+
+11. Log in to npm and confirm the publishing identity:
+
+```bash
+npm login
+npm whoami
+```
+
+The npm CLI may ask for browser authentication instead of an OTP. If npm prompts
+for an OTP during publish, use the account's two-factor code. The pnpm config
+warnings about `shamefully-hoist` and `strict-peer-dependencies` are harmless
+npm warnings.
+
+12. Publish only the inspected tarballs. Publish `@lupinum/trellis` first
+    because `@lupinum/trellis-bridge` peers on it:
+
+```bash
+npm publish ".pack/lupinum-trellis-${VERSION}.tgz" --access public
+npm publish ".pack/lupinum-trellis-bridge-${VERSION}.tgz" --access public
+```
+
+13. Verify npm package access and public status:
+
+```bash
+npm access list packages lupinum --registry=https://registry.npmjs.org/
+npm access get status @lupinum/trellis --registry=https://registry.npmjs.org/
+npm access get status @lupinum/trellis-bridge --registry=https://registry.npmjs.org/
+```
+
+If either package is unexpectedly private:
+
+```bash
+npm access set status=public @lupinum/trellis --registry=https://registry.npmjs.org/
+npm access set status=public @lupinum/trellis-bridge --registry=https://registry.npmjs.org/
+```
+
+14. Verify the public npm metadata. Brand-new scoped packages can return `404`
+    for a few minutes after a successful `npm publish`; wait before republishing
+    the same version.
+
+```bash
+npm view "@lupinum/trellis@${VERSION}" version --registry=https://registry.npmjs.org/
+npm view "@lupinum/trellis-bridge@${VERSION}" version --registry=https://registry.npmjs.org/
+```
+
+15. Create the GitHub release from the pushed tag and attach the exact tarballs:
+
+```bash
+gh release create "v${VERSION}" ".pack/lupinum-trellis-${VERSION}.tgz" ".pack/lupinum-trellis-bridge-${VERSION}.tgz" --title "v${VERSION}" --notes "$(awk -v version="v${VERSION}" '$0 == "## " version { flag=1 } flag' CHANGELOG.md)"
+```
+
+16. Run an install smoke test outside the repo after npm metadata resolves:
+
+```bash
+tmpdir=$(mktemp -d)
+cd "$tmpdir"
+npm init -y
+npm install "@lupinum/trellis@${VERSION}" "@lupinum/trellis-bridge@${VERSION}"
+node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/auth'), import('@lupinum/trellis-bridge')]).then(() => console.log('ok'))"
+```
+
+17. Verify the GitHub release:
+
+```bash
+gh release view "v${VERSION}"
 ```
 
 For the first public release of a package, npm staged publishing cannot be used
 because staged publishing requires the package to already exist on the registry.
-Use an owner-controlled manual publish with 2FA.
+Use an owner-controlled manual publish. Configure two-factor authentication for
+future publishes once the package exists publicly.
 
 For later releases, prefer npm trusted publishing plus staged publishing:
 
