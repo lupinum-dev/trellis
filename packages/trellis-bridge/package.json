@@ -1,0 +1,63 @@
+{
+  "name": "@lupinum/trellis-bridge",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Bridge package boundary for Trellis-aware Convex component integrations",
+  "homepage": "https://trellis.vercel.app",
+  "bugs": {
+    "url": "https://github.com/lupinum-dev/trellis/issues"
+  },
+  "license": "MIT",
+  "author": "Matthias Amon <ma4m0>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lupinum-dev/trellis.git",
+    "directory": "packages/trellis-bridge"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./component": {
+      "types": "./dist/component.d.ts",
+      "import": "./dist/component.js",
+      "default": "./dist/component.js"
+    },
+    "./convex": {
+      "types": "./dist/convex.d.ts",
+      "import": "./dist/convex.js",
+      "default": "./dist/convex.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js",
+      "default": "./dist/manifest.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "consola": "^3.4.2"
+  },
+  "devDependencies": {
+    "@lupinum/trellis": "workspace:^",
+    "convex": "1.38.0"
+  },
+  "peerDependencies": {
+    "@lupinum/trellis": "workspace:^",
+    "convex": "^1.38.0",
+    "convex-helpers": "^0.1.117"
+  }
+}

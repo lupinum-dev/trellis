@@ -1,0 +1,148 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { useConvexUpload } from '../../src/runtime/convex/composables/useConvexUpload'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
+
+interface FakeUploadListenerMap {
+  onprogress: ((event: ProgressEvent) => void) | null
+}
+
+class FakeXhr {
+  static next = {
+    status: 200,
+    responseText: JSON.stringify({ storageId: 'storage_1' }),
+  }
+  static delayMs = 0
+
+  upload: FakeUploadListenerMap = { onprogress: null }
+  status = 0
+  statusText = ''
+  responseText = ''
+  onload: (() => void) | null = null
+  onerror: (() => void) | null = null
+  onabort: (() => void) | null = null
+
+  open(_method: string, _url: string) {}
+  setRequestHeader(_k: string, _v: string) {}
+
+  send(_file: File) {
+    this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 } as ProgressEvent)
+    setTimeout(() => {
+      this.status = FakeXhr.next.status
+      this.responseText = FakeXhr.next.responseText
+      this.onload?.()
+    }, FakeXhr.delayMs)
+  }
+
+  abort() {
+    this.onabort?.()
+  }
+}
+
+const originalXhr = globalThis.XMLHttpRequest
+
+afterEach(() => {
+  globalThis.XMLHttpRequest = originalXhr
+  FakeXhr.delayMs = 0
+})
+
+describe('useConvexUpload single-file mode (Nuxt runtime)', () => {
+  it('uploads file, tracks progress, and stores returned storageId', async () => {
+    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')
+    convex.setMutationHandler('files:generateUploadUrl', async () => 'http://upload.local')
+
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation), { convex })
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+
+    const storageId = await result(file)
+
+    expect(storageId).toBe('storage_1')
+    expect(result.progress.value).toBe(50)
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toBe('storage_1')
+    expect(result.error.value).toBeNull()
+    expect(result.items.value).toEqual([])
+  })
+
+  it('emits onProgress callback payloads while uploading', async () => {
+    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:on-progress')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:on-progress',
+      async () => 'http://upload.local',
+    )
+    const onProgress = vi.fn()
+
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { onProgress }), {
+      convex,
+    })
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+
+    await result.upload(file)
+
+    expect(onProgress).toHaveBeenCalledTimes(1)
+    expect(onProgress).toHaveBeenCalledWith({ loaded: 5, total: 10, percent: 50 }, file)
+  })
+
+  it('validates allowedTypes and reports errors deterministically', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')
+    convex.setMutationHandler('files:generateUploadUrl', async () => 'http://upload.local')
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => useConvexUpload(mutation, { allowedTypes: ['image/*'], onError }),
+      { convex },
+    )
+
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+    await expect(result.upload(file)).rejects.toThrow('not allowed')
+    expect(result.status.value).toBe('error')
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects files exceeding maxSizeBytes before upload starts', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:max-size')
+    convex.setMutationHandler('files:generateUploadUrl:max-size', async () => 'http://upload.local')
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => useConvexUpload(mutation, { maxSizeBytes: 10, onError }),
+      { convex },
+    )
+
+    const file = new File(['x'.repeat(20)], 'large.bin', { type: 'application/octet-stream' })
+    await expect(result.upload(file)).rejects.toThrow('exceeds maximum')
+    expect(result.status.value).toBe('error')
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancel() aborts in-flight upload and resets state', async () => {
+    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+    FakeXhr.delayMs = 50
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')
+    convex.setMutationHandler('files:generateUploadUrl', async () => 'http://upload.local')
+
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation), { convex })
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+
+    const uploadPromise = result.upload(file)
+    await waitFor(() => result.progress.value > 0, { timeoutMs: 1000 })
+    result.reset()
+
+    await expect(uploadPromise).rejects.toThrow()
+    expect(result.status.value).toBe('idle')
+    expect(result.progress.value).toBe(0)
+    expect(result.data.value).toBeUndefined()
+  })
+})

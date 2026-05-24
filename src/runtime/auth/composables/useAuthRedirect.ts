@@ -1,0 +1,57 @@
+import { useRoute, useRuntimeConfig, navigateTo } from '#imports'
+
+import { validateRedirectPath, resolveRedirectTarget } from '../../utils/redirect-safety.js'
+import { normalizeConvexAuthConfig } from '../shared/auth-config.js'
+
+// Keep the pure redirect helpers colocated with the internal auth redirect composable.
+export { validateRedirectPath, resolveRedirectTarget }
+
+export interface UseAuthRedirectReturn {
+  /**
+   * Navigate to the post-auth destination.
+   *
+   * Reads `?redirect=` from the current URL (set by route protection middleware).
+   * Falls back to `fallbackPath`. Rejects unsafe redirects and prevents login loops.
+   */
+  redirectAfterAuth: (fallbackPath?: string) => Promise<void>
+}
+
+/**
+ * Composable for safe post-login redirects.
+ *
+ * Reads the `?redirect=` query parameter set by the auth middleware,
+ * validates it against open-redirect attacks, and navigates.
+ *
+ * @example
+ * ```ts
+ * const { redirectAfterAuth } = useAuthRedirect()
+ *
+ * await someCustomSignIn()
+ * await refreshAuth()
+ * redirectAfterAuth('/dashboard')
+ * // Reads ?redirect param, prevents open redirects, prevents login-page loops
+ * ```
+ */
+export function useAuthRedirect(): UseAuthRedirectReturn {
+  const route = useRoute()
+  const runtimeConfig = useRuntimeConfig()
+
+  const redirectAfterAuth = async (fallbackPath: string = '/') => {
+    const raw = route.query.redirect
+    const rawStr = typeof raw === 'string' ? raw : null
+
+    // Get the login page path from auth config for loop prevention
+    const authConfig = normalizeConvexAuthConfig(
+      (runtimeConfig.public.convex as Record<string, unknown> | undefined)?.auth,
+    )
+    const loginPath =
+      typeof authConfig.routeProtection.redirectTo === 'string'
+        ? authConfig.routeProtection.redirectTo
+        : undefined
+
+    const target = resolveRedirectTarget(rawStr, fallbackPath, loginPath)
+    await navigateTo(target)
+  }
+
+  return { redirectAfterAuth }
+}

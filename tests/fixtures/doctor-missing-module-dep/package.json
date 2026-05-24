@@ -1,0 +1,9 @@
+{
+  "name": "doctor-missing-module-dep",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "convex": "1.38.0",
+    "nuxt": "^4.4.6"
+  }
+}

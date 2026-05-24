@@ -1,0 +1,10 @@
+{
+  "name": "doctor-missing-env",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@lupinum/trellis": "workspace:*",
+    "convex": "1.38.0",
+    "nuxt": "^4.4.6"
+  }
+}

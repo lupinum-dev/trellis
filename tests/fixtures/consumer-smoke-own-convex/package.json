@@ -1,0 +1,15 @@
+{
+  "name": "consumer-smoke-own-convex",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxi build",
+    "typecheck": "nuxi typecheck"
+  },
+  "devDependencies": {
+    "convex": "1.38.0",
+    "nuxt": "4.4.6",
+    "typescript": "6.0.3",
+    "vue-tsc": "3.2.9"
+  }
+}

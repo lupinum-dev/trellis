@@ -1,0 +1,29 @@
+{
+  "name": "example-public-todo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/example-dev.mjs",
+    "dev:nuxt": "nuxi dev --dotenv .env.local",
+    "build": "nuxi build --dotenv .env.local",
+    "test": "vitest run",
+    "typecheck": "nuxi typecheck --dotenv .env.local",
+    "convex:dev": "CONVEX_AGENT_MODE=anonymous convex dev",
+    "convex:codegen": "convex codegen"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.107",
+    "@lupinum/trellis": "workspace:*",
+    "@nuxt/ui": "^4.7.1",
+    "convex": "1.38.0",
+    "nuxt": "^4.4.6",
+    "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "convex-test": "^0.0.52",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9"
+  }
+}

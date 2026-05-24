@@ -1,0 +1,447 @@
+import type { FunctionReference } from 'convex/server'
+import { describe, expect, it } from 'vitest'
+
+import {
+  createOptimisticContext,
+  prependTo,
+  appendTo,
+  removeFrom,
+  updateIn,
+} from '../../src/runtime/convex/composables/optimistic-updates'
+import { mockFnRef } from '../support/nuxt/mock-convex-client'
+
+interface StoredQuery {
+  query: unknown
+  args: Record<string, unknown>
+  value: unknown
+}
+
+class FakeOptimisticLocalStore {
+  private entries = new Map<string, StoredQuery>()
+
+  getQuery(query: unknown, args: unknown): unknown {
+    return this.entries.get(this.keyFor(query, args))?.value
+  }
+
+  setQuery(query: unknown, args: unknown, value: unknown): void {
+    this.entries.set(this.keyFor(query, args), {
+      query,
+      args: (args ?? {}) as Record<string, unknown>,
+      value,
+    })
+  }
+
+  getAllQueries(query: unknown): Array<{ args: Record<string, unknown>; value: unknown }> {
+    const path = this.pathFor(query)
+    return [...this.entries.values()]
+      .filter((entry) => this.pathFor(entry.query) === path)
+      .map((entry) => ({ args: entry.args, value: entry.value }))
+  }
+
+  private keyFor(query: unknown, args: unknown): string {
+    return `${this.pathFor(query)}::${JSON.stringify(args ?? {})}`
+  }
+
+  private pathFor(query: unknown): string {
+    if (!query || typeof query !== 'object') {
+      return String(query)
+    }
+
+    const record = query as Record<string | symbol, unknown>
+    return String(
+      record[Symbol.for('functionName')] ?? record._path ?? record.functionPath ?? 'unknown',
+    )
+  }
+}
+
+describe('optimistic-updates fluent API', () => {
+  describe('ctx.query()', () => {
+    it('update() computes next value from current value', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list')
+      const ctx = createOptimisticContext(store as never)
+
+      ctx
+        .query(query, { orgId: 'org-1' })
+        .update((current) => [...(current ?? []), { _id: 'n1', title: 'First' }])
+
+      expect(store.getQuery(query, { orgId: 'org-1' })).toEqual([{ _id: 'n1', title: 'First' }])
+    })
+
+    it('set() writes value directly', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:get')
+      const ctx = createOptimisticContext(store as never)
+
+      ctx.query(query, { id: 'n1' }).set({ _id: 'n1', title: 'Stored' })
+
+      expect(store.getQuery(query, { id: 'n1' })).toEqual({ _id: 'n1', title: 'Stored' })
+    })
+  })
+
+  describe('ctx.paginatedQuery()', () => {
+    it('insertAtTop() prepends new item for matching paginated args', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('posts:listPaginated') as FunctionReference<'query'>
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(
+        query,
+        { orgId: 'org-1', paginationOpts: { numItems: 10, cursor: null } },
+        { page: [{ _id: 'p1' }], isDone: false, continueCursor: 'c1' },
+      )
+      store.setQuery(
+        query,
+        { orgId: 'org-2', paginationOpts: { numItems: 10, cursor: null } },
+        { page: [{ _id: 'p2' }], isDone: false, continueCursor: 'c1' },
+      )
+
+      ctx
+        .paginatedQuery(query as never, { orgId: 'org-1' } as never)
+        .insertAtTop({ _id: 'new-top' } as never)
+
+      const updatedOrg1 = store.getQuery(query, {
+        orgId: 'org-1',
+        paginationOpts: { numItems: 10, cursor: null },
+      }) as { page: Array<{ _id: string }> }
+
+      const untouchedOrg2 = store.getQuery(query, {
+        orgId: 'org-2',
+        paginationOpts: { numItems: 10, cursor: null },
+      }) as { page: Array<{ _id: string }> }
+
+      expect(updatedOrg1.page.map((item) => item._id)).toEqual(['new-top', 'p1'])
+      expect(untouchedOrg2.page.map((item) => item._id)).toEqual(['p2'])
+    })
+
+    it('insertAtPosition() inserts at a specific numeric index', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('tasks:listPaginated') as FunctionReference<'query'>
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(
+        query,
+        { status: 'open', paginationOpts: { numItems: 10, cursor: null } },
+        {
+          page: [
+            { _id: 'a', order: 1 },
+            { _id: 'c', order: 3 },
+          ],
+          isDone: true,
+          continueCursor: null,
+        },
+      )
+
+      ctx
+        .paginatedQuery(query as never, { status: 'open' } as never)
+        .insertAtPosition({ _id: 'b', order: 2 } as never, 1)
+
+      const updated = store.getQuery(query, {
+        status: 'open',
+        paginationOpts: { numItems: 10, cursor: null },
+      }) as { page: Array<{ _id: string }> }
+
+      expect(updated.page.map((item) => item._id)).toEqual(['a', 'b', 'c'])
+    })
+
+    it('insertAtBottomIfLoaded() only appends when isDone is true', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('messages:listPaginated') as FunctionReference<'query'>
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(
+        query,
+        { channel: 'general', paginationOpts: { numItems: 5, cursor: null } },
+        { page: [{ _id: 'm1' }], isDone: false, continueCursor: 'c1' },
+      )
+
+      ctx
+        .paginatedQuery(query as never, { channel: 'general' } as never)
+        .insertAtBottomIfLoaded({ _id: 'm2' } as never)
+
+      const notDone = store.getQuery(query, {
+        channel: 'general',
+        paginationOpts: { numItems: 5, cursor: null },
+      }) as { page: Array<{ _id: string }> }
+      expect(notDone.page.map((item) => item._id)).toEqual(['m1'])
+
+      store.setQuery(
+        query,
+        { channel: 'general', paginationOpts: { numItems: 5, cursor: null } },
+        { page: [{ _id: 'm1' }], isDone: true, continueCursor: null },
+      )
+
+      ctx
+        .paginatedQuery(query as never, { channel: 'general' } as never)
+        .insertAtBottomIfLoaded({ _id: 'm2' } as never)
+
+      const done = store.getQuery(query, {
+        channel: 'general',
+        paginationOpts: { numItems: 5, cursor: null },
+      }) as { page: Array<{ _id: string }> }
+      expect(done.page.map((item) => item._id)).toEqual(['m1', 'm2'])
+    })
+
+    it('updateItem() updates matching item by _id', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('todos:listPaginated') as FunctionReference<'query'>
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(
+        query,
+        { listId: 'inbox', paginationOpts: { numItems: 5, cursor: null } },
+        {
+          page: [
+            { _id: 't1', done: false },
+            { _id: 't2', done: false },
+          ],
+          isDone: true,
+          continueCursor: null,
+        },
+      )
+
+      ctx
+        .paginatedQuery(query as never, { listId: 'inbox' } as never)
+        .updateItem(
+          't2',
+          (item) => ({ ...(item as { _id: string; done: boolean }), done: true }) as never,
+        )
+
+      const updated = store.getQuery(query, {
+        listId: 'inbox',
+        paginationOpts: { numItems: 5, cursor: null },
+      }) as { page: Array<{ _id: string; done: boolean }> }
+
+      expect(updated.page).toEqual([
+        { _id: 't1', done: false },
+        { _id: 't2', done: true },
+      ])
+    })
+
+    it('deleteItem() removes matching item by _id', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('comments:listPaginated') as FunctionReference<'query'>
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(
+        query,
+        { postId: 'p1', paginationOpts: { numItems: 5, cursor: null } },
+        {
+          page: [
+            { _id: 'c1', spam: false },
+            { _id: 'c2', spam: true },
+            { _id: 'c3', spam: false },
+          ],
+          isDone: true,
+          continueCursor: null,
+        },
+      )
+
+      ctx.paginatedQuery(query as never, { postId: 'p1' } as never).deleteItem('c2')
+
+      const updated = store.getQuery(query, {
+        postId: 'p1',
+        paginationOpts: { numItems: 5, cursor: null },
+      }) as { page: Array<{ _id: string }> }
+
+      expect(updated.page.map((item) => item._id)).toEqual(['c1', 'c3'])
+    })
+  })
+
+  it('exposes store for escape hatch', () => {
+    const store = new FakeOptimisticLocalStore()
+    const ctx = createOptimisticContext(store as never)
+    expect(ctx.store).toBe(store)
+  })
+
+  it('matchQuery() updates every active arg combination for a query', () => {
+    const store = new FakeOptimisticLocalStore()
+    const query = mockFnRef<'query'>('notes:list:match-all')
+    const ctx = createOptimisticContext(store as never)
+
+    store.setQuery(query, { orgId: 'a' }, [{ _id: 'n1', orgId: 'a' }])
+    store.setQuery(query, { orgId: 'b' }, [{ _id: 'n2', orgId: 'b' }])
+
+    ctx
+      .matchQuery(query)
+      .update(
+        (current, args) =>
+          [
+            ...((current ?? []) as Array<{ _id: string; orgId: string }>),
+            { _id: `extra:${args.orgId}`, orgId: args.orgId },
+          ] as never,
+      )
+
+    expect(store.getQuery(query, { orgId: 'a' })).toEqual([
+      { _id: 'n1', orgId: 'a' },
+      { _id: 'extra:a', orgId: 'a' },
+    ])
+    expect(store.getQuery(query, { orgId: 'b' })).toEqual([
+      { _id: 'n2', orgId: 'b' },
+      { _id: 'extra:b', orgId: 'b' },
+    ])
+  })
+
+  it('matchPaginatedQuery() updates every active page entry for a query', () => {
+    const store = new FakeOptimisticLocalStore()
+    const query = mockFnRef<'query'>('posts:listPaginated:match-all') as FunctionReference<'query'>
+    const ctx = createOptimisticContext(store as never)
+
+    store.setQuery(
+      query,
+      { orgId: 'a', paginationOpts: { numItems: 2, cursor: null } },
+      { page: [{ _id: 'p1' }], isDone: false, continueCursor: 'c1' },
+    )
+    store.setQuery(
+      query,
+      { orgId: 'a', paginationOpts: { numItems: 2, cursor: 'c1' } },
+      { page: [{ _id: 'p2' }], isDone: true, continueCursor: null },
+    )
+
+    ctx.matchPaginatedQuery(query as never).update(
+      (current, args) =>
+        ({
+          ...(current as {
+            page: Array<{ _id: string }>
+            isDone: boolean
+            continueCursor: string | null
+          }),
+          page: [
+            ...(current?.page ?? []),
+            {
+              _id: `extra:${String((args as { paginationOpts?: { cursor?: string | null } }).paginationOpts?.cursor ?? 'root')}`,
+            },
+          ],
+        }) as never,
+    )
+
+    expect(
+      store.getQuery(query, {
+        orgId: 'a',
+        paginationOpts: { numItems: 2, cursor: null },
+      }),
+    ).toEqual({
+      page: [{ _id: 'p1' }, { _id: 'extra:root' }],
+      isDone: false,
+      continueCursor: 'c1',
+    })
+    expect(
+      store.getQuery(query, {
+        orgId: 'a',
+        paginationOpts: { numItems: 2, cursor: 'c1' },
+      }),
+    ).toEqual({
+      page: [{ _id: 'p2' }, { _id: 'extra:c1' }],
+      isDone: true,
+      continueCursor: null,
+    })
+  })
+
+  // ==========================================================================
+  // v0.4.0: standalone helpers (prependTo, appendTo, removeFrom, updateIn)
+  // ==========================================================================
+
+  describe('standalone helpers', () => {
+    it('prependTo prepends item to existing array', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:prepend')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [
+        { _id: 'n1', title: 'First' },
+        { _id: 'n2', title: 'Second' },
+      ])
+
+      prependTo(ctx, query as never, {} as never, { _id: 'n0', title: 'Prepended' } as never)
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string; title: string }>
+      expect(result.map((i) => i._id)).toEqual(['n0', 'n1', 'n2'])
+      expect(result[0]?.title).toBe('Prepended')
+    })
+
+    it('appendTo appends item to existing array', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:append')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [{ _id: 'n1' }, { _id: 'n2' }])
+
+      appendTo(ctx, query as never, {} as never, { _id: 'n3' } as never)
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string }>
+      expect(result.map((i) => i._id)).toEqual(['n1', 'n2', 'n3'])
+    })
+
+    it('removeFrom removes matching items by predicate', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:remove')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [
+        { _id: 'n1', title: 'Keep' },
+        { _id: 'n2', title: 'Remove' },
+        { _id: 'n3', title: 'Keep' },
+      ])
+
+      removeFrom(
+        ctx,
+        query as never,
+        {} as never,
+        ((item: { _id: string }) => item._id === 'n2') as never,
+      )
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string }>
+      expect(result.map((i) => i._id)).toEqual(['n1', 'n3'])
+    })
+
+    it('updateIn updates matching items in-place', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:update-in')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [
+        { _id: 'n1', title: 'Old', done: false },
+        { _id: 'n2', title: 'Keep', done: false },
+        { _id: 'n3', title: 'Old', done: false },
+      ])
+
+      updateIn(
+        ctx,
+        query as never,
+        {} as never,
+        ((item: { _id: string }) => item._id === 'n1') as never,
+        ((item: { _id: string; title: string; done: boolean }) => ({
+          ...item,
+          title: 'Updated',
+          done: true,
+        })) as never,
+      )
+
+      const result = store.getQuery(query, {}) as Array<{
+        _id: string
+        title: string
+        done: boolean
+      }>
+      expect(result[0]).toEqual({ _id: 'n1', title: 'Updated', done: true })
+      expect(result[1]).toEqual({ _id: 'n2', title: 'Keep', done: false })
+      expect(result[2]).toEqual({ _id: 'n3', title: 'Old', done: false })
+    })
+
+    it('prependTo and appendTo handle undefined current value gracefully', () => {
+      const store = new FakeOptimisticLocalStore()
+      const queryPrepend = mockFnRef<'query'>('notes:list:prepend-empty')
+      const queryAppend = mockFnRef<'query'>('notes:list:append-empty')
+      const ctx = createOptimisticContext(store as never)
+
+      // No prior value in store
+      prependTo(ctx, queryPrepend as never, {} as never, { _id: 'n1' } as never)
+      appendTo(ctx, queryAppend as never, {} as never, { _id: 'n2' } as never)
+
+      const prependResult = store.getQuery(queryPrepend, {}) as Array<{ _id: string }>
+      const appendResult = store.getQuery(queryAppend, {}) as Array<{ _id: string }>
+
+      expect(prependResult).toEqual([{ _id: 'n1' }])
+      expect(appendResult).toEqual([{ _id: 'n2' }])
+    })
+  })
+})

@@ -1,0 +1,241 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import { useConvexMutation } from '../../src/runtime/convex/composables/useConvexMutation'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
+
+describe('useConvexMutation (Nuxt runtime)', () => {
+  it('does not throw during setup without a client and fails only on execute()', async () => {
+    const mutation = mockFnRef<'mutation'>('testing:missing-client')
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation))
+
+    expect(result.status.value).toBe('idle')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
+    expect(result.status.value).toBe('error')
+  })
+
+  it('tracks pending and success states and exposes result data', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:add')
+    convex.setMutationHandler('testing:add', async (args) => {
+      const { value } = args as { value: string }
+      return { id: 'new-id', value }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    expect(result.status.value).toBe('idle')
+    const promise = result({ value: 'hello' } as never)
+    expect(result.pending.value).toBe(true)
+
+    await expect(promise).resolves.toEqual({ id: 'new-id', value: 'hello' })
+    expect(result.status.value).toBe('success')
+    expect(result.error.value).toBeNull()
+    expect(result.data.value).toEqual({ id: 'new-id', value: 'hello' })
+  })
+
+  it('tracks errors and reset() clears state', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:fail')
+    convex.setMutationHandler('testing:fail', async () => {
+      throw new Error('mutation failed')
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    await expect(result({} as never)).rejects.toThrow('mutation failed')
+    expect(result.status.value).toBe('error')
+    expect(result.error.value?.message).toBe('mutation failed')
+
+    result.reset()
+    expect(result.status.value).toBe('idle')
+    expect(result.error.value).toBeNull()
+    expect(result.data.value).toBeUndefined()
+  })
+
+  it('warns in dev when a mutation error is never read', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const convex = new MockConvexClient()
+      const mutation = mockFnRef<'mutation'>('testing:unread-error')
+      convex.setMutationHandler('testing:unread-error', async () => {
+        throw new Error('mutation failed silently')
+      })
+
+      const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+      vi.useFakeTimers()
+      await expect(result({} as never)).rejects.toThrow('mutation failed silently')
+      expect(result.status.value).toBe('error')
+
+      await vi.advanceTimersByTimeAsync(2_100)
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('failed, but `.error.value` was never read'),
+      )
+    } finally {
+      warnSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('invokes onSuccess and onError callbacks exactly once with args', async () => {
+    const convex = new MockConvexClient()
+    const successMutation = mockFnRef<'mutation'>('testing:callback-success')
+    const failMutation = mockFnRef<'mutation'>('testing:callback-fail')
+    convex.setMutationHandler('testing:callback-success', async (args) => ({
+      ok: true,
+      payload: args,
+    }))
+    convex.setMutationHandler('testing:callback-fail', async () => {
+      throw new Error('callback boom')
+    })
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => ({
+        success: useConvexMutation(successMutation, { onSuccess }),
+        fail: useConvexMutation(failMutation, { onError }),
+      }),
+      { convex },
+    )
+
+    const successArgs = { value: 'ok' }
+    await expect(result.success(successArgs as never)).resolves.toEqual({
+      ok: true,
+      payload: successArgs,
+    })
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
+
+    const failArgs = { value: 'nope' }
+    await expect(result.fail(failArgs as never)).rejects.toThrow('callback boom')
+    expect(onError).toHaveBeenCalledTimes(1)
+    const callbackError = onError.mock.calls[0]?.[0]
+    expect(callbackError).toBeInstanceOf(Error)
+    expect((callbackError as Error).message).toBe('callback boom')
+    expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
+  })
+
+  it('normalizes thrown errors into ConvexCallError metadata', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:safe-fail')
+
+    convex.setMutationHandler('testing:safe-fail', async () => {
+      throw new Error('LIMIT_ITEMS: Limit reached')
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    await expect(result({} as never)).rejects.toMatchObject({
+      code: 'LIMIT_ITEMS',
+      message: 'Limit reached',
+    })
+    expect(result.status.value).toBe('error')
+  })
+
+  it('prefers structured Convex error payloads when present', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
+
+    convex.setMutationHandler('testing:safe-structured-fail', async () => {
+      const error = new Error('fallback message') as Error & {
+        data?: { message: string; code: string; status: number }
+      }
+      error.data = { message: 'Structured failure', code: 'STRUCTURED', status: 422 }
+      throw error
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    await expect(result({} as never)).rejects.toMatchObject({
+      code: 'STRUCTURED',
+      message: 'Structured failure',
+      status: 422,
+    })
+  })
+
+  it('returns a callable function with state properties attached', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:callable-shape')
+    convex.setMutationHandler('testing:callable-shape', async (args) => {
+      return { ok: true, args }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    // Must be callable as a function
+    expect(typeof result).toBe('function')
+
+    // Must have state properties
+    expect(result.data).toBeDefined()
+    expect(result.status).toBeDefined()
+    expect(result.pending).toBeDefined()
+    expect(result.error).toBeDefined()
+    expect(typeof result.reset).toBe('function')
+
+    // Initial state
+    expect(result.status.value).toBe('idle')
+    expect(result.pending.value).toBe(false)
+    expect(result.error.value).toBeNull()
+    expect(result.data.value).toBeUndefined()
+
+    // Callable directly (not via .execute)
+    const response = await result({ value: 'test' } as never)
+    expect(response).toEqual({ ok: true, args: { value: 'test' } })
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toEqual({ ok: true, args: { value: 'test' } })
+  })
+
+  it('awaiting the mutation composable returns the same callable', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:awaitable-shape')
+    convex.setMutationHandler('testing:awaitable-shape', async (args) => ({ ok: true, args }))
+
+    const captured = await captureInNuxt(
+      async () => {
+        const mutationCall = useConvexMutation(mutation)
+        const awaited = await mutationCall
+        return { mutationCall, awaited }
+      },
+      { convex },
+    )
+    const result = await captured.result
+
+    expect(result.awaited).toBe(result.mutationCall)
+    await expect(result.awaited({ value: 'ok' } as never)).resolves.toEqual({
+      ok: true,
+      args: { value: 'ok' },
+    })
+  })
+
+  it('keeps state bound to the latest in-flight request', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:race-mutation')
+
+    convex.setMutationHandler('testing:race-mutation', async (args) => {
+      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      await new Promise((resolve) => setTimeout(resolve, input.delayMs))
+      if (input.shouldFail) {
+        throw new Error(`failed:${input.value}`)
+      }
+      return { value: input.value }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
+
+    await expect(fastSuccess).resolves.toEqual({ value: 'second' })
+    await expect(slowFail).rejects.toThrow('failed:first')
+    await waitFor(() => result.pending.value === false)
+
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toEqual({ value: 'second' })
+    expect(result.error.value).toBeNull()
+  })
+})

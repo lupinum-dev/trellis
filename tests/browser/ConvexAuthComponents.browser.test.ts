@@ -1,0 +1,151 @@
+import { afterEach, expect, test, vi } from 'vitest'
+import { render } from 'vitest-browser-vue'
+import { page } from 'vitest/browser'
+import { ref } from 'vue'
+
+import ConvexAuthenticated from '../../src/runtime/auth/ui/ConvexAuthenticated.vue'
+import ConvexAuthError from '../../src/runtime/auth/ui/ConvexAuthError.vue'
+import ConvexAuthLoading from '../../src/runtime/auth/ui/ConvexAuthLoading.vue'
+import ConvexUnauthenticated from '../../src/runtime/auth/ui/ConvexUnauthenticated.vue'
+
+const { useConvexAuthMock, useConvexAuthControllerMock } = vi.hoisted(() => ({
+  useConvexAuthMock: vi.fn(),
+  useConvexAuthControllerMock: vi.fn(),
+}))
+
+vi.mock('../../src/runtime/auth/composables/useConvexAuth', () => ({
+  useConvexAuth: useConvexAuthMock,
+}))
+
+vi.mock('../../src/runtime/auth/internal/useConvexAuthController', () => ({
+  useConvexAuthController: useConvexAuthControllerMock,
+}))
+
+afterEach(() => {
+  useConvexAuthMock.mockReset()
+  useConvexAuthControllerMock.mockReset()
+})
+
+test('<ConvexAuthenticated> renders slot only when authenticated and not pending', async () => {
+  useConvexAuthMock.mockReturnValue({
+    user: ref({ id: 'u1' }),
+    isAuthenticated: ref(true),
+    isPending: ref(false),
+    authError: ref(null),
+    client: null,
+    signOut: vi.fn(),
+    refreshAuth: vi.fn(),
+  })
+  useConvexAuthControllerMock.mockReturnValue({
+    token: ref('jwt'),
+    authError: ref(null),
+    rawAuthError: ref(null),
+    user: ref({ id: 'u1' }),
+    pending: ref(false),
+    isAuthenticated: ref(true),
+    isAnonymous: ref(false),
+    isSessionExpired: ref(false),
+    client: null,
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
+  })
+
+  render(ConvexAuthenticated, {
+    slots: { default: '<div>Secret Dashboard</div>' },
+  })
+
+  await expect.element(page.getByText('Secret Dashboard')).toBeInTheDocument()
+})
+
+test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pending', async () => {
+  useConvexAuthMock.mockReturnValue({
+    user: ref(null),
+    isAuthenticated: ref(false),
+    isPending: ref(false),
+    authError: ref(null),
+    client: null,
+    signOut: vi.fn(),
+    refreshAuth: vi.fn(),
+  })
+  useConvexAuthControllerMock.mockReturnValue({
+    token: ref(null),
+    authError: ref(null),
+    rawAuthError: ref(null),
+    user: ref(null),
+    pending: ref(false),
+    isAuthenticated: ref(false),
+    isAnonymous: ref(true),
+    isSessionExpired: ref(false),
+    client: null,
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
+  })
+
+  render(ConvexUnauthenticated, {
+    slots: { default: '<div>Please Sign In</div>' },
+  })
+
+  await expect.element(page.getByText('Please Sign In')).toBeInTheDocument()
+})
+
+test('<ConvexAuthLoading> renders slot while pending', async () => {
+  useConvexAuthMock.mockReturnValue({
+    user: ref(null),
+    isAuthenticated: ref(false),
+    isPending: ref(true),
+    authError: ref(null),
+    client: null,
+    signOut: vi.fn(),
+    refreshAuth: vi.fn(),
+  })
+  useConvexAuthControllerMock.mockReturnValue({
+    token: ref(null),
+    authError: ref(null),
+    rawAuthError: ref(null),
+    user: ref(null),
+    pending: ref(true),
+    isAuthenticated: ref(false),
+    isAnonymous: ref(false),
+    isSessionExpired: ref(false),
+    client: null,
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
+  })
+
+  render(ConvexAuthLoading, {
+    slots: { default: '<div>Checking authentication...</div>' },
+  })
+
+  await expect.element(page.getByText('Checking authentication...')).toBeInTheDocument()
+})
+
+test('<ConvexAuthError> renders slot when auth is not pending and has explicit auth error', async () => {
+  useConvexAuthMock.mockReturnValue({
+    user: ref(null),
+    isAuthenticated: ref(false),
+    isPending: ref(false),
+    authError: ref(new Error('Unauthorized')),
+    client: null,
+    signOut: vi.fn(),
+    refreshAuth: vi.fn(),
+  })
+  useConvexAuthControllerMock.mockReturnValue({
+    token: ref(null),
+    authError: ref(new Error('Unauthorized')),
+    rawAuthError: ref('Unauthorized'),
+    user: ref(null),
+    pending: ref(false),
+    isAuthenticated: ref(false),
+    isAnonymous: ref(true),
+    isSessionExpired: ref(false),
+    client: null,
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
+  })
+
+  render(ConvexAuthError, {
+    slots: { default: '<div>Auth Error</div>' },
+  })
+
+  await expect.element(page.getByText('Auth Error')).toBeInTheDocument()
+})

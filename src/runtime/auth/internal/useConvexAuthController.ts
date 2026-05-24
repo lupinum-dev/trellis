@@ -1,0 +1,63 @@
+/**
+ * Internal composable that exposes the full auth engine surface to
+ * other composables and internal code.
+ *
+ * This is a thin facade over `SharedAuthEngine` — it exists so that
+ * composables don't import the engine factory directly. The engine
+ * must already be created by `plugin.client.ts` before this composable
+ * is called; if not, `getSharedAuthEngine` throws.
+ *
+ * Public consumers use `useConvexAuth()` which exposes a smaller surface.
+ * This controller uniquely exposes the internal refs (`token`,
+ * `rawAuthError`, `wasAuthenticated`) plus `awaitAuthReady()`.
+ *
+ * @module useConvexAuthController
+ */
+import type { createAuthClient } from 'better-auth/vue'
+import type { ComputedRef, Ref } from 'vue'
+
+import { useNuxtApp } from '#imports'
+
+import type { AuthSessionUser } from '../../utils/types.js'
+import { getSharedAuthEngine, type AuthTrigger } from '../client/auth-engine.js'
+
+type AuthClient = ReturnType<typeof createAuthClient>
+
+/** Full auth controller surface for internal composables. */
+export interface ConvexAuthController {
+  token: Readonly<Ref<string | null>>
+  user: Readonly<Ref<AuthSessionUser | null>>
+  pending: Readonly<Ref<boolean>>
+  rawAuthError: Readonly<Ref<string | null>>
+  wasAuthenticated: Readonly<Ref<boolean>>
+  authError: ComputedRef<Error | null>
+  isAuthenticated: ComputedRef<boolean>
+  isAnonymous: ComputedRef<boolean>
+  isSessionExpired: ComputedRef<boolean>
+  client: AuthClient | null
+  refreshAuth: (options?: { trigger?: AuthTrigger }) => Promise<void>
+  signOut: () => Promise<void>
+  awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
+}
+
+export function useConvexAuthController(): ConvexAuthController {
+  const engine = getSharedAuthEngine(useNuxtApp())
+
+  return {
+    token: engine.token,
+    user: engine.user,
+    pending: engine.pending,
+    rawAuthError: engine.rawAuthError,
+    wasAuthenticated: engine.wasAuthenticated,
+    authError: engine.authError,
+    isAuthenticated: engine.isAuthenticated,
+    isAnonymous: engine.isAnonymous,
+    isSessionExpired: engine.isSessionExpired,
+    get client() {
+      return engine.client
+    },
+    refreshAuth: engine.refreshAuth,
+    signOut: engine.signOut,
+    awaitAuthReady: engine.awaitAuthReady,
+  }
+}

@@ -1,0 +1,82 @@
+# Dependencies
+node_modules
+
+# Logs
+*.log
+*.log.*
+
+# Temp directories
+.temp
+.tmp
+.cache
+.claude
+.prompttower
+# Yarn
+**/.yarn/cache
+**/.yarn/*state*
+
+# Generated dirs
+dist
+.pack
+.pack-check
+
+# Nuxt
+.nuxt
+.output
+.data
+.vercel_build_output
+.build-*
+.netlify
+
+# Env
+.env
+
+# Testing
+reports
+coverage
+*.lcov
+.nyc_output
+.vitest-attachments/
+tests/browser/__screenshots__/
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Intellij idea
+*.iml
+.idea
+
+# OSX
+.DS_Store
+.AppleDouble
+.LSOverride
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Convex generated state
+**/.convex
+**/convex/_generated
+!apps/harness/convex/_generated/
+!apps/harness/convex/_generated/**
+!examples/04-saas-platform/convex/_generated/
+!examples/04-saas-platform/convex/_generated/**
+!examples/05-visibility-access/convex/_generated/
+!examples/05-visibility-access/convex/_generated/**
+!examples/06-multi-workspace/convex/_generated/
+!examples/06-multi-workspace/convex/_generated/**
+
+# Local pnpm workspace shims
+**/pnpm-workspace.yaml
+!/pnpm-workspace.yaml
+
+# Local planning scratch files
+dream.md
+meta/agent-alignment-roadmap.md
