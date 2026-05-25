@@ -703,8 +703,13 @@ pnpm run test:contracts
 
 ### P1-03 - Observability Honesty
 
-Status: [?]  
+Status: [~]
 Decision: evaluate public API impact before removing methods.
+
+Progress:
+
+- Removed unused no-op `ObservationSummary.info/warn/error` methods from the
+  internal summary accumulator.
 
 Problem:
 
@@ -714,7 +719,7 @@ redaction are real; no-op summary methods are not.
 Tasks:
 
 - [ ] Audit public docs for "semantic observability" claims.
-- [ ] Either implement meaningful `info/warn/error` delivery or remove/rename
+- [x] Either implement meaningful `info/warn/error` delivery or remove/rename
       no-op methods.
 - [ ] Inline or rename `createDenialExplanation` if it remains plain object
       construction.
