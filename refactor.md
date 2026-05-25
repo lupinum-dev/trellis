@@ -921,8 +921,14 @@ pnpm run test:contracts
 
 ### P1-09 - Deduplicate Codegen Rendering
 
-Status: [ ]  
+Status: [x]
 Decision: implement when nearby code is touched.
+
+Completion note:
+
+- Extracted shared ref-module import/API-path rendering while keeping
+  operation and MCP binding bodies explicit.
+- Existing exact fixture-output tests stay byte-stable.
 
 Problem:
 
@@ -930,15 +936,15 @@ Operation-ref and MCP-tool-ref codegen share import/path rendering patterns.
 
 Tasks:
 
-- [ ] Extract one small internal renderer only if it removes meaningful
+- [x] Extract one small internal renderer only if it removes meaningful
       duplication.
-- [ ] Keep generated output byte-stable where possible.
-- [ ] Add snapshot or exact-output tests if not already present.
+- [x] Keep generated output byte-stable where possible.
+- [x] Add snapshot or exact-output tests if not already present.
 
 Acceptance criteria:
 
-- [ ] One implementation path for shared codegen formatting.
-- [ ] Generated API docs/types do not drift unexpectedly.
+- [x] One implementation path for shared codegen formatting.
+- [x] Generated API docs/types do not drift unexpectedly.
 
 Verification:
 
