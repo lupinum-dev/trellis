@@ -149,7 +149,7 @@
     "release:notes": "changelogen --output CHANGELOG.md",
     "release:publish": "node -e \"console.error('Direct publish scripts are disabled. Run release:verify and release:pack, inspect .pack, then follow MAINTAINING.md.'); process.exit(1)\"",
     "release": "pnpm run release:verify",
-    "lint": "pnpm run check:repo-policies && pnpm run check:compatibility-matrix && pnpm run check:docs:api-surface && pnpm run check:docs:links && pnpm run lint:src && pnpm run lint:tests && pnpm run lint:examples",
+    "lint": "pnpm run dev:prepare && pnpm run check:repo-policies && pnpm run check:compatibility-matrix && pnpm run check:docs:api-surface && pnpm run check:docs:links && pnpm run lint:src && pnpm run lint:tests && pnpm run lint:examples",
     "lint:src": "pnpm run lint:src:core && pnpm run lint:src:runtime:auth-convex && pnpm run lint:src:runtime:functions-mcp && pnpm run lint:src:runtime:rest",
     "lint:src:core": "eslint src/analysis src/cli src/devtools src/eslint src/installers src/module.ts src/module-internals --ignore-pattern '**/_generated/**'",
     "lint:src:runtime:auth-convex": "NODE_OPTIONS=--max-old-space-size=6144 eslint src/runtime/auth src/runtime/convex --ignore-pattern '**/_generated/**'",
