@@ -1,5 +1,14 @@
 import { createComponentBridge } from '@lupinum/trellis-bridge/component'
 import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import {
+  actionGeneric as action,
+  componentsGeneric,
+  internalActionGeneric as internalAction,
+  internalMutationGeneric as internalMutation,
+  internalQueryGeneric as internalQuery,
+  mutationGeneric as mutation,
+  queryGeneric as query,
+} from 'convex/server'
 import { v } from 'convex/values'
 
 import {
@@ -14,18 +23,9 @@ import {
   saveDraft,
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
-import { components } from '../../_generated/api'
-import {
-  action,
-  internalAction,
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from '../../_generated/server'
 import { caller } from '../../auth/caller'
 
-const miniCmsComponents = components.miniCms.features.pages
+const miniCmsComponents = (componentsGeneric() as any).miniCms.features.pages
 
 const bridge = createComponentBridge(
   {

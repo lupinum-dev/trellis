@@ -6,15 +6,16 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
+import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { api } from './_generated/api'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
 import { todoCreate, todoRead } from './features/todos'
 import schema from './schema'
 import { modules } from './test.setup'
 
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
+const api = anyApi as any
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
