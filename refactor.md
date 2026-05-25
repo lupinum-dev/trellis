@@ -652,8 +652,15 @@ pnpm run check:examples:doctor
 
 ### P1-02 - Decide Feature Manifest Source Of Truth
 
-Status: [?]  
+Status: [~]
 Decision: evaluate before implementing.
+
+Progress:
+
+- Identified consumers in `src/runtime/feature`, `src/runtime/workspace`, unit
+  tests, and the phase0 fixture.
+- Removed empty `layers` and `findings` fields from `AppInventoryJson`; the
+  separate CLI doctor inventory keeps its real `layers/findings` report shape.
 
 Problem:
 
@@ -673,11 +680,11 @@ Recommended path:
 
 Tasks:
 
-- [ ] Identify all consumers of `defineFeature`, `composeFeatures`,
+- [x] Identify all consumers of `defineFeature`, `composeFeatures`,
       `defineAppInventory`, and `toAppInventoryJson`.
 - [ ] Add an invariant test that catches mismatch between feature schema,
       root Convex schema, and tenant isolation metadata.
-- [ ] Remove empty `layers: []` and `findings: []` from exported JSON unless
+- [x] Remove empty `layers: []` and `findings: []` from exported JSON unless
       real consumers need them.
 - [ ] Rename only if the API is still pre-release enough for a hard cutover.
 

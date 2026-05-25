@@ -195,7 +195,6 @@ describe('feature composition', () => {
     expect(inventory.manifest.operations).toEqual([archiveTask])
     expect(toAppInventoryJson(inventory)).toEqual({
       schemaVersion: 1,
-      layers: [],
       features: ['tasks'],
       operations: [
         {
@@ -207,7 +206,6 @@ describe('feature composition', () => {
           safety: 'destructive-write',
         },
       ],
-      findings: [],
     })
   })
 
@@ -217,11 +215,17 @@ describe('feature composition', () => {
       kind: 'destructive',
       args: { id: v.string() },
       guard: definePermission({ key: 'task.archive', check: true }),
-      preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task-1' } }),
+      preview: async () =>
+        operationPreview({
+          summary: 'Archive task',
+          confirm: { id: 'task-1' },
+        }),
       handler: async () => null,
     })
 
-    expect(getOperationMetadata(archiveTask)).toMatchObject({ id: 'tasks.archive' })
+    expect(getOperationMetadata(archiveTask)).toMatchObject({
+      id: 'tasks.archive',
+    })
     expect(() =>
       defineFeature({
         name: 'tasks',
