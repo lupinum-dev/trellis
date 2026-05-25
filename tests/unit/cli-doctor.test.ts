@@ -1223,6 +1223,7 @@ export const appInventory = defineAppInventory({
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(result.stdout).toContain('doctor target')
+    expect(result.stdout).toContain('Static diagnostics')
     expect(result.stdout).toContain('App inventory source')
     expect(result.stdout).not.toContain('schemaVersion')
     expect(result.stdout).not.toContain('"inventory"')

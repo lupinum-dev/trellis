@@ -619,8 +619,15 @@ pnpm run release:pack
 
 ### P1-01 - Rename/Frame Inventory As Static Scan
 
-Status: [?]  
+Status: [~]
 Decision: likely implement, but check CLI JSON compatibility first.
+
+Progress:
+
+- Kept CLI JSON field names stable.
+- Changed user-facing doctor wording from generic "checks/verify" language to
+  "static diagnostics" / "statically recognize" where doctor relies on source
+  scanning.
 
 Problem:
 
@@ -630,8 +637,8 @@ correctness.
 
 Tasks:
 
-- [ ] Audit CLI output and docs for "inventory engine" or proof-like wording.
-- [ ] Rename user-facing wording to "static scan" or "static diagnostics".
+- [x] Audit CLI output and docs for "inventory engine" or proof-like wording.
+- [x] Rename user-facing wording to "static scan" or "static diagnostics".
 - [ ] Keep machine-readable JSON field names unless we intentionally accept a
       breaking CLI JSON change.
 - [ ] Add false-positive and false-negative tests around comments, strings,

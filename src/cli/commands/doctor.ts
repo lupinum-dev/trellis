@@ -457,7 +457,7 @@ export async function buildDoctorReport(
 export const doctorCommand = defineCommand({
   meta: {
     name: 'doctor',
-    description: 'Inspect a Nuxt app for @lupinum/trellis setup issues',
+    description: 'Run static diagnostics for @lupinum/trellis setup issues',
   },
   args: {
     cwd: {
@@ -499,11 +499,11 @@ export const doctorCommand = defineCommand({
     }
 
     logger?.debug(`Inspecting ${cwd}`)
-    loadingSpinner?.start(`Inspecting ${cwd}`)
+    loadingSpinner?.start(`Running static diagnostics for ${cwd}`)
 
     const report = await buildDoctorReport(cwd, { production: Boolean(args.production) })
 
-    loadingSpinner?.stop('Inspection complete')
+    loadingSpinner?.stop('Static diagnostics complete')
     logger?.debug(`Found ${report.summary.fail} failures and ${report.summary.warn} warnings`)
 
     renderDoctorReport(report, {

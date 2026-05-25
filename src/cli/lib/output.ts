@@ -133,7 +133,7 @@ export function renderDoctorReport(report: DoctorReport, options: RenderDoctorRe
   renderFindingReport(report, {
     json: options.json,
     color: options.color,
-    title: 'Checks',
+    title: 'Static diagnostics',
     targetLabel: 'doctor target',
     groupByCategory: true,
     useClackFrame: true,
