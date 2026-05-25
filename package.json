@@ -153,7 +153,7 @@
     "check:repo-policies": "node scripts/check-repo-policies.mjs",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "test:contracts:repo": "vitest run --project=unit --project=nuxt --project=server tests/nuxt tests/server tests/unit/cli-doctor.test.ts tests/unit/module-auto-imports.test.ts tests/unit/api-surface-doc.test.ts tests/unit/runtime-facade-boundaries.test.ts tests/unit/future-agent-conventions.test.ts",
+    "test:contracts:repo": "vitest run --project=unit --project=nuxt --project=server tests/nuxt tests/server tests/unit/cli-doctor.test.ts tests/unit/module-auto-imports.test.ts tests/unit/api-surface-doc.test.ts",
     "test:contracts": "pnpm run test:contracts:repo && pnpm run test:examples",
     "test:internals": "vitest run --project=unit tests/unit/auth-engine-state.test.ts tests/unit/module-setup.test.ts tests/unit/query-state.test.ts tests/unit/pagination-state.test.ts tests/unit/pagination-page-state.test.ts tests/unit/pagination-runtime-state.test.ts tests/unit/upload-queue-state.test.ts tests/unit/shared-query-subscription.test.ts tests/unit/upload-queue-runtime.test.ts tests/unit/global-hooks.test.ts",
     "test:repo": "vitest run --project=unit --project=convex --project=nuxt --project=server --project=browser",
