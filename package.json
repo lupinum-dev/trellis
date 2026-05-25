@@ -164,7 +164,7 @@
     "test:contracts": "pnpm run test:contracts:repo && pnpm run test:examples",
     "test:internals": "vitest run --project=unit tests/unit/auth-engine-state.test.ts tests/unit/module-setup.test.ts tests/unit/query-state.test.ts tests/unit/pagination-state.test.ts tests/unit/pagination-page-state.test.ts tests/unit/pagination-runtime-state.test.ts tests/unit/upload-queue-state.test.ts tests/unit/shared-query-subscription.test.ts tests/unit/upload-queue-runtime.test.ts tests/unit/global-hooks.test.ts",
     "test:repo": "vitest run --project=unit --project=convex --project=nuxt --project=server --project=browser",
-    "test:examples": "pnpm --dir examples/01-public-todo test && pnpm --dir examples/02-auth-todo test && pnpm --dir examples/03-team-workspace test && pnpm --dir examples/04-saas-platform test && pnpm --dir examples/05-visibility-access test && pnpm --dir examples/06-multi-workspace test && pnpm --dir examples/07-mcp-reference test && pnpm --dir examples/08-component-mini-cms test",
+    "test:examples": "pnpm run build:module && pnpm --dir examples/01-public-todo test && pnpm --dir examples/02-auth-todo test && pnpm --dir examples/03-team-workspace test && pnpm --dir examples/04-saas-platform test && pnpm --dir examples/05-visibility-access test && pnpm --dir examples/06-multi-workspace test && pnpm --dir examples/07-mcp-reference test && pnpm --dir examples/08-component-mini-cms test",
     "test": "pnpm run test:repo && pnpm run test:examples",
     "test:browser": "vitest run --project=browser",
     "test:e2e": "pnpm run dev:prepare && vitest run --project=e2e",
