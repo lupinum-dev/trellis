@@ -1,21 +1,38 @@
 # @lupinum/trellis-bridge
 
-Package-author bridge utilities for Trellis-aware Convex component integrations.
+Package-author utilities for Trellis-aware Convex component integrations.
 
-This package is for integration authors building packages such as a CMS,
-billing module, or other Convex component-backed product surface. Regular
-Trellis app code should use the main `@lupinum/trellis` runtime helpers instead.
+Use this package when you are building an integration package that installs
+generated host bridge files into another Nuxt + Convex app. Regular Trellis app
+code should use `@lupinum/trellis` instead.
 
-## Compatibility
+## Install
 
-`@lupinum/trellis-bridge@0.1.0` is released with:
+```bash
+pnpm add @lupinum/trellis-bridge @lupinum/trellis convex convex-helpers
+```
 
-| Package            | Version    |
-| ------------------ | ---------- |
-| `@lupinum/trellis` | `0.1.0`    |
-| `convex`           | `^1.38.0`  |
-| `convex-helpers`   | `^0.1.117` |
+## What It Owns
 
-The bridge package is intentionally small. It owns bridge manifests, generated
-host file rendering, managed bridge edits, and drift checks. Product-facing
-install commands should stay in the product package that owns the integration.
+- Bridge manifests that describe generated host files.
+- Rendering helpers for host-owned Convex bridge files.
+- Managed edit helpers for app-owned files such as `convex/convex.config.ts`.
+- Drift checks that tell the host app when generated files are stale.
+- Component bridge primitives for package authors.
+
+## Public Subpaths
+
+- `@lupinum/trellis-bridge`
+- `@lupinum/trellis-bridge/component`
+- `@lupinum/trellis-bridge/convex`
+- `@lupinum/trellis-bridge/manifest`
+
+## Scope
+
+Keep product-facing install commands in the product package that owns the
+integration. This package provides the generic bridge machinery; it should not
+become a second application framework or a beginner-facing app API.
+
+## License
+
+[MIT](../../LICENSE)

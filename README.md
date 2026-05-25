@@ -1,8 +1,11 @@
 # Trellis
 
-Trellis is an opinionated app framework for building reliable `Nuxt + Convex` apps with strong identity, permissions, isolation, and agent-friendly structure.
+Opinionated app framework for repeated Nuxt + Convex apps.
 
-It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, identity forwarding, and MCP tools without re-solving auth, permissions, isolation scope, and destructive-work safety in every app.
+Trellis gives teams one app shape for browser UI, Nitro routes, Convex
+functions, Better Auth, permissions, destructive operations, and MCP tools. Use
+it when the app needs shared backend rules across surfaces and you do not want
+each project to invent its own auth, access, and feature layout.
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -11,78 +14,82 @@ It is not a neutral helper layer. It is the hard-default path when you want the 
 
 - [Documentation](https://trellis.vercel.app)
 - [Examples](./examples/README.md)
-- [Vision](./VISION.md)
 - [Architecture](./ARCHITECTURE.md)
-- [Abstractions](./ABSTRACTIONS.md)
 - [Security](./SECURITY.md)
 - [ADRs](./adr/README.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Development](./DEVELOPMENT.md)
 
-## Release Compatibility
+## Quick Start
 
-The first clean public release line is:
+Create a starter app:
 
-| Package                   | Version | Audience                                                             |
-| ------------------------- | ------: | -------------------------------------------------------------------- |
-| `@lupinum/trellis`        | `0.1.1` | Nuxt + Convex app teams                                              |
-| `@lupinum/trellis-bridge` | `0.1.1` | Package authors building Trellis-aware Convex component integrations |
+```bash
+pnpm dlx @lupinum/trellis init my-app --template public
+cd my-app
+pnpm dlx @lupinum/trellis doctor
+```
 
-`@lupinum/trellis-bridge` is not a beginner app API. Use it when you are
-shipping a package that installs generated host bridge files into another app.
-Normal Trellis apps should start with the module, starters, composables, server
-helpers, and MCP runtime from `@lupinum/trellis`.
+Choose the smallest starter that matches the product:
+
+| Starter         | Use it when                                                           |
+| --------------- | --------------------------------------------------------------------- |
+| `public`        | The app needs public SSR and live Convex queries without sign-in yet. |
+| `personal`      | The app needs signed-in users without workspace-scoped data.          |
+| `workspace`     | The app needs roles, tenant data, or trusted server callers.          |
+| `workspace-mcp` | The workspace baseline also needs MCP tools from day one.             |
+
+If you are adding Trellis to an existing Nuxt app instead:
+
+```bash
+pnpm add convex @lupinum/trellis
+```
+
+```ts
+export default defineNuxtConfig({
+  modules: ['@lupinum/trellis'],
+  trellis: {
+    url: process.env.CONVEX_URL,
+  },
+})
+```
+
+Then run:
+
+```bash
+pnpm dlx @lupinum/trellis doctor
+```
+
+## What You Get
+
+- Nuxt module setup and generated Convex aliases.
+- Convex client/server helpers for live queries, mutations, and actions.
+- Better Auth integration and identity forwarding.
+- Permission-aware composables and backend access projection.
+- Operation primitives for preview, confirmation, and execute flows.
+- MCP helpers for tools, prompts, resources, and runtime checks.
+- Starter fixtures, generators, examples, lint rules, and `doctor`.
 
 ## Good Fit
 
 Use Trellis when:
 
 - the app is on Nuxt + Convex + Better Auth already
-- you need one protected backend model reused across browser UI, Nitro routes, and MCP
-- isolation, roles, permission projection, or destructive-work safety are real product requirements
-- you want starters, generators, examples, lint rules, and `doctor` to reinforce one framework shape
+- one backend model needs to serve browser UI, Nitro routes, and MCP
+- isolation, roles, permissions, or destructive-work safety are real product requirements
+- you want the CLI, examples, and guardrails to push the team toward one consistent shape
 
-## Not Ideal
+Skip it when:
 
-Do not start here when:
-
-- the app is a tiny public or one-off internal tool and raw Convex is already enough
+- raw Convex is enough for a small public or one-off internal app
 - you want an unopinionated helper layer instead of a framework
-- you are not willing to keep the canonical app shape and feature layout
-- you do not need shared auth, permission, or MCP conventions across surfaces
-
-## Official Product Surface
-
-Canonical CLI:
-
-```bash
-pnpm dlx @lupinum/trellis init my-app --template public
-pnpm dlx @lupinum/trellis init my-app --template personal
-pnpm dlx @lupinum/trellis init my-app --template workspace
-pnpm dlx @lupinum/trellis init my-app --template workspace-mcp
-pnpm dlx @lupinum/trellis add entity project
-pnpm dlx @lupinum/trellis add uploads
-pnpm dlx @lupinum/trellis add operation publish-entry --kind destructive
-pnpm dlx @lupinum/trellis doctor
-```
-
-After local install, the binary is `trellis`.
-
-Official starters:
-
-- `public`
-- `personal`
-- `workspace`
-- `workspace-mcp`
-
-CMS product setup is integration-owned. Do not install product integrations
-through Trellis commands, Trellis bridge exports, or starter variants. Trellis
-keeps `08-component-mini-cms` as an advanced package-integration reference, not
-as a beginner starter.
+- you plan to discard the canonical layout immediately
+- the app does not need shared auth, permission, or MCP conventions across surfaces
 
 ## Canonical Shape
 
-Generated apps converge on this layout. Public apps omit the auth and permission folders until those capabilities are added.
+Generated apps converge on this layout. Public apps omit auth and permission
+folders until those capabilities are added.
 
 ```text
 nuxt.config.ts
@@ -106,11 +113,12 @@ server/
   mcp/
 ```
 
-The rule is simple: keep the generated shell and add product code under feature folders instead of inventing a new shape per project.
+Keep routes thin and put product behavior under feature folders. Treat each
+top-level feature as a small Trellis boundary: runtime-neutral contracts in
+`shared/features`, backend behavior in `convex/features`, and UI-specific code
+in `app/features`.
 
-Treat each top-level feature component as a mini-Trellis boundary: routes stay thin, and the feature component owns the query/mutation/permission seam for that slice.
-
-## Runtime Contract
+## Runtime Model
 
 Trellis keeps one protected backend decision path:
 
@@ -121,55 +129,52 @@ Trellis keeps one protected backend decision path:
 5. authorize
 6. handler
 
-The same business model is then projected into browser UI, server callers, and MCP tools.
+The same business model is then projected into browser UI, server callers, and
+MCP tools. Cross-surface destructive flows, especially MCP, should use
+operation-backed preview, confirmation, and execute steps.
 
-Observation is emitted around guard, authorization, destructive-operation, MCP, and trust-boundary decisions. It is not a guaranteed final post-handler phase.
+## Repository Packages
 
-Key invariants:
+- `@lupinum/trellis`: Nuxt module, runtime helpers, CLI, starters, and MCP
+  primitives for app teams.
+- `@lupinum/trellis-bridge`: package-author utilities for Convex
+  component-backed integrations that generate host bridge files.
+- `@lupinum/trellis-eslint`: repository lint rules for Trellis app and example
+  boundaries.
 
-- Isolation-aware apps use runtime-enforced isolation, not naming convention alone.
-- Forwarded `caller` values are only accepted on verified identity-forwarding paths.
-- Observability metadata does not participate in client query cache identity.
-- Destructive first-party handlers are allowed.
-- Cross-surface destructive flows, especially MCP, must use operation-backed preview/confirm/execute.
+Normal app code should start with `@lupinum/trellis`. The bridge package is for
+integration authors, not day-one app setup.
 
 ## Examples
 
-Recommended reading order:
+Read these in order:
 
 1. [`examples/01-public-todo`](./examples/01-public-todo/README.md)
 2. [`examples/02-auth-todo`](./examples/02-auth-todo/README.md)
 3. [`examples/03-team-workspace`](./examples/03-team-workspace/README.md)
 4. [`examples/04-saas-platform`](./examples/04-saas-platform/README.md)
-5. [`examples/05-visibility-access`](./examples/05-visibility-access/README.md)
-6. [`examples/06-multi-workspace`](./examples/06-multi-workspace/README.md)
-7. [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
-8. [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
 
-Read `01 -> 02 -> 03 -> 04` as the beginner ladder.
+Then branch into advanced references:
 
-- `03-team-workspace` is the canonical protected workspace reference.
-- `04-saas-platform` is the server-integration branch of that ladder.
-- `05–06` are maintained pattern catalogs for deeper authorization and isolation boundaries.
-- `07-mcp-reference` is the maintained agent/MCP reference.
-- `08-component-mini-cms` is a maintained boundary/reference app, not a general starter.
+- [`examples/05-visibility-access`](./examples/05-visibility-access/README.md)
+- [`examples/06-multi-workspace`](./examples/06-multi-workspace/README.md)
+- [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
+- [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
 
-`labs/` is not part of the canonical public learning path. Today it is:
+`labs/` contains exploratory material and is not part of the maintained public
+learning path.
 
-- archived and exploratory material that may inform future example families
-- a set of concept briefs and legacy inputs, not maintained public references
-
-Future starter families are intentionally not promised until they ship. The
-public Trellis contract today is the current starter set.
-
-## Contributing
+## Local Development
 
 ```bash
-corepack pnpm install
+corepack enable
+pnpm install
 pnpm dev
+pnpm run check
 ```
 
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the command map and contribution rules. Use [DEVELOPMENT.md](./DEVELOPMENT.md) as the local development appendix.
+Use [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution rules and
+[DEVELOPMENT.md](./DEVELOPMENT.md) for the full local command map.
 
 [npm-version-src]: https://img.shields.io/npm/v/@lupinum/trellis/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
 [npm-version-href]: https://npmjs.com/package/@lupinum/trellis
