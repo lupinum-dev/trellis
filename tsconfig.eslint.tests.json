@@ -1,16 +1,17 @@
 {
-  "extends": "./.nuxt/tsconfig.json",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true
+  },
   "include": [
-    ".nuxt/**/*.d.ts",
-    ".nuxt/**/*.ts",
     "src/**/*.ts",
     "src/**/*.mts",
     "src/**/*.d.ts",
-    "src/**/*.vue",
     "tests/**/*.ts",
     "tests/**/*.mts",
-    "tests/**/*.d.ts",
-    "tests/**/*.vue"
+    "tests/**/*.d.ts"
   ],
   "exclude": [
     "dist",
