@@ -1052,7 +1052,14 @@ Acceptance criterion before moving:
 
 ### P2-07 - Add `engines`
 
-Status: [?]
+Status: [x]
+
+Decision: implemented.
+
+Completion note:
+
+- Root Trellis and bridge package manifests now declare Node and pnpm engines.
+- Installation docs match the package manifests.
 
 Concern:
 
@@ -1061,8 +1068,8 @@ be useful, but choose the supported Node range deliberately.
 
 Acceptance criterion before adding:
 
-- [ ] Decide Node support target.
-- [ ] CI, docs, package manifests, and release notes agree.
+- [x] Decide Node support target.
+- [x] CI, docs, package manifests, and release notes agree.
 
 ## Verification Matrix
 
