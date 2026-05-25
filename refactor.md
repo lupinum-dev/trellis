@@ -39,23 +39,23 @@ Completion rule:
 
 ## Global Acceptance Criteria
 
-- [ ] Trellis root package version is ready for `0.1.1`.
-- [ ] `@lupinum/trellis-bridge` version is ready for `0.1.1`.
-- [ ] Ginko CMS compatibility metadata points at Trellis/bridge `0.1.1`.
-- [ ] `trellis doctor` distinguishes:
+- [x] Trellis root package version is ready for `0.1.1`.
+- [x] `@lupinum/trellis-bridge` version is ready for `0.1.1`.
+- [x] Ginko CMS compatibility metadata points at Trellis/bridge `0.1.1`.
+- [x] `trellis doctor` distinguishes:
   - direct Trellis app,
   - integration-managed Trellis app,
   - no Trellis runtime or integration.
-- [ ] Ginko CMS consumer apps can run `pnpm exec trellis doctor` without false
+- [x] Ginko CMS consumer apps can run `pnpm exec trellis doctor` without false
       canonical-layout failures.
-- [ ] Direct Trellis apps still fail real canonical-layout issues.
-- [ ] Generated Trellis starters contain no `workspace:*` dependencies.
-- [ ] Trellis public docs do not hardcode Ginko CMS as part of core Trellis.
-- [ ] Ginko CMS declares its Trellis integration ownership in Ginko-owned
+- [x] Direct Trellis apps still fail real canonical-layout issues.
+- [x] Generated Trellis starters contain no `workspace:*` dependencies.
+- [x] Trellis public docs do not hardcode Ginko CMS as part of core Trellis.
+- [x] Ginko CMS declares its Trellis integration ownership in Ginko-owned
       metadata.
-- [ ] Relevant Trellis checks pass.
-- [ ] Relevant Ginko CMS checks pass.
-- [ ] Tarball smoke checks pass outside the monorepo before publish.
+- [x] Relevant Trellis checks pass.
+- [x] Relevant Ginko CMS checks pass.
+- [x] Tarball smoke checks pass outside the monorepo before publish.
 
 ## Current Verified Baseline
 
@@ -66,19 +66,26 @@ Already verified while preparing `summary.md`:
 - [x] `pnpm run audit:prod` passes in Trellis.
 - [x] `pnpm run check:packs:no-workspace-refs` passes for packed Trellis
       tarballs.
-- [x] Built `trellis init` currently emits `@lupinum/trellis: "workspace:*"` in
+- [x] Built `trellis init` no longer emits `@lupinum/trellis: "workspace:*"` in
       generated app package manifests.
-- [x] `pnpm run test:types:harness-server` currently fails because
-      `apps/harness/convex/posts.ts` cannot resolve `@lupinum/trellis/workspace`.
-- [x] `pnpm run check:repo-policies` became too slow after generated artifacts
-      existed and had to be killed.
+- [x] `pnpm run test:types:harness-server` passes after aligning harness server
+      subpath resolution.
+- [x] `pnpm run check:repo-policies` completes from a build tree after switching
+      policy scans to tracked files.
 
 ## P0 - Release Blockers
 
 ### P0-01 - Generic Integration-Aware `trellis doctor`
 
-Status: [ ]  
+Status: [x]
 Decision: implement now.
+
+Completion note:
+
+- Implemented generic integration-owner metadata detection.
+- Added generic integration-managed and direct-app doctor tests.
+- Verified with Trellis checks and Ginko package e2e against local Trellis
+  `0.1.1` tarballs.
 
 Problem:
 
@@ -160,8 +167,13 @@ Extra evaluation before coding:
 
 ### P0-02 - Ginko CMS Declares Trellis Integration Ownership
 
-Status: [ ]  
+Status: [x]
 Decision: implement now in `/Users/matthias/Git/0_libs/WORK/ginko-cms`.
+
+Completion note:
+
+- Ginko CMS declares `trellis.integration.ownsRuntime`.
+- Ginko package e2e verifies `pnpm exec trellis doctor` in a generated consumer.
 
 Problem:
 
@@ -206,8 +218,15 @@ pnpm run smoke:cms
 
 ### P0-03 - Generated Starters Must Not Emit `workspace:*`
 
-Status: [ ]  
+Status: [x]
 Decision: implement now.
+
+Completion note:
+
+- Generated starters now render published semver ranges instead of
+  `workspace:*`.
+- Starter fixture typecheck/build validations assert no generated
+  `workspace:*` leaks.
 
 Problem:
 
@@ -248,8 +267,12 @@ pnpm run check:starter-fixtures:build
 
 ### P0-04 - Fix Harness Type Resolution
 
-Status: [ ]  
+Status: [x]
 Decision: implement now.
+
+Completion note:
+
+- Harness server type resolution passes through the prepared typecheck path.
 
 Problem:
 
@@ -279,8 +302,17 @@ pnpm run test:types
 
 ### P0-05 - Version And Compatibility Bump To `0.1.1`
 
-Status: [ ]  
+Status: [x]
 Decision: implement after code changes are settled.
+
+Completion note:
+
+- Trellis and bridge package versions are `0.1.1`.
+- Trellis and Ginko compatibility metadata point at Trellis/bridge `0.1.1`.
+- Ginko package manifests intentionally keep Trellis ranges at `^0.1.0` until
+  Trellis `0.1.1` is published; that range accepts `0.1.1` and keeps fresh
+  installs resolvable before publish. Bump those ranges to `^0.1.1` as the
+  publish-time follow-up if the release process requires exact-minor ranges.
 
 Tasks:
 
@@ -315,8 +347,13 @@ pnpm run check:compatibility-matrix
 
 ### P0-06 - Remove CMS-Specific Knowledge From Core Trellis
 
-Status: [ ]  
+Status: [x]
 Decision: implement with P0-01/P0-02.
+
+Completion note:
+
+- Trellis core has no Ginko-specific runtime branches.
+- Remaining `@lupinum/ginko` matches in public/core paths are anti-leak tests.
 
 Problem:
 
@@ -354,8 +391,13 @@ Expected result:
 
 ### P0-07 - CI Must Match The Release Gate
 
-Status: [ ]  
+Status: [x]
 Decision: implement now unless intentionally postponed.
+
+Completion note:
+
+- CI now uses pinned Corepack/pnpm, frozen installs, explicit permissions, and a
+  release-verification job.
 
 Tasks:
 
@@ -384,8 +426,13 @@ pnpm run release:pack
 
 ### P0-08 - Public Security And Community Trust Docs
 
-Status: [ ]  
+Status: [x]
 Decision: implement before public release polish.
+
+Completion note:
+
+- Added public vulnerability-reporting policy, issue templates, PR template,
+  and code of conduct.
 
 Problem:
 
@@ -417,8 +464,12 @@ test -f .github/PULL_REQUEST_TEMPLATE.md
 
 ### P0-09 - Remove Hardcoded Absolute Test Roots
 
-Status: [ ]  
+Status: [x]
 Decision: implement now.
+
+Completion note:
+
+- Replaced local absolute test roots with portable repo-root resolution.
 
 Problem:
 
@@ -449,8 +500,12 @@ pnpm exec vitest run --project=unit tests/unit/future-agent-conventions.test.ts 
 
 ### P0-10 - Make Repo Policy Scans Hermetic
 
-Status: [ ]  
+Status: [x]
 Decision: implement now if the policy checks stay.
+
+Completion note:
+
+- Repo policy scans now operate on tracked files and ignore generated artifacts.
 
 Problem:
 
@@ -487,8 +542,13 @@ pnpm run check:repo-policies
 
 ### P0-11 - Remove Stale Environment Claims
 
-Status: [ ]  
+Status: [x]
 Decision: implement now.
+
+Completion note:
+
+- No runtime, starter, example, README, or public-doc occurrence remains. The
+  only remaining matches are in this tracker and `summary.md`.
 
 Problem:
 
@@ -515,8 +575,13 @@ pnpm run check:examples:doctor
 
 ### P0-12 - Public Surface Coverage Must Match Exports
 
-Status: [ ]  
+Status: [x]
 Decision: implement now.
+
+Completion note:
+
+- Public subpath exports, type tests, and packed smoke coverage were reconciled
+  for the 0.1.1 surface.
 
 Problem:
 
@@ -803,8 +868,14 @@ pnpm run check:cli
 
 ### P1-08 - Replace Convention Tests With Behavior/Invariants
 
-Status: [?]  
+Status: [x]
 Decision: delete low-signal checks after replacement coverage is identified.
+
+Completion note:
+
+- Deleted `future-agent-conventions.test.ts` and
+  `runtime-facade-boundaries.test.ts`.
+- Kept release/API contract coverage in `test:contracts:repo`.
 
 Problem:
 
@@ -1035,16 +1106,16 @@ pnpm run smoke:cms
 
 ## Recommended PR Order
 
-1. [ ] P0-09 hardcoded test roots and P0-10 hermetic policy scans.
-2. [ ] P0-04 harness type resolution.
-3. [ ] P0-01/P0-02/P0-06 integration-aware doctor and Ginko metadata.
-4. [ ] P0-03 starter dependency rewrite.
-5. [ ] P0-12 public surface coverage.
-6. [ ] P0-07 CI release-gate alignment.
-7. [ ] P0-08 security/community docs.
-8. [ ] P0-11 stale env cleanup.
-9. [ ] P0-05 version and compatibility bump to `0.1.1`.
-10. [ ] P1 cleanup items in small follow-up PRs only after P0 is green.
+1. [x] P0-09 hardcoded test roots and P0-10 hermetic policy scans.
+2. [x] P0-04 harness type resolution.
+3. [x] P0-01/P0-02/P0-06 integration-aware doctor and Ginko metadata.
+4. [x] P0-03 starter dependency rewrite.
+5. [x] P0-12 public surface coverage.
+6. [x] P0-07 CI release-gate alignment.
+7. [x] P0-08 security/community docs.
+8. [x] P0-11 stale env cleanup.
+9. [x] P0-05 version and compatibility bump to `0.1.1`.
+10. [~] P1 cleanup items in small follow-up PRs only after P0 is green.
 
 ## Do Not Do Without A Fresh Decision
 
