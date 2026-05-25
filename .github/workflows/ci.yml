@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -19,13 +22,13 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
   test:
     runs-on: ubuntu-latest
@@ -37,22 +40,22 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Internal harness prepare
-        run: npm run dev:prepare
+        run: pnpm run dev:prepare
 
       - name: Generate Convex codegen
-        run: npm run harness:convex:codegen
+        run: pnpm run harness:convex:codegen
 
       - name: Test
-        run: npm run test
+        run: pnpm run test
 
   build:
     runs-on: ubuntu-latest
@@ -64,25 +67,43 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare
-        run: npm run dev:prepare
+        run: pnpm run dev:prepare
 
       - name: Build module
-        run: npm run build
+        run: pnpm run build
 
       - name: Type check
-        run: npm run test:types
+        run: pnpm run test:types
 
       - name: Maintained example doctor checks
-        run: npm run check:examples:doctor
+        run: pnpm run check:examples:doctor
 
-      - name: Publish preview release
-        run: npx pkg-pr-new publish --pnpm
+  release-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Release verification
+        run: pnpm run release:verify
 
   consumer-smoke:
     runs-on: ubuntu-latest
@@ -100,10 +121,10 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Pack module
         id: pack
@@ -114,22 +135,22 @@ jobs:
 
       - name: Install fixture dependencies
         working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npx nypm@latest i
+        run: pnpm install --no-frozen-lockfile
 
       - name: Install packed module in fixture
         working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
+        run: pnpm add "${{ steps.pack.outputs.tarball_path }}"
 
       - name: Verify packed module imports and CLI
         working-directory: tests/fixtures/${{ matrix.fixture }}
         run: |
-          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/auth')]).then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
+          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/args'), import('@lupinum/trellis/auth'), import('@lupinum/trellis/backend'), import('@lupinum/trellis/composables'), import('@lupinum/trellis/mcp'), import('@lupinum/trellis/mcp/advanced'), import('@lupinum/trellis/server'), import('@lupinum/trellis/testing'), import('@lupinum/trellis/type-primitives'), import('@lupinum/trellis/workspace')]).then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
           pnpm exec trellis --help
 
       - name: Consumer build
         working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npm run build
+        run: pnpm run build
 
       - name: Consumer typecheck
         working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npm run typecheck
+        run: pnpm run typecheck

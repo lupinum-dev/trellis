@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 import {
@@ -55,7 +55,26 @@ const checks = [
 ]
 
 const repoRoot = process.cwd()
-const ignoredDirNames = new Set(['node_modules', '_generated', '.git'])
+const ignoredTrackedPathPrefixes = [
+  '.pack/',
+  '.pack-check/',
+  '.nuxt/',
+  '.output/',
+  '.convex/',
+  'dist/',
+  'apps/harness/.nuxt/',
+  'apps/harness/.output/',
+  'apps/harness/convex/_generated/',
+  'packages/trellis-bridge/dist/',
+]
+const trackedFiles = new Set(
+  execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' })
+    .split('\n')
+    .filter((filePath) => {
+      if (!filePath) return false
+      return !ignoredTrackedPathPrefixes.some((prefix) => filePath.startsWith(prefix))
+    }),
+)
 const trackedIgnoredArtifactPathspecs = [
   ':(glob)**/.pack/**',
   ':(glob)**/.pack-check/**',
@@ -69,21 +88,14 @@ function collectFiles(rootPath) {
   if (!existsSync(absoluteRoot)) return []
 
   const stats = statSync(absoluteRoot)
-  if (stats.isFile()) return [absoluteRoot]
-
-  const files = []
-  for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (ignoredDirNames.has(entry.name)) continue
-      files.push(...collectFiles(path.join(rootPath, entry.name)))
-      continue
-    }
-
-    if (!entry.isFile()) continue
-    files.push(path.join(absoluteRoot, entry.name))
+  if (stats.isFile()) {
+    return trackedFiles.has(rootPath) ? [absoluteRoot] : []
   }
 
-  return files
+  const normalizedRoot = rootPath === '.' ? '' : `${rootPath.replaceAll('\\', '/')}/`
+  return [...trackedFiles]
+    .filter((filePath) => filePath.startsWith(normalizedRoot))
+    .map((filePath) => path.resolve(repoRoot, filePath))
 }
 
 function findMatches(check) {

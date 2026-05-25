@@ -47,12 +47,12 @@ Completion rule:
   - integration-managed Trellis app,
   - no Trellis runtime or integration.
 - [ ] Ginko CMS consumer apps can run `pnpm exec trellis doctor` without false
-  canonical-layout failures.
+      canonical-layout failures.
 - [ ] Direct Trellis apps still fail real canonical-layout issues.
 - [ ] Generated Trellis starters contain no `workspace:*` dependencies.
 - [ ] Trellis public docs do not hardcode Ginko CMS as part of core Trellis.
 - [ ] Ginko CMS declares its Trellis integration ownership in Ginko-owned
-  metadata.
+      metadata.
 - [ ] Relevant Trellis checks pass.
 - [ ] Relevant Ginko CMS checks pass.
 - [ ] Tarball smoke checks pass outside the monorepo before publish.
@@ -65,13 +65,13 @@ Already verified while preparing `summary.md`:
 - [x] `npm view @lupinum/trellis-bridge version --json` returns `0.1.0`.
 - [x] `pnpm run audit:prod` passes in Trellis.
 - [x] `pnpm run check:packs:no-workspace-refs` passes for packed Trellis
-  tarballs.
+      tarballs.
 - [x] Built `trellis init` currently emits `@lupinum/trellis: "workspace:*"` in
-  generated app package manifests.
+      generated app package manifests.
 - [x] `pnpm run test:types:harness-server` currently fails because
-  `apps/harness/convex/posts.ts` cannot resolve `@lupinum/trellis/workspace`.
+      `apps/harness/convex/posts.ts` cannot resolve `@lupinum/trellis/workspace`.
 - [x] `pnpm run check:repo-policies` became too slow after generated artifacts
-  existed and had to be killed.
+      existed and had to be killed.
 
 ## P0 - Release Blockers
 
@@ -111,38 +111,38 @@ Proposed package metadata contract:
 Tasks:
 
 - [ ] Add a typed internal representation for Trellis app classification:
-  `direct`, `integration-managed`, `none`.
+      `direct`, `integration-managed`, `none`.
 - [ ] Extend project inspection to detect direct `@lupinum/trellis` Nuxt module
-  registration.
+      registration.
 - [ ] Extend project inspection to detect dependency package metadata for
-  `trellis.integration.ownsRuntime === true`.
+      `trellis.integration.ownsRuntime === true`.
 - [ ] Allow detection from Nuxt modules and package metadata. Package metadata
-  is authoritative when installed.
+      is authoritative when installed.
 - [ ] For `direct`, keep strict module and canonical-layout failures.
 - [ ] For `integration-managed`, skip or downgrade:
   - direct `@lupinum/trellis` module registration,
   - canonical Trellis starter layout.
 - [ ] Emit a clear finding such as:
-  `Trellis runtime detected through Ginko CMS (@lupinum/ginko-cms). Run pnpm exec ginko-cms doctor for integration checks.`
+      `Trellis runtime detected through Ginko CMS (@lupinum/ginko-cms). Run pnpm exec ginko-cms doctor for integration checks.`
 - [ ] For `none`, keep output explicit: no direct Trellis module or integration
-  owner was detected.
+      owner was detected.
 - [ ] Include the classification in JSON output either as a stable top-level
-  report field or as explicit findings. Prefer findings if that avoids growing a
-  second report model.
+      report field or as explicit findings. Prefer findings if that avoids growing a
+      second report model.
 
 Acceptance criteria:
 
 - [ ] Direct Trellis fixture still fails missing direct module registration.
 - [ ] Direct Trellis fixture still fails missing canonical layout paths.
 - [ ] Integration-managed fixture does not fail because `@lupinum/trellis` is not
-  directly registered.
+      directly registered.
 - [ ] Integration-managed fixture does not fail canonical layout checks owned by
-  the integration package.
+      the integration package.
 - [ ] Output names the integration package, human label, and doctor command.
 - [ ] App with no Trellis dependency, no Trellis module, and no integration
-  metadata is not misclassified as Trellis-active.
+      metadata is not misclassified as Trellis-active.
 - [ ] Production mode does not turn skipped integration-owned canonical checks
-  into failures.
+      into failures.
 
 Verification:
 
@@ -172,7 +172,7 @@ Tasks:
 
 - [ ] Add Trellis integration metadata to `packages/cms/package.json`.
 - [ ] Include the metadata in the published package. Verify `files` keeps
-  `package.json` and any needed metadata.
+      `package.json` and any needed metadata.
 - [ ] Confirm the Ginko CMS Nuxt module is what consumer apps register.
 - [ ] Add or update a Ginko-owned fixture/e2e case where:
   - consumer registers Ginko CMS,
@@ -218,21 +218,21 @@ Tasks:
 
 - [ ] Keep source fixtures as-is only if they are useful for monorepo tests.
 - [ ] During fixture rendering, rewrite `@lupinum/trellis` from `workspace:*` to
-  a concrete semver range derived from the running package version.
+      a concrete semver range derived from the running package version.
 - [ ] Do the same for any other dependency that is published and should not
-  leave the repo as `workspace:*`.
+      leave the repo as `workspace:*`.
 - [ ] Add a built-CLI test that initializes every starter template and asserts
-  generated package manifests contain no `workspace:*`.
+      generated package manifests contain no `workspace:*`.
 - [ ] Update `scripts/check-starter-fixtures.mjs` so it asserts external output
-  is publishable, not only that internal fixture input is workspace-linked.
+      is publishable, not only that internal fixture input is workspace-linked.
 
 Acceptance criteria:
 
 - [ ] `trellis init` generated apps are installable outside the monorepo.
 - [ ] Generated app package manifests use `^0.1.1` or the decided published
-  range for `@lupinum/trellis`.
+      range for `@lupinum/trellis`.
 - [ ] Package-under-test validation still uses tarballs or file deps where
-  appropriate.
+      appropriate.
 - [ ] No generated starter package contains `workspace:*`.
 
 Verification:
@@ -262,7 +262,7 @@ Tasks:
 - [ ] Align package subpath resolution with the established repo pattern.
 - [ ] Avoid adding an isolated alias source that can drift from package exports.
 - [ ] Confirm `@lupinum/trellis/workspace` is either intentionally public or
-  replace harness imports with the intended public path.
+      replace harness imports with the intended public path.
 
 Acceptance criteria:
 
@@ -288,22 +288,22 @@ Tasks:
 - [ ] Bump `packages/trellis-bridge/package.json` to `0.1.1`.
 - [ ] Update Trellis `compatibility.json`.
 - [ ] Update release docs and changelog references that still point at `0.1.0`
-  as the current release target.
+      as the current release target.
 - [ ] Update Ginko CMS root dev dependencies to Trellis/bridge `^0.1.1`.
 - [ ] Update `packages/cms/package.json` Trellis/bridge dependencies to
-  `^0.1.1`.
+      `^0.1.1`.
 - [ ] Update `packages/cms/compatibility.json` Trellis/bridge compatibility to
-  `0.1.1`.
+      `0.1.1`.
 - [ ] Decide whether Ginko CMS packages themselves are also publishing `0.1.1`.
-  If yes, update all Ginko package manifests and compatibility matrix in one
-  release PR.
+      If yes, update all Ginko package manifests and compatibility matrix in one
+      release PR.
 
 Acceptance criteria:
 
 - [ ] All release metadata agrees on the same Trellis/bridge version.
 - [ ] Compatibility matrix checks pass in both repos.
 - [ ] No docs instruct publishing or installing stale `0.1.0` for the new
-  release path.
+      release path.
 
 Verification:
 
@@ -327,11 +327,11 @@ Tasks:
 
 - [ ] Remove hardcoded `@lupinum/ginko-cms` detection from Trellis inventory.
 - [ ] Replace named Ginko docs with generic "packaged integration" language in
-  public Trellis docs.
+      public Trellis docs.
 - [ ] Keep any necessary historical notes under maintainer-only `meta/` only if
-  they are still useful.
+      they are still useful.
 - [ ] If tests need a concrete integration package, prefer a generic fixture
-  package such as `@example/trellis-integration`.
+      package such as `@example/trellis-integration`.
 - [ ] Put the concrete Ginko consumer test in the Ginko CMS repo.
 
 Acceptance criteria:
@@ -364,9 +364,9 @@ Tasks:
 - [ ] Replace mutable `npx ...@latest` installs.
 - [ ] Use `pnpm install --frozen-lockfile`.
 - [ ] Add a job or step that runs the same release verification gate expected
-  before handoff.
+      before handoff.
 - [ ] Smoke import every documented public subpath from packed output, not only
-  root and auth.
+      root and auth.
 
 Acceptance criteria:
 
@@ -399,14 +399,14 @@ Tasks:
 - [ ] Add supported versions guidance for `0.1.x`.
 - [ ] Add private reporting channel or state the temporary reporting process.
 - [ ] Add issue templates and PR template if this is meant to be open-source
-  ready.
+      ready.
 - [ ] Add `CODE_OF_CONDUCT.md` if OSS community contribution is in scope.
 
 Acceptance criteria:
 
 - [ ] A third-party user can tell how to report a vulnerability.
 - [ ] Internal security inventory remains available to maintainers but is not
-  the only public security document.
+      the only public security document.
 
 Verification:
 
@@ -428,7 +428,7 @@ unnecessary.
 Tasks:
 
 - [ ] Replace hardcoded `/Users/matthias/.../trellis` paths with `process.cwd()`
-  or a test-local repo root helper.
+      or a test-local repo root helper.
 - [ ] Cover at least:
   - `tests/unit/future-agent-conventions.test.ts`
   - `tests/unit/schema-boundary-policy.test.ts`
@@ -471,7 +471,7 @@ Tasks:
   - package build outputs
 - [ ] Delete policy scans that only enforce stale wording or old refactor scars.
 - [ ] Keep checks that protect public exports, release safety, or package
-  boundaries.
+      boundaries.
 
 Acceptance criteria:
 
@@ -526,19 +526,19 @@ exports, generated docs, type tests, tarball smoke, and CI smoke.
 Tasks:
 
 - [ ] Reconcile root package exports with
-  `apps/docs/content/docs/13.api-reference/7.api-surface.md`.
+      `apps/docs/content/docs/13.api-reference/7.api-surface.md`.
 - [ ] Ensure `@lupinum/trellis/mcp/advanced` is either fully documented and
-  type-smoked or removed from the documented public surface.
+      type-smoked or removed from the documented public surface.
 - [ ] Ensure bridge subpaths are documented and type-smoked if they remain
-  public.
+      public.
 - [ ] Ensure `workspace` and `type-primitives` are covered if kept.
 - [ ] Do not add `#trellis/permissions`; current tests intentionally assert that
-  alias is not generated.
+      alias is not generated.
 
 Acceptance criteria:
 
 - [ ] Package exports, API surface docs, type tests, and tarball import smoke all
-  agree.
+      agree.
 - [ ] No public subpath exists only by accident.
 - [ ] No documented subpath is missing from packed smoke.
 
@@ -568,9 +568,9 @@ Tasks:
 - [ ] Audit CLI output and docs for "inventory engine" or proof-like wording.
 - [ ] Rename user-facing wording to "static scan" or "static diagnostics".
 - [ ] Keep machine-readable JSON field names unless we intentionally accept a
-  breaking CLI JSON change.
+      breaking CLI JSON change.
 - [ ] Add false-positive and false-negative tests around comments, strings,
-  aliases, re-exports, dynamic imports, and non-canonical schema syntax.
+      aliases, re-exports, dynamic imports, and non-canonical schema syntax.
 
 Acceptance criteria:
 
@@ -609,11 +609,11 @@ Recommended path:
 Tasks:
 
 - [ ] Identify all consumers of `defineFeature`, `composeFeatures`,
-  `defineAppInventory`, and `toAppInventoryJson`.
+      `defineAppInventory`, and `toAppInventoryJson`.
 - [ ] Add an invariant test that catches mismatch between feature schema,
-  root Convex schema, and tenant isolation metadata.
+      root Convex schema, and tenant isolation metadata.
 - [ ] Remove empty `layers: []` and `findings: []` from exported JSON unless
-  real consumers need them.
+      real consumers need them.
 - [ ] Rename only if the API is still pre-release enough for a hard cutover.
 
 Acceptance criteria:
@@ -643,16 +643,16 @@ Tasks:
 
 - [ ] Audit public docs for "semantic observability" claims.
 - [ ] Either implement meaningful `info/warn/error` delivery or remove/rename
-  no-op methods.
+      no-op methods.
 - [ ] Inline or rename `createDenialExplanation` if it remains plain object
-  construction.
+      construction.
 - [ ] Keep the real event emitter/capture mechanisms.
 
 Acceptance criteria:
 
 - [ ] No public method pretends to do work it does not do.
 - [ ] Docs explain what is emitted, what is captured, and what the user must
-  wire for delivery.
+      wire for delivery.
 
 Verification:
 
@@ -676,11 +676,11 @@ Tasks:
 
 - [ ] Confirm current docs clearly recommend `defineMcpApp`.
 - [ ] Deduplicate rate-limit/result wrapping between app-backed and standalone
-  tool paths where this reduces code without adding a new abstraction family.
+      tool paths where this reduces code without adding a new abstraction family.
 - [ ] Keep standalone tools advanced, read-only/custom, or explicitly dangerous
-  depending on behavior.
+      depending on behavior.
 - [ ] Add tests proving standalone tools cannot accidentally become app-write
-  paths while app writes go through `tool.mutation` or `tool.operation`.
+      paths while app writes go through `tool.mutation` or `tool.operation`.
 
 Acceptance criteria:
 
@@ -749,9 +749,9 @@ Tasks:
 - [ ] Identify real consumers, especially `bridge.from(...)`.
 - [ ] Keep package-author ergonomics that examples actually use.
 - [ ] Collapse repeated implementation with one small internal helper table if
-  it stays readable.
+      it stays readable.
 - [ ] Do not delete `from(...)` unless Ginko CMS and maintained examples no
-  longer use it.
+      longer use it.
 
 Acceptance criteria:
 
@@ -781,13 +781,13 @@ acceptable for strict starter files, but risky for product-shaped commands.
 Tasks:
 
 - [ ] Inventory every string patch in `src/cli/lib/init.ts` and
-  `src/cli/lib/resource.ts`.
+      `src/cli/lib/resource.ts`.
 - [ ] For starter-owned canonical files, keep direct string replacement if tests
-  prove the exact fixture shape.
+      prove the exact fixture shape.
 - [ ] For user-edited files, use structured parsing or reject non-canonical
-  source with a clear message.
+      source with a clear message.
 - [ ] Decide whether `trellis add entity` is a public 0.1.1 requirement. If not,
-  demote or remove before users rely on it.
+      demote or remove before users rely on it.
 
 Acceptance criteria:
 
@@ -820,9 +820,9 @@ Tasks:
   - wording preference.
 - [ ] Delete wording preference tests.
 - [ ] Expire retained old-path bans when the migration window is no longer
-  needed.
+      needed.
 - [ ] Replace with invariant tests for auth, tenant isolation, destructive
-  confirmation, public imports, and package tarballs.
+      confirmation, public imports, and package tarballs.
 
 Acceptance criteria:
 
@@ -848,7 +848,7 @@ Operation-ref and MCP-tool-ref codegen share import/path rendering patterns.
 Tasks:
 
 - [ ] Extract one small internal renderer only if it removes meaningful
-  duplication.
+      duplication.
 - [ ] Keep generated output byte-stable where possible.
 - [ ] Add snapshot or exact-output tests if not already present.
 
@@ -881,7 +881,7 @@ them in `0.1.1` is a public API break.
 Acceptance criterion before removal:
 
 - [ ] No maintained starter, docs page, type test, Ginko CMS path, or example
-  imports the subpath.
+      imports the subpath.
 - [ ] Changelog calls it out if removed.
 
 ### P2-02 - Rename `defineMcpApp` Or `defineTool`
@@ -897,7 +897,7 @@ internal dedupe first.
 Acceptance criterion before rename:
 
 - [ ] There is a clear replacement name and no user-facing migration cost, or
-  the release intentionally accepts the break.
+      the release intentionally accepts the break.
 
 ### P2-03 - Delete Bridge `from(...)`
 
@@ -952,7 +952,7 @@ Acceptance criterion before moving:
 
 - [ ] Public entry points remain clear.
 - [ ] Maintainer-only material is under `meta/` and not part of the product
-  story.
+      story.
 
 ### P2-07 - Add `engines`
 
@@ -1050,12 +1050,11 @@ pnpm run smoke:cms
 
 - [ ] Do not hardcode Ginko CMS behavior in Trellis core.
 - [ ] Do not add `#trellis/permissions`; current behavior intentionally avoids
-  that alias.
+      that alias.
 - [ ] Do not remove published subpaths casually just because they look facade
-  heavy.
+      heavy.
 - [ ] Do not split giant files while tests are red unless the split is needed to
-  make the red test fix safe.
+      make the red test fix safe.
 - [ ] Do not add new doctor concepts without a fixture proving why they exist.
 - [ ] Do not add compatibility shims for unreleased internals.
 - [ ] Do not run live publish commands from an agent session.
-

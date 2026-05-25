@@ -57,6 +57,17 @@ export interface EnvKeySource {
   value: string
 }
 
+export interface TrellisIntegrationOwner {
+  packageName: string
+  label: string
+  doctorCommand: string | null
+}
+
+export type TrellisAppClassification =
+  | { kind: 'direct'; integrationOwners: TrellisIntegrationOwner[] }
+  | { kind: 'integration-managed'; integrationOwners: TrellisIntegrationOwner[] }
+  | { kind: 'none'; integrationOwners: [] }
+
 function readTextIfExists(path: string): string | null {
   if (!existsSync(path)) return null
   return readFileSync(path, 'utf8')
@@ -239,6 +250,96 @@ export function hasBetterConvexNuxtRegistration(project: ProjectInspection): boo
   const moduleLiteralIndex = moduleLiteralMatch?.index ?? -1
 
   return modulesIndex !== -1 && moduleLiteralIndex !== -1 && modulesIndex < moduleLiteralIndex
+}
+
+function packageJsonRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function readInstalledPackageJson(
+  project: ProjectInspection,
+  packageName: string,
+): PackageJson | null {
+  const packageJsonPath = resolve(
+    project.cwd,
+    'node_modules',
+    ...packageName.split('/'),
+    'package.json',
+  )
+  return readJsonIfExists(packageJsonPath)
+}
+
+function collectNuxtConfigPackageLiterals(project: ProjectInspection): Set<string> {
+  const packageNames = new Set<string>()
+  const stringLiteralPattern = /['"]([^'"]+)['"]/g
+  let match: RegExpExecArray | null
+
+  while ((match = stringLiteralPattern.exec(project.nuxtConfigText)) !== null) {
+    const value = match[1]
+    if (!value || value.startsWith('.') || value.startsWith('/') || value.startsWith('#')) {
+      continue
+    }
+
+    if (value === '@lupinum/trellis' || /^[a-z0-9@][a-z0-9._/-]*$/i.test(value)) {
+      packageNames.add(value)
+    }
+  }
+
+  return packageNames
+}
+
+function readTrellisIntegrationOwner(
+  project: ProjectInspection,
+  packageName: string,
+): TrellisIntegrationOwner | null {
+  const packageJson = readInstalledPackageJson(project, packageName)
+  const trellis = packageJsonRecord(packageJson?.trellis)
+  const integration = packageJsonRecord(trellis?.integration)
+
+  if (integration?.ownsRuntime !== true) return null
+
+  return {
+    packageName,
+    label: typeof integration.label === 'string' ? integration.label : packageName,
+    doctorCommand:
+      typeof integration.doctorCommand === 'string' && integration.doctorCommand.trim()
+        ? integration.doctorCommand.trim()
+        : null,
+  }
+}
+
+export function findTrellisIntegrationOwners(
+  project: ProjectInspection,
+): TrellisIntegrationOwner[] {
+  const candidates = new Set<string>([
+    ...project.dependencyNames,
+    ...collectNuxtConfigPackageLiterals(project),
+  ])
+  const owners: TrellisIntegrationOwner[] = []
+
+  for (const packageName of candidates) {
+    const owner = readTrellisIntegrationOwner(project, packageName)
+    if (owner) owners.push(owner)
+  }
+
+  owners.sort((left, right) => left.packageName.localeCompare(right.packageName))
+  return owners
+}
+
+export function classifyTrellisApp(project: ProjectInspection): TrellisAppClassification {
+  const integrationOwners = findTrellisIntegrationOwners(project)
+
+  if (hasBetterConvexNuxtRegistration(project)) {
+    return { kind: 'direct', integrationOwners }
+  }
+
+  if (integrationOwners.length > 0) {
+    return { kind: 'integration-managed', integrationOwners }
+  }
+
+  return { kind: 'none', integrationOwners: [] }
 }
 
 function hasEnvAssignment(line: string, key: 'CONVEX_URL' | 'NUXT_PUBLIC_CONVEX_URL'): boolean {

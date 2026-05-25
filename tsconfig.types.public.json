@@ -12,6 +12,7 @@
       "@lupinum/trellis/workspace": ["./src/runtime/workspace/index.ts"],
       "@lupinum/trellis/composables": ["./src/runtime/composables/index.ts"],
       "@lupinum/trellis/mcp": ["./src/runtime/mcp/index.ts"],
+      "@lupinum/trellis/mcp/advanced": ["./src/runtime/mcp/advanced.ts"],
       "@lupinum/trellis/type-primitives": ["./src/runtime/type-primitives/index.ts"],
       "@lupinum/trellis/server": ["./src/runtime/server/index.ts"],
       "@lupinum/trellis/testing": ["./src/runtime/testing/index.ts"],

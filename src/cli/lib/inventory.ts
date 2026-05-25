@@ -436,7 +436,7 @@ function collectUnsafeEntrypoints(
   })
 }
 
-const bridgePackageNames = ['@lupinum/trellis-bridge', '@lupinum/ginko-cms'] as const
+const bridgePackageNames = ['@lupinum/trellis-bridge'] as const
 
 type BridgeDependencyBucket =
   | 'dependencies'

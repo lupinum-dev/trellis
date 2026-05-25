@@ -885,8 +885,8 @@ describe('CLI doctor', () => {
 
     mkdirSync(resolve(appRoot, 'server/api'), { recursive: true })
     writeFileSync(
-      resolve(appRoot, 'server/api/ginko.ts'),
-      "const fixtureOnlySecret = 'do-not-leak-bridge-source-snippet'\nimport '@lupinum/ginko-cms'\n",
+      resolve(appRoot, 'server/api/bridge.ts'),
+      "const fixtureOnlySecret = 'do-not-leak-bridge-source-snippet'\nimport '@lupinum/trellis-bridge'\n",
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
@@ -898,16 +898,125 @@ describe('CLI doctor', () => {
     expect(report.inventory.layers.bridge).toBe(report.inventory.bridge.enabled)
     expect(report.inventory.bridge.packages).toEqual([
       {
-        packageName: '@lupinum/ginko-cms',
+        packageName: '@lupinum/trellis-bridge',
         source: 'source-reference',
         location: {
-          path: 'server/api/ginko.ts',
+          path: 'server/api/bridge.ts',
           line: 2,
         },
       },
     ])
     expect(serializedInventory).not.toContain('do-not-leak-bridge-source-snippet')
-    expect(serializedInventory).not.toContain("import '@lupinum/ginko-cms'")
+    expect(serializedInventory).not.toContain("import '@lupinum/trellis-bridge'")
+  }, 30_000)
+
+  it('skips canonical Trellis layout checks for integration-managed apps', () => {
+    const appRoot = createTempDir('trellis-doctor-integration-managed-')
+    mkdirSync(resolve(appRoot, 'node_modules/@example/cms-integration'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'integration-managed-app',
+          private: true,
+          dependencies: {
+            '@example/cms-integration': '1.0.0',
+            convex: '^1.38.0',
+            nuxt: '^4.4.6',
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'node_modules/@example/cms-integration/package.json'),
+      JSON.stringify(
+        {
+          name: '@example/cms-integration',
+          version: '1.0.0',
+          trellis: {
+            integration: {
+              ownsRuntime: true,
+              label: 'Example CMS',
+              doctorCommand: 'pnpm exec example-cms doctor',
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'nuxt.config.ts'),
+      "export default defineNuxtConfig({ modules: ['@example/cms-integration'] })\n",
+    )
+    writeDoctorEnv(appRoot)
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<{
+      findings: Array<{ id: string; status: string; message: string; fixHint: string }>
+      summary: { fail: number }
+    }>(result.stdout)
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'trellis-runtime-owner')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('Example CMS (@example/cms-integration)'),
+      fixHint: expect.stringContaining('pnpm exec example-cms doctor'),
+    })
+    expect(report.findings.find((entry) => entry.id === 'module-installed')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('Direct @lupinum/trellis dependency is not required'),
+    })
+    expect(report.findings.find((entry) => entry.id === 'module-registered')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('Direct @lupinum/trellis module registration is skipped'),
+    })
+    expect(report.findings.find((entry) => entry.id === 'canonical-layout')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('Skipping canonical Trellis starter layout checks'),
+    })
+  })
+
+  it('keeps direct Trellis apps strict when canonical layout is missing', () => {
+    const appRoot = createTempDir('trellis-doctor-direct-strict-')
+    writeFileSync(
+      resolve(appRoot, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'direct-trellis-app',
+          private: true,
+          dependencies: {
+            '@lupinum/trellis': 'workspace:*',
+            convex: '^1.38.0',
+            nuxt: '^4.4.6',
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'nuxt.config.ts'),
+      "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
+    )
+    writeDoctorEnv(appRoot)
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<{
+      findings: Array<{ id: string; status: string; message: string }>
+    }>(result.stdout)
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'trellis-runtime-owner')).toMatchObject({
+      status: 'pass',
+    })
+    expect(report.findings.find((entry) => entry.id === 'canonical-layout')).toMatchObject({
+      status: 'fail',
+      message: expect.stringContaining('Missing canonical paths'),
+    })
   })
 
   it('discovers canonical static app inventory without executing app code', () => {

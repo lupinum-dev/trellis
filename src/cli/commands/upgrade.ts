@@ -531,7 +531,7 @@ function createUpgradeFindings(
         `Found deleted starter spelling references at ${formatLocations(locations)}.`,
       cleanMessage: 'No deleted starter spellings were found.',
       fixHint:
-        'Use `workspace-mcp` directly and keep CMS setup in Ginko-owned commands or bridge-author docs.',
+        'Use `workspace-mcp` directly and keep product setup in integration-owned commands or bridge-author docs.',
     }),
   ]
 }

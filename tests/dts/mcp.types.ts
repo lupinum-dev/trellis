@@ -13,6 +13,7 @@ import {
   type ValidateMcpToolOptions,
   type ValidateToolArgs,
 } from '@lupinum/trellis/mcp'
+import { defineTool as defineStandaloneTool } from '@lupinum/trellis/mcp/advanced'
 import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import type { H3Event } from 'h3'
@@ -99,3 +100,4 @@ runtime.tool.operation(operation, {
 })
 
 void ({} as _toolOptions)
+void defineStandaloneTool

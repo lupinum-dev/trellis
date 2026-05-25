@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-const root = '/Users/matthias/Git/0_libs/WORK/trellis'
+const root = process.cwd()
 
 function read(relativePath: string) {
   return readFileSync(resolve(root, relativePath), 'utf8')

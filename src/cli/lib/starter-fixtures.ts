@@ -66,6 +66,52 @@ function appPackageName(name: string): string {
   )
 }
 
+function resolvePackageVersion(): string {
+  let current = dirname(fileURLToPath(import.meta.url))
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    const packageJsonPath = resolve(current, 'package.json')
+    if (existsSync(packageJsonPath)) {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+        name?: unknown
+        version?: unknown
+      }
+      if (
+        packageJson.name === '@lupinum/trellis' &&
+        typeof packageJson.version === 'string' &&
+        packageJson.version.length > 0
+      ) {
+        return packageJson.version
+      }
+    }
+
+    const next = dirname(current)
+    if (next === current) break
+    current = next
+  }
+
+  throw new Error('Unable to resolve @lupinum/trellis package version for starter output.')
+}
+
+function rewriteExternalStarterDependencies(
+  packageJson: Record<string, unknown>,
+): Record<string, unknown> {
+  const dependencies = packageJson.dependencies
+  if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) {
+    return packageJson
+  }
+
+  const nextDependencies = { ...(dependencies as Record<string, unknown>) }
+  if (nextDependencies['@lupinum/trellis'] === 'workspace:*') {
+    nextDependencies['@lupinum/trellis'] = `^${resolvePackageVersion()}`
+  }
+
+  return {
+    ...packageJson,
+    dependencies: nextDependencies,
+  }
+}
+
 function readManifest(template: FixtureBackedTemplate): AppStarterFixtureManifest {
   const manifestPath = resolve(resolveFixtureRoot(), template, 'starter.manifest.json')
   return JSON.parse(readFileSync(manifestPath, 'utf8')) as AppStarterFixtureManifest
@@ -84,7 +130,11 @@ function transformFixtureContent(input: {
 }): string {
   if (input.path === 'package.json') {
     const packageJson = JSON.parse(input.content) as Record<string, unknown>
-    return `${JSON.stringify({ ...packageJson, name: appPackageName(input.appName) }, null, 2)}\n`
+    return `${JSON.stringify(
+      rewriteExternalStarterDependencies({ ...packageJson, name: appPackageName(input.appName) }),
+      null,
+      2,
+    )}\n`
   }
 
   return input.content.replaceAll(input.sourceAppName, input.appName)

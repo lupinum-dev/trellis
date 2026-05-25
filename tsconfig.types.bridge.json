@@ -8,7 +8,9 @@
       "@lupinum/trellis/backend": ["./src/runtime/backend/index.ts"],
       "@lupinum/trellis/identity-forwarding": ["./src/runtime/identity-forwarding/index.ts"],
       "@lupinum/trellis-bridge": ["./packages/trellis-bridge/src/index.ts"],
-      "@lupinum/trellis-bridge/component": ["./packages/trellis-bridge/src/component.ts"]
+      "@lupinum/trellis-bridge/component": ["./packages/trellis-bridge/src/component.ts"],
+      "@lupinum/trellis-bridge/convex": ["./packages/trellis-bridge/src/convex.ts"],
+      "@lupinum/trellis-bridge/manifest": ["./packages/trellis-bridge/src/manifest.ts"]
     }
   },
   "include": ["packages/trellis-bridge/src/**/*.ts", "tests/types/component-bridge.types.ts"],

@@ -1089,34 +1089,34 @@ Then inspect tarballs outside the repo and smoke install both packages.
 
 ## Decision Table
 
-| Advice | Decision | Why |
-| --- | --- | --- |
-| Preserve protected handler flow | Accept | Real backend invariant path |
-| Preserve identity forwarding | Accept | Real cross-transport trust protocol |
-| Preserve destructive confirmation | Accept | Real safety controls and tests |
-| Keep generated API surface docs | Accept | Useful release ledger |
-| Fix `pnpm run check` red | Accept/blocker | Verified type failure |
-| Bump version before next publish | Accept/blocker | `0.1.0` already published |
-| Fix starter `workspace:*` | Accept/blocker | Verified actual CLI output |
-| Remove Ginko leakage | Accept/blocker | Violates CMS-neutral rule |
-| Harden CI | Accept/blocker | Mutable installs and partial gate |
-| Add OSS security docs/templates | Accept | Required for public trust |
-| Rename inventory to static scan | Accept | Current implementation is heuristic |
-| Delete all doctor/inventory | Reject | Diagnostics are useful |
-| Delete all convention tests | Partially accept | Delete phrase locks, keep public contracts |
-| Remove hardcoded test roots | Accept | Verified portability bug |
-| Remove stale env var | Accept | No runtime use found |
-| Rename `defineMcpApp` now | Reject/defer | Released documented API |
-| Rename `defineTool` now | Defer | Advanced subpath already clarifies |
-| Collapse MCP public paths | Defer with migration | Public API and docs exist |
-| Remove `workspace` subpath | Defer with migration | Published and used |
-| Remove `type-primitives` subpath | Defer with migration | Published/documented advanced type API |
-| Remove bridge `from(...)` | Defer with migration | Used by maintained example/types |
-| Deduplicate bridge registrars | Accept | Internal simplification, no API break |
-| Split giant runtime files | Accept carefully | Internal clarity only, no facade churn |
-| Replace CLI regex patching with parser | Partially accept | Either structured edits or strict canonical failure |
-| Add `#trellis/permissions` coverage | Reject | Not a current generated alias |
-| Make observability honest | Accept | Keep event system; fix overclaim/mismatch |
+| Advice                                 | Decision             | Why                                                 |
+| -------------------------------------- | -------------------- | --------------------------------------------------- |
+| Preserve protected handler flow        | Accept               | Real backend invariant path                         |
+| Preserve identity forwarding           | Accept               | Real cross-transport trust protocol                 |
+| Preserve destructive confirmation      | Accept               | Real safety controls and tests                      |
+| Keep generated API surface docs        | Accept               | Useful release ledger                               |
+| Fix `pnpm run check` red               | Accept/blocker       | Verified type failure                               |
+| Bump version before next publish       | Accept/blocker       | `0.1.0` already published                           |
+| Fix starter `workspace:*`              | Accept/blocker       | Verified actual CLI output                          |
+| Remove Ginko leakage                   | Accept/blocker       | Violates CMS-neutral rule                           |
+| Harden CI                              | Accept/blocker       | Mutable installs and partial gate                   |
+| Add OSS security docs/templates        | Accept               | Required for public trust                           |
+| Rename inventory to static scan        | Accept               | Current implementation is heuristic                 |
+| Delete all doctor/inventory            | Reject               | Diagnostics are useful                              |
+| Delete all convention tests            | Partially accept     | Delete phrase locks, keep public contracts          |
+| Remove hardcoded test roots            | Accept               | Verified portability bug                            |
+| Remove stale env var                   | Accept               | No runtime use found                                |
+| Rename `defineMcpApp` now              | Reject/defer         | Released documented API                             |
+| Rename `defineTool` now                | Defer                | Advanced subpath already clarifies                  |
+| Collapse MCP public paths              | Defer with migration | Public API and docs exist                           |
+| Remove `workspace` subpath             | Defer with migration | Published and used                                  |
+| Remove `type-primitives` subpath       | Defer with migration | Published/documented advanced type API              |
+| Remove bridge `from(...)`              | Defer with migration | Used by maintained example/types                    |
+| Deduplicate bridge registrars          | Accept               | Internal simplification, no API break               |
+| Split giant runtime files              | Accept carefully     | Internal clarity only, no facade churn              |
+| Replace CLI regex patching with parser | Partially accept     | Either structured edits or strict canonical failure |
+| Add `#trellis/permissions` coverage    | Reject               | Not a current generated alias                       |
+| Make observability honest              | Accept               | Keep event system; fix overclaim/mismatch           |
 
 ## Definition Of 10/10 For This Repo
 
