@@ -1,6 +1,6 @@
 import type { NoInfer } from '../types/type-utils.js'
 
-// Blessed first-reader Trellis 1.0 MCP surface.
+// Blessed first-reader Trellis MCP surface.
 //
 // `defineMcpApp` returns `{ tool: { query, mutation, operation } }` factories
 // that own auth, preview, confirmation, tenant binding, and result envelopes.

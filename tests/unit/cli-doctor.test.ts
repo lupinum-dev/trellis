@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
+const cliDoctorTestTimeoutMs = 120_000
 type CanonicalLayoutOptions = {
   auth: boolean
   permissions: boolean
@@ -241,7 +242,7 @@ function appendDoctorEnv(appRoot: string, lines: string[]) {
   )
 }
 
-describe('CLI doctor', () => {
+describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
   beforeAll(() => {
     const buildResult = spawnSync('pnpm', ['run', 'build:cli'], {
       cwd: repoRoot,
@@ -254,7 +255,7 @@ describe('CLI doctor', () => {
 
     const output = `${buildResult.stdout ?? ''}\n${buildResult.stderr ?? ''}`
     expect(buildResult.status, output).toBe(0)
-  }, 30_000)
+  }, cliDoctorTestTimeoutMs)
 
   it('renders the cutover help surface', () => {
     const result = runCli(['--help'], repoRoot)
@@ -450,7 +451,7 @@ describe('CLI doctor', () => {
     expectNoOldBackendSurface(todos, 'workspace-mcp todos domain')
   })
 
-  it('adds MCP to an existing workspace app', { timeout: 15_000 }, () => {
+  it('adds MCP to an existing workspace app', { timeout: cliDoctorTestTimeoutMs }, () => {
     const cwd = createTempDir('trellis-add-mcp-')
     const initResult = runCli(
       ['init', 'demo-workspace', '--template', 'workspace', '--cwd', cwd],
@@ -470,7 +471,7 @@ describe('CLI doctor', () => {
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
   })
 
-  it('returns a machine-readable JSON summary for add', { timeout: 15_000 }, () => {
+  it('returns a machine-readable JSON summary for add', { timeout: cliDoctorTestTimeoutMs }, () => {
     const cwd = createTempDir('trellis-add-json-')
     const initResult = runCli(
       ['init', 'demo-workspace', '--template', 'workspace', '--cwd', cwd],

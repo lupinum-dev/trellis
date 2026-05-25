@@ -116,7 +116,7 @@ export interface CreateBridgeForwardingEnvelopeOptions {
 }
 
 /**
- * Sign a identity-forwarding envelope using the bridge-standard issuer,
+ * Sign an identity-forwarding envelope using the bridge-standard issuer,
  * audience, key id, and TTLs. Bridge consumers (e.g. CLI tools that call
  * the Convex component with a deploy-key caller) should use this
  * instead of constructing envelopes themselves so the signing parameters

@@ -86,7 +86,7 @@ export interface PermissionsOptions {
 export interface PermissionCodegenOptions {
   /**
    * Permission definition file globs relative to the Nuxt app root.
-   * @default ['convex/auth/permissions.ts']
+   * Defaults to the canonical auth permission file plus feature-level permission files.
    */
   include?: string[]
 }

@@ -10,7 +10,7 @@ function read(relativePath: string) {
 }
 
 describe('examples gallery docs', () => {
-  it('keeps beginner starter docs on the 1.0 starter names', () => {
+  it('keeps beginner starter docs on the current starter names', () => {
     const rootReadme = read('README.md')
     const gallery = read('examples/README.md')
     const combined = `${rootReadme}\n${gallery}`
@@ -18,7 +18,7 @@ describe('examples gallery docs', () => {
     expect(combined).toContain('--template workspace-mcp')
     expect(combined).not.toContain('--template workspace --mcp')
     expect(combined).not.toContain('--template cms')
-    expect(rootReadme).toContain('- `workspace-mcp`')
+    expect(rootReadme).toMatch(/\|\s*`workspace-mcp`\s*\|/)
     expect(rootReadme).not.toMatch(/Official starters:[\s\S]*- `cms`/)
   })
 
