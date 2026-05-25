@@ -149,7 +149,10 @@
     "release:notes": "changelogen --output CHANGELOG.md",
     "release:publish": "node -e \"console.error('Direct publish scripts are disabled. Run release:verify and release:pack, inspect .pack, then follow MAINTAINING.md.'); process.exit(1)\"",
     "release": "pnpm run release:verify",
-    "lint": "pnpm run check:repo-policies && pnpm run check:compatibility-matrix && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint src tests examples --ignore-pattern '**/_generated/**'",
+    "lint": "pnpm run check:repo-policies && pnpm run check:compatibility-matrix && pnpm run check:docs:api-surface && pnpm run check:docs:links && pnpm run lint:src && pnpm run lint:tests && pnpm run lint:examples",
+    "lint:src": "eslint src --ignore-pattern '**/_generated/**'",
+    "lint:tests": "eslint tests --ignore-pattern '**/_generated/**'",
+    "lint:examples": "eslint examples --ignore-pattern '**/_generated/**'",
     "check:repo-policies": "node scripts/check-repo-policies.mjs",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
@@ -238,6 +241,7 @@
     "@nuxtjs/mcp-toolkit": "^0.16.1",
     "convex": "^1.38.0",
     "convex-helpers": "^0.1.117",
+    "convex-test": "^0.0.52",
     "zod": "^4.4.3"
   },
   "peerDependenciesMeta": {
@@ -245,6 +249,9 @@
       "optional": true
     },
     "convex-helpers": {
+      "optional": true
+    },
+    "convex-test": {
       "optional": true
     },
     "zod": {

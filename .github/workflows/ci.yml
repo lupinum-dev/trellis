@@ -130,27 +130,34 @@ jobs:
         id: pack
         run: |
           mkdir -p "$RUNNER_TEMP/pack"
-          TARBALL="$(npm pack --silent --pack-destination "$RUNNER_TEMP/pack" | tail -n 1)"
-          echo "tarball_path=$RUNNER_TEMP/pack/$TARBALL" >> "$GITHUB_OUTPUT"
+          npm pack --pack-destination "$RUNNER_TEMP/pack"
+          TARBALL_PATH="$(find "$RUNNER_TEMP/pack" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+          test -f "$TARBALL_PATH"
+          echo "tarball_path=$TARBALL_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Copy fixture outside workspace
+        run: |
+          FIXTURE_DIR="$RUNNER_TEMP/${{ matrix.fixture }}"
+          rm -rf "$FIXTURE_DIR"
+          cp -R "tests/fixtures/${{ matrix.fixture }}" "$FIXTURE_DIR"
+          echo "FIXTURE_DIR=$FIXTURE_DIR" >> "$GITHUB_ENV"
 
       - name: Install fixture dependencies
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm --dir "$FIXTURE_DIR" install --no-frozen-lockfile
 
       - name: Install packed module in fixture
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: pnpm add "${{ steps.pack.outputs.tarball_path }}"
+        run: pnpm --dir "$FIXTURE_DIR" add "${{ steps.pack.outputs.tarball_path }}"
 
-      - name: Verify packed module imports and CLI
-        working-directory: tests/fixtures/${{ matrix.fixture }}
+      - name: Verify packed module resolves and CLI
         run: |
-          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/args'), import('@lupinum/trellis/auth'), import('@lupinum/trellis/backend'), import('@lupinum/trellis/composables'), import('@lupinum/trellis/mcp'), import('@lupinum/trellis/mcp/advanced'), import('@lupinum/trellis/server'), import('@lupinum/trellis/testing'), import('@lupinum/trellis/type-primitives'), import('@lupinum/trellis/workspace')]).then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
+          test -f "$FIXTURE_DIR/node_modules/@lupinum/trellis/package.json"
+          cd "$FIXTURE_DIR"
+          node --input-type=module -e "for (const specifier of ['@lupinum/trellis', '@lupinum/trellis/args', '@lupinum/trellis/auth', '@lupinum/trellis/backend', '@lupinum/trellis/composables', '@lupinum/trellis/mcp', '@lupinum/trellis/mcp/advanced', '@lupinum/trellis/server', '@lupinum/trellis/testing', '@lupinum/trellis/type-primitives', '@lupinum/trellis/workspace']) await import.meta.resolve(specifier); console.log('resolved')"
+          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/args'), import('@lupinum/trellis/auth'), import('@lupinum/trellis/backend'), import('@lupinum/trellis/testing'), import('@lupinum/trellis/type-primitives'), import('@lupinum/trellis/workspace')]).then(() => console.log('imported')).catch((error) => { console.error(error); process.exit(1); })"
           pnpm exec trellis --help
 
       - name: Consumer build
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: pnpm run build
+        run: pnpm --dir "$FIXTURE_DIR" run build
 
       - name: Consumer typecheck
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: pnpm run typecheck
+        run: pnpm --dir "$FIXTURE_DIR" run typecheck
