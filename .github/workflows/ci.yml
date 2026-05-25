@@ -126,6 +126,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare module build
+        run: pnpm run dev:prepare
+
       - name: Pack module
         id: pack
         run: |
