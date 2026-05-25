@@ -4,6 +4,17 @@ Use this for Trellis tests, maintained examples, docs updates, and validation
 commands. For module options and CLI commands, read
 [config-cli.md](config-cli.md).
 
+## Contents
+
+- [Source Files](#source-files)
+- [Testing Helpers](#testing-helpers)
+- [What To Test](#what-to-test)
+- [Maintained Examples](#maintained-examples)
+- [Scaffolds](#scaffolds)
+- [Docs Maintenance](#docs-maintenance)
+- [Validation Commands](#validation-commands)
+- [Pitfalls](#pitfalls)
+
 ## Source Files
 
 - Testing barrel: `src/runtime/testing/index.ts`.
@@ -50,7 +61,7 @@ const postId = await team.users.alice.mutation(api.posts.create, {
 await expect(team.users.bob.mutation(api.posts.publish, { id: postId })).rejects.toThrow()
 ```
 
-Use `asPrincipal(...)` to exercise trusted-forwarding paths in tests. It is
+Use `asCaller(...)` to exercise identity-forwarding paths in tests. It is
 test-only and deliberately explicit; do not hide it behind app factories.
 
 Keep `convex/test.setup.ts` in consumer apps when they need the generated server
@@ -83,7 +94,7 @@ Examples are the preferred consumer reference after source and docs:
 - `examples/04-saas-platform`: SaaS/platform flows.
 - `examples/05-visibility-access`: visibility/access patterns.
 - `examples/06-multi-workspace`: multi-workspace behavior.
-- `examples/07-mcp-reference`: browser auth, MCP delegation, and trusted
+- `examples/07-mcp-reference`: browser auth, MCP actingFor, and identity
   forwarding parity.
 - `examples/08-component-mini-cms`: component bridge / packaged integration
   reference.
@@ -92,7 +103,7 @@ Do not use `apps/harness` as the consumer contract by default. It is a
 contributor dev harness and may include private or experimental setup.
 
 Use `examples/03-team-workspace` as the canonical protected-app reference when
-you need one concrete pattern for actors, permissions, tenant isolation, and
+you need one concrete pattern for appIdentity, permissions, tenant isolation, and
 operations.
 
 ## Scaffolds
@@ -117,6 +128,21 @@ For docs, keep the public authoring story aligned with implementation:
 - Examples for consumer app shape.
 - ADRs for accepted architecture decisions.
 
+When docs are reader-facing setup material, verify these common drift points:
+
+- Starter path defaults to `trellis init`, `pnpm install`, `trellis doctor`, and
+  `pnpm dev:local` for generated apps.
+- First-reader code uses the canonical `api.features.todos.domain.*` shape, not
+  stale `api.tasks.*` snippets.
+- Auth setup includes `convex/auth.config.ts`, `convex/convex.config.ts`,
+  `convex/http.ts`, appIdentity, users schema/indexes, and matching env values.
+- Permissions docs use `defineAccessContext(...)`, `getAccessContext`, and
+  `useAccess()`; do not revive `definePermissionContext` or `usePermissions`.
+- Identity-forwarding docs use `caller` and `actingFor`, not old
+  principal/delegation vocabulary.
+- Destructive MCP docs include a confirmation `scopeKey`.
+- Example names should link directly to maintained `examples/0*` folders.
+
 Run:
 
 ```bash
@@ -136,6 +162,8 @@ Use the narrowest meaningful command:
 - `pnpm run test:types`: type surface and examples type contracts.
 - `pnpm run test:examples`: maintained example apps.
 - `pnpm run check`: full default validation.
+- `pnpm run release:verify`: release gate for public surfaces, docs/API
+  reference, package metadata, starters, MCP, auth, bridge, or release scripts.
 
 Avoid e2e unless the user asks or the change specifically touches behavior that
 only e2e can verify.
@@ -144,7 +172,7 @@ only e2e can verify.
 
 - Do not update docs from memory. Read the source or generated surface first.
 - Do not let examples drift from CLI templates.
-- Do not add test-only factories that bypass Trellis principal/actor/tenant
+- Do not add test-only factories that bypass Trellis caller/appIdentity/tenant
   behavior.
 - Do not treat generated `dist` or `.nuxt` output as the source unless the task
   is specifically about generated artifacts.

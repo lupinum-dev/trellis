@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Trellis'
+  short_description: 'Build and maintain Trellis libraries and apps'
+  default_prompt: 'Use $trellis to build, debug, or maintain a Trellis Nuxt + Convex app or package surface.'

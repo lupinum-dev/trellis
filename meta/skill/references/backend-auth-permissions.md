@@ -1,27 +1,38 @@
 # Backend, Auth, Permissions
 
 Use this for Convex backend code: `defineTrellis`, protected handlers, shared
-args schemas, guards, actors, permission context, operations, tenant isolation,
-services, and trusted-forwarding validators.
+args schemas, guards, appIdentity, access context, operations, tenant isolation,
+services, and identity-forwarding validators.
+
+## Contents
+
+- [Source Files](#source-files)
+- [Protected Backend Runtime](#protected-backend-runtime)
+- [Handler Shape](#handler-shape)
+- [Shared Args](#shared-args)
+- [Auth And Permissions](#auth-and-permissions)
+- [Tenant Isolation](#tenant-isolation)
+- [Operations](#operations)
+- [Features And Visibility](#features-and-visibility)
+- [Identity Forwarding](#identity-forwarding)
+- [Pitfalls](#pitfalls)
 
 ## Source Files
 
-- Backend barrel: `src/runtime/functions/index.ts`.
+- Public backend package barrel: `src/runtime/backend/index.ts`.
+- Protected handler implementation/export source: `src/runtime/functions/index.ts`.
 - Auth barrel: `src/runtime/auth/index.ts`.
 - Args barrel: `src/runtime/args/index.ts`.
-- Trusted forwarding: `src/runtime/trusted-forwarding/index.ts`,
-  `src/runtime/trusted-forwarding/shared.ts`.
+- Identity forwarding: `src/runtime/identity-forwarding/index.ts`,
+  `src/runtime/identity-forwarding/envelope.ts`.
 - Visibility: `src/runtime/visibility/index.ts`.
 - Feature manifests: `src/runtime/feature/index.ts`.
-- Component bridge helpers: `packages/trellis-bridge/src/component.ts`,
-  `packages/trellis-bridge/src/manifest.ts`.
 - Observability: `src/runtime/observability/index.ts`,
   `apps/docs/content/docs/09.observability/**`.
 - Docs:
   `apps/docs/content/docs/08.permissions/**`,
   `apps/docs/content/docs/13.api-reference/3.functions.md`,
-  `apps/docs/content/docs/13.api-reference/8.type-primitives.md`,
-  `apps/docs/content/docs/07.server-side/5.component-bridge.md`.
+  `apps/docs/content/docs/13.api-reference/8.type-primitives.md`.
 - Architecture: `meta/ARCHITECTURE.md`, `meta/ABSTRACTIONS.md`,
   `meta/SECURITY.md`, `meta/adr/0004-protected-handler-pipeline.md`,
   `meta/adr/0005-backend-owned-permissions-and-tenant-isolation.md`,
@@ -30,28 +41,28 @@ services, and trusted-forwarding validators.
 ## Protected Backend Runtime
 
 `defineTrellis(builders, options?)` is the canonical backend seam. It returns
-protected builders and keeps unsafe builders behind an explicit escape hatch.
+public, protected, internal, transport, and unsafe lanes; keep unsafe lanes as
+explicit escape hatches.
 
 Important options include:
 
-- `principal`: resolve transport identity.
-- `delegation`: resolve represented identity when applicable.
-- `actor`: map principal/delegation to the app actor.
-- `tenantIsolation`: tenant-scoped tables and global tables.
+- `caller`: resolve transport identity.
+- `actingFor`: resolve represented identity when applicable.
+- `appIdentity`: map the resolved caller to the app-owned appIdentity.
+- `isolation`: tenant-scoped tables and global tables.
 - `services`: explicit high-trust service callers.
 - `observability`: semantic event emission.
-- `destructiveSafety`: required before destructive operations.
+- `destructiveOperations`: required before destructive operations.
 - `triggers`: Convex triggers installed on the Trellis runtime path.
 - `onSuccess`: post-success hooks.
 
 Handler context adds:
 
-- `await ctx.principal()`
-- `await ctx.delegation()`
-- `await ctx.actor()`
+- `await ctx.caller()`
+- `await ctx.appIdentity()`
 - `ctx.observe(...)`
 - tenant-scoped `ctx.db`
-- `ctx.db.escapeTenantIsolation({ reason })`
+- `ctx.db.escapeIsolation({ reason })`
 
 Use `unsafe.query`, `unsafe.mutation`, and `unsafe.action` only for deliberate
 escape hatches with a justification. Do not normalize unsafe access into app
@@ -62,7 +73,7 @@ patterns.
 Keep authorization reviewable in the handler:
 
 ```ts
-export const setCompleted = mutation({
+export const setCompleted = mutation.protected({
   args: setTodoCompleted.args,
   guard: todoRead,
   load: async (ctx, args) => {
@@ -71,7 +82,7 @@ export const setCompleted = mutation({
     return { todo }
   },
   authorize: {
-    check: (_actor, { todo }) => canUpdateTodo(todo),
+    check: (_appIdentity, { todo }) => canUpdateTodo(todo),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { completed: args.completed })
@@ -92,10 +103,9 @@ If the rule needs loaded data or `ctx.db`, it belongs in `load` plus
 Use `defineArgs()` from `@lupinum/trellis/args` for shared schemas across
 Convex handlers, Nitro validation, and MCP tools.
 
-Shared args are schema-only. Do not hide trusted-forwarding transport fields in
-`defineArgs()` definitions. Add transport validators with
-`withTrustedForwarding(schema.args)` only at Convex boundaries that truly accept
-trusted server-to-server identity.
+Shared args are schema-only. Do not hide identity-forwarding transport fields
+in `defineArgs()` definitions. Trellis server helpers add the signed
+`_trellisForwarding` envelope for `auth: 'trusted'` calls.
 
 ## Auth And Permissions
 
@@ -103,9 +113,9 @@ Important auth exports include:
 
 - `defineBetterAuth`
 - `defineGuard`, `authRequired`, `open`
-- `defineActor`
+- `defineAppIdentity`
 - `definePermission`
-- `definePermissionContext`
+- `defineAccessContext`
 - `defineServices`
 - `can`, `deny`, `and`, `or`
 - `enforce`
@@ -116,14 +126,15 @@ Important auth exports include:
 - `loadTenantResource`
 - subject helpers such as `subject(...)`
 
-The app owns actor and permission semantics. Trellis provides the runtime shape.
+The app owns business identity and permission semantics. Trellis provides the
+runtime shape.
 
 Permission context is a backend-owned projection for stable UI decisions:
 
 ```ts
-export const getPermissionContext = query(
-  definePermissionContext({
-    resolve: getActor,
+export const getAccessContext = query.protected(
+  defineAccessContext({
+    resolve: getAppIdentity,
     permissions: teamWorkspacePermissions,
   }),
 )
@@ -135,14 +146,14 @@ Then point Nuxt at it:
 export default defineNuxtConfig({
   trellis: {
     permissions: {
-      query: 'permissions/context.getPermissionContext',
+      query: 'permissions/context.getAccessContext',
     },
   },
 })
 ```
 
-Use `usePermissions().allows(...)` only as a browser projection of backend
-decisions. Use backend `can(actor, check)` inside Convex code.
+Use `useAccess().can(...)` only as a browser projection of backend decisions.
+Use backend `can(appIdentity, check)` inside Convex code.
 
 ## Tenant Isolation
 
@@ -150,7 +161,7 @@ Trellis tenant isolation is a runtime guardrail around `ctx.db`; it is not the
 business authorization model. Business policy still lives in `guard`, `load`,
 `authorize`, and `handler`.
 
-Use `ctx.db.escapeTenantIsolation({ reason })` for explicit cross-tenant reads.
+Use `ctx.db.escapeIsolation({ reason })` for explicit cross-tenant reads.
 The reason should explain the product case. Do not add convenience wrappers that
 make cross-tenant access feel routine.
 
@@ -164,16 +175,20 @@ For destructive operations, require all of:
 - `kind: 'destructive'`
 - stable `id`
 - `preview(...)`
-- `destructiveSafety` configured in `defineTrellis(...)`
+- `destructiveOperations` configured in `defineTrellis(...)`
+- confirmation and audit tables with the required token/scope/hash indexes
+- `identityForwardingFunctionRef` on execute projections that are exposed to
+  signed server/MCP transport paths
 
 Do not model destructive MCP tools as plain generic tools. Project operations
 through the operation-backed MCP path.
 
 Projection helpers include:
 
-- `executeOperationRef(operation)`
-- `previewOperationRef(operation)`
-- `projectOperationRef(operation, projection)`
+- `executeOperationRef(operation, ref)`
+- `transportExecuteOperationRef(operation, ref)`
+- `previewOperationRef(operation, ref)`
+- `projectOperationRef(operation, projection, ref)`
 - `previewOf(operation)`
 
 MCP operation bindings must use real execute/preview projections of the same
@@ -186,24 +201,25 @@ declared schema, permissions, tenant/global tables, capabilities, and operations
 as app inventory. Keep feature manifests as composition metadata; do not use them
 to hide handler behavior.
 
-Use `defineCapabilities(...)` to attach `_can` flags to returned data. Use
-`defineRedaction(...)` to remove fields without mutating the input. Prefer these
-backend-owned visibility helpers over browser-side recalculation.
+Use `defineRecordAccess(...)` to attach stable record access decisions to data.
+Use `defineRedaction(...)` to remove fields without mutating the input. Prefer
+these backend-owned visibility helpers over browser-side recalculation.
 
-## Trusted Forwarding
+## Identity Forwarding
 
-Use `withTrustedForwarding(args)` to add transport validators to Convex args
-that accept trusted server-to-server identity.
+Use `auth: 'trusted'` from Nitro server helpers to create a signed
+`_trellisForwarding` envelope for server-to-server identity forwarding. App
+business args should not include raw forwarded identity fields.
 
-Use trusted-forwarding readers only after verification:
+Use identity-forwarding readers only after verification:
 
-- `getTrustedForwarding(ctxOrArgs)`
-- `getForwardedPrincipal(ctx, args?)`
-- `getForwardedDelegation(ctx, args?)`
+- `getIdentityForwarding(ctx, args?)`
+- `getForwardedCaller(ctx, args?)`
+- `getForwardedActingFor(ctx, args?)`
 
-Forwarded principals and delegations are verified signed-envelope metadata, not
-public request arguments. A valid envelope verifies the transport path; it does
-not grant business authorization by itself.
+Forwarded caller and actingFor payloads are verified signed-envelope metadata,
+not public request arguments. A valid envelope verifies the transport path; it
+does not grant business authorization by itself.
 
 ## Pitfalls
 
@@ -211,7 +227,7 @@ not grant business authorization by itself.
 - Do not duplicate backend permission checks in the browser.
 - Do not treat webhooks, MCP sessions, or service keys as authorization bypasses.
 - Do not preserve old actor-wrapper APIs or compatibility shims when the current
-  foundation uses principal/delegation/actor accessors.
+  foundation uses caller/actingFor/appIdentity accessors.
 - Do not describe custom public `rls` authoring as current Trellis API. Current
-  public policy is handler phases plus `tenantIsolation`/`services` runtime
+  public policy is handler phases plus `isolation`/`services` runtime
   guardrails.

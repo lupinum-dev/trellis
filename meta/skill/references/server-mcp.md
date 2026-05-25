@@ -4,6 +4,18 @@ Use this for Nitro routes, webhooks, server-to-server Convex calls, MCP runtime
 setup, MCP tools, sessions, result envelopes, and destructive operation
 projection.
 
+## Contents
+
+- [Source Files](#source-files)
+- [Nitro Server Helpers](#nitro-server-helpers)
+- [Server Boundaries](#server-boundaries)
+- [Webhooks And Identity-Forwarded Traffic](#webhooks-and-identity-forwarded-traffic)
+- [MCP Runtime](#mcp-runtime)
+- [MCP Tool Options](#mcp-tool-options)
+- [Destructive MCP Tools](#destructive-mcp-tools)
+- [Result And Session Helpers](#result-and-session-helpers)
+- [Pitfalls](#pitfalls)
+
 ## Source Files
 
 - Server barrel: `src/runtime/server/index.ts`.
@@ -33,7 +45,7 @@ Use these from Nuxt server routes, middleware, and Nitro handlers:
 import { api } from '#trellis/api'
 
 export default defineEventHandler(async (event) => {
-  return await serverConvexQuery(event, api.tasks.list, { status: 'active' })
+  return await serverConvexQuery(event, api.features.todos.domain.list, {})
 })
 ```
 
@@ -48,7 +60,7 @@ Available per-call helpers:
 - `auto`: use session cookie when available, otherwise unauthenticated.
 - `required`: fail when auth cannot be resolved.
 - `none`: never attach auth; public calls only.
-- `trusted`: trusted-forwarding path with explicit identity.
+- `trusted`: identity-forwarding path with explicit caller identity.
 
 Use `createServerConvexCaller(event, options?)` when a request needs several
 Convex calls with the same event/options.
@@ -56,14 +68,14 @@ Convex calls with the same event/options.
 ```ts
 const convex = createServerConvexCaller(event, {
   auth: 'trusted',
-  principal,
-  delegation,
+  caller,
+  actingFor,
 })
 
 const result = await convex.query(api.dashboard.get, { id })
 ```
 
-Forwarded `principal` or `delegation` requires `auth: 'trusted'`. The helper
+Forwarded `caller` or `actingFor` requires `auth: 'trusted'`. The helper
 throws when forwarded identity is supplied on any other auth mode.
 
 ## Server Boundaries
@@ -76,81 +88,134 @@ throws when forwarded identity is supplied on any other auth mode.
   `serverConvexMutation`, `serverConvexAction`, `createServerConvexCaller`,
   `delegateToUser`, and webhook helpers.
 
-## Webhooks And Trusted Traffic
+## Webhooks And Identity-Forwarded Traffic
 
 Pattern:
 
 1. Verify the external request at the Nitro edge.
 2. Call Convex with `auth: 'trusted'`.
-3. Forward an explicit server-owned `principal`.
-4. Add `delegation` when the request represents a user.
+3. Forward an explicit server-owned `caller`.
+4. Add `actingFor` when the request represents a user.
 5. Let the normal Convex guard/load/authorize/handler path decide.
 
 Never treat "it is a webhook" or "it has the trusted key" as permission to do
-anything. Trusted forwarding verifies identity injection. Business authorization
-still belongs in the backend handler.
+anything. Identity forwarding verifies identity injection. Business
+authorization still belongs in the backend handler.
 
 ## MCP Runtime
 
 Use `defineMcpApp(options)` for the Trellis-aware MCP runtime and operation
-projection path. It binds tool invocation to your Convex caller, principal
-resolution, optional delegation, capability resolution, rate limiting,
+projection path. It binds tool invocation to your Convex caller, caller
+resolution, optional actingFor resolution, access visibility, rate limiting,
 sessions, confirmation identity, and observability.
 
-Use `defineTool(options)` for standalone custom tools where the handler body
-lives in MCP code.
+Low-level `defineTool(options)` lives under `@lupinum/trellis/mcp/advanced`.
+Use it only for standalone custom tools where the handler body genuinely lives
+in MCP code.
 
-Prefer `defineMcpApp(...).tool(...)` or
-`defineMcpApp(...).tool.operation(...)` when the tool should project a
-protected Convex ref or operation. That keeps MCP behavior aligned with the
-same backend authorization model used by browser and server calls.
+Use the factories returned by `defineMcpApp(...)` when a tool projects a Convex
+ref or operation:
+
+- `mcp.tool.query(...)` for read tools.
+- `mcp.tool.mutation(...)` for bounded write tools.
+- `mcp.tool.operation(operation, options)` for sensitive, destructive, audited,
+  or external-side-effect work.
+
+That keeps MCP behavior aligned with the same backend authorization model used
+by browser and server calls.
 
 ## MCP Tool Options
 
-Common standalone `defineTool` options:
+Common `defineMcpApp(...)` runtime options include:
+
+- `resolveCaller`
+- `resolveActingFor`
+- `resolveAccess`
+- `callConvex`
+- `runtime`
+- `callerKey`
+- `rateLimitStore`
+- `confirmationStore`
+- `scopeKey`
+- `observability`
+
+Common `mcp.tool.query(...)` and `mcp.tool.mutation(...)` options include:
 
 - `schema`
-- `handler`
-- `operation`
-- `auth`
-- `scoped`
-- `check`
-- `maxItems`
-- `rateLimit`
-- `resolveAuth`
-- `resolvePrincipal`
-- `resolveDelegation`
-- `rateLimitStore`
-- `middleware`
+- `call`
+- `permission`
 - `enabled`
+- `meta`
+- `safety`
+- `rateLimit`
+- `rateLimitStore`
+- `maxItems`
+- `middleware`
+- `mapResult`
+- `summary`
+- `respond`
+- `outputSchema`
+- `group`
+- `tags`
 
-`scoped: true` requires an authenticated actor with a `tenantId` and is only
-valid with required auth. It is not a substitute for Convex handler guards.
+`mcp.tool.operation(operation, options)` replaces `call` with operation
+projections such as `execute`, optional `preview`, `executeOperation`,
+`previewOperation`, `previewResult`, `confirmationMode`, and per-tool
+`scopeKey`.
 
 `enabled` controls visibility/availability. It is not backend authorization.
 
 ## Destructive MCP Tools
 
 Do not implement destructive generic tools through `defineTool`. Use
-`defineMcpApp(...).tool.operation(...)` so preview, confirmation, and
-execute stay bound to one operation identity.
+`mcp.tool.operation(operation, options)` so preview, confirmation, and execute
+stay bound to one operation identity.
 
 Trellis rejects destructive operation bindings without the required preview
-projection. Keep preview and execute refs as real exported projections of the
-same operation.
+projection and confirmation scope. Keep preview and execute refs as real
+exported projections of the same operation.
 
-Use `executeOperationRef(...)` and `previewOperationRef(...)` from the functions
-surface when projecting operation-backed tools. Do not hand-construct operation
-references.
+Use `executeOperationRef(operation, ref)` and
+`previewOperationRef(operation, ref)` from the functions surface when
+projecting operation-backed tools. In app code, import them from
+`@lupinum/trellis/backend`. Do not hand-construct operation references. Set
+`scopeKey` on the tool or app for destructive operation tools; use `'global'`
+only for truly unscoped app-level operations.
+
+Canonical destructive binding shape:
+
+```ts
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+
+import { api } from '#trellis/api'
+import { removeRunbookDescriptor } from '~~/shared/features/runbooks/contract'
+
+export default mcpRuntime.tool.operation(removeRunbookDescriptor, {
+  execute: executeOperationRef(removeRunbookDescriptor, api.features.runbooks.domain.remove),
+  preview: previewOperationRef(
+    removeRunbookDescriptor,
+    api.features.runbooks.operations.previewRemove,
+  ),
+  previewOperation: 'mutation',
+  scopeKey: ({ args }) => `runbook:${String(args.id)}`,
+  meta: {
+    name: 'delete-runbook',
+  },
+})
+```
+
+Import the shared operation descriptor and generated Convex refs in MCP files.
+Do not import Convex implementation modules into MCP tool files just to
+duplicate business behavior.
 
 ## Result And Session Helpers
 
 MCP result helpers:
 
-- `wrapSuccess(data, summary?)`
+- `wrapSuccess(data)`
 - `wrapError(category, message, issues?)`
 - `wrapPreview(preview)`
-- `withSummary(result, summary)`
+- `withSummary(result, summary)` for successful result summaries
 - `withUntrustedText(...)`
 
 Session/server helpers:

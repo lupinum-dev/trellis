@@ -4,6 +4,18 @@ Use this for Vue/Nuxt client work: live queries, mutations, actions,
 pagination, cached detail reads, uploads, storage URLs, connection state, and
 auth composables.
 
+## Contents
+
+- [Source Files](#source-files)
+- [Query Pattern](#query-pattern)
+- [Query Options](#query-options)
+- [Pagination And Cache Seeding](#pagination-and-cache-seeding)
+- [Mutations And Actions](#mutations-and-actions)
+- [Optimistic Updates](#optimistic-updates)
+- [Uploads And Storage URLs](#uploads-and-storage-urls)
+- [Auth UI](#auth-ui)
+- [Pitfalls](#pitfalls)
+
 ## Source Files
 
 - Barrel: `src/runtime/composables/index.ts`.
@@ -33,13 +45,7 @@ SSR, hydration, and live subscription.
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const {
-  data: tasks,
-  pending,
-  error,
-} = await useConvexQuery(api.tasks.list, {
-  status: 'active',
-})
+const { data: todos, pending, error } = await useConvexQuery(api.features.todos.domain.list, {})
 </script>
 ```
 
@@ -47,7 +53,7 @@ Use nullish args to skip a query. Do not call composables conditionally.
 
 ```ts
 const args = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data, status } = await useConvexQuery(api.todos.list, args)
+const { data, status } = await useConvexQuery(api.features.todos.domain.list, args)
 ```
 
 Use a getter for args that depend on reactive values, especially nested values:
@@ -89,7 +95,7 @@ Create the composable once near the top of `<script setup>`, then call the
 returned function from handlers.
 
 ```ts
-const createTodo = useConvexMutation(api.todos.create)
+const createTodo = useConvexMutation(api.features.todos.domain.create)
 
 async function submit() {
   await createTodo({ title: title.value })
@@ -119,6 +125,15 @@ Optimistic helpers exported by the composables barrel:
 Use them with `useConvexMutation` optimistic hooks rather than mutating query
 state ad hoc.
 
+## Uploads And Storage URLs
+
+Use `useConvexUpload(generateUploadUrlMutation, options?)` to upload through the
+configured storage pipeline, then persist the returned storage id through a
+Convex mutation. Use `useConvexStorageUrl(getUrlQuery, storageId)` only after
+the app has an actual storage id from a record or upload result; do not hard-code
+a guessed storage id as access. The URL query still owns authorization before
+calling `ctx.storage.getUrl(...)`.
+
 ## Auth UI
 
 Use `useConvexAuth()` for provider-neutral reactive auth state.
@@ -138,6 +153,6 @@ The auth components are global only when `trellis.auth` is enabled:
 - Conditional composable calls break Vue lifecycle rules; pass `undefined` or
   `null` args instead.
 - `subscribe: false` can silently stale a UI that expects live updates.
-- Browser `allows(...)` from `usePermissions()` is a server projection, not a
+- Browser `can(...)` from `useAccess()` is a server projection, not a
   policy engine.
 - Do not import backend guards into Vue code to re-run authorization.

@@ -1,17 +1,18 @@
 ---
 name: trellis
 description: >
-  Use this skill whenever working on Trellis or a Nuxt app that uses
-  @lupinum/trellis. Trigger for Trellis package exports, Nuxt auto-imports,
-  generated aliases, Convex SSR/live queries, mutations, uploads, Better Auth,
-  permissions, tenant isolation, trusted forwarding, Nitro server helpers, MCP
-  tools, module options, CLI starters, feature manifests, component bridges,
-  testing helpers, docs, examples, or APIs such as defineTrellis, defineArgs,
-  useConvexQuery,
-  useConvexMutation, useCachedQuery, usePermissions, useAuthGuard,
-  serverConvexQuery, createServerConvexCaller, defineTool, defineMcpApp,
-  withTrustedForwarding, enforce, requireRecord, defineFeature,
-  defineCapabilities, createTestContext, and #trellis/api.
+  Use this skill when working on Trellis itself or on a Nuxt app that uses
+  @lupinum/trellis or @lupinum/trellis-bridge. Trigger for Trellis package
+  exports, bridge package authoring, Nuxt auto-imports, generated aliases,
+  Convex SSR/live queries, mutations, uploads, Better Auth, appIdentity,
+  useAccess/useAuthGuard permissions, tenant isolation, identity forwarding,
+  Nitro server helpers, MCP tools, module options, CLI starters, feature
+  manifests, component bridges, testing helpers, docs, examples, or APIs such
+  as defineTrellis, defineArgs, useConvexQuery, useConvexMutation,
+  useCachedQuery, useConvexUpload, serverConvexQuery,
+  createServerConvexCaller, defineMcpApp, defineAccessContext, enforce,
+  requireRecord, defineFeature, defineRecordAccess, createTestContext, and
+  #trellis/api.
 ---
 
 # Trellis
@@ -38,6 +39,9 @@ code-generated Nuxt aliases.
 5. Keep app authorization in Trellis handler phases (`guard`, `load`,
    `authorize`, `handler`). Do not create browser-side policy engines, DB-policy
    substitutes, or webhook/MCP bypasses.
+6. For app users, prefer the paved route first: `trellis init`, the canonical
+   feature-folder shape, and maintained examples. Hand-built setup docs are a
+   learning path, not a second app architecture.
 
 ## Reference Map
 
@@ -47,11 +51,14 @@ code-generated Nuxt aliases.
   uploads, storage URLs, and auth composables: read
   [references/client-composables.md](references/client-composables.md).
 - For Convex backend builders, `defineTrellis`, args schemas, auth, permissions,
-  operations, tenant isolation, and trusted forwarding validators: read
+  operations, tenant isolation, and identity-forwarding validators: read
   [references/backend-auth-permissions.md](references/backend-auth-permissions.md).
 - For Nitro server helpers, trusted server-to-server calls, webhooks, MCP apps,
   MCP tools, result envelopes, sessions, and destructive operations: read
   [references/server-mcp.md](references/server-mcp.md).
+- For `@lupinum/trellis-bridge`, packaged integration boundaries, generated
+  host files, bridge manifests, and drift checks: read
+  [references/bridge-package.md](references/bridge-package.md).
 - For `trellis` module options, environment-sensitive setup, CLI starters,
   `trellis add`, and canonical app shape: read
   [references/config-cli.md](references/config-cli.md).
@@ -71,11 +78,10 @@ Use this priority order when documentation and code disagree:
 
 ## Fast Checks
 
-- Public surface: `pnpm run check:publish-surface`.
-- Docs API surface drift: `pnpm run check:docs:api-surface`.
-- Repo contracts: `pnpm run test:contracts:repo`.
-- Types: `pnpm run test:types`.
-- Full default validation: `pnpm run check`.
+Use [references/testing-examples-docs.md](references/testing-examples-docs.md)
+to choose focused validation. Default to `pnpm run check` before handoff. Use
+`pnpm run release:verify` for public surfaces, docs/API reference, package
+metadata, starters, MCP, auth, bridge, or release scripts.
 
 Run the narrowest check that proves the change, then step back and inspect for
 policy drift, duplicate abstractions, stale docs, and mismatched import surfaces.

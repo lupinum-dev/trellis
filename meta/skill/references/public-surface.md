@@ -4,6 +4,16 @@ Use this when deciding where a Trellis symbol comes from. Do not guess. Trellis
 has three different surfaces that look similar but are not interchangeable:
 published npm subpaths, Nuxt auto-imports, and generated Nuxt aliases.
 
+## Contents
+
+- [Verify First](#verify-first)
+- [Published Package Subpaths](#published-package-subpaths)
+- [Generated Nuxt Aliases](#generated-nuxt-aliases)
+- [Client Auto-Imports](#client-auto-imports)
+- [Server Auto-Imports](#server-auto-imports)
+- [Global Auth Components](#global-auth-components)
+- [Boundary Rules](#boundary-rules)
+
 ## Verify First
 
 - Package exports: `package.json` `exports` and `typesVersions`.
@@ -17,7 +27,9 @@ published npm subpaths, Nuxt auto-imports, and generated Nuxt aliases.
 
 ## Published Package Subpaths
 
-Current package exports are:
+Orientation snapshot of current package exports. Treat this as a review aid,
+not the source of truth; verify against `package.json` and generated API surface
+before changing user-facing docs or imports:
 
 - `@lupinum/trellis`
 - `@lupinum/trellis/args`
@@ -25,6 +37,7 @@ Current package exports are:
 - `@lupinum/trellis/backend`
 - `@lupinum/trellis/composables`
 - `@lupinum/trellis/mcp`
+- `@lupinum/trellis/mcp/advanced`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
 - `@lupinum/trellis/type-primitives`
@@ -36,14 +49,23 @@ public surface is deliberately changed and tested.
 Package-author bridge APIs are owned by the separate `@lupinum/trellis-bridge`
 package. They are not re-exported from the core Trellis package.
 
+Bridge package subpaths:
+
+- `@lupinum/trellis-bridge`
+- `@lupinum/trellis-bridge/component`
+- `@lupinum/trellis-bridge/convex`
+- `@lupinum/trellis-bridge/manifest`
+
 Known rejected legacy/nonexistent subpaths include:
 
 - `@lupinum/trellis/actor`
+- `@lupinum/trellis/app-identity`
 - `@lupinum/trellis/bridge`
 - `@lupinum/trellis/convex`
 - `@lupinum/trellis/eslint`
 - `@lupinum/trellis/feature`
 - `@lupinum/trellis/functions`
+- `@lupinum/trellis/identity-forwarding`
 - `@lupinum/trellis/schema`
 - `@lupinum/trellis/scoping`
 - `@lupinum/trellis/service`
@@ -61,6 +83,7 @@ Inside a Nuxt app with the module installed:
 - `#trellis/api` points to the app-local `convex/_generated/api`.
 - `#trellis/server` re-exports the server runtime barrel.
 - `#trellis/mcp` re-exports the MCP runtime barrel.
+- `#trellis/mcp/advanced` re-exports the advanced MCP runtime barrel.
 
 These are Nuxt aliases, not npm package specifiers. Use them in app code where
 Nuxt resolves aliases. Use package subpaths in library/backend contexts that
@@ -88,6 +111,7 @@ Core client auto-imports are registered by `installCoreTrellis`:
 Auth auto-imports are registered only when `trellis.auth` is enabled:
 
 - `useConvexAuth`
+- `useBetterAuthClient`
 - `useBetterAuthActions`
 - `useBetterAuthSignIn`
 - `useBetterAuthSignUp`
@@ -96,10 +120,10 @@ Auth auto-imports are registered only when `trellis.auth` is enabled:
 Permission auto-imports are registered only when
 `trellis.permissions.query` resolves:
 
-- `usePermissions`
+- `useAccess`
 - `useAuthGuard`
 
-Do not document `usePermissions()` or `useAuthGuard()` as package exports. They
+Do not document `useAccess()` or `useAuthGuard()` as package exports. They
 are config-driven generated imports.
 
 ## Server Auto-Imports

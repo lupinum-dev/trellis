@@ -3,6 +3,17 @@
 Use this for `nuxt.config.ts` module options, starter selection, `trellis init`,
 `trellis add`, `trellis doctor`, and canonical app shape decisions.
 
+## Contents
+
+- [Source Files](#source-files)
+- [When Trellis Fits](#when-trellis-fits)
+- [Module Options](#module-options)
+- [CLI Starters](#cli-starters)
+- [Add Commands](#add-commands)
+- [Canonical App Shape](#canonical-app-shape)
+- [Doctor And Validation](#doctor-and-validation)
+- [Pitfalls](#pitfalls)
+
 ## Source Files
 
 - Module options: `src/module-internals/options.ts`.
@@ -19,9 +30,9 @@ Use this for `nuxt.config.ts` module options, starter selection, `trellis init`,
 ## When Trellis Fits
 
 Use Trellis when the app is Nuxt + Convex and needs one protected model reused
-across browser UI, Nitro routes, trusted forwarding, and MCP. It is a framework
-with hard defaults for auth, permissions, tenancy, destructive safety, examples,
-generators, and doctor checks.
+across browser UI, Nitro routes, identity forwarding, and MCP. It is a
+framework with hard defaults for auth, permissions, tenancy, destructive
+safety, examples, generators, and doctor checks.
 
 Do not reach for Trellis as a neutral helper layer for tiny public tools or apps
 that do not need shared auth/permission/MCP conventions.
@@ -51,7 +62,7 @@ export default defineNuxtConfig({
     auth: {
       routeProtection: { redirectTo: '/auth/signin' },
     },
-    permissions: 'permissions/context.getPermissionContext',
+    permissions: 'permissions/context.getAccessContext',
     query: { server: true, subscribe: true },
   },
 })
