@@ -1,0 +1,21 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "include": [
+    ".nuxt/**/*.d.ts",
+    ".nuxt/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.mts",
+    "src/**/*.d.ts",
+    "src/**/*.vue"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "apps",
+    "examples",
+    "labs",
+    "tests",
+    "src/cli/add-fixtures",
+    "src/cli/starter-fixtures"
+  ]
+}

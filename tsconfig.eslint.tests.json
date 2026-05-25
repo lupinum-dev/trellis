@@ -1,0 +1,28 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "include": [
+    ".nuxt/**/*.d.ts",
+    ".nuxt/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.mts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "tests/**/*.ts",
+    "tests/**/*.mts",
+    "tests/**/*.d.ts",
+    "tests/**/*.vue"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "apps/devtools-ui",
+    "apps/harness/.nuxt",
+    "apps/harness/.output",
+    "apps/docs",
+    "examples",
+    "labs",
+    "tests/fixtures/*/node_modules",
+    "tests/fixtures/*/.nuxt",
+    "tests/fixtures/*/.output"
+  ]
+}

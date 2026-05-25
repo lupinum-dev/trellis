@@ -39,14 +39,22 @@ export default createConfigForNuxt({
       },
     },
     {
-      files: ['src/module.ts', 'src/runtime/**/*.ts', 'tests/**/*.ts'],
+      files: ['src/module.ts', 'src/runtime/**/*.ts'],
       languageOptions: {
         parserOptions: {
-          project: [
-            './tsconfig.eslint.json',
-            './apps/harness/tsconfig.json',
-            './apps/harness/server/tsconfig.json',
-          ],
+          project: ['./tsconfig.eslint.src.json'],
+          tsconfigRootDir: import.meta.dirname,
+        },
+      },
+      rules: {
+        '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
+      },
+    },
+    {
+      files: ['tests/**/*.ts'],
+      languageOptions: {
+        parserOptions: {
+          project: ['./tsconfig.eslint.tests.json'],
           tsconfigRootDir: import.meta.dirname,
         },
       },
