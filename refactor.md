@@ -1,14 +1,16 @@
-# Trellis/Ginko 0.1.1 Refactor Tracker
+# Trellis Refactor Backlog
 
 Date opened: 2026-05-25  
 Primary repo: `/Users/matthias/Git/0_libs/WORK/trellis`  
 Integration repo: `/Users/matthias/Git/0_libs/WORK/ginko-cms`  
 Reference audit: `summary.md`
 
-This is the working checklist for the 0.1.1 cleanup. It turns the audit into
-trackable work with acceptance criteria and verification steps.
+This is the living backlog for Trellis cleanup and hardening work. The original
+0.1.1 release-blocker plan is kept below as completed context; new findings
+should be added to the backlog sections with a clear acceptance criterion and
+verification plan before implementation.
 
-The goal is not to add more framework. The goal is to make the release smaller,
+The goal is not to add more framework. The goal is to keep the system smaller,
 more honest, and easier to trust:
 
 - direct Trellis apps stay strict,
@@ -18,26 +20,73 @@ more honest, and easier to trust:
 - public package metadata and docs match what is actually released,
 - brittle convention checks are replaced with behavior or release-surface checks.
 
+## Current State
+
+- `0.1.1` release blockers are complete and verified.
+- Ginko CMS consumes the local Trellis/bridge `0.1.1` tarballs successfully.
+- Remaining open items are backlog/evaluation work, not release blockers for
+  the `0.1.1` bump.
+- Prefer one focused PR per backlog item. Do not batch public API decisions with
+  mechanical cleanup.
+
 ## How To Use This File
 
 Status values:
 
-- `[ ]` not started
+- `[ ]` backlog item, not started
 - `[x]` done
-- `[~]` in progress
+- `[~]` actively in progress
 - `[?]` evaluate before implementing
 - `[!]` blocked or needs a decision
 
 Completion rule:
 
-- A point is done only when its tasks are complete, its acceptance criteria are
-  met, and its verification commands have been run or explicitly deferred with a
-  reason.
-- Prefer one focused PR per P0 point or small group of related P0 points.
+- A backlog item is done only when its tasks are complete, its acceptance
+  criteria are met, and its verification commands have been run or explicitly
+  deferred with a reason.
+- Add new findings under the smallest relevant backlog section. If no section
+  fits, add a new item under "Backlog - Evaluate Before Acting".
+- Every item needs a concrete "acceptance criterion before implementing" unless
+  it is already approved for implementation.
 - Use hard cutovers for unreleased/internal behavior. Do not add compatibility
   shims unless this file marks the item as public/released surface.
+- Keep completed release history in this file until the release branch lands;
+  after that, completed P0 sections may move to a changelog or archive doc.
 
-## Global Acceptance Criteria
+## Backlog Item Template
+
+Copy this template when adding newly discovered work:
+
+```md
+### P?-NN - Short Title
+
+Status: [?]
+Decision: evaluate before implementing.
+
+Why it matters:
+
+- One or two concrete failure modes, not vague cleanup.
+
+Recommended path:
+
+- Prefer delete > simplify > replace > add.
+
+Tasks:
+
+- [ ] Small task with an observable end.
+
+Acceptance criteria:
+
+- [ ] User-visible or maintainer-visible outcome.
+
+Verification:
+
+\`\`\`bash
+pnpm run relevant:command
+\`\`\`
+```
+
+## 0.1.1 Release Acceptance Criteria - Complete
 
 - [x] Trellis root package version is ready for `0.1.1`.
 - [x] `@lupinum/trellis-bridge` version is ready for `0.1.1`.
@@ -84,7 +133,20 @@ Verified on 2026-05-25 before handoff:
       `TRELLIS_PACKAGE_ROOT=/Users/matthias/Git/0_libs/WORK/trellis TRELLIS_BRIDGE_PACKAGE_ROOT=/Users/matthias/Git/0_libs/WORK/trellis/packages/trellis-bridge pnpm run package:e2e`.
 - [x] Ginko CMS: `pnpm run check`.
 
-## P0 - Release Blockers
+## Open Backlog Index
+
+| Item                                         | Status | Next action                                                             |
+| -------------------------------------------- | ------ | ----------------------------------------------------------------------- |
+| P1-01 - Static doctor scan hardening         | `[ ]`  | Add adversarial false-positive/false-negative tests.                    |
+| P1-02 - Feature manifest source of truth     | `[ ]`  | Add schema/isolation drift invariant tests before renaming anything.    |
+| P1-03 - Observability honesty                | `[ ]`  | Audit docs and remove/rename inert helper surfaces.                     |
+| P1-04 - MCP authoring path cleanup           | `[?]`  | Confirm docs and test standalone write restrictions before refactoring. |
+| P1-05 - Split giant runtime files            | `[?]`  | Split only in a dedicated no-behavior-change PR.                        |
+| P1-06 - Bridge registrar dedupe              | `[?]`  | Check maintained examples and Ginko usage before touching `from(...)`.  |
+| P1-07 - CLI patching honesty                 | `[?]`  | Inventory string patches and add non-canonical failure tests.           |
+| P2-01..P2-06 - Public API/deletion decisions | `[?]`  | Evaluate individually; do not bundle into patch releases.               |
+
+## Completed 0.1.1 Release Work
 
 ### P0-01 - Generic Integration-Aware `trellis doctor`
 
@@ -626,12 +688,13 @@ pnpm run test:types:public
 pnpm run release:pack
 ```
 
-## P1 - High-Confidence Cleanup After Release Blockers
+## Backlog - Next High-Confidence Items
 
 ### P1-01 - Rename/Frame Inventory As Static Scan
 
-Status: [~]
-Decision: likely implement, but check CLI JSON compatibility first.
+Status: [ ]
+Decision: likely implement next; keep CLI JSON compatibility unless there is a
+deliberate breaking-change decision.
 
 Progress:
 
@@ -670,7 +733,7 @@ pnpm run check:examples:doctor
 
 ### P1-02 - Decide Feature Manifest Source Of Truth
 
-Status: [~]
+Status: [ ]
 Decision: evaluate before implementing.
 
 Progress:
@@ -721,7 +784,7 @@ pnpm run test:contracts
 
 ### P1-03 - Observability Honesty
 
-Status: [~]
+Status: [ ]
 Decision: evaluate public API impact before removing methods.
 
 Progress:
@@ -793,7 +856,7 @@ pnpm run test:contracts
 ### P1-05 - Split Giant Runtime Files Internally
 
 Status: [?]  
-Decision: do only after P0 work is green.
+Decision: evaluate in a dedicated PR; do not mix with release work.
 
 Problem:
 
@@ -971,10 +1034,10 @@ pnpm exec vitest run --project=unit tests/unit/*codegen*.test.ts
 pnpm run check:publish-surface
 ```
 
-## P2 - Evaluate Before Acting
+## Backlog - Evaluate Before Acting
 
-These are not release blockers. Do not do them during the P0 cleanup unless the
-evaluation produces a clear acceptance criterion.
+These are not release blockers. Do not implement them until the evaluation
+produces a clear acceptance criterion.
 
 ### P2-01 - Remove `workspace` Or `type-primitives` Public Subpaths
 
@@ -1082,7 +1145,7 @@ Acceptance criterion before adding:
 - [x] Decide Node support target.
 - [x] CI, docs, package manifests, and release notes agree.
 
-## Verification Matrix
+## Verification Playbook
 
 ### Trellis Focused Verification
 
@@ -1147,7 +1210,7 @@ pnpm exec ginko-cms doctor --cwd /Users/matthias/Git/_temp/i18n-cms
 pnpm run smoke:cms
 ```
 
-## Recommended PR Order
+## Completed 0.1.1 PR Order
 
 1. [x] P0-09 hardcoded test roots and P0-10 hermetic policy scans.
 2. [x] P0-04 harness type resolution.
@@ -1158,17 +1221,25 @@ pnpm run smoke:cms
 7. [x] P0-08 security/community docs.
 8. [x] P0-11 stale env cleanup.
 9. [x] P0-05 version and compatibility bump to `0.1.1`.
-10. [~] P1 cleanup items in small follow-up PRs only after P0 is green.
+10. [x] Follow-up P1 cleanup evaluated and split into the backlog above.
+
+## Recommended Next Backlog Order
+
+1. [ ] P1-01 doctor static-scan adversarial tests.
+2. [ ] P1-03 observability docs and `createDenialExplanation` cleanup.
+3. [ ] P1-02 feature manifest invariant test before any naming/API decision.
+4. [?] P1-04 MCP authoring cleanup only after confirming docs already point at
+   one recommended path.
+5. [?] P1-07 CLI patching audit before keeping or demoting `trellis add entity`.
 
 ## Do Not Do Without A Fresh Decision
 
-- [ ] Do not hardcode Ginko CMS behavior in Trellis core.
-- [ ] Do not add `#trellis/permissions`; current behavior intentionally avoids
-      that alias.
-- [ ] Do not remove published subpaths casually just because they look facade
-      heavy.
-- [ ] Do not split giant files while tests are red unless the split is needed to
-      make the red test fix safe.
-- [ ] Do not add new doctor concepts without a fixture proving why they exist.
-- [ ] Do not add compatibility shims for unreleased internals.
-- [ ] Do not run live publish commands from an agent session.
+- Do not hardcode Ginko CMS behavior in Trellis core.
+- Do not add `#trellis/permissions`; current behavior intentionally avoids that
+  alias.
+- Do not remove published subpaths casually just because they look facade heavy.
+- Do not split giant files while tests are red unless the split is needed to make
+  the red test fix safe.
+- Do not add new doctor concepts without a fixture proving why they exist.
+- Do not add compatibility shims for unreleased internals.
+- Do not run live publish commands from an agent session.
