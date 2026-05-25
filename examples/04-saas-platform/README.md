@@ -16,7 +16,7 @@ boundary.
 - uploads and attachment authorization
 - nested resource guards in a still-familiar workspace app
 
-Canonical v1 server-to-server identity in Trellis is identity forwarding plus optional actingFor. This example keeps one narrow verified-route-to-internal-mutation boundary so the board and upload flows stay readable; see `examples/07-mcp-reference` for the full identity-forwarding + actingFor shape.
+Canonical server-to-server identity in Trellis is identity forwarding plus optional actingFor. This example keeps one narrow verified-route-to-internal-mutation boundary so the board and upload flows stay readable; see `examples/07-mcp-reference` for the full identity-forwarding + actingFor shape.
 
 It is no longer the “big month-two SaaS showcase.” Its job is to show how protected server surfaces
 fit into the canonical workspace model.

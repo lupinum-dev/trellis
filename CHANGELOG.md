@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.1
+
+Maintenance release for the first public line.
+
+### Fixes
+
+- Hardened `trellis doctor` and repository diagnostics for integration-package detection, starter validation, and clean checkout checks.
+- Stabilized CI by splitting memory-heavy lint/type paths and preparing generated package artifacts before consumer smoke tests.
+- Regenerated and verified component-bridge example outputs so bridge fixtures match the published package contracts.
+
+### Release
+
+- Publishes `@lupinum/trellis@0.1.1` and `@lupinum/trellis-bridge@0.1.1`.
+- Keeps `@lupinum/trellis-eslint` private.
+
 ## v0.1.0
 
 Initial public release of Trellis.

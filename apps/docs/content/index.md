@@ -60,21 +60,15 @@ Look up exact behavior for the high-traffic composables, server helpers, and API
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const {
-  data: tasks,
-  pending,
-  error,
-} = await useConvexQuery(api.tasks.list, {
-  status: 'active',
-})
+const { data: todos, pending, error } = await useConvexQuery(api.features.todos.domain.list, {})
 </script>
 
 <template>
   <p v-if="error">{{ error.message }}</p>
   <p v-else-if="pending">Loading...</p>
   <ul v-else>
-    <li v-for="task in tasks" :key="task._id">
-      {{ task.text }}
+    <li v-for="todo in todos" :key="todo._id">
+      {{ todo.title }}
     </li>
   </ul>
 </template>
@@ -88,17 +82,25 @@ const {
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const createTask = useConvexMutation(api.tasks.create, {
+const createTodo = useConvexMutation(api.features.todos.domain.create, {
   optimisticUpdate: (ctx, args) => {
-    ctx
-      .query(api.tasks.list, {})
-      .update((current) =>
-        current ? [{ _id: 'temp', text: args.text, completed: false }, ...current] : [],
-      )
+    ctx.query(api.features.todos.domain.list, {}).update((current) =>
+      current
+        ? [
+            {
+              _id: 'temp',
+              title: args.title,
+              completed: false,
+              createdAt: Date.now(),
+            },
+            ...current,
+          ]
+        : [],
+    )
   },
 })
 
-await createTask({ text: 'Ship my app' })
+await createTodo({ title: 'Ship my app' })
 </script>
 ```
 
@@ -110,7 +112,6 @@ await createTask({ text: 'Ship my app' })
 <script setup lang="ts">
 const { isAuthenticated, sessionUser, signOut } = useConvexAuth()
 const client = useBetterAuthClient()
-const { execute } = useBetterAuthActions()
 
 async function handleOAuth() {
   if (!client) return
@@ -136,7 +137,7 @@ async function handleOAuth() {
 ```vue
 <script setup lang="ts">
 import { api } from '#trellis/api'
-import { postDelete, postPublish, postUpdate } from '~/convex/auth/permissions'
+import { postDelete, postPublish, postUpdate } from '~/convex/features/posts/permissions'
 
 const props = defineProps<{ id: string }>()
 const { can } = useAccess()

@@ -4,8 +4,8 @@ Thanks for your interest in @lupinum/trellis! This guide covers the development 
 
 ## Prerequisites
 
-- Node.js 18+
-- pnpm 9+
+- Node.js 18.18 or newer
+- pnpm 10.33 or newer through Corepack
 
 ## Development Setup
 
