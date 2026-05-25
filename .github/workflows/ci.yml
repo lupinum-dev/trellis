@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
 
+env:
+  NODE_OPTIONS: --max-old-space-size=6144
+
 jobs:
   lint:
     runs-on: ubuntu-latest
