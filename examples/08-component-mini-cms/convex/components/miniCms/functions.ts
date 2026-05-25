@@ -1,12 +1,12 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 import { defineCaller, defineTrellis, getForwardedCaller } from '@lupinum/trellis/backend'
+import {
+  actionGeneric as generatedAction,
+  mutationGeneric as generatedMutation,
+  queryGeneric as generatedQuery,
+} from 'convex/server'
 
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/caller'
-import {
-  action as generatedAction,
-  mutation as generatedMutation,
-  query as generatedQuery,
-} from './_generated/server'
 
 export type MiniCmsActor =
   | { kind: 'viewer' }

@@ -65,7 +65,6 @@ export interface AppInventory<
 
 export interface AppInventoryJson {
   readonly schemaVersion: 1
-  readonly layers: readonly string[]
   readonly features: readonly string[]
   readonly operations: readonly {
     id: string
@@ -75,7 +74,6 @@ export interface AppInventoryJson {
     permissionKey?: string
     safety?: McpWriteSafety
   }[]
-  readonly findings: readonly unknown[]
 }
 
 function dedupePreservingOrder(values: readonly string[]): string[] {
@@ -272,9 +270,7 @@ export function toAppInventoryJson(inventory: AppInventory): AppInventoryJson {
 
   return {
     schemaVersion: 1,
-    layers: [],
     features: inventory.features.map((feature) => feature.name),
     operations,
-    findings: [],
   }
 }

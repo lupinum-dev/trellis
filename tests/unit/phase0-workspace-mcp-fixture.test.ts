@@ -46,7 +46,6 @@ describe('phase0 workspace-mcp fixture', () => {
 
     expect(toAppInventoryJson(appInventory)).toEqual({
       schemaVersion: 1,
-      layers: [],
       features: ['projects'],
       operations: [
         {
@@ -58,7 +57,6 @@ describe('phase0 workspace-mcp fixture', () => {
           safety: 'destructive-write',
         },
       ],
-      findings: [],
     })
 
     expect(getOperationMetadata(deleteProjectOperation)).toMatchObject({

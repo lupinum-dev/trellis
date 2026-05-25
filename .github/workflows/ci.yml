@@ -8,6 +8,12 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=6144
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -19,13 +25,13 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
   test:
     runs-on: ubuntu-latest
@@ -37,22 +43,22 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Internal harness prepare
-        run: npm run dev:prepare
+        run: pnpm run dev:prepare
 
       - name: Generate Convex codegen
-        run: npm run harness:convex:codegen
+        run: pnpm run harness:convex:codegen
 
       - name: Test
-        run: npm run test
+        run: pnpm run test
 
   build:
     runs-on: ubuntu-latest
@@ -64,25 +70,43 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare
-        run: npm run dev:prepare
+        run: pnpm run dev:prepare
 
       - name: Build module
-        run: npm run build
+        run: pnpm run build
 
       - name: Type check
-        run: npm run test:types
+        run: pnpm run test:types
 
       - name: Maintained example doctor checks
-        run: npm run check:examples:doctor
+        run: pnpm run check:examples:doctor
 
-      - name: Publish preview release
-        run: npx pkg-pr-new publish --pnpm
+  release-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Release verification
+        run: pnpm run release:verify
 
   consumer-smoke:
     runs-on: ubuntu-latest
@@ -100,36 +124,46 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare module build
+        run: pnpm run dev:prepare
 
       - name: Pack module
         id: pack
         run: |
           mkdir -p "$RUNNER_TEMP/pack"
-          TARBALL="$(npm pack --silent --pack-destination "$RUNNER_TEMP/pack" | tail -n 1)"
-          echo "tarball_path=$RUNNER_TEMP/pack/$TARBALL" >> "$GITHUB_OUTPUT"
+          npm pack --pack-destination "$RUNNER_TEMP/pack"
+          TARBALL_PATH="$(find "$RUNNER_TEMP/pack" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+          test -f "$TARBALL_PATH"
+          echo "tarball_path=$TARBALL_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Copy fixture outside workspace
+        run: |
+          FIXTURE_DIR="$RUNNER_TEMP/${{ matrix.fixture }}"
+          rm -rf "$FIXTURE_DIR"
+          cp -R "tests/fixtures/${{ matrix.fixture }}" "$FIXTURE_DIR"
+          echo "FIXTURE_DIR=$FIXTURE_DIR" >> "$GITHUB_ENV"
 
       - name: Install fixture dependencies
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npx nypm@latest i
+        run: pnpm --dir "$FIXTURE_DIR" install --no-frozen-lockfile
 
       - name: Install packed module in fixture
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
+        run: pnpm --dir "$FIXTURE_DIR" add "${{ steps.pack.outputs.tarball_path }}"
 
-      - name: Verify packed module imports and CLI
-        working-directory: tests/fixtures/${{ matrix.fixture }}
+      - name: Verify packed module resolves and CLI
         run: |
-          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/auth')]).then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
+          test -f "$FIXTURE_DIR/node_modules/@lupinum/trellis/package.json"
+          cd "$FIXTURE_DIR"
+          node --input-type=module -e "for (const specifier of ['@lupinum/trellis', '@lupinum/trellis/args', '@lupinum/trellis/auth', '@lupinum/trellis/backend', '@lupinum/trellis/composables', '@lupinum/trellis/mcp', '@lupinum/trellis/mcp/advanced', '@lupinum/trellis/server', '@lupinum/trellis/testing', '@lupinum/trellis/type-primitives', '@lupinum/trellis/workspace']) await import.meta.resolve(specifier); console.log('resolved')"
+          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/args'), import('@lupinum/trellis/auth'), import('@lupinum/trellis/backend'), import('@lupinum/trellis/testing'), import('@lupinum/trellis/type-primitives'), import('@lupinum/trellis/workspace')]).then(() => console.log('imported')).catch((error) => { console.error(error); process.exit(1); })"
           pnpm exec trellis --help
 
       - name: Consumer build
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npm run build
+        run: pnpm --dir "$FIXTURE_DIR" run build
 
       - name: Consumer typecheck
-        working-directory: tests/fixtures/${{ matrix.fixture }}
-        run: npm run typecheck
+        run: pnpm --dir "$FIXTURE_DIR" run typecheck

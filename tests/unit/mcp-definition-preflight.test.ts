@@ -77,16 +77,16 @@ describe('MCP definition preflight', () => {
 
   it('validates paths added by later definition contributors', async () => {
     const server = createFixture({
-      'ginko-mcp/tools/_shared.ts': 'export const helper = true',
+      'integration-mcp/tools/_shared.ts': 'export const helper = true',
     })
 
     await expect(
       validateFinalMcpDefinitionFiles({
         layerServers: [server],
         callDefinitionsHook: (paths) => {
-          paths.tools?.push('ginko-mcp/tools')
+          paths.tools?.push('integration-mcp/tools')
         },
       }),
-    ).rejects.toThrow(/ginko-mcp\/tools\/_shared\.ts[\s\S]*server\/mcp\/_shared/)
+    ).rejects.toThrow(/integration-mcp\/tools\/_shared\.ts[\s\S]*server\/mcp\/_shared/)
   })
 })

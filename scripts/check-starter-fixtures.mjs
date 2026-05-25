@@ -200,7 +200,10 @@ function assertLayerBoundaries(template, appRoot, expectedFiles) {
     !text.includes(legacyTemplateExtension),
     `${template} output contains old template-file reference.`,
   )
-  assert(!text.includes('ginko'), `${template} output contains Ginko starter language.`)
+  assert(
+    !text.includes('@lupinum/ginko'),
+    `${template} output contains private integration starter language.`,
+  )
   assert(!text.includes('cms'), `${template} output contains CMS starter language.`)
 
   if (template === 'public') {
@@ -322,8 +325,12 @@ function rewriteGeneratedPackageDependency(appRoot, trellisTarballPath) {
     `${appRoot} package.json is missing dependencies.`,
   )
   assert(
-    dependencies['@lupinum/trellis'] === 'workspace:*',
-    `${appRoot} package.json must use @lupinum/trellis workspace:* before validation rewrite.`,
+    typeof dependencies['@lupinum/trellis'] === 'string',
+    `${appRoot} package.json is missing @lupinum/trellis before validation rewrite.`,
+  )
+  assert(
+    dependencies['@lupinum/trellis'] !== 'workspace:*',
+    `${appRoot} package.json must not emit @lupinum/trellis workspace:* for generated apps.`,
   )
   dependencies['@lupinum/trellis'] = `file:${trellisTarballPath}`
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)

@@ -22,6 +22,9 @@ const runtimeBackendEntry = fileURLToPath(
 const runtimeServerEntry = fileURLToPath(
   new URL('../../src/runtime/server/index.ts', import.meta.url),
 )
+const runtimeWorkspaceEntry = fileURLToPath(
+  new URL('../../src/runtime/workspace/index.ts', import.meta.url),
+)
 const harnessRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
@@ -52,6 +55,7 @@ export default defineNuxtConfig({
     '@lupinum/trellis/auth': runtimeAuthEntry,
     '@lupinum/trellis/args': runtimeArgsEntry,
     '@lupinum/trellis/backend': runtimeBackendEntry,
+    '@lupinum/trellis/workspace': runtimeWorkspaceEntry,
     '@lupinum/trellis/mcp': runtimeMcpEntry,
     '@lupinum/trellis/server': runtimeServerEntry,
     '@lupinum/trellis/identity-forwarding': runtimeIdentityForwardingEntry,

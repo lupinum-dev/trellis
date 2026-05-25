@@ -287,7 +287,7 @@ function createOperationToolAgreementFinding(inventory: TrellisCliInventory): Do
           ? `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} but no operation-backed MCP tools in public-surface metadata. First operation: ${formatInventoryLocations([destructiveOperationsWithoutTools[0]!.source])}.`
           : `Found destructive operation${destructiveOperationsWithoutTools.length === 1 ? '' : 's'} without exact MCP tool bindings at ${formatInventoryLocations(destructiveOperationsWithoutTools.map((operation) => operation.source))}.`,
       fixHint:
-        'Bind destructive MCP tools with `tool.operation(theOperation, ...)` so doctor can verify the exact operation id, or keep the operation backend-only if MCP exposure is not intended.',
+        'Bind destructive MCP tools with `tool.operation(theOperation, ...)` so doctor can statically match the operation id, or keep the operation backend-only if MCP exposure is not intended.',
       sources: [
         findingInventorySource(
           'publicSurface.operations',

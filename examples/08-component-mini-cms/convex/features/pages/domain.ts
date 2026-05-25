@@ -2,6 +2,7 @@ import {
   createIdentityForwardingEnvelopeArgs,
   operationPreviewValidator,
 } from '@lupinum/trellis/backend'
+import { anyApi } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { MiniCmsPrincipal } from '../../../shared/caller'
@@ -17,7 +18,6 @@ import {
   saveDraft as saveDraftSchema,
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
-import { internal } from '../../_generated/api'
 import { action, mutation, query } from '../../functions'
 
 const bridgeForwardingIssuer = 'trellis://server'
@@ -73,7 +73,7 @@ async function bridgeForwardingArgs(
   }
 }
 
-const bridgeApi: typeof internal.features.pages.bridge = internal.features.pages.bridge
+const bridgeApi = (anyApi as any).features.pages.bridge
 
 export const listPublished = query.public({
   args: listPublishedPagesSchema.args,

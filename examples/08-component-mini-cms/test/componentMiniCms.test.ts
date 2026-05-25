@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs'
 
 import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
+import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { api, internal } from '../convex/_generated/api'
 import componentSchema from '../convex/components/miniCms/schema'
 import schema from '../convex/schema'
 import { modules } from '../convex/test.setup'
@@ -14,6 +14,8 @@ import { getCapabilitiesForPrincipal } from '../server/lib/mcp-auth'
 const componentModules = import.meta.glob('../convex/components/miniCms/**/*.ts', {
   eager: false,
 })
+const api = anyApi as any
+const internal = anyApi as any
 const IDENTITY_FORWARDING_KEY = 'component-mini-cms-test-identity-forwarding-key'
 const bridgePrincipal = {
   kind: 'agent',

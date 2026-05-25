@@ -7,8 +7,13 @@
     "typecheck": "nuxi typecheck"
   },
   "devDependencies": {
+    "@nuxtjs/mcp-toolkit": "0.16.1",
+    "convex": "1.38.0",
+    "convex-helpers": "0.1.117",
+    "convex-test": "0.0.52",
     "nuxt": "4.4.6",
     "typescript": "6.0.3",
-    "vue-tsc": "3.2.9"
+    "vue-tsc": "3.2.9",
+    "zod": "4.4.3"
   }
 }

@@ -17,9 +17,6 @@ type ObservationSummaryEmitInput = {
 
 export interface ObservationSummary {
   set(context: Record<string, unknown>): void
-  info(message: string, context?: Record<string, unknown>): void
-  warn(message: string, context?: Record<string, unknown>): void
-  error(error: Error | string, context?: Record<string, unknown>): void
   emit(input: ObservationSummaryEmitInput): void
   getContext(): Record<string, unknown>
 }
@@ -36,9 +33,6 @@ export function createObservationSummary(options: ObservationSummaryOptions): Ob
       if (emitted) return
       context = { ...context, ...nextContext }
     },
-    info() {},
-    warn() {},
-    error() {},
     emit(input) {
       if (emitted) return
       emitted = true

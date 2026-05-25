@@ -25,8 +25,8 @@ The first clean public release line is:
 
 | Package                   | Version | Audience                                                             |
 | ------------------------- | ------: | -------------------------------------------------------------------- |
-| `@lupinum/trellis`        | `0.1.0` | Nuxt + Convex app teams                                              |
-| `@lupinum/trellis-bridge` | `0.1.0` | Package authors building Trellis-aware Convex component integrations |
+| `@lupinum/trellis`        | `0.1.1` | Nuxt + Convex app teams                                              |
+| `@lupinum/trellis-bridge` | `0.1.1` | Package authors building Trellis-aware Convex component integrations |
 
 `@lupinum/trellis-bridge` is not a beginner app API. Use it when you are
 shipping a package that installs generated host bridge files into another app.
@@ -75,10 +75,10 @@ Official starters:
 - `workspace`
 - `workspace-mcp`
 
-CMS product setup is Ginko-owned. Do not install Ginko CMS through Trellis
-commands, Trellis bridge exports, or starter variants. Trellis keeps
-`08-component-mini-cms` as an advanced package-integration reference, not as a
-beginner starter.
+CMS product setup is integration-owned. Do not install product integrations
+through Trellis commands, Trellis bridge exports, or starter variants. Trellis
+keeps `08-component-mini-cms` as an advanced package-integration reference, not
+as a beginner starter.
 
 ## Canonical Shape
 

@@ -250,7 +250,7 @@ describe('observability', () => {
     ).resolves.toBeUndefined()
   })
 
-  it('keeps runtime summary and debug methods as safe core no-ops', () => {
+  it('keeps runtime summary and debug methods safe', () => {
     const observer = createRuntimeObserver(
       { observability: { enabled: true } },
       { transport: 'nuxt-server', correlationId: 'corr_runtime' },

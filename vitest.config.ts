@@ -78,6 +78,9 @@ export default defineConfig({
             '@lupinum/trellis/composables': fileURLToPath(
               new URL('./src/runtime/composables/index.ts', import.meta.url),
             ),
+            '@lupinum/trellis/backend': fileURLToPath(
+              new URL('./src/runtime/backend/index.ts', import.meta.url),
+            ),
             '@lupinum/trellis/auth': fileURLToPath(
               new URL('./src/runtime/auth/index.ts', import.meta.url),
             ),

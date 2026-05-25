@@ -1,4 +1,6 @@
 import { createComponentBridge } from '@lupinum/trellis-bridge/component'
+import { createComponentBridge as createConvexComponentBridge } from '@lupinum/trellis-bridge/convex'
+import { defineComponentBridgeManifest } from '@lupinum/trellis-bridge/manifest'
 import { defineCaller } from '@lupinum/trellis/backend'
 import type {
   ActionBuilder,
@@ -188,6 +190,9 @@ type _batchInternalAction = Assert<
     RegisteredAction<'internal', { id: string }, Promise<{ ok: true }>>
   >
 >
+
+void createConvexComponentBridge
+void defineComponentBridgeManifest
 
 bridge.query({
   // @ts-expect-error query bridge must reject mutation refs

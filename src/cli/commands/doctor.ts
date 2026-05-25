@@ -32,11 +32,27 @@ import {
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
   hasDependency,
+  classifyTrellisApp,
   inspectProject,
   isAuthExplicitlyEnabled,
   usesTrellisUsersTable,
   type ProjectInspection,
+  type TrellisAppClassification,
 } from '../lib/project.js'
+
+function formatIntegrationOwners(owners: TrellisAppClassification['integrationOwners']): string {
+  return owners.map((owner) => `${owner.label} (${owner.packageName})`).join(', ')
+}
+
+function formatIntegrationDoctorCommand(
+  owners: TrellisAppClassification['integrationOwners'],
+): string {
+  const commands = owners
+    .map((owner) => owner.doctorCommand)
+    .filter((command): command is string => typeof command === 'string' && command.length > 0)
+
+  return commands.length > 0 ? commands.join(' or ') : 'the integration package doctor'
+}
 
 function toDoctorFindingTitle(id: string): string {
   switch (id) {
@@ -60,7 +76,12 @@ function createDoctorFindings(
 ): DoctorFinding[] {
   const cwd = project.cwd
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)
-  const missingCanonicalLayoutPaths = isNuxtApp ? findMissingCanonicalLayoutPaths(project) : []
+  const trellisApp = classifyTrellisApp(project)
+  const integrationOwners = trellisApp.integrationOwners
+  const integrationManaged = trellisApp.kind === 'integration-managed'
+  const directTrellisApp = trellisApp.kind === 'direct'
+  const missingCanonicalLayoutPaths =
+    isNuxtApp && !integrationManaged ? findMissingCanonicalLayoutPaths(project) : []
   const convexUrlSource = findConvexUrlSource(project)
   const authExpected = isNuxtApp && isAuthExplicitlyEnabled(project)
   const siteUrlSource = findEnvKeySource(project, ['SITE_URL', 'NUXT_PUBLIC_SITE_URL'])
@@ -93,6 +114,33 @@ function createDoctorFindings(
 
   const baseFindings: DoctorFinding[] = [
     {
+      id: 'trellis-runtime-owner',
+      category: 'core',
+      title: 'Trellis runtime owner',
+      status:
+        directTrellisApp || integrationManaged
+          ? 'pass'
+          : hasDependency(project, '@lupinum/trellis')
+            ? 'fail'
+            : 'warn',
+      message: directTrellisApp
+        ? integrationOwners.length > 0
+          ? `Direct Trellis module registration was found. Integration metadata also exists for ${formatIntegrationOwners(integrationOwners)}, but direct Trellis layout checks remain authoritative.`
+          : 'Direct @lupinum/trellis Nuxt module registration was found.'
+        : integrationManaged
+          ? `Trellis runtime is managed by ${formatIntegrationOwners(integrationOwners)}. Canonical Trellis app layout checks are delegated to the integration package.`
+          : hasDependency(project, '@lupinum/trellis')
+            ? '@lupinum/trellis is installed, but no direct module registration or integration owner was detected.'
+            : 'No direct @lupinum/trellis module registration or Trellis integration owner was detected.',
+      fixHint: directTrellisApp
+        ? 'Run trellis doctor for direct Trellis app checks.'
+        : integrationManaged
+          ? `Run ${formatIntegrationDoctorCommand(integrationOwners)} for integration-specific checks.`
+          : hasDependency(project, '@lupinum/trellis')
+            ? 'Register @lupinum/trellis in nuxt.config.* or install/register an integration package that declares Trellis ownership.'
+            : 'No action needed unless this app is expected to use Trellis directly or through an integration package.',
+    },
+    {
       id: 'nuxt-app-root',
       category: 'core',
       title: 'Nuxt app structure',
@@ -120,41 +168,56 @@ function createDoctorFindings(
       id: 'module-installed',
       category: 'core',
       title: '@lupinum/trellis dependency',
-      status: hasDependency(project, '@lupinum/trellis') ? 'pass' : 'fail',
+      status: hasDependency(project, '@lupinum/trellis') || integrationManaged ? 'pass' : 'fail',
       message: hasDependency(project, '@lupinum/trellis')
         ? '@lupinum/trellis is declared in package.json.'
-        : '@lupinum/trellis is not declared in dependencies or devDependencies.',
-      fixHint: hasDependency(project, '@lupinum/trellis')
-        ? 'Keep the module installed in the consumer app.'
-        : 'Add @lupinum/trellis to the app package.json.',
+        : integrationManaged
+          ? `Direct @lupinum/trellis dependency is not required because ${formatIntegrationOwners(integrationOwners)} owns the Trellis runtime.`
+          : '@lupinum/trellis is not declared in dependencies or devDependencies.',
+      fixHint:
+        hasDependency(project, '@lupinum/trellis') || integrationManaged
+          ? 'Keep Trellis dependency ownership aligned with the app owner.'
+          : 'Add @lupinum/trellis to the app package.json.',
     },
     {
       id: 'module-registered',
       category: 'core',
       title: 'Nuxt module registration',
-      status: hasBetterConvexNuxtRegistration(project) ? 'pass' : 'fail',
+      status: hasBetterConvexNuxtRegistration(project) || integrationManaged ? 'pass' : 'fail',
       message: hasBetterConvexNuxtRegistration(project)
         ? 'nuxt.config registers @lupinum/trellis in modules.'
-        : 'Could not find "@lupinum/trellis" inside the nuxt.config modules array.',
-      fixHint: hasBetterConvexNuxtRegistration(project)
-        ? 'Keep the module in the Nuxt modules array.'
-        : 'Add "@lupinum/trellis" to modules in nuxt.config.*.',
+        : integrationManaged
+          ? `Direct @lupinum/trellis module registration is skipped because ${formatIntegrationOwners(integrationOwners)} owns module setup.`
+          : 'Could not find "@lupinum/trellis" inside the nuxt.config modules array.',
+      fixHint:
+        hasBetterConvexNuxtRegistration(project) || integrationManaged
+          ? 'Keep module ownership aligned with the app owner.'
+          : 'Add "@lupinum/trellis" to modules in nuxt.config.*.',
     },
     {
       id: 'canonical-layout',
       category: 'core',
       title: 'Canonical Trellis layout',
-      status: !isNuxtApp ? 'pass' : missingCanonicalLayoutPaths.length === 0 ? 'pass' : 'fail',
+      status:
+        !isNuxtApp || integrationManaged
+          ? 'pass'
+          : missingCanonicalLayoutPaths.length === 0
+            ? 'pass'
+            : 'fail',
       message: !isNuxtApp
         ? 'Skipping canonical layout checks because this is not a Nuxt app root.'
-        : missingCanonicalLayoutPaths.length === 0
-          ? 'Found the canonical convex/, shared/features/, app/pages/, and server/ layout.'
-          : `Missing canonical paths: ${missingCanonicalLayoutPaths.join(', ')}.`,
+        : integrationManaged
+          ? `Skipping canonical Trellis starter layout checks because ${formatIntegrationOwners(integrationOwners)} manages the app integration.`
+          : missingCanonicalLayoutPaths.length === 0
+            ? 'Found the canonical convex/, shared/features/, app/pages/, and server/ layout.'
+            : `Missing canonical paths: ${missingCanonicalLayoutPaths.join(', ')}.`,
       fixHint: !isNuxtApp
         ? 'Run doctor inside a generated Trellis app root.'
-        : missingCanonicalLayoutPaths.length === 0
-          ? 'Keep the generated Trellis layout intact.'
-          : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template public|personal|workspace|workspace-mcp`.',
+        : integrationManaged
+          ? `Run ${formatIntegrationDoctorCommand(integrationOwners)} for integration-specific layout checks.`
+          : missingCanonicalLayoutPaths.length === 0
+            ? 'Keep the generated Trellis layout intact.'
+            : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template public|personal|workspace|workspace-mcp`.',
     },
     {
       id: 'convex-installed',
@@ -329,24 +392,26 @@ function createDoctorFindings(
     ...collectInventoryDoctorFindings(inventory),
     ...collectPermissionInventoryFindings(inventory, project),
   ]
-  const moduleValidationFindings = collectModuleValidationFindings({
-    rootDir: cwd,
-    authEnabled: authExpected,
-  }).map(
-    (finding): DoctorFinding => ({
-      id: finding.id,
-      category: 'core' as const,
-      title: toDoctorFindingTitle(finding.id),
-      status: 'fail' as const,
-      message: finding.message,
-      fixHint:
-        finding.id === 'isolation-table-coverage' || finding.id === 'isolation-valid'
-          ? 'Align convex/schema.ts, convex/features/*/feature.ts, and convex/functions.ts so the derived manifest tenant classification is complete and non-conflicting.'
-          : finding.id === 'destructive-safety-schema'
-            ? 'Restore the destructive-safety tables in convex/schema.ts, including the stored confirmation fields, audit fields, and `by_token_hash`, `by_jti`, and `by_expires_at` indexes.'
-            : 'Align the project source with the canonical Trellis contract.',
-    }),
-  )
+  const moduleValidationFindings = directTrellisApp
+    ? collectModuleValidationFindings({
+        rootDir: cwd,
+        authEnabled: authExpected,
+      }).map(
+        (finding): DoctorFinding => ({
+          id: finding.id,
+          category: 'core' as const,
+          title: toDoctorFindingTitle(finding.id),
+          status: 'fail' as const,
+          message: finding.message,
+          fixHint:
+            finding.id === 'isolation-table-coverage' || finding.id === 'isolation-valid'
+              ? 'Align convex/schema.ts, convex/features/*/feature.ts, and convex/functions.ts so the derived manifest tenant classification is complete and non-conflicting.'
+              : finding.id === 'destructive-safety-schema'
+                ? 'Restore the destructive-safety tables in convex/schema.ts, including the stored confirmation fields, audit fields, and `by_token_hash`, `by_jti`, and `by_expires_at` indexes.'
+                : 'Align the project source with the canonical Trellis contract.',
+        }),
+      )
+    : []
 
   return [...baseFindings, ...moduleValidationFindings]
 }
@@ -392,7 +457,7 @@ export async function buildDoctorReport(
 export const doctorCommand = defineCommand({
   meta: {
     name: 'doctor',
-    description: 'Inspect a Nuxt app for @lupinum/trellis setup issues',
+    description: 'Run static diagnostics for @lupinum/trellis setup issues',
   },
   args: {
     cwd: {
@@ -434,11 +499,11 @@ export const doctorCommand = defineCommand({
     }
 
     logger?.debug(`Inspecting ${cwd}`)
-    loadingSpinner?.start(`Inspecting ${cwd}`)
+    loadingSpinner?.start(`Running static diagnostics for ${cwd}`)
 
     const report = await buildDoctorReport(cwd, { production: Boolean(args.production) })
 
-    loadingSpinner?.stop('Inspection complete')
+    loadingSpinner?.stop('Static diagnostics complete')
     logger?.debug(`Found ${report.summary.fail} failures and ${report.summary.warn} warnings`)
 
     renderDoctorReport(report, {

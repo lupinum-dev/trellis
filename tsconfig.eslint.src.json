@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.mts", "src/**/*.d.ts"],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "apps",
+    "examples",
+    "labs",
+    "tests",
+    "src/cli/add-fixtures",
+    "src/cli/starter-fixtures"
+  ]
+}
