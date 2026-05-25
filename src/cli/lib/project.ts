@@ -282,7 +282,7 @@ function collectNuxtConfigPackageLiterals(project: ProjectInspection): Set<strin
       continue
     }
 
-    if (value === '@lupinum/trellis' || /^[a-z0-9@][a-z0-9._/-]*$/i.test(value)) {
+    if (value === '@lupinum/trellis' || /^[\w@][\w./-]*$/.test(value)) {
       packageNames.add(value)
     }
   }
