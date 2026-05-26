@@ -14,6 +14,10 @@ function matchesAuthUsage(text: string): boolean {
   )
 }
 
+function isRuntimeSourceFile(path: string): boolean {
+  return !/(?:^|\/)(?:test|tests)\//u.test(path.replaceAll('\\', '/'))
+}
+
 function tenantClassificationLabel(source: 'manifest' | 'functions'): string {
   return source === 'manifest' ? 'the composed feature manifest' : '`isolation`'
 }
@@ -26,8 +30,8 @@ export function collectModuleValidationFindings(options: {
   const findings: ModuleValidationFinding[] = []
 
   if (!options.authEnabled) {
-    const authUsages = collectProjectSourceFiles(options.rootDir).filter((file) =>
-      matchesAuthUsage(file.text),
+    const authUsages = collectProjectSourceFiles(options.rootDir).filter(
+      (file) => isRuntimeSourceFile(file.path) && matchesAuthUsage(file.text),
     )
     if (authUsages.length > 0) {
       findings.push({

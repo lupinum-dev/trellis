@@ -131,6 +131,7 @@ export interface ModuleOptions {
    *
    * Shorthand forms:
    * - `auth: true` — enable auth with all defaults
+   * - `auth: {}` — enable auth with all defaults
    *
    * Full object form for advanced configuration:
    * - `auth: { routeProtection: { redirectTo: '/login' }, cache: { enabled: true } }`
@@ -139,6 +140,7 @@ export interface ModuleOptions {
    * ```ts
    * // Zero-config auth:
    * trellis: { auth: true }
+   * trellis: { auth: {} }
    *
    * // Full control:
    * trellis: { auth: { routeProtection: { redirectTo: '/login', preserveReturnTo: true } } }

@@ -49,29 +49,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
-    auth: {
-      enabled: false,
-      route: '/api/auth',
-      trustedOrigins: [],
-      skipAuthTokenFetchRoutes: [],
-      routeProtection: {
-        redirectTo: '/auth/signin',
-        preserveReturnTo: true,
-      },
-      unauthorized: {
-        enabled: false,
-        redirectTo: '/auth/signin',
-        includeQueries: false,
-      },
-      cache: {
-        enabled: false,
-        ttl: 60,
-      },
-      proxy: {
-        maxRequestBodyBytes: 1_048_576,
-        maxResponseBodyBytes: 1_048_576,
-      },
-    },
+    auth: false,
     permissions: undefined,
     mcp: undefined,
     query: {

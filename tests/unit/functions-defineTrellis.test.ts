@@ -2,7 +2,12 @@ import { v } from 'convex/values'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { open } from '../../src/runtime/auth'
-import { defineTrellis, trellisBackendLaneMetadataKey, unsafe } from '../../src/runtime/backend'
+import {
+  defineCaller,
+  defineTrellis,
+  trellisBackendLaneMetadataKey,
+  unsafe,
+} from '../../src/runtime/backend'
 import {
   createConfirmationToken,
   hashConfirmationValue,
@@ -22,42 +27,75 @@ type MemoryRow = Record<string, unknown>
 function createMemoryDb() {
   const tables: Record<string, MemoryRow[]> = {}
 
+  const tableFromId = (id: unknown) => {
+    if (typeof id !== 'string') return null
+    const serviceSeparator = id.lastIndexOf(';')
+    if (serviceSeparator !== -1) return id.slice(serviceSeparator + 1)
+    const localSeparator = id.indexOf(':')
+    return localSeparator === -1 ? null : id.slice(0, localSeparator)
+  }
+
+  const findRow = (id: string) => {
+    for (const [table, rows] of Object.entries(tables)) {
+      const row = rows.find((candidate) => candidate._id === id)
+      if (row) return { table, row, rows }
+    }
+    return null
+  }
+
+  const createQuery = (table: string, rows: MemoryRow[]) => ({
+    withIndex: (
+      _indexName: string,
+      callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
+    ) => {
+      const filters: Array<{ field: string; value: unknown }> = []
+      callback({
+        eq: (field, value) => {
+          filters.push({ field, value })
+          return null
+        },
+      })
+      return createQuery(
+        table,
+        rows.filter((row) => filters.every((filter) => row[filter.field] === filter.value)),
+      )
+    },
+    collect: async () => [...rows],
+    unique: async () => {
+      if (rows.length > 1) {
+        throw new Error(`unique() query returned more than one result from "${table}".`)
+      }
+      return rows[0] ?? null
+    },
+    first: async () => rows[0] ?? null,
+    take: async (count: number) => rows.slice(0, count),
+    order: () => createQuery(table, rows),
+    fullTableScan: () => createQuery(table, rows),
+    async *[Symbol.asyncIterator]() {
+      for (const row of rows) yield row
+    },
+  })
+
   return {
     tables,
     db: {
-      query: (table: string) => ({
-        withIndex: (
-          _indexName: string,
-          callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
-        ) => {
-          const filters: Array<{ field: string; value: unknown }> = []
-          callback({
-            eq: (field, value) => {
-              filters.push({ field, value })
-              return null
-            },
-          })
-          return {
-            unique: async () =>
-              (tables[table] ?? []).find((row) =>
-                filters.every((filter) => row[filter.field] === filter.value),
-              ) ?? null,
-          }
-        },
-      }),
+      normalizeId: (table: string, id: unknown) => (tableFromId(id) === table ? id : null),
+      get: async (arg0: string, arg1?: string) => {
+        const id = arg1 ?? arg0
+        return findRow(id)?.row ?? null
+      },
+      query: (table: string) => createQuery(table, tables[table] ?? []),
       insert: async (table: string, value: MemoryRow) => {
         tables[table] ??= []
-        const id = `${table}:${tables[table].length + 1}`
+        const id = `${table}:${tables[table].length + 1};${table}`
         tables[table].push({ _id: id, ...value })
         return id
       },
       patch: async (id: string, value: MemoryRow) => {
-        for (const rows of Object.values(tables)) {
-          const row = rows.find((candidate) => candidate._id === id)
-          if (row) {
-            Object.assign(row, value)
-            return null
-          }
+        const match = findRow(id)
+        if (match) {
+          Object.assign(match.row, value)
+          return null
         }
         throw new Error(`Missing row "${id}"`)
       },
@@ -1332,5 +1370,159 @@ describe('defineTrellis', () => {
     expect(executions).toBe(0)
     expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
+  })
+
+  it('applies derived service tenant scope to configured tables', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async () => ({
+        kind: 'service' as const,
+        serviceId: 'sync',
+        subject: 'service:sync' as const,
+      }),
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        isolation: {
+          tables: ['tasks'] as never[],
+          field: 'workspaceId',
+        },
+        services: {
+          sync: {
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'derived',
+              deriveTenant: ({ args }) => args.tenantWorkspaceId as string,
+            },
+          },
+        },
+      },
+    )
+    const definition = runtime.query.public({
+      args: {
+        rowWorkspaceId: v.string(),
+        tenantWorkspaceId: v.string(),
+      },
+      handler: async (ctx, args) => {
+        return await ctx.db
+          .query('tasks' as never)
+          .withIndex('by_workspace', (q) => q.eq('workspaceId', args.rowWorkspaceId))
+          .unique()
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { rowWorkspaceId: string; tenantWorkspaceId: string },
+      ) => Promise<{ title: string; workspaceId: string } | null>
+    }
+    const memory = createMemoryDb()
+    await memory.db.insert('tasks', { title: 'one', workspaceId: 'ws_1' })
+    await memory.db.insert('tasks', { title: 'two', workspaceId: 'ws_2' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { rowWorkspaceId: 'ws_1', tenantWorkspaceId: 'ws_1' },
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        title: 'one',
+        workspaceId: 'ws_1',
+      }),
+    )
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { rowWorkspaceId: 'ws_2', tenantWorkspaceId: 'ws_1' },
+      ),
+    ).rejects.toThrow(/Service scope denied access/)
+  })
+
+  it('keeps global service access table-restricted but row-unscoped', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async () => ({
+        kind: 'service' as const,
+        serviceId: 'sync',
+        subject: 'service:sync' as const,
+      }),
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        isolation: {
+          tables: ['tasks'] as never[],
+          field: 'workspaceId',
+        },
+        services: {
+          sync: {
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'global',
+            },
+          },
+        },
+      },
+    )
+    const definition = runtime.query.public({
+      args: {},
+      handler: async (ctx) => {
+        const tasks = await ctx.db.query('tasks' as never).collect()
+        let denied = false
+        try {
+          await ctx.db.query('comments' as never).collect()
+        } catch (error) {
+          denied = error instanceof Error && /no access to table "comments"/i.test(error.message)
+        }
+        return { denied, titles: tasks.map((task) => task.title) }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<{ denied: boolean; titles: string[] }>
+    }
+    const memory = createMemoryDb()
+    await memory.db.insert('tasks', { title: 'one', workspaceId: 'ws_1' })
+    await memory.db.insert('tasks', { title: 'two', workspaceId: 'ws_2' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).resolves.toEqual({
+      denied: true,
+      titles: ['one', 'two'],
+    })
   })
 })

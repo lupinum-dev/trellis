@@ -23,6 +23,26 @@ function createFixture(files: Record<string, string>) {
 }
 
 describe('module-setup', () => {
+  it('normalizes auth shorthand without enabling auth by default', () => {
+    const cases: Array<{
+      label: string
+      options: Parameters<typeof deriveModuleSetupState>[0]
+      enabled: boolean
+    }> = [
+      { label: 'omitted auth', options: {}, enabled: false },
+      { label: 'auth false', options: { auth: false }, enabled: false },
+      { label: 'auth true', options: { auth: true }, enabled: true },
+      { label: 'empty auth object', options: { auth: {} }, enabled: true },
+      { label: 'disabled auth object', options: { auth: { enabled: false } }, enabled: false },
+    ]
+
+    for (const testCase of cases) {
+      expect(deriveModuleSetupState(testCase.options, {}).isAuthEnabled, testCase.label).toBe(
+        testCase.enabled,
+      )
+    }
+  })
+
   it('normalizes auth shorthand and assembles the public runtime config without dropping existing keys', () => {
     const setup = deriveModuleSetupState(
       {

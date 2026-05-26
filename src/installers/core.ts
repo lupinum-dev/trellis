@@ -10,15 +10,23 @@ interface InstallCoreOptions {
   resolver: ReturnType<typeof createResolver>
 }
 
+function resolveRuntimePlugin(
+  resolver: ReturnType<typeof createResolver>,
+  runtimePath: string,
+): string {
+  const builtPath = resolver.resolve(`${runtimePath}.js`)
+  return existsSync(builtPath) ? builtPath : resolver.resolve(runtimePath)
+}
+
 export function installCoreTrellis(options: InstallCoreOptions): void {
   const { nuxt, resolver } = options
 
   addPlugin({
-    src: resolver.resolve('./runtime/plugin.server'),
+    src: resolveRuntimePlugin(resolver, './runtime/plugin.server'),
     mode: 'server',
   })
 
-  addPlugin(resolver.resolve('./runtime/plugin.client'))
+  addPlugin(resolveRuntimePlugin(resolver, './runtime/plugin.client'))
 
   addTemplate({
     filename: 'types/trellis.d.ts',

@@ -2,9 +2,11 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 
+import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { collectConvexFunctionPaths } from '../../src/analysis/project'
+import { collectModuleValidationFindings } from '../../src/analysis/validation'
 
 const { loggerWarnMock, loggerInfoMock } = vi.hoisted(() => ({
   loggerWarnMock: vi.fn(),
@@ -83,6 +85,64 @@ describe('module validation', () => {
     expect(loggerWarnMock).toHaveBeenCalled()
     expect(String(loggerWarnMock.mock.calls[0]?.[0] ?? '')).toContain('auth.enabled')
   }, 15_000)
+
+  it('keeps an explicit empty auth object enabled after Nuxt default merging', async () => {
+    const rootDir = createFixture({
+      'pages/index.vue': `
+        <script setup lang="ts">
+        const auth = useConvexAuth()
+        </script>
+      `,
+    })
+    const moduleDefinition = (await import('../../src/module')).default as unknown as {
+      defaults: Record<string, unknown>
+      setup: (options: Record<string, unknown>, nuxt: ReturnType<typeof createNuxt>) => void
+    }
+    const mergedOptions = defu(
+      { auth: {}, validation: { strict: false } },
+      moduleDefinition.defaults,
+    )
+
+    expect(() => moduleDefinition.setup(mergedOptions, createNuxt(rootDir))).not.toThrow()
+    expect(loggerWarnMock.mock.calls.map((call) => String(call[0] ?? ''))).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('auth.enabled')]),
+    )
+  }, 15_000)
+
+  it('does not warn for auth-only APIs that only appear in tests', async () => {
+    const rootDir = createFixture({
+      'tests/auth.test.ts': `
+        import { useConvexAuth } from '@lupinum/trellis/composables'
+
+        useConvexAuth()
+      `,
+    })
+    const moduleDefinition = (await import('../../src/module')).default as unknown as {
+      setup: (options: Record<string, unknown>, nuxt: ReturnType<typeof createNuxt>) => void
+    }
+
+    expect(() =>
+      moduleDefinition.setup(
+        {
+          auth: false,
+          validation: { strict: false },
+        },
+        createNuxt(rootDir),
+      ),
+    ).not.toThrow()
+    expect(loggerWarnMock.mock.calls.map((call) => String(call[0] ?? ''))).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('auth.enabled')]),
+    )
+  }, 15_000)
+
+  it('keeps the maintained harness free of auth and isolation validation noise', () => {
+    const findings = collectModuleValidationFindings({
+      rootDir: resolve(process.cwd(), 'apps/harness'),
+      authEnabled: true,
+    })
+
+    expect(findings).toEqual([])
+  })
 
   it('throws in strict mode for isolation schema mismatches', async () => {
     const rootDir = createFixture({

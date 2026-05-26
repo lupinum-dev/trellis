@@ -6,6 +6,7 @@ Maintenance release for the first public line.
 
 ### Fixes
 
+- Fixed `trellis.auth: {}` so an explicit auth object now enables auth with defaults instead of inheriting the disabled module default.
 - Hardened `trellis doctor` and repository diagnostics for integration-package detection, starter validation, and clean checkout checks.
 - Stabilized CI by splitting memory-heavy lint/type paths and preparing generated package artifacts before consumer smoke tests.
 - Regenerated and verified component-bridge example outputs so bridge fixtures match the published package contracts.
