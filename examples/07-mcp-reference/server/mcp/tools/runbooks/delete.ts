@@ -1,16 +1,12 @@
 import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
-
-import { api } from '~/convex/_generated/api'
-import { removeRunbookDescriptor } from '~/shared/features/runbooks/contract'
+import { api } from '~~/convex/_generated/api'
+import { removeRunbookOp } from '~~/convex/features/runbooks/operations'
 
 import { tool } from '../../runtime'
 
-export default tool.operation(removeRunbookDescriptor, {
-  execute: executeOperationRef(removeRunbookDescriptor, api.features.runbooks.domain.remove),
-  preview: previewOperationRef(
-    removeRunbookDescriptor,
-    api.features.runbooks.operations.previewRemove,
-  ),
+export default tool.operation(removeRunbookOp, {
+  execute: executeOperationRef(removeRunbookOp, api.features.runbooks.domain.remove),
+  preview: previewOperationRef(removeRunbookOp, api.features.runbooks.domain.previewRemove),
   previewOperation: 'mutation',
   group: 'workspace',
   meta: {

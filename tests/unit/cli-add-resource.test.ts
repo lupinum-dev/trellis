@@ -19,7 +19,7 @@ async function createTempAppRoot(prefix: string) {
   return cwd
 }
 
-async function scaffoldApp(template: 'personal' | 'workspace', mcp = false) {
+async function scaffoldApp(template: 'public' | 'personal' | 'workspace', mcp = false) {
   const cwd = await createTempAppRoot(`${template}${mcp ? '-mcp' : ''}`)
   const initTemplate = getCanonicalAppTemplateSet({
     appName: 'demo-app',
@@ -222,22 +222,28 @@ describe('trellis add entity', () => {
     ).resolves.toContain('removeProjectOp')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain('removeProjectDescriptor')
+    ).resolves.toContain('removeProjectOp')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).resolves.toContain('api.features.projects.domain.remove')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/feature.ts'), 'utf8'),
-    ).resolves.toContain('operations: [removeProjectDescriptor]')
+    ).resolves.toContain('operations: [removeProjectOp]')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('permission: projectDeletePermission')
     await expect(
       readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
-    ).resolves.toContain("permission: 'project.delete'")
+    ).not.resolves.toContain('defineOperationDescriptor')
+    await expect(
+      readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
+    ).not.resolves.toContain('removeProjectDescriptor')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).not.resolves.toContain('permission: projectDeletePermission')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).not.resolves.toContain("from '~~/convex/features/projects/operations'")
+    ).resolves.toContain("from '~~/convex/features/projects/operations'")
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).not.resolves.toContain("from '~~/convex/features/projects/domain'")
@@ -288,6 +294,52 @@ describe('trellis add entity', () => {
   })
 })
 
+describe('trellis add hard cutovers', () => {
+  it('stops add auth before removing public starter files when the host page has edits', async () => {
+    const cwd = await scaffoldApp('public')
+    const pagePath = resolve(cwd, 'app/pages/index.vue')
+    await writeFile(pagePath, `${await readFile(pagePath, 'utf8')}\n<!-- product-owned edit -->\n`)
+
+    const template = await getAddTemplateSet({
+      feature: 'auth',
+      cwd,
+      appName: 'demo-app',
+    })
+
+    await expect(applyInitTemplateSet(cwd, template, false)).rejects.toThrow(
+      /protected files have local edits/,
+    )
+    await expect(
+      readFile(resolve(cwd, 'app/features/public/components/PublicStarterPage.vue'), 'utf8'),
+    ).resolves.toContain('Public Starter')
+    await expect(
+      readFile(resolve(cwd, 'app/features/personal/components/PersonalStarterPage.vue'), 'utf8'),
+    ).rejects.toThrow()
+  })
+
+  it('stops add workspace before removing personal starter files when the host page has edits', async () => {
+    const cwd = await scaffoldApp('personal')
+    const pagePath = resolve(cwd, 'app/pages/index.vue')
+    await writeFile(pagePath, `${await readFile(pagePath, 'utf8')}\n<!-- product-owned edit -->\n`)
+
+    const template = await getAddTemplateSet({
+      feature: 'workspace',
+      cwd,
+      appName: 'demo-app',
+    })
+
+    await expect(applyInitTemplateSet(cwd, template, false)).rejects.toThrow(
+      /protected files have local edits/,
+    )
+    await expect(
+      readFile(resolve(cwd, 'app/features/personal/components/PersonalStarterPage.vue'), 'utf8'),
+    ).resolves.toContain('Personal Starter')
+    await expect(
+      readFile(resolve(cwd, 'app/features/workspace/components/WorkspaceStarterPage.vue'), 'utf8'),
+    ).rejects.toThrow()
+  })
+})
+
 describe('trellis add uploads', () => {
   it('scaffolds the canonical upload seam with a shared contract and explicit unsafe boundary', async () => {
     const cwd = await scaffoldApp('workspace')
@@ -321,7 +373,11 @@ describe('trellis add uploads', () => {
 
 describe('trellis add mcp', () => {
   const mcpAddPaths = [
+    'AGENTS.md',
+    'README.md',
+    'app/features/workspace/components/WorkspaceStarterPage.vue',
     'server/middleware/mcp-auth.ts',
+    'server/lib/mcp-invalid-bearer-throttle.ts',
     'server/mcp/index.ts',
     'server/mcp/runtime.ts',
     'server/mcp/tools/list-todos.ts',
@@ -360,5 +416,30 @@ describe('trellis add mcp', () => {
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       'mcpKeys: defineTable',
     )
+    await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
+      "import { defineSchema, defineTable } from 'convex/server'",
+    )
+    await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
+      "import { v } from 'convex/values'",
+    )
+  })
+
+  it('keeps edited host files when adding MCP without force', async () => {
+    const cwd = await scaffoldApp('workspace')
+    const agentsPath = resolve(cwd, 'AGENTS.md')
+    await writeFile(agentsPath, '# Project Policy\n\nKeep this product-owned policy.\n', 'utf8')
+
+    const template = await getAddTemplateSet({
+      feature: 'mcp',
+      cwd,
+      appName: 'demo-app',
+    })
+    const result = await applyInitTemplateSet(cwd, template, false)
+
+    await expect(readFile(agentsPath, 'utf8')).resolves.toBe(
+      '# Project Policy\n\nKeep this product-owned policy.\n',
+    )
+    expect(result.skipped).toContain('AGENTS.md')
+    expect(result.written).toContain('server/mcp/index.ts')
   })
 })

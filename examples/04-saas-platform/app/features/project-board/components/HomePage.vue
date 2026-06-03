@@ -396,14 +396,16 @@ const displayName = computed(
 const currentWorkspace = computed(() => ctx.value?.workspace ?? null)
 const canCreateProject = can(projectCreate)
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
-const recordRuleRows = [
+type Role = (typeof allRoles)[number]
+type PermissionMatrixRow = { label: string; roles: Role[] }
+const recordRuleRows: PermissionMatrixRow[] = [
   { label: 'Update own task', roles: ['owner', 'admin', 'member'] },
   { label: 'Delete own task', roles: ['owner', 'admin', 'member'] },
 ]
-const permissionMatrix = [
-  ...projectPermissionMatrix,
-  ...taskPermissionMatrix,
-  ...commentPermissionMatrix,
+const permissionMatrix: PermissionMatrixRow[] = [
+  ...projectPermissionMatrix.map((row) => ({ ...row, roles: [...row.roles] as Role[] })),
+  ...taskPermissionMatrix.map((row) => ({ ...row, roles: [...row.roles] as Role[] })),
+  ...commentPermissionMatrix.map((row) => ({ ...row, roles: [...row.roles] as Role[] })),
   ...recordRuleRows,
 ]
 

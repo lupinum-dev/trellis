@@ -121,7 +121,6 @@ function resourceContractTemplate(ctx: ResourceGeneratorContext): string {
 
   return `
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const ${createName} = defineArgs({
@@ -144,25 +143,6 @@ export const ${deleteName} = defineArgs({
   args: {
     id: v.id('${ctx.tableName}'),
   },
-})
-
-export const remove${ctx.singularPascal}Descriptor = defineOperationDescriptor({
-  id: '${ctx.tableName}.remove',
-  name: 'remove${ctx.singularPascal}',
-  kind: 'destructive',
-  args: ${deleteName}.args,
-  permission: '${ctx.permissionPrefix}.delete',
-  safety: 'destructive-write',
-  returns: v.null(),
-  previewReturns: operationPreviewValidator({
-    confirm: v.object({
-      operation: v.literal('${ctx.tableName}.remove'),
-      targetId: v.id('${ctx.tableName}'),
-      affectedCounts: v.object({
-        ${ctx.tableName}: v.number(),
-      }),
-    }),
-  }),
 })
 
 export const ${getName} = defineArgs({
@@ -220,15 +200,20 @@ export const ${ctx.singularCamel}Permissions = [
 function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { requireRecord } from '@lupinum/trellis/auth'
-import { implementOperation, operationEffect, operationIssue, operationPreview, previewOf } from '@lupinum/trellis/backend'
+import { operation, operationEffect, operationIssue, operationPreview, previewOf } from '@lupinum/trellis/app'
 
-import { remove${ctx.singularPascal}Descriptor } from '../../../shared/features/${ctx.tableName}/contract'
+import { delete${ctx.singularPascal} } from '../../../shared/features/${ctx.tableName}/contract'
 import { ${ctx.singularCamel}DeletePermission } from './permissions'
 import { mutation } from '../../functions'
 
-export const remove${ctx.singularPascal}Op = implementOperation(remove${ctx.singularPascal}Descriptor, {
-  identityForwardingFunctionRef: 'features/${ctx.tableName}/domain:remove',
+export const remove${ctx.singularPascal}Op = operation.destructive({
+  id: '${ctx.tableName}.remove',
+  name: 'remove${ctx.singularPascal}',
+  args: delete${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}DeletePermission,
+  permission: ${ctx.singularCamel}DeletePermission,
+  safety: 'destructive-write',
+  identityForwardingFunctionRef: 'features/${ctx.tableName}/domain:remove',
   load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')
@@ -525,17 +510,17 @@ function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 import { api } from '#trellis/api'
-import { remove${ctx.singularPascal}Descriptor } from '~~/shared/features/${ctx.tableName}/contract'
+import { remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
 
 import { tool } from '../runtime'
 
-export default tool.operation(remove${ctx.singularPascal}Descriptor, {
+export default tool.operation(remove${ctx.singularPascal}Op, {
   execute: executeOperationRef(
-    remove${ctx.singularPascal}Descriptor,
+    remove${ctx.singularPascal}Op,
     api.features.${ctx.tableName}.domain.remove,
   ),
   preview: previewOperationRef(
-    remove${ctx.singularPascal}Descriptor,
+    remove${ctx.singularPascal}Op,
     api.features.${ctx.tableName}.operations.previewRemove${ctx.singularPascal},
   ),
   previewOperation: 'mutation',
@@ -576,11 +561,9 @@ ${schemaTableBlock(ctx).trimEnd()}
 function resourceFeatureTemplate(ctx: ResourceGeneratorContext): string {
   const permissionsLine = `  permissions: ${ctx.singularCamel}Permissions,\n`
   const operationsImport = ctx.hasMcp
-    ? `import { remove${ctx.singularPascal}Descriptor } from '../../../shared/features/${ctx.tableName}/contract'\n`
+    ? `import { remove${ctx.singularPascal}Op } from './operations'\n`
     : ''
-  const operationsLine = ctx.hasMcp
-    ? `  operations: [remove${ctx.singularPascal}Descriptor],\n`
-    : ''
+  const operationsLine = ctx.hasMcp ? `  operations: [remove${ctx.singularPascal}Op],\n` : ''
 
   return `
 import { defineFeature } from '@lupinum/trellis/workspace'

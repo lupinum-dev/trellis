@@ -17,6 +17,12 @@ async function handleCreateTodo() {
   await createTodoMutation(parsed.data)
   title.value = ''
 }
+
+async function handleRemoveTodo(todo: { _id: string; title: string }) {
+  if (!confirm(`Delete "${todo.title}"?`)) return
+
+  await removeTodo({ id: todo._id as never })
+}
 </script>
 
 <template>
@@ -40,7 +46,9 @@ async function handleCreateTodo() {
             />
             <span>{{ todo.title }}</span>
           </label>
-          <button @click="removeTodo({ id: todo._id })">Delete</button>
+          <button :disabled="removeTodo.pending.value" @click="handleRemoveTodo(todo)">
+            Delete
+          </button>
         </li>
       </ul>
     </div>

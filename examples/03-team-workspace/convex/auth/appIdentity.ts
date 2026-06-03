@@ -12,7 +12,8 @@ type TeamTodoCtx =
 
 export type { Role } from './caller'
 
-export type AppIdentity = DefaultAppIdentity & {
+export type AppIdentity = Omit<DefaultAppIdentity, 'role' | 'userId' | 'workspaceId'> & {
+  userId: Id<'users'>
   role: Role
   workspaceId?: Id<'workspaces'>
 }

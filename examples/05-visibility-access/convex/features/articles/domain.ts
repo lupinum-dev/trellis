@@ -3,6 +3,7 @@
  * Articles combine the example's hard parts: visibility, redaction, enrollment,
  * prerequisites, share tokens, and inherited access.
  */
+import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
 import {
   deny,
   enforce,
@@ -19,6 +20,9 @@ import {
   seedDemoArticles,
   viewArticle,
 } from '../../../shared/features/articles/contract'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { getAppIdentity } from '../../auth/appIdentity'
 import { hasRole } from '../../auth/guards'
 import { mutation, query } from '../../functions'
@@ -40,17 +44,56 @@ function isStaffActor(
   return hasRole('owner', 'admin', 'editor')(appIdentity)
 }
 
-export const list = query.protected({
+function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
+  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
+    reason,
+  })
+}
+
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type ListArticlesArgs = { knowledgeBaseId: Id<'knowledgeBases'> }
+type ViewArticleArgs = { id: Id<'articles'>; shareToken?: string }
+type CreateArticleArgs = {
+  knowledgeBaseId: Id<'knowledgeBases'>
+  title: string
+  body: string
+  visibility: 'private' | 'team' | 'workspace'
+  parentArticleId?: Id<'articles'>
+  internalNotes?: string
+  prerequisiteIds?: Id<'articles'>[]
+  availableAfter?: number
+}
+type PublishArticleArgs = { id: Id<'articles'> }
+type MarkArticleCompletedArgs = { articleId: Id<'articles'> }
+type CreateShareTokenArgs = {
+  articleId: Id<'articles'>
+  level: 'view' | 'comment' | 'edit'
+  expiresInMs?: number
+}
+type SeedDemoArticlesArgs = { knowledgeBaseId: Id<'knowledgeBases'> }
+type LoadedKnowledgeBase = { knowledgeBase: Doc<'knowledgeBases'> }
+type LoadedArticle = { article: Doc<'articles'> }
+
+export const listArticlesOp = operation.query({
+  id: 'articles.list',
   guard: articleRead,
   args: listArticles.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (ctx: WorkspaceQueryCtx, args: ListArticlesArgs): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.knowledgeBaseId),
+      (await ctx.db.get(args.knowledgeBaseId)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
-  handler: async (ctx, _args, { knowledgeBase }) => {
+  handler: async (ctx: WorkspaceQueryCtx, _args: ListArticlesArgs, { knowledgeBase }) => {
     const appIdentity = await ctx.appIdentity()
 
     const allArticles = await ctx.db
@@ -75,14 +118,18 @@ export const list = query.protected({
   },
 })
 
-export const view = query.public({
+export const list = query.protected(listArticlesOp)
+
+export const viewArticleOp = operation.query({
+  id: 'articles.view',
   args: viewArticle.args,
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args: ViewArticleArgs) => {
     // Keep the cross-scope seam narrow: this is only for one hashed share token resolving one
     // article before a workspace appIdentity exists.
-    const crossTenantDb = ctx.db.escapeIsolation({
-      reason: 'Resolve share-token reads across-scope boundaries.',
-    })
+    const crossTenantDb = escapeIsolation(
+      ctx.db,
+      'Resolve share-token reads across-scope boundaries.',
+    )
 
     if (args.shareToken) {
       const grant = await resolveShareToken(crossTenantDb, args.shareToken)
@@ -109,22 +156,29 @@ export const view = query.public({
   },
 })
 
-export const create = mutation.protected({
+export const view = query.public(viewArticleOp)
+
+export const createArticleOp = operation.mutation({
+  id: 'articles.create',
   guard: articleCreate,
   args: createArticle.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: CreateArticleArgs,
+  ): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.knowledgeBaseId),
+      (await ctx.db.get(args.knowledgeBaseId)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateArticleArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     const now = Date.now()
     return ctx.db.insert('articles', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: args.title,
       body: args.body,
@@ -141,25 +195,44 @@ export const create = mutation.protected({
   },
 })
 
-export const publish = mutation.protected({
+export const create = mutation.protected(createArticleOp)
+
+export const publishArticleOp = operation.mutation({
+  id: 'articles.publish',
   guard: articleCreate,
   args: publishArticle.args,
-  load: async (ctx, args) => ({
-    article: loadResource(await ctx.appIdentity(), await ctx.db.get(args.id), 'Article'),
+  scope: workspaceScope(),
+  load: async (ctx: WorkspaceMutationCtx, args: PublishArticleArgs): Promise<LoadedArticle> => ({
+    article: loadResource(
+      await ctx.appIdentity(),
+      (await ctx.db.get(args.id)) as Doc<'articles'> | null,
+      'Article',
+    ),
   }),
-  handler: async (ctx, args, { article }) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: PublishArticleArgs, { article }) => {
     if (article.status === 'published') throw deny('Already published.')
     await ctx.db.patch(args.id, { status: 'published', updatedAt: Date.now() })
   },
 })
 
-export const markCompleted = mutation.protected({
+export const publish = mutation.protected(publishArticleOp)
+
+export const markArticleCompletedOp = operation.mutation({
+  id: 'articles.mark-completed',
   guard: articleRead,
   args: markArticleCompleted.args,
-  load: async (ctx, args) => ({
-    article: loadResource(await ctx.appIdentity(), await ctx.db.get(args.articleId), 'Article'),
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: MarkArticleCompletedArgs,
+  ): Promise<LoadedArticle> => ({
+    article: loadResource(
+      await ctx.appIdentity(),
+      (await ctx.db.get(args.articleId)) as Doc<'articles'> | null,
+      'Article',
+    ),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: MarkArticleCompletedArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     const existing = await ctx.db
@@ -177,7 +250,7 @@ export const markCompleted = mutation.protected({
     }
 
     return ctx.db.insert('articleProgress', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       userId: appIdentity.userId,
       articleId: args.articleId,
       completedAt: Date.now(),
@@ -186,20 +259,26 @@ export const markCompleted = mutation.protected({
   },
 })
 
-export const createShareToken = mutation.protected({
+export const markCompleted = mutation.protected(markArticleCompletedOp)
+
+export const createArticleShareTokenOp = operation.mutation({
+  id: 'shareTokens.create',
   guard: shareCreate,
   args: createArticleShareToken.args,
-  load: async (ctx, args) => ({
-    article: loadResource(await ctx.appIdentity(), await ctx.db.get(args.articleId), 'Article'),
+  scope: workspaceScope(),
+  load: async (ctx: WorkspaceMutationCtx, args: CreateShareTokenArgs): Promise<LoadedArticle> => ({
+    article: loadResource(
+      await ctx.appIdentity(),
+      (await ctx.db.get(args.articleId)) as Doc<'articles'> | null,
+      'Article',
+    ),
   }),
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateShareTokenArgs) => {
     const token = createShareTokenValue()
     const hash = await hashShareToken(token)
 
     await ctx.db.insert('shareTokens', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       articleId: args.articleId,
       prefix: shareTokenPrefix(token),
       hash,
@@ -212,26 +291,32 @@ export const createShareToken = mutation.protected({
   },
 })
 
-export const revokeShareToken = mutation.protected({
-  ...revokeShareTokenOp,
-})
+export const createShareToken = mutation.protected(createArticleShareTokenOp)
 
-export const seed = mutation.protected({
+export const previewRevokeShareToken = mutation.protected(previewOf(revokeShareTokenOp))
+export const revokeShareToken = mutation.protected(revokeShareTokenOp)
+
+export const seedDemoArticlesOp = operation.mutation({
+  id: 'articles.seed-demo',
   guard: articleCreate,
   args: seedDemoArticles.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: SeedDemoArticlesArgs,
+  ): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.knowledgeBaseId),
+      (await ctx.db.get(args.knowledgeBaseId)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: SeedDemoArticlesArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     const now = Date.now()
     const introId = await ctx.db.insert('articles', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: 'Getting Started',
       body: 'Welcome to the knowledge base. This is the intro article.',
@@ -243,7 +328,7 @@ export const seed = mutation.protected({
     })
 
     await ctx.db.insert('articles', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: 'Advanced Topics',
       body: 'Deep dive into advanced patterns. Requires completing the intro first.',
@@ -256,7 +341,7 @@ export const seed = mutation.protected({
     })
 
     await ctx.db.insert('articles', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: 'Internal Review Notes',
       body: 'Sensitive review content for editors only.',
@@ -272,3 +357,5 @@ export const seed = mutation.protected({
     return introId
   },
 })
+
+export const seed = mutation.protected(seedDemoArticlesOp)

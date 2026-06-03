@@ -1,8 +1,8 @@
 import { stampMcpToolSafety } from '@lupinum/trellis/mcp'
+import { runbookCreate } from '~~/convex/features/runbooks/permissions'
+import { updateRunbook } from '~~/shared/features/runbooks/contract'
 
 import { api } from '#trellis/api'
-import { runbookCreate } from '~/convex/features/runbooks/permissions'
-import { updateRunbook } from '~/shared/features/runbooks/contract'
 
 import { tool } from '../../runtime'
 

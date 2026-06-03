@@ -1,10 +1,21 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 
 import { beforeAll, describe, expect, it } from 'vitest'
+
+import { buildDoctorReport } from '../../src/cli/lib/doctor-report'
 
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
@@ -38,6 +49,55 @@ function createTempDir(prefix: string): string {
 
 function read(path: string): string {
   return readFileSync(path, 'utf8')
+}
+
+function listGeneratedFiles(root: string, dir = root): string[] {
+  return readdirSync(dir)
+    .flatMap((entry) => {
+      const path = resolve(dir, entry)
+      const stat = statSync(path)
+      if (stat.isDirectory()) return listGeneratedFiles(root, path)
+      return [relative(root, path).replaceAll('\\', '/')]
+    })
+    .sort()
+}
+
+function stableJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableJson)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, nested]) => [key, stableJson(nested)]),
+  )
+}
+
+function comparableGeneratedFile(root: string, file: string): string {
+  const source = read(resolve(root, file))
+  if (file.endsWith('.json')) {
+    return `${JSON.stringify(stableJson(JSON.parse(source)), null, 2)}\n`
+  }
+  return source
+}
+
+function envExampleKeys(appRoot: string): string[] {
+  return read(resolve(appRoot, '.env.example'))
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('=')[0]!)
+}
+
+function expectGeneratedTreesEqual(actualRoot: string, expectedRoot: string): void {
+  const actualFiles = listGeneratedFiles(actualRoot)
+  const expectedFiles = listGeneratedFiles(expectedRoot)
+
+  expect(actualFiles).toEqual(expectedFiles)
+  for (const file of expectedFiles) {
+    expect(comparableGeneratedFile(actualRoot, file)).toBe(
+      comparableGeneratedFile(expectedRoot, file),
+    )
+  }
 }
 
 function parseJsonOutput<T>(output: string): T {
@@ -276,19 +336,211 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot, { auth: false, permissions: false })
+    expect(read(resolve(appRoot, 'package.json'))).toContain('"packageManager": "pnpm@11.5.0"')
+    expect(read(resolve(appRoot, 'package.json'))).toContain('"node": ">=22.12.0"')
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('auth: false')
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('permissions:')
     expect(existsSync(resolve(appRoot, 'convex/auth.ts'))).toBe(false)
     expect(existsSync(resolve(appRoot, 'convex/permissions'))).toBe(false)
+    expect(read(resolve(appRoot, 'package.json'))).not.toContain('@nuxtjs/mcp-toolkit')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('mcp:')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('asyncContext: true')
+    expect(existsSync(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toBe(false)
+    expect(existsSync(resolve(appRoot, 'server/mcp/tools'))).toBe(false)
     expect(existsSync(resolve(appRoot, 'shared/features/todos/contract.ts'))).toBe(true)
     expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
     expect(functions).toContain('@lupinum/trellis/backend')
-    expect(todos).toContain('query.public({')
-    expect(todos).toContain('mutation.public({')
+    expect(todos).toContain('operation.query({')
+    expect(todos).toContain('operation.mutation({')
+    expect(todos).toContain('query.public(listTodosOp)')
+    expect(todos).toContain('mutation.public(createTodoOp)')
     expectNoOldBackendSurface(functions, 'public convex/functions.ts')
     expectNoOldBackendSurface(todos, 'public todos domain')
+  })
+
+  it('uses the public preset for the default operation ladder init', () => {
+    const cwd = createTempDir('trellis-init-default-public-')
+    const result = runCli(['init', 'demo-public', '--cwd', cwd], repoRoot)
+    const appRoot = resolve(cwd, 'demo-public')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expectCanonicalLayout(appRoot, { auth: false, permissions: false })
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('auth: false')
+    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain('operation.query({')
+  })
+
+  it('accepts --preset as the shortcut vocabulary for generated app shapes', () => {
+    const cwd = createTempDir('trellis-init-preset-workspace-')
+    const result = runCli(
+      ['init', 'demo-workspace', '--preset', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-workspace')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expectCanonicalLayout(appRoot, { auth: true, permissions: true })
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('permissions:')
+    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain('workspaceScope')
+  })
+
+  it('generates exact baseline env examples for each app shape', () => {
+    const expectedByPreset = {
+      public: ['CONVEX_URL'],
+      personal: ['CONVEX_URL', 'CONVEX_SITE_URL', 'SITE_URL', 'BETTER_AUTH_SECRET'],
+      workspace: ['CONVEX_URL', 'CONVEX_SITE_URL', 'SITE_URL', 'BETTER_AUTH_SECRET'],
+      'workspace-mcp': [
+        'CONVEX_URL',
+        'CONVEX_SITE_URL',
+        'SITE_URL',
+        'BETTER_AUTH_SECRET',
+        'CONVEX_IDENTITY_FORWARDING_KEY',
+        'TRELLIS_MCP_CONFIRMATION_KEY',
+      ],
+    } as const
+
+    for (const [preset, expectedKeys] of Object.entries(expectedByPreset)) {
+      const cwd = createTempDir(`trellis-env-${preset}-`)
+      const result = runCli(['init', 'demo-app', '--preset', preset, '--cwd', cwd], repoRoot)
+      const appRoot = resolve(cwd, 'demo-app')
+
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+      expect(envExampleKeys(appRoot)).toEqual([...expectedKeys])
+    }
+  })
+
+  it('adds the canonical auth lifecycle to a public app', () => {
+    const cwd = createTempDir('trellis-add-auth-')
+    const initResult = runCli(
+      ['init', 'demo-public', '--template', 'public', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-public')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+    const addResult = runCli(['add', 'auth', '--cwd', appRoot], repoRoot)
+
+    expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
+    expectCanonicalLayout(appRoot, { auth: true, permissions: false })
+    expect(read(resolve(appRoot, 'package.json'))).toContain('"better-auth":')
+    expect(read(resolve(appRoot, 'package.json'))).toContain('"@convex-dev/better-auth":')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('auth: true')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('bootstrap: false')
+    expect(read(resolve(appRoot, '.env.example'))).toContain('BETTER_AUTH_SECRET=replace-me')
+    expect(read(resolve(appRoot, 'convex/auth.ts'))).toContain(
+      'export const createUserIfNeeded = auth.createUserIfNeeded',
+    )
+    expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('import { userTables }')
+    expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('...userTables')
+    expect(existsSync(resolve(appRoot, 'app/plugins/trellisAuthBootstrap.client.ts'))).toBe(false)
+
+    writeDoctorEnv(appRoot)
+    const doctorResult = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<{
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number; warn: number }
+    }>(doctorResult.stdout)
+    expect(doctorResult.status, doctorResult.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.summary.warn).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'runtime-engine-baseline')).toEqual(
+      expect.objectContaining({ status: 'pass' }),
+    )
+    expect(report.findings.find((entry) => entry.id === 'trellis-auth-bootstrap-exported')).toEqual(
+      expect.objectContaining({ status: 'pass' }),
+    )
+  })
+
+  it('keeps add auth idempotent for an already authenticated app', () => {
+    const cwd = createTempDir('trellis-add-auth-existing-')
+    const initResult = runCli(
+      ['init', 'demo-personal', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-personal')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+    const addResult = runCli(['add', 'auth', '--cwd', appRoot], repoRoot)
+
+    expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
+    expect(addResult.stdout).toContain('skipped')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('auth: true')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('bootstrap: false')
+  })
+
+  it('adds the canonical workspace capability after auth', () => {
+    const cwd = createTempDir('trellis-add-workspace-')
+    const initResult = runCli(['init', 'demo-public', '--cwd', cwd], repoRoot)
+    const appRoot = resolve(cwd, 'demo-public')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+    const authResult = runCli(['add', 'auth', '--cwd', appRoot], repoRoot)
+    expect(authResult.status, `${authResult.stdout}\n${authResult.stderr}`).toBe(0)
+
+    const workspaceResult = runCli(['add', 'workspace', '--cwd', appRoot], repoRoot)
+
+    expect(workspaceResult.status, `${workspaceResult.stdout}\n${workspaceResult.stderr}`).toBe(0)
+    expectCanonicalLayout(appRoot, { auth: true, permissions: true })
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('permissions:')
+    expect(read(resolve(appRoot, 'app/pages/index.vue'))).toContain('WorkspaceStarterPage')
+    expect(read(resolve(appRoot, 'convex/functions.ts'))).toContain('isolation:')
+    expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('workspaceTables')
+    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain('workspaceScope()')
+    expect(read(resolve(appRoot, 'convex/features/users/schema.ts'))).toContain('workspaceId')
+    expect(existsSync(resolve(appRoot, 'convex/permissions/context.ts'))).toBe(true)
+    expect(existsSync(resolve(appRoot, 'shared/features/workspaces/contract.ts'))).toBe(true)
+  })
+
+  it('keeps add workspace idempotent for an existing workspace app', () => {
+    const cwd = createTempDir('trellis-add-workspace-existing-')
+    const initResult = runCli(
+      ['init', 'demo-workspace', '--preset', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-workspace')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+    const addResult = runCli(['add', 'workspace', '--cwd', appRoot], repoRoot)
+
+    expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
+    expect(addResult.stdout).toContain('skipped')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('permissions:')
+    expect(read(resolve(appRoot, 'app/pages/index.vue'))).toContain('WorkspaceStarterPage')
+  })
+
+  it('keeps presets mechanically equivalent to composed ladder steps', () => {
+    for (const preset of ['personal', 'workspace', 'workspace-mcp'] as const) {
+      const presetRoot = createTempDir(`trellis-preset-${preset}-`)
+      const ladderRoot = createTempDir(`trellis-ladder-${preset}-`)
+
+      const presetResult = runCli(
+        ['init', 'demo-app', '--preset', preset, '--cwd', presetRoot],
+        repoRoot,
+      )
+      expect(presetResult.status, `${presetResult.stdout}\n${presetResult.stderr}`).toBe(0)
+
+      const initResult = runCli(['init', 'demo-app', '--cwd', ladderRoot], repoRoot)
+      expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+      const ladderAppRoot = resolve(ladderRoot, 'demo-app')
+      const authResult = runCli(['add', 'auth', '--cwd', ladderAppRoot], repoRoot)
+      expect(authResult.status, `${authResult.stdout}\n${authResult.stderr}`).toBe(0)
+
+      if (preset === 'workspace' || preset === 'workspace-mcp') {
+        const workspaceResult = runCli(['add', 'workspace', '--cwd', ladderAppRoot], repoRoot)
+        expect(workspaceResult.status, `${workspaceResult.stdout}\n${workspaceResult.stderr}`).toBe(
+          0,
+        )
+      }
+
+      if (preset === 'workspace-mcp') {
+        const mcpResult = runCli(['add', 'mcp', '--cwd', ladderAppRoot], repoRoot)
+        expect(mcpResult.status, `${mcpResult.stdout}\n${mcpResult.stderr}`).toBe(0)
+      }
+
+      expectGeneratedTreesEqual(ladderAppRoot, resolve(presetRoot, 'demo-app'))
+    }
   })
 
   it('rejects the deleted cms starter', () => {
@@ -298,7 +550,7 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
 
     expect(result.status, output).not.toBe(0)
     expect(output).toContain(
-      'Invalid template. Use one of: public, personal, workspace, workspace-mcp.',
+      'Invalid preset. Use one of: public, personal, workspace, workspace-mcp.',
     )
   })
 
@@ -374,8 +626,10 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
     expect(functions).toContain('@lupinum/trellis/backend')
-    expect(todos).toContain('query.protected({')
-    expect(todos).toContain('mutation.protected({')
+    expect(todos).toContain('operation.query({')
+    expect(todos).toContain('operation.mutation({')
+    expect(todos).toContain('query.protected(listTodosOp)')
+    expect(todos).toContain('mutation.protected(createTodoOp)')
     expectNoOldBackendSurface(functions, 'personal convex/functions.ts')
     expectNoOldBackendSurface(todos, 'personal todos domain')
   })
@@ -390,13 +644,19 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot, { auth: true, permissions: true })
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('asyncContext: true')
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
       "mcp: { name: 'demo-workspace', sessions: true }",
     )
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     const runtime = read(resolve(appRoot, 'server/mcp/runtime.ts'))
-    expect(runtime).toContain("auth: 'trusted'")
+    expect(runtime).toContain('createMcpConvexCaller(event')
+    expect(runtime).toContain('deniedMcpAccessSnapshot(todoPermissions)')
+    expect(runtime).toContain('isForwardedCaller')
+    expect(runtime).not.toContain('createServerConvexCaller')
+    expect(runtime).not.toContain('[workspaceRead.key]: false')
+    expect(runtime).not.toContain('[todoCreate.key]: false')
     expect(runtime).not.toContain('resolveActingFor')
     expect(runtime).not.toContain('appIdentity: { userId: caller.userId }')
     expect(runtime).not.toContain('caller.userId')
@@ -414,22 +674,38 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
     const mcpKeys = read(resolve(appRoot, 'convex/features/mcpKeys/domain.ts'))
     expect(functions).toContain('@lupinum/trellis/backend')
-    expect(todos).toContain('query.protected({')
-    expect(todos).toContain('mutation.protected({')
+    expect(todos).toContain('operation.query({')
+    expect(todos).toContain('operation.mutation({')
+    expect(todos).toContain('query.protected(listTodosOp)')
+    expect(todos).toContain('mutation.protected(createTodoOp)')
     expect(mcpKeys).toContain('ctx.db.get(key.boundUserId)')
     expect(mcpKeys).not.toContain('boundRole')
     expect(mcpKeys).not.toContain('seenAt')
-    expect(mcpKeys).toContain('query.public({')
-    expect(mcpKeys).toContain('mutation.public({')
+    expect(mcpKeys).toContain('operation.query({')
+    expect(mcpKeys).toContain('operation.mutation({')
+    expect(mcpKeys).toContain('query.public(validateMcpKeyOp)')
+    expect(mcpKeys).toContain('mutation.public(touchMcpKeyOp)')
     expectNoOldBackendSurface(functions, 'workspace convex/functions.ts')
     expectNoOldBackendSurface(todos, 'workspace todos domain')
     expectNoOldBackendSurface(mcpKeys, 'workspace MCP keys domain')
+
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
+      'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-mcp-confirmation-key',
+    ])
+    const doctorResult = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(doctorResult.stdout)
+    expect(doctorResult.status, doctorResult.stderr).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'mcp-bearer-auth-configured')).toEqual(
+      expect.objectContaining({ status: 'pass' }),
+    )
   })
 
-  it('initializes a workspace MCP app with the first-class template name', () => {
-    const cwd = createTempDir('trellis-init-workspace-mcp-template-')
+  it('initializes a workspace MCP app with the preset shortcut and ladder README', () => {
+    const cwd = createTempDir('trellis-init-workspace-mcp-preset-')
     const result = runCli(
-      ['init', 'demo-workspace', '--template', 'workspace-mcp', '--cwd', cwd],
+      ['init', 'demo-workspace', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'demo-workspace')
@@ -437,7 +713,7 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot, { auth: true, permissions: true })
     expect(read(resolve(appRoot, 'README.md'))).toContain(
-      'Generated with `trellis init demo-workspace --template workspace-mcp`.',
+      'Generated with `trellis init demo-workspace`, `trellis add auth`, `trellis add workspace`, and `trellis add mcp`.',
     )
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
       "mcp: { name: 'demo-workspace', sessions: true }",
@@ -446,8 +722,10 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     expect(existsSync(resolve(appRoot, 'server/mcp/.gitkeep'))).toBe(false)
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
-    expect(todos).toContain('query.protected({')
-    expect(todos).toContain('mutation.protected({')
+    expect(todos).toContain('operation.query({')
+    expect(todos).toContain('operation.mutation({')
+    expect(todos).toContain('query.protected(listTodosOp)')
+    expect(todos).toContain('mutation.protected(createTodoOp)')
     expectNoOldBackendSurface(todos, 'workspace-mcp todos domain')
   })
 
@@ -464,12 +742,61 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
 
     expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
     expect(read(resolve(appRoot, 'package.json'))).toContain('@nuxtjs/mcp-toolkit')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('asyncContext: true')
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
       "mcp: { name: 'demo-workspace', sessions: true }",
     )
-    expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
+    expect(existsSync(resolve(appRoot, 'server/lib/mcp-invalid-bearer-throttle.ts'))).toBe(true)
+    expect(read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toContain(
+      '../lib/mcp-invalid-bearer-throttle',
+    )
+    const schema = read(resolve(appRoot, 'convex/schema.ts'))
+    expect(schema).toContain("import { defineSchema, defineTable } from 'convex/server'")
+    expect(schema).toContain("import { v } from 'convex/values'")
+    expect(schema).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
+    expect(envExampleKeys(appRoot)).toEqual([
+      'CONVEX_URL',
+      'CONVEX_SITE_URL',
+      'SITE_URL',
+      'BETTER_AUTH_SECRET',
+      'CONVEX_IDENTITY_FORWARDING_KEY',
+      'TRELLIS_MCP_CONFIRMATION_KEY',
+    ])
   })
+
+  it(
+    'keeps add mcp idempotent for an existing workspace MCP app',
+    {
+      timeout: cliDoctorTestTimeoutMs,
+    },
+    () => {
+      const cwd = createTempDir('trellis-add-mcp-existing-')
+      const initResult = runCli(
+        ['init', 'demo-workspace', '--preset', 'workspace-mcp', '--cwd', cwd],
+        repoRoot,
+      )
+      const appRoot = resolve(cwd, 'demo-workspace')
+      expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+      const addResult = runCli(['add', 'mcp', '--cwd', appRoot], repoRoot)
+
+      expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
+      expect(addResult.stdout).toContain('skipped')
+      expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
+        "mcp: { name: 'demo-workspace', sessions: true }",
+      )
+      expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
+      expect(envExampleKeys(appRoot)).toEqual([
+        'CONVEX_URL',
+        'CONVEX_SITE_URL',
+        'SITE_URL',
+        'BETTER_AUTH_SECRET',
+        'CONVEX_IDENTITY_FORWARDING_KEY',
+        'TRELLIS_MCP_CONFIRMATION_KEY',
+      ])
+    },
+  )
 
   it('returns a machine-readable JSON summary for add', { timeout: cliDoctorTestTimeoutMs }, () => {
     const cwd = createTempDir('trellis-add-json-')
@@ -545,7 +872,8 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     )
     expect(operationResult.status, `${operationResult.stdout}\n${operationResult.stderr}`).toBe(0)
     const operation = read(resolve(appRoot, 'convex/operations/publish-entry.ts'))
-    expect(operation).toContain("kind: 'destructive'")
+    expect(operation).toContain('operation.destructive({')
+    expect(operation).toContain("safety: 'destructive-write'")
     expect(operation).toContain('previewPublishEntry')
     expect(operation).toContain('executePublishEntry')
   })
@@ -575,7 +903,7 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
 
     expect(result.status, output).toBe(2)
     expect(output).toContain('Legacy init flow removed')
-    expect(output).toContain('trellis init <name> --template')
+    expect(output).toContain('trellis init <name> --preset')
     expect(output).toContain('trellis add')
   })
 
@@ -603,6 +931,45 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
       'pass',
     )
     expect(result.stdout).toBe(stripVTControlCharacters(result.stdout))
+  })
+
+  it('passes auth bootstrap doctor when bootstrap is explicitly disabled', () => {
+    const cwd = createTempDir('trellis-doctor-bootstrap-disabled-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    const configPath = resolve(appRoot, 'nuxt.config.ts')
+    const config = read(configPath)
+    writeFileSync(configPath, config.replace('auth: true,', 'auth: { bootstrap: false },'))
+
+    const authPath = resolve(appRoot, 'convex/auth.ts')
+    const auth = read(authPath)
+    writeFileSync(
+      authPath,
+      auth.replace('export const createUserIfNeeded = auth.createUserIfNeeded', ''),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+    const finding = report.findings.find((entry) => entry.id === 'trellis-auth-bootstrap-exported')
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.summary.warn).toBe(0)
+    expect(finding).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        message: expect.stringContaining('auth.bootstrap: false'),
+      }),
+    )
   })
 
   it('treats an unset auth option as no-auth for doctor layout and env checks', () => {
@@ -830,10 +1197,18 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
           inventories: [],
         })
       }
-      expect(report.inventory.publicSurface).toMatchObject({
-        operations: [],
-        projections: [],
-      })
+      expect(report.inventory.publicSurface.operations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'todos.list', exportName: 'listTodosOp', kind: 'safe' }),
+          expect.objectContaining({ id: 'todos.create', exportName: 'createTodoOp', kind: 'safe' }),
+        ]),
+      )
+      expect(report.inventory.publicSurface.projections).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ operationId: 'todos.list', projection: 'execute' }),
+          expect.objectContaining({ operationId: 'todos.create', projection: 'execute' }),
+        ]),
+      )
       expect(report.inventory.publicSurface.tools.length).toBe(starter.mcp ? 2 : 0)
       expect(report.inventory.findings).toEqual([])
     }
@@ -979,6 +1354,61 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
       status: 'pass',
       message: expect.stringContaining('Skipping canonical Trellis starter layout checks'),
     })
+  })
+
+  it('exposes composable doctor findings for integration-owned CLIs', async () => {
+    const appRoot = createTempDir('trellis-doctor-library-report-')
+    mkdirSync(resolve(appRoot, 'node_modules/@example/cms-integration'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'integration-managed-app',
+          private: true,
+          dependencies: {
+            '@example/cms-integration': '1.0.0',
+            convex: '^1.38.0',
+            nuxt: '^4.4.6',
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'node_modules/@example/cms-integration/package.json'),
+      JSON.stringify(
+        {
+          name: '@example/cms-integration',
+          version: '1.0.0',
+          trellis: {
+            integration: {
+              ownsRuntime: true,
+              label: 'Example CMS',
+              doctorCommand: 'pnpm exec example-cms doctor',
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'nuxt.config.ts'),
+      "export default defineNuxtConfig({ modules: ['@example/cms-integration'] })\n",
+    )
+    writeDoctorEnv(appRoot)
+
+    const report = await buildDoctorReport(appRoot)
+
+    expect(report.cwd).toBe(appRoot)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'trellis-runtime-owner')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('Example CMS (@example/cms-integration)'),
+      fixHint: expect.stringContaining('pnpm exec example-cms doctor'),
+    })
+    expect(JSON.parse(JSON.stringify(report))).toEqual(report)
   })
 
   it('keeps direct Trellis apps strict when canonical layout is missing', () => {
@@ -1257,6 +1687,48 @@ export const appInventory = defineAppInventory({
     expect(
       report.findings.find((entry) => entry.id === 'identity-forwarding-key-strength')?.message,
     ).toMatch(/placeholder value/i)
+  })
+
+  it('fails doctor when MCP surfaces lack effective Nitro async context', () => {
+    const appRoot = createTempDir('trellis-doctor-mcp-async-context-')
+    writeFileSync(
+      resolve(appRoot, 'package.json'),
+      JSON.stringify(
+        {
+          dependencies: {
+            '@nuxtjs/mcp-toolkit': '^0.17.2',
+            nuxt: '^4.4.7',
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'nuxt.config.ts'),
+      `export default defineNuxtConfig({ modules: ['@nuxtjs/mcp-toolkit'], mcp: { name: 'broken-mcp' } })`,
+    )
+    mkdirSync(resolve(appRoot, 'server/mcp/tools'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/list.ts'),
+      `export default defineMcpTool({ name: 'list', handler: async () => ({ content: [] }) })`,
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+    const finding = report.findings.find((entry) => entry.id === 'mcp-async-context-enabled')
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(finding).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('experimental.asyncContext'),
+      }),
+    )
   })
 
   it('fails doctor when the identity-forwarding key is exposed through a public env name', () => {
@@ -1974,17 +2446,35 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
         line: expect.any(Number),
       }),
     ])
-    expect(report.inventory.publicSurface.operations).toEqual([
-      expect.objectContaining({
-        id: 'todos.purge',
-        exportName: 'purgeTodoOp',
-        kind: 'destructive',
-        source: expect.objectContaining({
-          path: 'convex/features/todos/operations.ts',
-          line: expect.any(Number),
+    expect(report.inventory.publicSurface.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'todos.purge',
+          exportName: 'purgeTodoOp',
+          kind: 'destructive',
+          source: expect.objectContaining({
+            path: 'convex/features/todos/operations.ts',
+            line: expect.any(Number),
+          }),
         }),
-      }),
-    ])
+      ]),
+    )
+    expect(report.inventory.publicSurface.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'todos.create',
+          kind: 'safe',
+        }),
+        expect.objectContaining({
+          id: 'todos.list',
+          kind: 'safe',
+        }),
+        expect.objectContaining({
+          id: 'workspaces.create',
+          kind: 'safe',
+        }),
+      ]),
+    )
     expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')?.status).toBe(
       'pass',
     )

@@ -1,26 +1,35 @@
-import { deny, requireRecord } from '@lupinum/trellis/auth'
 import {
-  defineOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
   operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
+  workspaceScope,
+} from '@lupinum/trellis/app'
+import { deny, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { archiveProject } from '../../../shared/features/projects/contract'
-import { requireWorkspaceTenant } from '../../auth/guards'
-import { mutation } from '../../functions'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { projectArchive } from './permissions'
 
-export const archiveProjectOp = defineOperation({
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type ArchiveProjectArgs = { id: Id<'projects'> }
+
+export const archiveProjectOp = operation.destructive({
   id: 'projects.archive',
-  name: 'archiveProject',
-  kind: 'destructive',
   identityForwardingFunctionRef: 'features/projects/domain:archive',
   args: archiveProject.args,
   returns: v.null(),
+  scope: workspaceScope(),
+  guard: projectArchive,
+  permission: projectArchive,
+  safety: 'destructive-write',
   previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('projects.archive'),
@@ -30,15 +39,21 @@ export const archiveProjectOp = defineOperation({
       }),
     }),
   }),
-  guard: projectArchive,
-  load: async (ctx, args) => {
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: ArchiveProjectArgs,
+  ): Promise<{ project: Doc<'projects'> }> => {
     const project = await ctx.db.get(args.id)
     requireRecord(project, 'Project')
-    return { project }
+    return { project: project as Doc<'projects'> }
   },
-  preview: async (_ctx, _args, { project }) =>
+  preview: async (
+    _ctx: WorkspaceMutationCtx,
+    _args: ArchiveProjectArgs,
+    loaded: { project: Doc<'projects'> },
+  ) =>
     operationPreview({
-      summary: `Will archive "${project.name}".`,
+      summary: `Will archive "${loaded.project.name}".`,
       warnings: [
         operationIssue({
           code: 'archive-project',
@@ -48,15 +63,18 @@ export const archiveProjectOp = defineOperation({
       effects: [operationEffect({ kind: 'projects', summary: 'Projects archived', count: 1 })],
       confirm: {
         operation: 'projects.archive',
-        targetId: project._id,
+        targetId: loaded.project._id,
         affectedCounts: { projects: 1 },
       },
     }),
-  handler: async (ctx, args, { project }) => {
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: ArchiveProjectArgs,
+    loaded: { project: Doc<'projects'> },
+  ) => {
     const appIdentity = await ctx.appIdentity()
-    const workspaceId = requireWorkspaceTenant(appIdentity)
 
-    if (project.status === 'archived') throw deny('Project is already archived.')
+    if (loaded.project.status === 'archived') throw deny('Project is already archived.')
 
     const now = Date.now()
     await ctx.db.patch(args.id, {
@@ -65,17 +83,15 @@ export const archiveProjectOp = defineOperation({
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'project',
       entityId: args.id,
       action: 'project.archived',
-      description: `Archived "${project.name}".`,
+      description: `Archived "${loaded.project.name}".`,
       createdAt: now,
     })
 
     return null
   },
 })
-
-export const previewArchiveProject = mutation.protected(previewOf(archiveProjectOp))

@@ -25,8 +25,10 @@ const pluginTestkitHoisted = vi.hoisted(() => {
     fetchToken: null as null | ((input: { forceRefreshToken: boolean }) => Promise<string | null>),
     setAuthCalls: 0,
     skipOnChangeAfterFetch: false,
+    mutations: [] as Array<{ name: string; args: unknown }>,
   }
   const hookRegistry = new Map<string, (...args: unknown[]) => unknown>()
+  let currentNuxtApp: Record<string, unknown> | null = null
 
   class MockConvexClient {
     setAuth(
@@ -50,6 +52,17 @@ const pluginTestkitHoisted = vi.hoisted(() => {
         () => onChange?.(false),
       )
     }
+
+    async mutation(ref: unknown, args: unknown) {
+      const name =
+        typeof ref === 'string'
+          ? ref
+          : typeof ref === 'object' && ref !== null && '_path' in ref
+            ? String((ref as { _path: unknown })._path)
+            : String(ref)
+      clientState.mutations.push({ name, args })
+      return { ok: true }
+    }
   }
 
   return {
@@ -65,6 +78,10 @@ const pluginTestkitHoisted = vi.hoisted(() => {
     clientState,
     MockConvexClient,
     hookRegistry,
+    getCurrentNuxtApp: () => currentNuxtApp,
+    setCurrentNuxtApp: (nuxtApp: Record<string, unknown> | null) => {
+      currentNuxtApp = nuxtApp
+    },
   }
 })
 
@@ -80,6 +97,8 @@ const debugLogMock = pluginTestkitHoisted.debugLogMock
 const clientState = pluginTestkitHoisted.clientState
 const MockConvexClient = pluginTestkitHoisted.MockConvexClient
 const hookRegistry = pluginTestkitHoisted.hookRegistry
+const getCurrentNuxtApp = pluginTestkitHoisted.getCurrentNuxtApp
+const setCurrentNuxtApp = pluginTestkitHoisted.setCurrentNuxtApp
 
 export {
   authLogMock,
@@ -101,6 +120,11 @@ vi.mock('#app', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
   useState: useStateMock,
   useRouter: useRouterMock,
+}))
+
+vi.mock('#imports', () => ({
+  useNuxtApp: () => getCurrentNuxtApp(),
+  useState: useStateMock,
 }))
 
 vi.mock('@convex-dev/better-auth/client/plugins', () => ({
@@ -135,14 +159,18 @@ vi.mock('../../../src/runtime/observability/runtime-observer', () => ({
 }))
 
 export function createNuxtAppMock(options?: { serverRendered?: boolean }) {
-  return {
+  const nuxtApp = {
     payload: { serverRendered: options?.serverRendered ?? false },
     hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
       hookRegistry.set(event, handler)
       return vi.fn()
     }),
-    provide: vi.fn(),
+    provide: vi.fn((name: string, value: unknown) => {
+      ;(nuxtApp as Record<string, unknown>)[`$${name}`] = value
+    }),
   }
+  setCurrentNuxtApp(nuxtApp)
+  return nuxtApp
 }
 
 export function resetPluginClientTestkit() {
@@ -152,7 +180,9 @@ export function resetPluginClientTestkit() {
   clientState.fetchToken = null
   clientState.setAuthCalls = 0
   clientState.skipOnChangeAfterFetch = false
+  clientState.mutations = []
   hookRegistry.clear()
+  setCurrentNuxtApp(null)
 
   useRuntimeConfigMock.mockReturnValue({
     public: {
@@ -190,7 +220,12 @@ export function resetPluginClientTestkit() {
   getConvexRuntimeConfigMock.mockReturnValue({
     url: 'https://demo.convex.cloud',
     siteUrl: 'https://demo.convex.site',
-    auth: { enabled: true, route: '/api/auth', skipAuthTokenFetchRoutes: [] },
+    auth: {
+      enabled: true,
+      route: '/api/auth',
+      skipAuthTokenFetchRoutes: [],
+      bootstrap: { enabled: true, mutation: 'auth.createUserIfNeeded' },
+    },
   })
 
   createAuthClientMock.mockReturnValue({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { setupConfiguredAuthBootstrap } from '../../src/runtime/auth/client/auth-bootstrap'
+import { useAuthBootstrapRuntimeState } from '../../src/runtime/auth/client/auth-bootstrap-state'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
@@ -25,6 +26,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
 
         return {
           auth,
+          runtimeBootstrap: useAuthBootstrapRuntimeState(),
           bootstrap: useAuthBootstrapDevtoolsState(),
         }
       },
@@ -40,6 +42,9 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     result.auth.token.value = 'jwt.token'
 
     await waitFor(() => convex.calls.mutation.length === 1)
+    expect(result.runtimeBootstrap.value.status).toBe('ensured')
+    expect(result.runtimeBootstrap.value.mutationName).toBe('auth.createUserIfNeeded')
+    expect(result.runtimeBootstrap.value.lastEnsuredTokenHash).toEqual(expect.any(String))
     expect(result.bootstrap.value.ensured).toBe(true)
     expect(result.bootstrap.value.error).toBeNull()
   })
@@ -63,6 +68,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
         setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
 
         return {
+          runtimeBootstrap: useAuthBootstrapRuntimeState(),
           bootstrap: useAuthBootstrapDevtoolsState(),
         }
       },
@@ -70,6 +76,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     )
 
     await waitFor(() => convex.calls.mutation.length === 1)
+    expect(result.runtimeBootstrap.value.status).toBe('failed')
     expect(result.bootstrap.value.ensured).toBe(false)
     expect(result.bootstrap.value.error).toBe('User already exists')
     expect(result.bootstrap.value.pending).toBe(false)
@@ -87,6 +94,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
 
         return {
           auth,
+          runtimeBootstrap: useAuthBootstrapRuntimeState(),
           bootstrap: useAuthBootstrapDevtoolsState(),
         }
       },
@@ -100,6 +108,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     result.auth.token.value = 'jwt.token'
 
     await waitFor(() => result.bootstrap.value.error !== null)
+    expect(result.runtimeBootstrap.value.status).toBe('failed')
     expect(result.bootstrap.value.ensured).toBe(false)
     expect(result.bootstrap.value.pending).toBe(false)
     expect(result.bootstrap.value.error).toBe('Convex client is not initialized.')

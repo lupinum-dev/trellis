@@ -16,6 +16,7 @@ export interface PermissionDefinitionMetadata {
   line: number
   key: string
   label?: string
+  description?: string
   roles: string[]
   projected: boolean
 }
@@ -114,6 +115,9 @@ function extractPermissionDefinition(
     key,
     ...(readStringProperty(firstArg, 'label')
       ? { label: readStringProperty(firstArg, 'label') }
+      : {}),
+    ...(readStringProperty(firstArg, 'description')
+      ? { description: readStringProperty(firstArg, 'description') }
       : {}),
     roles: readStringArray(firstArg, 'roles'),
     projected: readBooleanProperty(firstArg, 'project') !== false,
@@ -373,6 +377,7 @@ ${projectedPermissions
       .map((permission) => ({
         key: permission.key,
         label: permission.label ?? permission.key,
+        ...(permission.description ? { description: permission.description } : {}),
         roles: permission.roles,
       }))
     return `export const ${matrix.exportName} = ${JSON.stringify(rows, null, 2)} as const`

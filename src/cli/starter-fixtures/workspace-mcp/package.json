@@ -18,7 +18,7 @@
     "@nuxtjs/mcp-toolkit": "^0.16.1",
     "better-auth": "1.6.11",
     "convex": "1.38.0",
-    "nuxt": "^4.4.7"
+    "nuxt": "^4.4.6"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
@@ -26,5 +26,9 @@
     "typescript": "~6.0.3",
     "vitest": "^4.1.6",
     "vue-tsc": "^3.2.9"
-  }
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@11.5.0"
 }

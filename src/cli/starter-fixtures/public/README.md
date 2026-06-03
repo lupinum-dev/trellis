@@ -1,6 +1,6 @@
 # trellis-starter-public
 
-Generated with `trellis init trellis-starter-public --template public`.
+Generated with `trellis init trellis-starter-public`.
 
 ## Quick start
 

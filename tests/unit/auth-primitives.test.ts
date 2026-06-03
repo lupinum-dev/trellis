@@ -8,6 +8,8 @@ import {
   deny,
   and,
   defineGuard,
+  definePermission,
+  explainPermission,
   isGuard,
   open,
   or,
@@ -66,6 +68,101 @@ describe('auth primitives', () => {
     expect(can(appIdentity, canEdit)).toBe(true)
     expect(can(null, canEdit)).toBe(false)
     expect(can(appIdentity, cannotEdit)).toBe(false)
+  })
+
+  it('explains allowed and denied permission decisions', () => {
+    const appIdentity = { role: 'admin' }
+    const permission = definePermission({
+      key: 'dashboard.manage',
+      label: 'Manage dashboard',
+      description: 'Allows dashboard management.',
+      roles: ['admin'],
+      check: defineGuard<typeof appIdentity | null>({
+        label: 'role:admin',
+        check: (value) => value?.role === 'admin',
+        explain: ({ decision }) =>
+          decision === 'allowed' ? 'Caller is an admin.' : 'Caller is not an admin.',
+      }),
+    })
+
+    expect(explainPermission(appIdentity, permission)).toMatchObject({
+      key: 'dashboard.manage',
+      label: 'Manage dashboard',
+      description: 'Allows dashboard management.',
+      roles: ['admin'],
+      project: true,
+      decision: 'allowed',
+      reason: 'Caller is an admin.',
+      check: {
+        label: 'role:admin',
+        kind: 'base',
+        decision: 'allowed',
+        reason: 'Caller is an admin.',
+      },
+    })
+
+    expect(explainPermission({ role: 'member' }, permission)).toMatchObject({
+      decision: 'denied',
+      reason: 'Caller is not an admin.',
+      check: {
+        decision: 'denied',
+        reason: 'Caller is not an admin.',
+      },
+    })
+  })
+
+  it('explains composed permission guards with child decisions', () => {
+    const appIdentity = { role: 'member', workspaceId: 'workspace-1' }
+    const isMember = defineGuard<typeof appIdentity | null>(
+      'role:member',
+      (value) => value?.role === 'member',
+    )
+    const hasWorkspace = defineGuard<typeof appIdentity | null>('hasWorkspace', (value) =>
+      Boolean(value?.workspaceId),
+    )
+    const permission = definePermission({
+      key: 'workspace.read',
+      check: isMember.and(hasWorkspace),
+    })
+
+    const explanation = explainPermission(appIdentity, permission)
+
+    expect(explanation).toMatchObject({
+      key: 'workspace.read',
+      decision: 'allowed',
+      check: {
+        kind: 'and',
+        label: 'role:member && hasWorkspace',
+        decision: 'allowed',
+        checks: [
+          expect.objectContaining({ label: 'role:member', decision: 'allowed' }),
+          expect.objectContaining({ label: 'hasWorkspace', decision: 'allowed' }),
+        ],
+      },
+    })
+  })
+
+  it('explains thrown permission guards as denied without rethrowing', () => {
+    const permission = definePermission({
+      key: 'billing.manage',
+      check: defineGuard('plan-active', () => {
+        deny('Plan is inactive.', { category: 'billing' })
+      }),
+    })
+
+    const explanation = explainPermission({ role: 'admin' }, permission)
+
+    expect(explanation).toMatchObject({
+      decision: 'denied',
+      check: {
+        label: 'plan-active',
+        decision: 'denied',
+        error: {
+          name: 'ConvexError',
+          message: expect.stringContaining('Plan is inactive.'),
+        },
+      },
+    })
   })
 
   it('exports an explicit open guard for public flows', () => {

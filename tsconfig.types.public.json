@@ -8,6 +8,7 @@
       "@lupinum/trellis": ["./src/module.ts"],
       "@lupinum/trellis/auth": ["./src/runtime/auth/index.ts"],
       "@lupinum/trellis/args": ["./src/runtime/args/index.ts"],
+      "@lupinum/trellis/app": ["./src/runtime/app/index.ts"],
       "@lupinum/trellis/backend": ["./src/runtime/backend/index.ts"],
       "@lupinum/trellis/workspace": ["./src/runtime/workspace/index.ts"],
       "@lupinum/trellis/composables": ["./src/runtime/composables/index.ts"],

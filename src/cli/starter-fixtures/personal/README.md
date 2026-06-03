@@ -1,6 +1,6 @@
 # trellis-starter-personal
 
-Generated with `trellis init trellis-starter-personal --template personal`.
+Generated with `trellis init trellis-starter-personal` and `trellis add auth`.
 
 ## Quick start
 

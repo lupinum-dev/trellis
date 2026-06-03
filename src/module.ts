@@ -23,6 +23,7 @@ export type { TrellisObservabilityOptions } from './runtime/observability/index.
 export type { ConvexAuthPageMeta } from './runtime/auth/shared/auth-route-protection.js'
 export type {
   AuthCacheOptions,
+  AuthBootstrapOptions,
   PermissionCodegenOptions,
   AuthOptions,
   AuthProxyOptions,
@@ -120,6 +121,17 @@ export default defineNuxtModule<ModuleOptions>({
         nuxt,
         include: setup.permissionCodegenInclude,
       })
+    }
+
+    const rootMcpOptions = (nuxt.options as { mcp?: unknown }).mcp
+    const configuredModules = nuxt.options.modules ?? []
+    const hasMcpToolkit = configuredModules.some((module) =>
+      Array.isArray(module)
+        ? module[0] === '@nuxtjs/mcp-toolkit'
+        : module === '@nuxtjs/mcp-toolkit',
+    )
+    if (rootMcpOptions || hasMcpToolkit) {
+      nuxt.options.experimental.asyncContext = true
     }
 
     nuxt.hook('modules:done', async () => {

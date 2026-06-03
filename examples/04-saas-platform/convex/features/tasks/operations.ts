@@ -1,26 +1,33 @@
-import { enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import {
-  defineOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
   operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
+  workspaceScope,
+} from '@lupinum/trellis/app'
+import { enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { requireWorkspaceTenant } from '../../auth/guards'
-import { mutation } from '../../functions'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { canDeleteTask } from './checks'
 import { taskRead } from './permissions'
 
-export const removeTaskOp = defineOperation({
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type RemoveTaskArgs = { id: Id<'tasks'> }
+type RemoveTaskLoaded = { task: Doc<'tasks'>; comments: Doc<'comments'>[] }
+
+export const removeTaskOp = operation.destructive({
   id: 'tasks.remove',
-  name: 'removeTask',
-  kind: 'destructive',
   identityForwardingFunctionRef: 'features/tasks/domain:remove',
   args: { id: v.id('tasks') },
   returns: v.null(),
+  scope: workspaceScope(),
   previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('tasks.remove'),
@@ -32,16 +39,26 @@ export const removeTaskOp = defineOperation({
     }),
   }),
   guard: taskRead,
-  load: async (ctx, args) => {
+  permission: taskRead,
+  safety: 'destructive-write',
+  load: async (ctx: WorkspaceMutationCtx, args: RemoveTaskArgs): Promise<RemoveTaskLoaded> => {
     const appIdentity = await ctx.appIdentity()
-    const task = loadResource(appIdentity, await ctx.db.get(args.id), 'Task')
+    const task = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.id)) as Doc<'tasks'> | null,
+      'Task',
+    )
     const comments = await ctx.db
       .query('comments')
-      .withIndex('by_task', (q: any) => q.eq('taskId', args.id))
+      .withIndex('by_task', (q) => q.eq('taskId', args.id))
       .collect()
     return { task, comments }
   },
-  preview: async (_ctx, _args, { task, comments }) =>
+  preview: async (
+    _ctx: WorkspaceMutationCtx,
+    _args: RemoveTaskArgs,
+    { task, comments }: RemoveTaskLoaded,
+  ) =>
     operationPreview({
       summary: `Will permanently delete "${task.title}".`,
       warnings: [
@@ -60,10 +77,13 @@ export const removeTaskOp = defineOperation({
         affectedCounts: { tasks: 1, comments: comments.length },
       },
     }),
-  handler: async (ctx, args, { task, comments }) => {
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: RemoveTaskArgs,
+    { task, comments }: RemoveTaskLoaded,
+  ) => {
     const appIdentity = await ctx.appIdentity()
     enforce(appIdentity, 'Delete task', canDeleteTask(task))
-    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     for (const comment of comments) {
       await ctx.db.delete(comment._id)
@@ -71,7 +91,7 @@ export const removeTaskOp = defineOperation({
     await ctx.db.delete(args.id)
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'task',
       entityId: args.id,
@@ -83,5 +103,3 @@ export const removeTaskOp = defineOperation({
     return null
   },
 })
-
-export const previewRemoveTask = mutation.protected(previewOf(removeTaskOp))

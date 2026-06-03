@@ -20,10 +20,7 @@ This is not a design tradeoff. It is scaffold incompleteness.
 The generated middleware imports:
 
 ```ts
-import {
-  assertInvalidBearerBudget,
-  recordInvalidBearer,
-} from '../lib/mcp-invalid-bearer-throttle'
+import { assertInvalidBearerBudget, recordInvalidBearer } from '../lib/mcp-invalid-bearer-throttle'
 ```
 
 But the add-slice path list does not include `server/lib/mcp-invalid-bearer-throttle.ts`.

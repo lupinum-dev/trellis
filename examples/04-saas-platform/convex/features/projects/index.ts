@@ -1,5 +1,6 @@
 export { projectsFeature } from './feature'
-export { archiveProjectOp, previewArchiveProject } from './operations'
+export { previewArchiveProject } from './domain'
+export { archiveProjectOp } from './operations'
 export {
   projectArchive,
   projectCreate,

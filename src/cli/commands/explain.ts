@@ -47,6 +47,42 @@ interface ExplainOperationMissingReport {
   }
 }
 
+interface ExplainPermissionReport {
+  schemaVersion: 1
+  cwd: string
+  permission: {
+    key: string
+    exportName: string
+    label: string
+    description?: string
+    roles: string[]
+    projected: boolean
+    source: TrellisCliInventorySourceLocation
+    inventories: Array<{
+      exportName: string
+      file: string
+      source: TrellisCliInventorySourceLocation
+    }>
+    featureRefs: Array<{
+      exportName: string
+      name: string
+      file: string
+      source: TrellisCliInventorySourceLocation
+    }>
+  }
+}
+
+interface ExplainPermissionMissingReport {
+  schemaVersion: 1
+  cwd: string
+  error: {
+    code: 'permission-not-found' | 'no-permissions'
+    message: string
+    availablePermissionKeys: string[]
+    suggestedCommand: string
+  }
+}
+
 function formatLocation(location: TrellisCliInventorySourceLocation): string {
   return `${location.path}:${location.line}`
 }
@@ -85,6 +121,33 @@ function findFeatureRefs(
     }))
 }
 
+function findPermissionFeatureRefs(
+  inventory: TrellisCliInventory,
+  permissionExportName: string,
+): ExplainPermissionReport['permission']['featureRefs'] {
+  return inventory.features
+    .filter((feature) => feature.permissionRefs.includes(permissionExportName))
+    .map((feature) => ({
+      exportName: feature.exportName,
+      name: feature.name,
+      file: feature.file,
+      source: feature.source,
+    }))
+}
+
+function findPermissionInventories(
+  inventory: TrellisCliInventory,
+  permissionExportName: string,
+): ExplainPermissionReport['permission']['inventories'] {
+  return inventory.permissions.inventories
+    .filter((permissionInventory) => permissionInventory.permissions.includes(permissionExportName))
+    .map((permissionInventory) => ({
+      exportName: permissionInventory.exportName,
+      file: permissionInventory.file,
+      source: permissionInventory.source,
+    }))
+}
+
 function createOperationReport(
   cwd: string,
   inventory: TrellisCliInventory,
@@ -115,6 +178,28 @@ function createOperationReport(
   }
 }
 
+function createPermissionReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  permission: TrellisCliInventory['permissions']['definitions'][number],
+): ExplainPermissionReport {
+  return {
+    schemaVersion: 1,
+    cwd,
+    permission: {
+      key: permission.key,
+      exportName: permission.exportName,
+      label: permission.label ?? permission.key,
+      ...(permission.description ? { description: permission.description } : {}),
+      roles: permission.roles,
+      projected: permission.projected,
+      source: permission.source,
+      inventories: findPermissionInventories(inventory, permission.exportName),
+      featureRefs: findPermissionFeatureRefs(inventory, permission.exportName),
+    },
+  }
+}
+
 function createMissingReport(
   cwd: string,
   inventory: TrellisCliInventory,
@@ -132,6 +217,30 @@ function createMissingReport(
           ? 'No operations were found in inventory.'
           : `Operation "${operationId}" was not found in inventory.`,
       availableOperationIds,
+    },
+  }
+}
+
+function createMissingPermissionReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  permissionKey: string,
+): ExplainPermissionMissingReport {
+  const availablePermissionKeys = inventory.permissions.definitions.map(
+    (permission) => permission.key,
+  )
+
+  return {
+    schemaVersion: 1,
+    cwd,
+    error: {
+      code: availablePermissionKeys.length === 0 ? 'no-permissions' : 'permission-not-found',
+      message:
+        availablePermissionKeys.length === 0
+          ? 'No permissions were found in inventory.'
+          : `Permission "${permissionKey}" was not found in inventory.`,
+      availablePermissionKeys,
+      suggestedCommand: 'trellis permissions matrix',
     },
   }
 }
@@ -178,11 +287,57 @@ function renderOperationReport(report: ExplainOperationReport): void {
   }
 }
 
+function renderPermissionReport(report: ExplainPermissionReport): void {
+  const { permission } = report
+
+  process.stdout.write(`Permission ${permission.key}\n`)
+  process.stdout.write(`Label: ${permission.label}\n`)
+  process.stdout.write(`Export: ${permission.exportName}\n`)
+  process.stdout.write(`Source: ${formatLocation(permission.source)}\n`)
+  if (permission.description) {
+    process.stdout.write(`Description: ${permission.description}\n`)
+  }
+  process.stdout.write(`Projected: ${permission.projected ? 'yes' : 'no'}\n`)
+  process.stdout.write(
+    `Roles: ${permission.roles.length > 0 ? permission.roles.join(', ') : 'none'}\n`,
+  )
+
+  process.stdout.write('Inventories:\n')
+  if (permission.inventories.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const inventory of permission.inventories) {
+      process.stdout.write(`  ${inventory.exportName} at ${formatLocation(inventory.source)}\n`)
+    }
+  }
+
+  process.stdout.write('Feature refs:\n')
+  if (permission.featureRefs.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const feature of permission.featureRefs) {
+      process.stdout.write(
+        `  ${feature.exportName} (${feature.name}) at ${formatLocation(feature.source)}\n`,
+      )
+    }
+  }
+}
+
 function renderMissingReport(report: ExplainOperationMissingReport): void {
   process.stderr.write(`${report.error.message}\n`)
   if (report.error.availableOperationIds.length > 0) {
     process.stderr.write(`Available operations: ${report.error.availableOperationIds.join(', ')}\n`)
   }
+}
+
+function renderMissingPermissionReport(report: ExplainPermissionMissingReport): void {
+  process.stderr.write(`${report.error.message}\n`)
+  if (report.error.availablePermissionKeys.length > 0) {
+    process.stderr.write(
+      `Available permissions: ${report.error.availablePermissionKeys.join(', ')}\n`,
+    )
+  }
+  process.stderr.write(`Try: ${report.error.suggestedCommand}\n`)
 }
 
 export const explainCommand = defineCommand({
@@ -194,7 +349,7 @@ export const explainCommand = defineCommand({
     topic: {
       type: 'positional',
       required: true,
-      description: 'Concept to explain. Currently only: operation',
+      description: 'Concept to explain. Supported: operation, permission',
     },
     id: {
       type: 'positional',
@@ -219,15 +374,43 @@ export const explainCommand = defineCommand({
   },
   async run({ args }) {
     const topic = String(args.topic)
-    if (topic !== 'operation') {
-      throw new Error('Invalid explain topic. Use `trellis explain operation <id>`.')
+    if (topic !== 'operation' && topic !== 'permission') {
+      throw new Error(
+        'Invalid explain topic. Use `trellis explain operation <id>` or `trellis explain permission <key>`.',
+      )
     }
 
-    const operationId = String(args.id)
+    const id = String(args.id)
     const cwd = resolve(args.cwd || process.cwd())
     const project = inspectProject(cwd)
     const inventoryFacts = collectTrellisCliInventoryFacts(project)
     const inventory = collectTrellisCliInventory(project, inventoryFacts)
+
+    if (topic === 'permission') {
+      const permission = inventory.permissions.definitions.find((entry) => entry.key === id)
+
+      if (!permission) {
+        const report = createMissingPermissionReport(cwd, inventory, id)
+        if (args.json) {
+          process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+        } else {
+          renderMissingPermissionReport(report)
+        }
+        process.exitCode = 1
+        return 1
+      }
+
+      const report = createPermissionReport(cwd, inventory, permission)
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+      } else {
+        renderPermissionReport(report)
+      }
+
+      return 0
+    }
+
+    const operationId = id
     const operation = findOperation(inventory, operationId)
 
     if (!operation) {

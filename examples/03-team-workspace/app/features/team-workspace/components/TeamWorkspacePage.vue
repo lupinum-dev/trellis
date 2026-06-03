@@ -282,6 +282,7 @@ import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 import { computed, reactive, ref } from 'vue'
 import * as z from 'zod'
 import type { Id } from '~~/convex/_generated/dataModel'
+import type { Role } from '~~/convex/auth/appIdentity'
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
@@ -346,6 +347,10 @@ const signInSchema = z.object({
 
 type SignUpSchema = z.output<typeof signUpSchema>
 type SignInSchema = z.output<typeof signInSchema>
+type PermissionMatrixRow = {
+  label: string
+  roles: readonly Role[]
+}
 
 const createWorkspaceForm = reactive({
   name: '',
@@ -376,12 +381,12 @@ const displayName = computed(
 )
 
 const canCreate = can(todoCreate)
-const allRoles = ['owner', 'admin', 'member', 'viewer']
-const recordRuleRows = [
+const allRoles: Role[] = ['owner', 'admin', 'member', 'viewer']
+const recordRuleRows: PermissionMatrixRow[] = [
   { label: 'Update own todo', roles: ['owner', 'admin', 'member'] },
   { label: 'Delete own todo', roles: ['owner', 'admin', 'member'] },
 ]
-const permissionMatrix = [...todoPermissionMatrix, ...recordRuleRows]
+const permissionMatrix: PermissionMatrixRow[] = [...todoPermissionMatrix, ...recordRuleRows]
 
 const todoError = computed(
   () =>

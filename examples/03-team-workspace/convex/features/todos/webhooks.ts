@@ -1,3 +1,4 @@
+import { operation } from '@lupinum/trellis/app'
 import { deny } from '@lupinum/trellis/auth'
 
 import { processTodoSyncWebhook as processTodoSyncWebhookContract } from '../../../shared/features/todos/contract'
@@ -6,7 +7,8 @@ import { ensureNotProcessed, markProcessed } from '../../auth/idempotency'
 import { mutation } from '../../functions'
 import { todoCreate } from './permissions'
 
-export const processTodoSyncWebhookMutation = mutation.protected({
+export const processTodoSyncWebhookOp = operation.mutation({
+  id: 'todos.process-sync-webhook',
   args: processTodoSyncWebhookContract.args,
   guard: todoCreate,
   handler: async (ctx, args) => {
@@ -35,3 +37,5 @@ export const processTodoSyncWebhookMutation = mutation.protected({
     return todoId
   },
 })
+
+export const processTodoSyncWebhookMutation = mutation.protected(processTodoSyncWebhookOp)

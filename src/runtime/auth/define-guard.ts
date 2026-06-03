@@ -2,12 +2,32 @@ export type Check<P = unknown> = (caller: P) => boolean
 export type AnyCheck<P = unknown> = Check<P> | boolean
 
 export type GuardKind = 'base' | 'and' | 'or' | 'not' | 'auth_required'
+export type GuardDecision = 'allowed' | 'denied'
+
+export type GuardExplanation = {
+  label: string
+  kind: GuardKind | 'check' | 'boolean'
+  decision: GuardDecision
+  reason: string
+  error?: {
+    name: string
+    message: string
+  }
+  checks: GuardExplanation[]
+}
+
+export type GuardExplain<P = unknown> = (context: {
+  caller: P
+  decision: GuardDecision
+  allowed: boolean
+}) => string
 
 export type Guard<P = unknown> = Check<P> & {
   _type: 'guard'
   kind: GuardKind
   label: string
   checks: ReadonlyArray<AnyCheck<P>>
+  explain?: GuardExplain<P>
   and: (...checks: Array<AnyCheck<P>>) => Guard<P>
   or: (...checks: Array<AnyCheck<P>>) => Guard<P>
   not: () => Guard<P>
@@ -50,11 +70,97 @@ function describeCheck<P>(check: AnyCheck<P>): string {
   return '(unnamed check)'
 }
 
+function toDecision(allowed: boolean): GuardDecision {
+  return allowed ? 'allowed' : 'denied'
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+function getErrorName(error: unknown): string {
+  if (error instanceof Error) return error.name
+  return 'Error'
+}
+
+function evaluateCheck<P>(caller: P, check: AnyCheck<P>): { allowed: boolean; error?: unknown } {
+  try {
+    return { allowed: runCheck(caller, check) }
+  } catch (error) {
+    return { allowed: false, error }
+  }
+}
+
+function explainFallback(label: string, decision: GuardDecision, error?: unknown): string {
+  if (error) return `${label} threw while evaluating.`
+  return decision === 'allowed' ? `${label} allowed access.` : `${label} denied access.`
+}
+
+function explainBoolean<P>(caller: P, check: boolean): GuardExplanation {
+  const decision = toDecision(check)
+  return {
+    label: String(check),
+    kind: 'boolean',
+    decision,
+    reason: explainFallback(String(check), decision),
+    checks: [],
+  }
+}
+
+export function explainCheck<P>(caller: P, check: AnyCheck<P>): GuardExplanation {
+  if (typeof check === 'boolean') return explainBoolean(caller, check)
+
+  if (!isGuard<P>(check)) {
+    const result = evaluateCheck(caller, check)
+    const decision = toDecision(result.allowed)
+    return {
+      label: '(unnamed check)',
+      kind: 'check',
+      decision,
+      reason: explainFallback('(unnamed check)', decision, result.error),
+      ...(result.error
+        ? {
+            error: {
+              name: getErrorName(result.error),
+              message: getErrorMessage(result.error),
+            },
+          }
+        : {}),
+      checks: [],
+    }
+  }
+
+  const childExplanations = check.checks.map((child) => explainCheck(caller, child))
+  const result = evaluateCheck(caller, check)
+  const decision = toDecision(result.allowed)
+  const reason =
+    check.explain?.({ caller, decision, allowed: result.allowed }) ??
+    explainFallback(check.label, decision, result.error)
+
+  return {
+    label: check.label,
+    kind: check.kind,
+    decision,
+    reason,
+    ...(result.error
+      ? {
+          error: {
+            name: getErrorName(result.error),
+            message: getErrorMessage(result.error),
+          },
+        }
+      : {}),
+    checks: childExplanations,
+  }
+}
+
 function createGuard<P>(
   label: string,
   evaluate: Check<P>,
   kind: GuardKind,
   checks: ReadonlyArray<AnyCheck<P>>,
+  explain?: GuardExplain<P>,
 ): Guard<P> {
   const guard = ((caller: P) => evaluate(caller)) as Guard<P>
 
@@ -62,6 +168,7 @@ function createGuard<P>(
   guard.kind = kind
   guard.label = label
   guard.checks = checks
+  if (explain) guard.explain = explain
   guard.and = (...nextChecks) =>
     createGuard(
       [label, ...nextChecks.map(describeCheck)].join(' && '),
@@ -82,8 +189,34 @@ function createGuard<P>(
   return guard
 }
 
-export function defineGuard<P>(label: string, check: AnyCheck<P>): Guard<P> {
-  return createGuard(label, (caller) => runCheck(caller, check), 'base', [check])
+export function defineGuard<P>(label: string, check: AnyCheck<P>): Guard<P>
+export function defineGuard<P>(options: {
+  label: string
+  check: AnyCheck<P>
+  explain?: GuardExplain<P>
+}): Guard<P>
+export function defineGuard<P>(
+  labelOrOptions:
+    | string
+    | {
+        label: string
+        check: AnyCheck<P>
+        explain?: GuardExplain<P>
+      },
+  check?: AnyCheck<P>,
+): Guard<P> {
+  const options =
+    typeof labelOrOptions === 'string'
+      ? { label: labelOrOptions, check: check as AnyCheck<P> }
+      : labelOrOptions
+
+  return createGuard(
+    options.label,
+    (caller) => runCheck(caller, options.check),
+    'base',
+    [options.check],
+    options.explain,
+  )
 }
 
 export const open = Object.assign(defineGuard<unknown>('open', true), {

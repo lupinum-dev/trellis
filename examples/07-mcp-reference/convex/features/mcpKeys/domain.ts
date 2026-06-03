@@ -1,9 +1,12 @@
+import { operation, workspaceScope } from '@lupinum/trellis/app'
 import { deny } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import { createMcpKey, revokeMcpKey } from '../../../shared/features/mcpKeys/contract'
 import type { DataModel, Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 import { canIssueKeyRole } from './checks'
 import { mcpManage } from './permissions'
@@ -17,6 +20,22 @@ type BoundUser = Pick<
 type McpKeyDoc = Doc<'mcpKeys'>
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 type KeyUsability = 'usable' | 'revoked' | 'bound_user_missing' | 'bound_user_workspace_mismatch'
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type CreateMcpKeyArgs = {
+  name: string
+  boundUserId: Id<'users'>
+  prefix: string
+  hash: string
+}
+type RevokeMcpKeyArgs = { id: Id<'mcpKeys'> }
+type ValidateMcpKeyArgs = { hash: string }
 
 async function getBoundUser(ctx: Ctx, boundUserId: Id<'users'>): Promise<BoundUser | null> {
   const user = await ctx.db.get(boundUserId)
@@ -58,15 +77,15 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
   }
 }
 
-export const list = query.protected({
+export const listMcpKeysOp = operation.query({
+  id: 'mcpKeys.list',
   guard: mcpManage,
   args: {},
-  handler: async (ctx) => {
-    const appIdentity = await ctx.appIdentity()
-
+  scope: workspaceScope(),
+  handler: async (ctx: WorkspaceQueryCtx) => {
     const keys = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_bound_workspace', (q) => q.eq('boundWorkspaceId', appIdentity.workspaceId))
+      .withIndex('by_bound_workspace', (q) => q.eq('boundWorkspaceId', ctx.workspaceId))
       .order('desc')
       .collect()
 
@@ -76,14 +95,18 @@ export const list = query.protected({
   },
 })
 
-export const create = mutation.protected({
+export const list = query.protected(listMcpKeysOp)
+
+export const createMcpKeyOp = operation.mutation({
+  id: 'mcpKeys.create',
   guard: mcpManage,
   args: createMcpKey.args,
-  handler: async (ctx, args) => {
+  scope: workspaceScope(),
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateMcpKeyArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     const boundUser = await getBoundUser(ctx, args.boundUserId)
-    if (!boundUser?.workspaceId || boundUser.workspaceId !== appIdentity.workspaceId) {
+    if (!boundUser?.workspaceId || boundUser.workspaceId !== ctx.workspaceId) {
       throw deny('You can only issue MCP keys for users in your workspace.')
     }
     if (!canIssueKeyRole(appIdentity, boundUser.role)) {
@@ -95,22 +118,26 @@ export const create = mutation.protected({
       prefix: args.prefix,
       hash: args.hash,
       boundUserId: boundUser._id,
-      boundWorkspaceId: appIdentity.workspaceId,
-      issuedByUserId: appIdentity.userId,
+      boundWorkspaceId: ctx.workspaceId,
+      issuedByUserId: appIdentity.userId as Id<'users'>,
       status: 'active',
       createdAt: Date.now(),
     })
   },
 })
 
-export const revoke = mutation.protected({
+export const create = mutation.protected(createMcpKeyOp)
+
+export const revokeMcpKeyOp = operation.mutation({
+  id: 'mcpKeys.revoke',
   guard: mcpManage,
   args: revokeMcpKey.args,
-  handler: async (ctx, args) => {
+  scope: workspaceScope(),
+  handler: async (ctx: WorkspaceMutationCtx, args: RevokeMcpKeyArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     const rawKey = await ctx.db.get(args.id)
-    if (!rawKey || rawKey.boundWorkspaceId !== appIdentity.workspaceId) {
+    if (!rawKey || rawKey.boundWorkspaceId !== ctx.workspaceId) {
       throw deny('MCP key not found.')
     }
 
@@ -130,11 +157,14 @@ export const revoke = mutation.protected({
   },
 })
 
-export const validate = query.public({
+export const revoke = mutation.protected(revokeMcpKeyOp)
+
+export const validateMcpKeyOp = operation.query({
+  id: 'mcpKeys.validate',
   args: {
     hash: createMcpKey.args.hash,
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args: ValidateMcpKeyArgs) => {
     const key = await ctx.db
       .query('mcpKeys')
       .withIndex('by_hash', (q) => q.eq('hash', args.hash))
@@ -154,11 +184,14 @@ export const validate = query.public({
   },
 })
 
-export const touch = mutation.public({
+export const validate = query.public(validateMcpKeyOp)
+
+export const touchMcpKeyOp = operation.mutation({
+  id: 'mcpKeys.touch',
   args: {
     hash: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args: ValidateMcpKeyArgs) => {
     const key = await ctx.db
       .query('mcpKeys')
       .withIndex('by_hash', (q) => q.eq('hash', args.hash))
@@ -174,3 +207,5 @@ export const touch = mutation.public({
     })
   },
 })
+
+export const touch = mutation.public(touchMcpKeyOp)

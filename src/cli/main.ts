@@ -4,6 +4,7 @@ import { addCommand } from './commands/add.js'
 import { doctorCommand } from './commands/doctor.js'
 import { explainCommand } from './commands/explain.js'
 import { initCommand } from './commands/init.js'
+import { permissionsCommand } from './commands/permissions.js'
 import { upgradeCommand } from './commands/upgrade.js'
 
 function getErrorMessage(error: unknown): string {
@@ -22,6 +23,7 @@ export function createCliCommand() {
       doctor: doctorCommand,
       explain: explainCommand,
       init: initCommand,
+      permissions: permissionsCommand,
       upgrade: upgradeCommand,
     },
   })

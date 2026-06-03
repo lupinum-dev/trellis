@@ -209,12 +209,15 @@ describe('feature composition', () => {
     })
   })
 
-  it('rejects Convex operation implementations in feature manifests', () => {
+  it('composes operation definitions into app inventory', () => {
     const archiveTask = defineOperation({
       id: 'tasks.archive',
+      name: 'ArchiveTask',
       kind: 'destructive',
       args: { id: v.string() },
       guard: definePermission({ key: 'task.archive', check: true }),
+      permission: 'task.archive',
+      safety: 'destructive-write',
       preview: async () =>
         operationPreview({
           summary: 'Archive task',
@@ -226,14 +229,38 @@ describe('feature composition', () => {
     expect(getOperationMetadata(archiveTask)).toMatchObject({
       id: 'tasks.archive',
     })
+    const tasks = defineFeature({
+      name: 'tasks',
+      operations: [archiveTask] as const,
+    })
+    const inventory = defineAppInventory({
+      features: [tasks] as const,
+    })
+
+    expect(inventory.manifest.operations).toEqual([archiveTask])
+    expect(toAppInventoryJson(inventory)).toEqual({
+      schemaVersion: 1,
+      features: ['tasks'],
+      operations: [
+        {
+          id: 'tasks.archive',
+          name: 'ArchiveTask',
+          kind: 'destructive',
+          feature: 'tasks',
+          permissionKey: 'task.archive',
+          safety: 'destructive-write',
+        },
+      ],
+    })
+  })
+
+  it('rejects feature operations without Trellis metadata', () => {
     expect(() =>
       defineFeature({
         name: 'tasks',
-        operations: [archiveTask] as never,
+        operations: [{ id: 'tasks.archive', kind: 'destructive' }] as never,
       }),
-    ).toThrow(
-      'defineFeature(tasks) operations must be shared operation descriptors, not Convex operation implementations.',
-    )
+    ).toThrow('defineFeature(tasks) operations must carry Trellis operation metadata.')
   })
 
   it('throws on duplicate operation ids from different features', () => {

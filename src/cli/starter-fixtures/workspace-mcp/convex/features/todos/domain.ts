@@ -1,36 +1,43 @@
+import { operation, workspaceScope } from '@lupinum/trellis/app'
+
 import { createTodo, listTodos } from '../../../shared/features/todos/contract'
+import type { Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../functions'
 import { todoCreate, workspaceRead } from './permissions'
 
-export const list = query.protected({
-  args: listTodos.args,
-  guard: workspaceRead,
-  handler: async (ctx) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!appIdentity?.workspaceId)
-      throw new Error('Current appIdentity is not assigned to a workspace.')
+type WorkspaceQueryCtx = QueryCtx & { workspaceId: Id<'workspaces'> }
+type WorkspaceMutationCtx = MutationCtx & { workspaceId: Id<'workspaces'> }
 
+export const listTodosOp = operation.query({
+  id: 'todos.list',
+  args: listTodos.args,
+  scope: workspaceScope(),
+  guard: workspaceRead,
+  handler: async (ctx: WorkspaceQueryCtx) => {
     return await ctx.db
       .query('todos')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
       .order('desc')
       .collect()
   },
 })
 
-export const create = mutation.protected({
-  args: createTodo.args,
-  guard: todoCreate,
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!appIdentity?.workspaceId)
-      throw new Error('Current appIdentity is not assigned to a workspace.')
+export const list = query.protected(listTodosOp)
 
+export const createTodoOp = operation.mutation({
+  id: 'todos.create',
+  args: createTodo.args,
+  scope: workspaceScope(),
+  guard: todoCreate,
+  handler: async (ctx: WorkspaceMutationCtx, args) => {
     return await ctx.db.insert('todos', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       title: args.title,
       completed: false,
       createdAt: Date.now(),
     })
   },
 })
+
+export const create = mutation.protected(createTodoOp)

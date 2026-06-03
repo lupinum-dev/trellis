@@ -120,6 +120,18 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('@nuxtjs/mcp-toolkit')
     expect(fixtureText).not.toContain('defineMcpApp')
     expect(fixtureText).not.toContain('workspaceId')
+    const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
+    expect(todosDomain).toContain("import { operation } from '@lupinum/trellis/app'")
+    expect(todosDomain).toContain('operation.query({')
+    expect(todosDomain).toContain('operation.mutation({')
+    const starterPage = readFileSync(
+      join(root, 'app/features/public/components/PublicStarterPage.vue'),
+      'utf8',
+    )
+    expect(starterPage).toContain('async function handleRemoveTodo')
+    expect(starterPage).toContain('confirm(`Delete "')
+    expect(starterPage).toContain('@click="handleRemoveTodo(todo)"')
+    expect(starterPage).not.toContain('@click="removeTodo({ id: todo._id })"')
     expect(manifest.generatedPaths).toContain('package.json')
   })
 
@@ -165,6 +177,10 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('@nuxtjs/mcp-toolkit')
     expect(fixtureText).not.toContain('defineMcpApp')
     expect(fixtureText).not.toContain('workspaceId')
+    const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
+    expect(todosDomain).toContain("import { operation } from '@lupinum/trellis/app'")
+    expect(todosDomain).toContain('operation.query({')
+    expect(todosDomain).toContain('operation.mutation({')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 
@@ -227,6 +243,15 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('mcp.tool')
     expect(fixtureText).not.toContain('@lupinum/ginko')
     expect(fixtureText).not.toContain('cms')
+    const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
+    expect(todosDomain).toContain(
+      "import { operation, workspaceScope } from '@lupinum/trellis/app'",
+    )
+    expect(todosDomain).toContain('scope: workspaceScope()')
+    expect(todosDomain).toContain("q.eq('workspaceId', ctx.workspaceId)")
+    expect(todosDomain).toContain('workspaceId: ctx.workspaceId')
+    expect(todosDomain).not.toContain('appIdentity.workspaceId')
+    expect(todosDomain).not.toContain('const appIdentity = await ctx.appIdentity()')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 
@@ -297,6 +322,15 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('bridge-author')
     expect(fixtureText).not.toContain('deleteProjectDescriptor')
     expect(fixtureText).not.toContain('createProjectToolDescriptor')
+    const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
+    expect(todosDomain).toContain(
+      "import { operation, workspaceScope } from '@lupinum/trellis/app'",
+    )
+    expect(todosDomain).toContain('scope: workspaceScope()')
+    expect(todosDomain).toContain("q.eq('workspaceId', ctx.workspaceId)")
+    expect(todosDomain).toContain('workspaceId: ctx.workspaceId')
+    expect(todosDomain).not.toContain('appIdentity.workspaceId')
+    expect(todosDomain).not.toContain('const appIdentity = await ctx.appIdentity()')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 })

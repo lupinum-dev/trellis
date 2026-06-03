@@ -1,13 +1,23 @@
+import { operation } from '@lupinum/trellis/app'
 import { authRequired } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
+import type { MutationCtx } from '../../_generated/server'
+import type { ProjectBoardPrincipal } from '../../auth/caller'
 import { mutation } from '../../functions'
 
-export const createWorkspaceMutation = mutation.protected({
+type WorkspaceBootstrapMutationCtx = MutationCtx & {
+  caller: () => Promise<ProjectBoardPrincipal>
+}
+type CreateWorkspaceArgs = { name: string; slug: string }
+
+export const createWorkspaceOp = operation.mutation({
+  id: 'workspaces.create',
   args: createWorkspace.args,
   guard: authRequired,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceBootstrapMutationCtx, args: CreateWorkspaceArgs) => {
     const caller = await ctx.caller()
+    if (caller.kind !== 'user') throw new Error('Workspace creation requires a signed-in user.')
 
     const existing = await ctx.db
       .query('workspaces')
@@ -42,3 +52,5 @@ export const createWorkspaceMutation = mutation.protected({
     return workspaceId
   },
 })
+
+export const createWorkspaceMutation = mutation.protected(createWorkspaceOp)

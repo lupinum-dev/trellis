@@ -2,17 +2,17 @@
 
 The gallery now has one job: teach Trellis in a clear order first, then branch into advanced patterns.
 
-These are maintained framework references, not CLI templates.
+These are maintained framework references, not CLI presets.
 
 If you want the productized starting points, use:
 
-- `trellis init my-app --template public`
-- `trellis init my-app --template personal`
-- `trellis init my-app --template workspace`
-- `trellis init my-app --template workspace-mcp`
+- `trellis init my-app`
+- `trellis add auth`
+- `trellis add workspace`
+- `trellis add mcp`
 
 Use this folder when you want to learn the stack, inspect a real pattern, or pressure-test an
-architecture before it graduates into a template.
+architecture before it graduates into a preset.
 
 Trellis is a framework with a canonical path, not an unopinionated example buffet. Read the ladder
 first, then branch only when the baseline shape is already clear.

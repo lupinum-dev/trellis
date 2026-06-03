@@ -29,6 +29,7 @@ interface ModuleRuntimeConfig {
     skipAuthTokenFetchRoutes: string[]
     cache: { enabled: boolean; ttl: number }
     proxy: { maxRequestBodyBytes: number; maxResponseBodyBytes: number }
+    bootstrap: { enabled: boolean; mutation: string }
   }
   permissions: { query: string | null; codegen: boolean }
   query: { server: boolean; subscribe: boolean }
@@ -54,7 +55,32 @@ export interface ModuleSetupState {
   authRoute: string
   resolvedSiteUrl?: string
   normalizedAuthCacheTtl: number
+  authBootstrap: { enabled: boolean; mutation: string }
   hasConfiguredConvexLocation: boolean
+}
+
+export const DEFAULT_AUTH_BOOTSTRAP_MUTATION = 'auth.createUserIfNeeded'
+
+export function normalizeAuthBootstrapConfig(
+  input: AuthOptions['bootstrap'],
+  authEnabled: boolean,
+): { enabled: boolean; mutation: string } {
+  if (!authEnabled) {
+    return { enabled: false, mutation: DEFAULT_AUTH_BOOTSTRAP_MUTATION }
+  }
+
+  if (input === false) {
+    return { enabled: false, mutation: DEFAULT_AUTH_BOOTSTRAP_MUTATION }
+  }
+
+  if (input === true || input === undefined) {
+    return { enabled: true, mutation: DEFAULT_AUTH_BOOTSTRAP_MUTATION }
+  }
+
+  return {
+    enabled: input.enabled !== false,
+    mutation: normalizeConfiguredFunctionPath(input.mutation) ?? DEFAULT_AUTH_BOOTSTRAP_MUTATION,
+  }
 }
 
 export function deriveModuleSetupState(
@@ -102,6 +128,10 @@ export function deriveModuleSetupState(
     authRoute: normalizeAuthRoute(authOptions.route ?? '/api/auth'),
     resolvedSiteUrl: siteUrlResolution.siteUrl,
     normalizedAuthCacheTtl: normalizeAuthCacheTtl(authOptions.cache?.ttl),
+    authBootstrap: normalizeAuthBootstrapConfig(
+      authOptions.bootstrap,
+      normalizedAuthConfig.enabled,
+    ),
     hasConfiguredConvexLocation:
       Boolean(options.url) ||
       Boolean(
@@ -173,6 +203,7 @@ export function buildPublicConvexRuntimeConfig(
         maxRequestBodyBytes: setup.authOptions.proxy?.maxRequestBodyBytes ?? 1_048_576,
         maxResponseBodyBytes: setup.authOptions.proxy?.maxResponseBodyBytes ?? 1_048_576,
       },
+      bootstrap: setup.authBootstrap,
     },
     permissions: {
       query: setup.permissionQueryPath ?? null,

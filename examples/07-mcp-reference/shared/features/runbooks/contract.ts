@@ -1,5 +1,4 @@
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const runbookVisibilityValidator = v.union(
@@ -66,58 +65,11 @@ export const deleteRunbook = defineArgs({
   },
 })
 
-export const removeRunbookDescriptor = defineOperationDescriptor({
-  id: 'runbooks.remove',
-  name: 'removeRunbook',
-  kind: 'destructive',
-  args: deleteRunbook.args,
-  permission: 'runbook.delete',
-  safety: 'destructive-write',
-  returns: v.null(),
-  previewReturns: operationPreviewValidator({
-    confirm: v.object({
-      operation: v.literal('runbooks.remove'),
-      targetId: v.id('runbooks'),
-      affectedCounts: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-  }),
-})
-
 export const bulkDeleteRunbooks = defineArgs({
   description: 'Delete multiple runbooks in one operation.',
   args: {
     ids: v.array(v.id('runbooks')),
   },
-})
-
-export const bulkRemoveRunbooksDescriptor = defineOperationDescriptor({
-  id: 'runbooks.bulkRemove',
-  name: 'bulkRemoveRunbooks',
-  kind: 'destructive',
-  args: bulkDeleteRunbooks.args,
-  permission: 'runbook.bulkDelete',
-  safety: 'destructive-write',
-  returns: v.object({
-    deleted: v.number(),
-    skipped: v.array(
-      v.object({
-        id: v.string(),
-        reason: v.string(),
-      }),
-    ),
-    total: v.number(),
-  }),
-  previewReturns: operationPreviewValidator({
-    confirm: v.object({
-      operation: v.literal('runbooks.bulkRemove'),
-      targetIds: v.array(v.id('runbooks')),
-      affectedCounts: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-  }),
 })
 
 export const searchRunbooks = defineArgs({

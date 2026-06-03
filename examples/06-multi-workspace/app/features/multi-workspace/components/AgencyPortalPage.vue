@@ -204,7 +204,7 @@ while current-workspace project actions stay behind their own feature API.
             <template v-else>
               <WorkspaceSwitcher
                 :workspaces="accessibleWorkspaces"
-                :current-tenant-id="workspaceId"
+                :current-workspace-id="workspaceId"
                 :seed-loading="seedAgencyPortfolio.pending.value"
                 @switch="handleSwitchWorkspace"
                 @seed="handleSeed"
@@ -244,7 +244,9 @@ const { ctx, role, workspaceId } = useAccess()
 const canDashboard = computed(() => ctx.value?.agencyDashboard === true)
 
 const allRoles = ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] as const
-const recordRuleRows = [
+type Role = (typeof allRoles)[number]
+type PermissionMatrixRow = { label: string; roles: Role[] }
+const recordRuleRows: PermissionMatrixRow[] = [
   { label: 'Toggle project status', roles: ['owner', 'member'] },
   { label: 'Agency dashboard', roles: ['agency_admin', 'agency_manager'] },
   {
@@ -252,7 +254,10 @@ const recordRuleRows = [
     roles: ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'],
   },
 ]
-const permissionMatrix = [...projectPermissionMatrix, ...recordRuleRows]
+const permissionMatrix: PermissionMatrixRow[] = [
+  ...projectPermissionMatrix.map((row) => ({ ...row, roles: [...row.roles] as Role[] })),
+  ...recordRuleRows,
+]
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -274,7 +279,7 @@ const seedAgencyPortfolio = useConvexMutation(
 const workspaceArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: accessibleWorkspaces } = await useConvexQuery(
   api.features.workspaces.domain.listAccessibleWorkspaces,
-  computed(() => (user.value ? {} : undefined)),
+  computed(() => (sessionUser.value ? {} : undefined)),
 )
 const { data: projects } = await useConvexQuery(api.features.projects.domain.list, workspaceArgs)
 const { data: members } = await useConvexQuery(

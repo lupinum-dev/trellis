@@ -20,9 +20,9 @@ Use this for `nuxt.config.ts` module options, starter selection, `trellis init`,
 - Module defaults/setup: `src/module.ts`, `src/module-internals/setup.ts`.
 - CLI commands: `src/cli/commands/init.ts`, `src/cli/commands/add.ts`,
   `src/cli/commands/doctor.ts`.
-- CLI templates: `src/cli/templates/init/**`.
-- CLI template assembly: `src/cli/lib/init.ts`,
-  `src/cli/lib/init-templates.ts`.
+- CLI starter fixtures: `src/cli/starter-fixtures/**`.
+- CLI preset assembly: `src/cli/lib/init.ts`,
+  `src/cli/lib/starter-fixtures.ts`.
 - Product overview: `README.md`.
 - Canonical shape: `meta/ARCHITECTURE.md`, `meta/ABSTRACTIONS.md`,
   `meta/adr/0003-canonical-feature-folder-app-shape.md`.
@@ -77,21 +77,21 @@ and permission composables.
 Canonical init command:
 
 ```bash
-pnpm dlx @lupinum/trellis init my-app --template public
-pnpm dlx @lupinum/trellis init my-app --template personal
-pnpm dlx @lupinum/trellis init my-app --template workspace
-pnpm dlx @lupinum/trellis init my-app --template workspace-mcp
+pnpm dlx @lupinum/trellis init my-app --preset public
+pnpm dlx @lupinum/trellis init my-app --preset personal
+pnpm dlx @lupinum/trellis init my-app --preset workspace
+pnpm dlx @lupinum/trellis init my-app --preset workspace-mcp
 ```
 
-Supported templates are only:
+Supported presets are only:
 
 - `public`
 - `personal`
 - `workspace`
 - `workspace-mcp`
 
-`workspace-mcp` is the first-class template name for the agent-enabled workspace
-starter. `--mcp` remains an accepted alias with `--template workspace`.
+`workspace-mcp` is the first-class preset name for the agent-enabled workspace
+starter. `--mcp` remains an accepted alias with `--preset workspace`.
 
 CMS product setup is owned by Ginko, not the Trellis init surface.
 
@@ -152,13 +152,13 @@ slice.
 
 Use `trellis doctor` for project setup diagnostics. Use repo checks from
 [testing-examples-docs.md](testing-examples-docs.md) when changing source,
-templates, examples, or docs.
+starter fixtures, examples, or docs.
 
 ## Pitfalls
 
 - Do not invent new starter families from `labs/`; labs are non-canonical until
   promoted.
-- Do not let examples replace templates. Examples teach patterns; CLI templates
+- Do not let examples replace presets. Examples teach patterns; CLI starter fixtures
   scaffold productized starting points.
 - Do not manually wire generated aliases or auto-imports in consumer apps unless
   the module installer is intentionally being changed.

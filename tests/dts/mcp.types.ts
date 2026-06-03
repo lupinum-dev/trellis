@@ -8,7 +8,9 @@ import {
   type OperationPreviewEnvelope,
 } from '@lupinum/trellis/backend'
 import {
+  createMcpConvexCaller,
   defineMcpApp,
+  deniedMcpAccessSnapshot,
   type McpConvexCaller,
   type ValidateMcpToolOptions,
   type ValidateToolArgs,
@@ -101,3 +103,8 @@ runtime.tool.operation(operation, {
 
 void ({} as _toolOptions)
 void defineStandaloneTool
+void createMcpConvexCaller({} as H3Event, {
+  caller: { kind: 'agent', subject: 'agent:run-1' },
+  identityForwardingKeyEnvAliases: ['GINKO_CONVEX_IDENTITY_FORWARDING_KEY'],
+})
+void deniedMcpAccessSnapshot([publishPermission])

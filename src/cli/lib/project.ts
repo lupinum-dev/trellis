@@ -511,6 +511,12 @@ export function isAuthExplicitlyEnabled(project: ProjectInspection): boolean {
   return /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*(?:true|\{)/.test(project.nuxtConfigText)
 }
 
+export function isAuthBootstrapExplicitlyDisabled(project: ProjectInspection): boolean {
+  return /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*\{[\s\S]*?\bbootstrap\s*:\s*false\b/.test(
+    project.nuxtConfigText,
+  )
+}
+
 export function findConvexHttpSource(
   project: ProjectInspection,
 ): { path: string; text: string } | null {
@@ -566,6 +572,10 @@ export function usesIdentityForwardingSurfaces(project: ProjectInspection): bool
       file.text,
     ),
   )
+}
+
+export function hasNitroAsyncContextEnabled(project: ProjectInspection): boolean {
+  return /experimental\s*:\s*\{[\s\S]*?\basyncContext\s*:\s*true\b/.test(project.nuxtConfigText)
 }
 
 export function usesMcpRateLimit(project: ProjectInspection): boolean {
@@ -738,6 +748,15 @@ function objectHasTrustedAuth(node: import('ts-morph').ObjectLiteralExpression):
   )
 }
 
+function objectIsMcpConvexCallerOptions(
+  node: import('ts-morph').ObjectLiteralExpression,
+  parent: import('ts-morph').CallExpression,
+): boolean {
+  if (parent.getArguments()[1] !== node) return false
+  const expression = parent.getExpression()
+  return Node.isIdentifier(expression) && expression.getText() === 'createMcpConvexCaller'
+}
+
 export function findForwardedCallerWithoutTrustedAuth(
   project: ProjectInspection,
 ): ProjectSourceLocation[] {
@@ -759,6 +778,7 @@ export function findForwardedCallerWithoutTrustedAuth(
         .getProperties()
         .some((property) => getPropertyName(property) === 'caller')
       if (!hasCaller || objectHasTrustedAuth(objectLiteral)) continue
+      if (objectIsMcpConvexCallerOptions(objectLiteral, parent)) continue
 
       findings.push({
         path: filePath,

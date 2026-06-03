@@ -1,14 +1,17 @@
+import { operation } from '@lupinum/trellis/app'
 import { v } from 'convex/values'
 
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
-export const validate = query.public({
+export const validateMcpKeyOp = operation.query({
+  id: 'mcpKeys.validate',
   args: {
     hash: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const key = await ctx.db
       .query('mcpKeys')
       .withIndex('by_hash', (q) => q.eq('hash', args.hash))
@@ -30,11 +33,14 @@ export const validate = query.public({
   },
 })
 
-export const touch = mutation.public({
+export const validate = query.public(validateMcpKeyOp)
+
+export const touchMcpKeyOp = operation.mutation({
+  id: 'mcpKeys.touch',
   args: {
     hash: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const key = await ctx.db
       .query('mcpKeys')
       .withIndex('by_hash', (q) => q.eq('hash', args.hash))
@@ -50,3 +56,5 @@ export const touch = mutation.public({
     })
   },
 })
+
+export const touch = mutation.public(touchMcpKeyOp)

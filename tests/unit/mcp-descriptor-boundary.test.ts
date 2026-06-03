@@ -10,15 +10,15 @@ const operationToolFiles = [
   'examples/08-component-mini-cms/server/mcp/tools/publish-page.ts',
 ] as const
 
-describe('MCP descriptor boundary', () => {
-  it('keeps active operation tools on descriptors and generated refs', () => {
+describe('MCP operation boundary', () => {
+  it('keeps active MCP tools backed by operation handles and generated refs', () => {
     for (const file of operationToolFiles) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8')
 
-      expect(source, file).not.toMatch(/from ['"].*convex\/.*\/operations['"]/)
+      expect(source, file).toMatch(/tool\.operation\([^)]*[,)]/)
+      expect(source, file).toMatch(/OperationRef\(/)
       expect(source, file).not.toMatch(/from ['"].*convex\/.*\/domain['"]/)
       expect(source, file).not.toMatch(/from ['"].*convex\/posts['"]/)
-      expect(source, file).not.toMatch(/tool\.operation\([^)]*Op[,)]/)
     }
   })
 })

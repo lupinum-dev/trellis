@@ -1,6 +1,5 @@
 import type { ActingFor } from '@lupinum/trellis/backend'
-import { defineMcpApp } from '@lupinum/trellis/mcp'
-import { createServerConvexCaller } from '@lupinum/trellis/server'
+import { createMcpConvexCaller, defineMcpApp } from '@lupinum/trellis/mcp'
 import type { H3Event } from 'h3'
 
 import type { InternalHarnessCaller } from '../../convex/auth/caller'
@@ -57,16 +56,11 @@ export const mcpRuntime = defineMcpApp<
   ActingFor
 >({
   callConvex: async (event, { caller, actingFor }) =>
-    createServerConvexCaller(
-      event,
-      caller.kind === 'agent'
-        ? {
-            auth: 'trusted',
-            caller: toForwardedHarnessCaller(caller),
-            ...(actingFor ? { actingFor } : {}),
-          }
-        : { auth: 'none' },
-    ) as never,
+    createMcpConvexCaller(event, {
+      caller: toForwardedHarnessCaller(caller),
+      actingFor,
+      isForwardedCaller: (candidate) => candidate.kind === 'agent',
+    }) as never,
   resolveCaller: async (event) => await getMcpCaller(event),
   resolveActingFor: async ({ event }) => {
     const auth = (await resolveHarnessMcpAuth(event)) as McpAuthContext | null

@@ -142,6 +142,7 @@ const archiveProject = useConvexMutation(api.features.projects.domain.archive, {
     toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
 })
 const canCreateTask = can(taskCreate)
+type ArchiveProjectExecuteArgs = { id: Id<'projects'>; _confirmationToken: string }
 
 const { data: project } = await useConvexQuery(
   api.features.projects.domain.get,
@@ -183,7 +184,7 @@ async function handleCreateTask() {
 }
 
 async function handleArchiveProject() {
-  const preview = await convex.mutation(api.features.projects.operations.previewArchiveProject, {
+  const preview = await convex.mutation(api.features.projects.domain.previewArchiveProject, {
     id: projectId.value,
   })
   const token = preview.confirmation?.token
@@ -195,7 +196,10 @@ async function handleArchiveProject() {
     })
     return
   }
-  await archiveProject({ id: projectId.value, _confirmationToken: token })
+  await archiveProject({
+    id: projectId.value,
+    _confirmationToken: token,
+  } as ArchiveProjectExecuteArgs)
 }
 
 function toggleSelected(id: Id<'tasks'>) {

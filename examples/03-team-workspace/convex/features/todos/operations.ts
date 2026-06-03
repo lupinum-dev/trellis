@@ -1,24 +1,35 @@
-import { requireRecord } from '@lupinum/trellis/auth'
 import {
-  defineOperationDescriptor,
-  implementOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
   operationPreviewValidator,
-} from '@lupinum/trellis/backend'
+  workspaceScope,
+} from '@lupinum/trellis/app'
+import { requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { deleteTodo } from '../../../shared/features/todos/contract'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { canDeleteTodo } from './checks'
 import { todoRead } from './permissions'
 
-export const removeTodoDescriptor = defineOperationDescriptor({
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type TodoIdArgs = { id: Id<'todos'> }
+
+export const removeTodoOp = operation.destructive({
   id: 'todos.remove',
-  name: 'removeTodo',
-  kind: 'destructive',
   args: deleteTodo.args,
   returns: v.null(),
+  scope: workspaceScope(),
+  guard: todoRead,
+  permission: todoRead,
+  safety: 'destructive-write',
   previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('todos.remove'),
@@ -28,33 +39,26 @@ export const removeTodoDescriptor = defineOperationDescriptor({
       }),
     }),
   }),
-  permission: todoRead,
-  safety: 'destructive-write',
-})
-
-export const removeTodoOp = implementOperation(removeTodoDescriptor, {
-  guard: todoRead,
-  permission: todoRead,
-  load: async (ctx, args) => {
+  load: async (ctx: WorkspaceMutationCtx, args: TodoIdArgs): Promise<{ todo: Doc<'todos'> }> => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
-    return { todo }
+    return { todo: todo as Doc<'todos'> }
   },
   authorize: {
-    check: (_actor, { todo }) => canDeleteTodo(todo),
+    check: (_actor: AppIdentity, loaded: { todo: Doc<'todos'> }) => canDeleteTodo(loaded.todo),
   },
-  preview: async (_ctx, _args, { todo }) =>
+  preview: async (_ctx: WorkspaceMutationCtx, _args: TodoIdArgs, loaded: { todo: Doc<'todos'> }) =>
     operationPreview({
-      summary: `Will permanently delete "${todo.title}"`,
+      summary: `Will permanently delete "${loaded.todo.title}"`,
       warnings: [operationIssue({ code: 'permanent-delete', message: 'This cannot be undone.' })],
       effects: [operationEffect({ kind: 'todos', summary: 'Todos deleted', count: 1 })],
       confirm: {
         operation: 'todos.remove',
-        targetId: todo._id,
+        targetId: loaded.todo._id,
         affectedCounts: { todos: 1 },
       },
     }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: TodoIdArgs) => {
     await ctx.db.delete(args.id)
     return null
   },

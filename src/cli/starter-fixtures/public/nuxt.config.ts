@@ -13,17 +13,19 @@ export default defineNuxtConfig({
   hooks: {
     'vite:extendConfig': (config, { isClient }) => {
       if (!useLocalConvex || !isClient) return
-      config.plugins = [
-        ...(config.plugins ?? []),
-        convexLocal({
-          instanceName: 'trellis-starter-public',
-          stateIdSuffix: 'trellis-starter-public-local-v1',
-          port: 3210,
-          siteProxyPort: 3211,
-          convexDir: 'convex',
-          reset: resetLocalBackend,
-        }),
-      ]
+      Object.assign(config, {
+        plugins: [
+          ...(config.plugins ?? []),
+          convexLocal({
+            instanceName: 'trellis-starter-public',
+            stateIdSuffix: 'trellis-starter-public-local-v1',
+            port: 3210,
+            siteProxyPort: 3211,
+            convexDir: 'convex',
+            reset: resetLocalBackend,
+          }),
+        ],
+      })
     },
   },
 })

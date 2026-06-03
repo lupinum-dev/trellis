@@ -1,24 +1,26 @@
-import { can } from '@lupinum/trellis/auth'
 import {
   blockedOperationPreview,
-  implementOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
-  previewOf,
-} from '@lupinum/trellis/backend'
+  operationPreviewValidator,
+  workspaceScope,
+} from '@lupinum/trellis/app'
+import { can } from '@lupinum/trellis/auth'
+import { v } from 'convex/values'
 
-import {
-  bulkRemoveRunbooksDescriptor,
-  removeRunbookDescriptor,
-} from '../../../shared/features/runbooks/contract'
+import { bulkDeleteRunbooks, deleteRunbook } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
-import { mutation } from '../../functions'
 import { canDeleteRunbook } from './checks'
-import { runbookBulkDelete, runbookRead } from './permissions'
+import { runbookBulkDelete, runbookDelete } from './permissions'
 
-type RunbookMutationCtx = any
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
 
 type DeleteRunbookArgs = {
   id: Id<'runbooks'>
@@ -36,19 +38,38 @@ type LoadedBulkRunbooks = {
   found: Doc<'runbooks'>[]
 }
 
-export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
+export const removeRunbookOp = operation.destructive({
+  id: 'runbooks.remove',
   identityForwardingFunctionRef: 'features/runbooks/domain:remove',
-  guard: runbookRead,
-  load: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
+  args: deleteRunbook.args,
+  returns: v.null(),
+  scope: workspaceScope(),
+  guard: runbookDelete,
+  permission: runbookDelete,
+  safety: 'destructive-write',
+  previewReturns: operationPreviewValidator({
+    confirm: v.object({
+      operation: v.literal('runbooks.remove'),
+      targetId: v.id('runbooks'),
+      affectedCounts: v.object({
+        runbooks: v.number(),
+      }),
+    }),
+  }),
+  load: async (ctx: WorkspaceMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     if (!runbook) throw new Error('Runbook not found.')
     const appIdentity = await ctx.appIdentity()
-    if (!appIdentity || !can(appIdentity, canDeleteRunbook(runbook))) {
+    if (!can(appIdentity, canDeleteRunbook(runbook))) {
       throw new Error('Forbidden: Delete runbook')
     }
     return { runbook }
   },
-  preview: async (_ctx: RunbookMutationCtx, _args: DeleteRunbookArgs, { runbook }: LoadedRunbook) =>
+  preview: async (
+    _ctx: WorkspaceMutationCtx,
+    _args: DeleteRunbookArgs,
+    { runbook }: LoadedRunbook,
+  ) =>
     operationPreview({
       summary: `Will permanently delete "${runbook.title}".`,
       warnings: [operationIssue({ code: 'permanent-delete', message: 'This cannot be undone.' })],
@@ -59,32 +80,56 @@ export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
         affectedCounts: { runbooks: 1 },
       },
     }),
-  handler: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: DeleteRunbookArgs) => {
     await ctx.db.delete(args.id)
     return null
   },
 })
 
-export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescriptor, {
+export const bulkRemoveRunbooksOp = operation.destructive({
+  id: 'runbooks.bulkRemove',
   identityForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
+  args: bulkDeleteRunbooks.args,
+  returns: v.object({
+    deleted: v.number(),
+    skipped: v.array(
+      v.object({
+        id: v.string(),
+        reason: v.string(),
+      }),
+    ),
+    total: v.number(),
+  }),
+  scope: workspaceScope(),
   guard: runbookBulkDelete,
+  permission: runbookBulkDelete,
+  safety: 'destructive-write',
+  previewReturns: operationPreviewValidator({
+    confirm: v.object({
+      operation: v.literal('runbooks.bulkRemove'),
+      targetIds: v.array(v.id('runbooks')),
+      affectedCounts: v.object({
+        runbooks: v.number(),
+      }),
+    }),
+  }),
   load: async (
-    ctx: RunbookMutationCtx,
+    ctx: WorkspaceMutationCtx,
     args: BulkDeleteRunbooksArgs,
   ): Promise<LoadedBulkRunbooks> => {
     const appIdentity = await ctx.appIdentity()
-    const runbooks = await Promise.all(args.ids.map((id: Id<'runbooks'>) => ctx.db.get(id)))
+    const runbooks = await Promise.all(args.ids.map((id) => ctx.db.get(id)))
     const found = runbooks.filter(
       (runbook): runbook is NonNullable<(typeof runbooks)[number]> =>
         !!runbook &&
-        runbook.workspaceId === appIdentity.workspaceId &&
+        runbook.workspaceId === ctx.workspaceId &&
         can(appIdentity, canDeleteRunbook(runbook)),
     )
 
     return { found }
   },
   preview: async (
-    _ctx: RunbookMutationCtx,
+    _ctx: WorkspaceMutationCtx,
     args: BulkDeleteRunbooksArgs,
     { found }: LoadedBulkRunbooks,
   ) => {
@@ -106,7 +151,7 @@ export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescrip
     }
 
     return operationPreview({
-      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook: Doc<'runbooks'>) => `"${runbook.title}"`).join(', ')}`,
+      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook) => `"${runbook.title}"`).join(', ')}`,
       warnings:
         found.length !== args.ids.length
           ? [
@@ -121,24 +166,24 @@ export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescrip
       ],
       confirm: {
         operation: 'runbooks.bulkRemove',
-        targetIds: found.map((runbook: Doc<'runbooks'>) => runbook._id).sort(),
+        targetIds: found.map((runbook) => runbook._id).sort(),
         affectedCounts: { runbooks: found.length },
       },
     })
   },
-  handler: async (ctx: RunbookMutationCtx, args: BulkDeleteRunbooksArgs) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: BulkDeleteRunbooksArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     let deleted = 0
     const skipped: { id: string; reason: string }[] = []
 
-    for (const id of args.ids as Id<'runbooks'>[]) {
+    for (const id of args.ids) {
       const runbook = await ctx.db.get(id)
       if (!runbook) {
         skipped.push({ id, reason: 'not_found' })
         continue
       }
-      if (runbook.workspaceId !== appIdentity.workspaceId) {
+      if (runbook.workspaceId !== ctx.workspaceId) {
         skipped.push({ id, reason: 'different_workspace' })
         continue
       }
@@ -157,13 +202,4 @@ export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescrip
       total: args.ids.length,
     }
   },
-})
-
-export const previewRemove = mutation.protected({
-  ...previewOf(removeRunbookOp),
-  identityForwardingFunctionRef: 'features/runbooks/operations:previewRemove',
-})
-export const previewBulkRemove = mutation.protected({
-  ...previewOf(bulkRemoveRunbooksOp),
-  identityForwardingFunctionRef: 'features/runbooks/operations:previewBulkRemove',
 })

@@ -1,6 +1,6 @@
 import { defineFeature } from '@lupinum/trellis/workspace'
 
-import { removeTodoDescriptor } from './operations'
+import { removeTodoOp } from './operations'
 import { todoPermissions } from './permissions'
 import { todoCapabilities } from './recordAccess'
 import { todosTables } from './schema'
@@ -11,5 +11,5 @@ export const todosFeature = defineFeature({
   permissions: todoPermissions,
   sharedTables: ['processedEvents'],
   recordAccess: { todos: todoCapabilities },
-  operations: [removeTodoDescriptor],
+  operations: [removeTodoOp],
 })

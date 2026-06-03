@@ -1,3 +1,4 @@
+import { operation, workspaceScope } from '@lupinum/trellis/app'
 import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 
 import {
@@ -8,47 +9,73 @@ import {
   listKnowledgeBases,
   publishKnowledgeBase,
 } from '../../../shared/features/knowledgeBases/contract'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 import { enrollmentManage, kbCreate, kbRead } from './permissions'
 
-export const list = query.protected({
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type KnowledgeBaseIdArgs = { id: Id<'knowledgeBases'> }
+type CreateKnowledgeBaseArgs = { title: string }
+type EnrollKnowledgeBaseUserArgs = { knowledgeBaseId: Id<'knowledgeBases'>; userId: Id<'users'> }
+type EnrollKnowledgeBaseUserByEmailArgs = { knowledgeBaseId: Id<'knowledgeBases'>; email: string }
+type LoadedKnowledgeBase = { knowledgeBase: Doc<'knowledgeBases'> }
+
+export const listKnowledgeBasesOp = operation.query({
+  id: 'knowledgeBases.list',
   guard: kbRead,
   args: listKnowledgeBases.args,
-  handler: async (ctx) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!appIdentity) throw deny('Not available.')
-
+  scope: workspaceScope(),
+  handler: async (ctx: WorkspaceQueryCtx) => {
     return ctx.db
       .query('knowledgeBases')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
       .order('desc')
       .collect()
   },
 })
 
-export const get = query.protected({
+export const list = query.protected(listKnowledgeBasesOp)
+
+export const getKnowledgeBaseOp = operation.query({
+  id: 'knowledgeBases.get',
   guard: kbRead,
   args: getKnowledgeBase.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceQueryCtx,
+    args: KnowledgeBaseIdArgs,
+  ): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.id),
+      (await ctx.db.get(args.id)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
   handler: async (_ctx, _args, { knowledgeBase }) => knowledgeBase,
 })
 
-export const create = mutation.protected({
+export const get = query.protected(getKnowledgeBaseOp)
+
+export const createKnowledgeBaseOp = operation.mutation({
+  id: 'knowledgeBases.create',
   guard: kbCreate,
   args: createKnowledgeBase.args,
-  handler: async (ctx, args) => {
+  scope: workspaceScope(),
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateKnowledgeBaseArgs) => {
     const appIdentity = await ctx.appIdentity()
-    if (!appIdentity) throw deny('Not available.')
 
     const now = Date.now()
     return ctx.db.insert('knowledgeBases', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       title: args.title,
       status: 'draft',
       ownerId: appIdentity.userId,
@@ -58,13 +85,20 @@ export const create = mutation.protected({
   },
 })
 
-export const publish = mutation.protected({
+export const create = mutation.protected(createKnowledgeBaseOp)
+
+export const publishKnowledgeBaseOp = operation.mutation({
+  id: 'knowledgeBases.publish',
   guard: kbCreate,
   args: publishKnowledgeBase.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: KnowledgeBaseIdArgs,
+  ): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.id),
+      (await ctx.db.get(args.id)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
@@ -74,20 +108,28 @@ export const publish = mutation.protected({
   },
 })
 
-export const enroll = mutation.protected({
+export const publish = mutation.protected(publishKnowledgeBaseOp)
+
+export const enrollKnowledgeBaseUserOp = operation.mutation({
+  id: 'knowledgeBases.enroll',
   guard: enrollmentManage,
   args: enrollKnowledgeBaseUser.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: EnrollKnowledgeBaseUserArgs,
+  ): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.knowledgeBaseId),
+      (await ctx.db.get(args.knowledgeBaseId)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
-  handler: async (ctx, args, { knowledgeBase }) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!appIdentity) throw deny('Not available.')
-
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: EnrollKnowledgeBaseUserArgs,
+    { knowledgeBase }: LoadedKnowledgeBase,
+  ) => {
     const existing = await ctx.db
       .query('enrollments')
       .withIndex('by_user_kb', (q) =>
@@ -103,7 +145,7 @@ export const enroll = mutation.protected({
     }
 
     return ctx.db.insert('enrollments', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       userId: args.userId,
       knowledgeBaseId: knowledgeBase._id,
       status: 'active',
@@ -112,20 +154,28 @@ export const enroll = mutation.protected({
   },
 })
 
-export const enrollByEmail = mutation.protected({
+export const enroll = mutation.protected(enrollKnowledgeBaseUserOp)
+
+export const enrollKnowledgeBaseUserByEmailOp = operation.mutation({
+  id: 'knowledgeBases.enroll-by-email',
   guard: enrollmentManage,
   args: enrollKnowledgeBaseUserByEmail.args,
-  load: async (ctx, args) => ({
+  scope: workspaceScope(),
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: EnrollKnowledgeBaseUserByEmailArgs,
+  ): Promise<LoadedKnowledgeBase> => ({
     knowledgeBase: loadResource(
       await ctx.appIdentity(),
-      await ctx.db.get(args.knowledgeBaseId),
+      (await ctx.db.get(args.knowledgeBaseId)) as Doc<'knowledgeBases'> | null,
       'Knowledge base',
     ),
   }),
-  handler: async (ctx, args, { knowledgeBase }) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!appIdentity) throw deny('Not available.')
-
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: EnrollKnowledgeBaseUserByEmailArgs,
+    { knowledgeBase }: LoadedKnowledgeBase,
+  ) => {
     const user = await ctx.db
       .query('users')
       .withIndex('by_email', (q) => q.eq('email', args.email))
@@ -147,7 +197,7 @@ export const enrollByEmail = mutation.protected({
     }
 
     return ctx.db.insert('enrollments', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       userId: user._id,
       knowledgeBaseId: knowledgeBase._id,
       status: 'active',
@@ -155,3 +205,5 @@ export const enrollByEmail = mutation.protected({
     })
   },
 })
+
+export const enrollByEmail = mutation.protected(enrollKnowledgeBaseUserByEmailOp)

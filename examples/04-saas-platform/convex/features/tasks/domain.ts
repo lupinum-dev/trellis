@@ -1,3 +1,4 @@
+import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
 import { can, deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
@@ -8,18 +9,39 @@ import {
   moveTask,
   taskStatusValidator,
 } from '../../../shared/features/tasks/contract'
-import type { Doc } from '../../_generated/dataModel'
-import { hasRole, hasWorkspace, requireWorkspaceTenant } from '../../auth/guards'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
+import { hasRole, hasWorkspace } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 import { canUpdateTask } from './checks'
 import { removeTaskOp } from './operations'
 import { taskAssign, taskCreate, taskRead } from './permissions'
 import { taskCapabilities } from './recordAccess'
 
-export const listByProject = query.protected({
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type TaskPriority = 'low' | 'medium' | 'high'
+type TaskStatus = 'backlog' | 'in_progress' | 'done'
+type ProjectIdArgs = { projectId: Id<'projects'> }
+type TaskIdArgs = { id: Id<'tasks'> }
+type CreateTaskArgs = ProjectIdArgs & { title: string; priority?: TaskPriority }
+type MoveTaskArgs = TaskIdArgs & { status: TaskStatus }
+type AssignTaskArgs = TaskIdArgs & { assigneeId?: Id<'users'> }
+type BulkUpdateTaskStatusArgs = { ids: Id<'tasks'>[]; status: TaskStatus }
+
+export const listTasksByProjectOp = operation.query({
+  id: 'tasks.list-by-project',
   args: { projectId: v.id('projects') },
+  scope: workspaceScope(),
   guard: taskRead,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceQueryCtx, args: ProjectIdArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     loadResource(appIdentity, await ctx.db.get(args.projectId), 'Project')
@@ -34,10 +56,14 @@ export const listByProject = query.protected({
   },
 })
 
-export const get = query.protected({
+export const listByProject = query.protected(listTasksByProjectOp)
+
+export const getTaskOp = operation.query({
+  id: 'tasks.get',
   args: { id: v.id('tasks') },
+  scope: workspaceScope(),
   guard: taskRead,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceQueryCtx, args: TaskIdArgs) => {
     const appIdentity = await ctx.appIdentity()
     const task = loadResource(
       appIdentity,
@@ -48,12 +74,15 @@ export const get = query.protected({
   },
 })
 
-export const create = mutation.protected({
+export const get = query.protected(getTaskOp)
+
+export const createTaskOp = operation.mutation({
+  id: 'tasks.create',
   args: createTask.args,
+  scope: workspaceScope(),
   guard: taskCreate,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
-    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const project = loadResource(
       appIdentity,
@@ -72,13 +101,13 @@ export const create = mutation.protected({
       status: 'backlog',
       priority: args.priority ?? 'medium',
       ownerId: appIdentity.userId,
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'task',
       entityId: taskId,
@@ -91,10 +120,14 @@ export const create = mutation.protected({
   },
 })
 
-export const moveToColumn = mutation.protected({
+export const create = mutation.protected(createTaskOp)
+
+export const moveTaskToColumnOp = operation.mutation({
+  id: 'tasks.move-to-column',
   args: moveTask.args,
+  scope: workspaceScope(),
   guard: taskRead,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: MoveTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
     const task = loadResource(
       appIdentity,
@@ -103,12 +136,11 @@ export const moveToColumn = mutation.protected({
     )
     enforce(appIdentity, 'Update task', canUpdateTask(task))
 
-    const workspaceId = requireWorkspaceTenant(appIdentity)
     const now = Date.now()
     await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'task',
       entityId: args.id,
@@ -119,12 +151,15 @@ export const moveToColumn = mutation.protected({
   },
 })
 
-export const assign = mutation.protected({
+export const moveToColumn = mutation.protected(moveTaskToColumnOp)
+
+export const assignTaskOp = operation.mutation({
+  id: 'tasks.assign',
   args: assignTask.args,
+  scope: workspaceScope(),
   guard: taskAssign,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: AssignTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
-    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const task = loadResource(
       appIdentity,
@@ -134,7 +169,7 @@ export const assign = mutation.protected({
 
     if (args.assigneeId) {
       const assignee = await ctx.db.get(args.assigneeId)
-      if (!assignee || assignee.workspaceId !== workspaceId) {
+      if (!assignee || assignee.workspaceId !== ctx.workspaceId) {
         throw deny('Assignee must already belong to this workspace.')
       }
     }
@@ -143,7 +178,7 @@ export const assign = mutation.protected({
     await ctx.db.patch(args.id, { assigneeId: args.assigneeId, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'task',
       entityId: args.id,
@@ -154,21 +189,24 @@ export const assign = mutation.protected({
   },
 })
 
-export const bulkUpdateStatus = mutation.protected({
+export const assign = mutation.protected(assignTaskOp)
+
+export const bulkUpdateTaskStatusOp = operation.mutation({
+  id: 'tasks.bulk-update-status',
   args: {
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
   },
+  scope: workspaceScope(),
   guard: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: BulkUpdateTaskStatusArgs) => {
     const appIdentity = await ctx.appIdentity()
-    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const now = Date.now()
     const updates = await asyncMap(args.ids, async (id) => {
       const task = await ctx.db.get(id)
       const typedTask = task as Doc<'tasks'> | null
-      if (!typedTask || typedTask.workspaceId !== workspaceId) {
+      if (!typedTask || typedTask.workspaceId !== ctx.workspaceId) {
         return { id, updated: false as const }
       }
 
@@ -186,7 +224,7 @@ export const bulkUpdateStatus = mutation.protected({
     }
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'task',
       entityId: results.skipped.join(',') || 'bulk',
@@ -199,14 +237,17 @@ export const bulkUpdateStatus = mutation.protected({
   },
 })
 
-export const remove = mutation.protected({
-  ...removeTaskOp,
-})
+export const bulkUpdateStatus = mutation.protected(bulkUpdateTaskStatusOp)
 
-export const listForExport = query.protected({
+export const previewRemoveTask = mutation.protected(previewOf(removeTaskOp))
+export const remove = mutation.protected(removeTaskOp)
+
+export const listTasksForExportOp = operation.query({
+  id: 'tasks.list-for-export',
   args: { projectId: v.id('projects') },
+  scope: workspaceScope(),
   guard: taskRead,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceQueryCtx, args: ProjectIdArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     loadResource(appIdentity, await ctx.db.get(args.projectId), 'Project')
@@ -218,3 +259,5 @@ export const listForExport = query.protected({
       .collect()
   },
 })
+
+export const listForExport = query.protected(listTasksForExportOp)

@@ -139,7 +139,7 @@ const assignTaskMutation = useConvexMutation(api.features.tasks.domain.assign, {
 async function handleAssign(value: string | undefined) {
   await assignTaskMutation({
     id: taskId.value,
-    assigneeId: value,
+    assigneeId: value as Id<'users'> | undefined,
   })
 }
 </script>

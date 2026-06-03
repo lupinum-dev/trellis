@@ -1,25 +1,36 @@
-import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import {
-  defineOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
   operationPreviewValidator,
-  previewOf,
-} from '@lupinum/trellis/backend'
+  workspaceScope,
+} from '@lupinum/trellis/app'
+import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { revokeArticleShareToken } from '../../../shared/features/articles/contract'
-import { mutation } from '../../functions'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { shareCreate } from './permissions'
 
-export const revokeShareTokenOp = defineOperation({
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type RevokeShareTokenArgs = { tokenId: Id<'shareTokens'> }
+type RevokeShareTokenLoaded = { token: Doc<'shareTokens'> }
+
+export const revokeShareTokenOp = operation.destructive({
   id: 'shareTokens.revoke',
-  name: 'revokeShareToken',
-  kind: 'destructive',
   identityForwardingFunctionRef: 'features/articles/domain:revokeShareToken',
   args: revokeArticleShareToken.args,
   returns: v.null(),
+  scope: workspaceScope(),
+  guard: shareCreate,
+  permission: shareCreate,
+  safety: 'destructive-write',
   previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('shareTokens.revoke'),
@@ -29,13 +40,23 @@ export const revokeShareTokenOp = defineOperation({
       }),
     }),
   }),
-  guard: shareCreate,
-  load: async (ctx, args) => {
+  load: async (
+    ctx: WorkspaceMutationCtx,
+    args: RevokeShareTokenArgs,
+  ): Promise<RevokeShareTokenLoaded> => {
     const appIdentity = await ctx.appIdentity()
-    const token = loadResource(appIdentity, await ctx.db.get(args.tokenId), 'Share token')
+    const token = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.tokenId)) as Doc<'shareTokens'> | null,
+      'Share token',
+    )
     return { token }
   },
-  preview: async (_ctx, _args, { token }) =>
+  preview: async (
+    _ctx: WorkspaceMutationCtx,
+    _args: RevokeShareTokenArgs,
+    { token }: RevokeShareTokenLoaded,
+  ) =>
     operationPreview({
       summary: `Will revoke ${token.prefix}.`,
       warnings: [
@@ -53,11 +74,13 @@ export const revokeShareTokenOp = defineOperation({
         affectedCounts: { shareTokens: 1 },
       },
     }),
-  handler: async (ctx, args, { token }) => {
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: RevokeShareTokenArgs,
+    { token }: RevokeShareTokenLoaded,
+  ) => {
     if (token.revokedAt) throw deny('Already revoked.')
     await ctx.db.patch(args.tokenId, { revokedAt: Date.now() })
     return null
   },
 })
-
-export const previewRevokeShareToken = mutation.protected(previewOf(revokeShareTokenOp))

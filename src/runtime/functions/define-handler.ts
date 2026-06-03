@@ -21,6 +21,8 @@ import { createDenialExplanation, type TrellisObservationEvent } from '../observ
 import {
   getOperationProjectionMetadata,
   stampOperationProjection,
+  type TrellisOperationMetadata,
+  trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
 } from './operation-metadata.js'
 
@@ -155,6 +157,7 @@ type HandlerDefinition<
    */
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  [trellisOperationMetadataKey]?: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
     projection: 'execute' | 'preview'
@@ -494,6 +497,19 @@ function createStructuredBuilder<
         return await definition.handler(handlerCtx, args, loaded)
       },
     }) as ReturnType<TBuilder>
+
+    if (
+      definition[trellisOperationMetadataKey] &&
+      (typeof built === 'object' || typeof built === 'function') &&
+      built !== null
+    ) {
+      Object.defineProperty(built, trellisOperationMetadataKey, {
+        value: definition[trellisOperationMetadataKey],
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      })
+    }
 
     return stampOperationProjection(
       built,

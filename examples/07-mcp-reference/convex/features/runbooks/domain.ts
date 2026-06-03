@@ -1,3 +1,4 @@
+import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
 import { can, deny, loadTenantResource as loadResource, requireRecord } from '@lupinum/trellis/auth'
 import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
@@ -9,6 +10,8 @@ import {
   updateRunbook,
 } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { getAppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 import { canUpdateRunbook } from './checks'
@@ -62,6 +65,32 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
+type RunbookIdArgs = { id: Id<'runbooks'> }
+type CreateRunbookArgs = {
+  title: string
+  summary: string
+  content: string
+  visibility?: 'public' | 'workspace' | 'draft'
+  tags?: string[]
+}
+type UpdateRunbookArgs = {
+  id: Id<'runbooks'>
+  title?: string
+  summary?: string
+  content?: string
+  visibility?: 'public' | 'workspace' | 'draft'
+  tags?: string[]
+}
+type LoadedRunbook = { runbook: Doc<'runbooks'> }
+
 export const listPublic = query.unsafe({
   permit: unsafePermit.permit({
     kind: 'publicCatalog',
@@ -104,20 +133,24 @@ export const searchPublic = query.unsafe({
   },
 })
 
-export const listWorkspace = query.protected({
+export const listWorkspaceRunbooksOp = operation.query({
+  id: 'runbooks.list-workspace',
   args: listRunbooks.args,
+  scope: workspaceScope(),
   guard: runbookRead,
-  handler: async (ctx) => {
+  handler: async (ctx: WorkspaceQueryCtx) => {
     const appIdentity = await ctx.appIdentity()
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
       .order('desc')
       .collect()
 
     return workspaceRunbookCapabilities.attach(appIdentity, runbooks)
   },
 })
+
+export const listWorkspace = query.protected(listWorkspaceRunbooksOp)
 
 export const get = query.unsafe({
   permit: unsafePermit.permit({
@@ -160,10 +193,12 @@ export const get = query.unsafe({
   },
 })
 
-export const getWorkspace = query.protected({
+export const getWorkspaceRunbookOp = operation.query({
+  id: 'runbooks.get-workspace',
   args: getRunbook.args,
+  scope: workspaceScope(),
   guard: runbookRead,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceQueryCtx, args: RunbookIdArgs) => {
     const appIdentity = await ctx.appIdentity()
     const runbook = await ctx.db.get(args.id)
     if (!runbook) return null
@@ -175,11 +210,15 @@ export const getWorkspace = query.protected({
   },
 })
 
-export const create = mutation.protected({
+export const getWorkspace = query.protected(getWorkspaceRunbookOp)
+
+export const createRunbookOp = operation.mutation({
+  id: 'runbooks.create',
   args: createRunbook.args,
   identityForwardingFunctionRef: 'features/runbooks/domain:create',
+  scope: workspaceScope(),
   guard: runbookCreate,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     const visibility = args.visibility ?? 'draft'
@@ -194,8 +233,8 @@ export const create = mutation.protected({
       content: args.content,
       visibility,
       tags: args.tags ?? [],
-      ownerId: appIdentity.userId,
-      workspaceId: appIdentity.workspaceId,
+      ownerId: appIdentity.userId as Id<'users'>,
+      workspaceId: ctx.workspaceId,
       createdAt: now,
       updatedAt: now,
       ...(visibility === 'public' ? { publishedAt: now } : {}),
@@ -203,18 +242,26 @@ export const create = mutation.protected({
   },
 })
 
-export const update = mutation.protected({
+export const create = mutation.protected(createRunbookOp)
+
+export const updateRunbookOp = operation.mutation({
+  id: 'runbooks.update',
   args: updateRunbook.args,
+  scope: workspaceScope(),
   guard: runbookRead,
-  load: async (ctx, args) => {
+  load: async (ctx: WorkspaceMutationCtx, args: RunbookIdArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     requireRecord(runbook, 'Runbook')
     return { runbook }
   },
   authorize: {
-    check: (_actor, { runbook }) => canUpdateRunbook(runbook),
+    check: (_actor: AppIdentity, { runbook }: LoadedRunbook) => canUpdateRunbook(runbook),
   },
-  handler: async (ctx, args, { runbook }) => {
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: UpdateRunbookArgs,
+    { runbook }: LoadedRunbook,
+  ) => {
     const appIdentity = await ctx.appIdentity()
     const nextVisibility = args.visibility ?? runbook.visibility
     if (nextVisibility === 'public' && !can(appIdentity, runbookPublish.check)) {
@@ -235,23 +282,22 @@ export const update = mutation.protected({
   },
 })
 
-export const remove = mutation.protected({
-  ...removeRunbookOp,
-  identityForwardingFunctionRef: 'features/runbooks/domain:remove',
-})
-export const bulkRemove = mutation.protected({
-  ...bulkRemoveRunbooksOp,
-  identityForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
-})
+export const update = mutation.protected(updateRunbookOp)
 
-export const workspaceOverview = query.protected({
+export const previewRemove = mutation.protected(previewOf(removeRunbookOp))
+export const remove = mutation.protected(removeRunbookOp)
+export const previewBulkRemove = mutation.protected(previewOf(bulkRemoveRunbooksOp))
+export const bulkRemove = mutation.protected(bulkRemoveRunbooksOp)
+
+export const workspaceOverviewOp = operation.query({
+  id: 'runbooks.workspace-overview',
   args: listRunbooks.args,
+  scope: workspaceScope(),
   guard: runbookRead,
-  handler: async (ctx) => {
-    const appIdentity = await ctx.appIdentity()
+  handler: async (ctx: WorkspaceQueryCtx) => {
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
       .order('desc')
       .collect()
 
@@ -264,3 +310,5 @@ export const workspaceOverview = query.protected({
     }
   },
 })
+
+export const workspaceOverview = query.protected(workspaceOverviewOp)

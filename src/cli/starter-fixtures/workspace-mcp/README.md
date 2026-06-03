@@ -1,6 +1,6 @@
 # trellis-starter-workspace-mcp
 
-Generated with `trellis init trellis-starter-workspace-mcp --template workspace-mcp`.
+Generated with `trellis init trellis-starter-workspace-mcp`, `trellis add auth`, `trellis add workspace`, and `trellis add mcp`.
 
 ## Quick start
 

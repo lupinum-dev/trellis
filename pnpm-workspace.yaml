@@ -26,10 +26,12 @@ overrides:
   qs: 6.15.2
   ws: 8.20.1
 
-ignoredBuiltDependencies:
-  - '@parcel/watcher'
-  - '@tailwindcss/oxide'
-  - esbuild
-  - isolated-vm
-  - unrs-resolver
-  - vue-demi
+allowBuilds:
+  '@parcel/watcher': false
+  '@tailwindcss/oxide': false
+  better-sqlite3: false
+  esbuild: false
+  isolated-vm: false
+  sharp: false
+  unrs-resolver: false
+  vue-demi: false

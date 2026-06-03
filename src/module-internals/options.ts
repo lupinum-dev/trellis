@@ -29,6 +29,21 @@ export interface AuthProxyOptions {
   maxResponseBodyBytes?: number
 }
 
+export interface AuthBootstrapOptions {
+  /**
+   * Enable Trellis' client-side app-user bootstrap.
+   * @default true when auth is enabled
+   */
+  enabled?: boolean
+  /**
+   * Convex mutation path exported from `convex/auth.ts`.
+   * Dot form is used in configuration and diagnostics; the runtime converts it
+   * to the Convex function reference path.
+   * @default 'auth.createUserIfNeeded'
+   */
+  mutation?: string
+}
+
 /**
  * Auth configuration. All auth-related settings live here.
  */
@@ -67,6 +82,15 @@ export interface AuthOptions extends ConvexAuthConfigInput {
    * Body size limits for the auth proxy.
    */
   proxy?: AuthProxyOptions
+  /**
+   * Trellis app-user bootstrap lifecycle.
+   *
+   * `false` is the explicit advanced escape hatch for apps that authenticate but
+   * intentionally do not maintain Trellis app-owned users.
+   *
+   * @default true when auth is enabled
+   */
+  bootstrap?: boolean | AuthBootstrapOptions
 }
 
 export interface PermissionsOptions {

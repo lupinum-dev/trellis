@@ -1,10 +1,11 @@
-import { defineMcpApp } from '@lupinum/trellis/mcp'
-import { createServerConvexCaller } from '@lupinum/trellis/server'
+import { createMcpConvexCaller, defineMcpApp, deniedMcpAccessSnapshot } from '@lupinum/trellis/mcp'
 import type { H3Event } from 'h3'
 import type { WorkspaceCaller } from '~~/convex/auth/caller'
-import { todoCreate, workspaceRead } from '~~/convex/features/todos'
+import { todoPermissions } from '~~/convex/features/todos'
 
 import { api } from '#trellis/api'
+
+const deniedTodoAccess = deniedMcpAccessSnapshot(todoPermissions)
 
 type McpAuthContext = {
   id?: string
@@ -27,32 +28,18 @@ function getMcpCaller(event: H3Event): WorkspaceCaller {
 
 export const mcpRuntime = defineMcpApp<WorkspaceCaller>({
   callConvex: async (event, { caller, actingFor }) =>
-    createServerConvexCaller(
-      event,
-      caller.kind === 'agent'
-        ? actingFor
-          ? {
-              auth: 'trusted',
-              caller,
-              actingFor,
-            }
-          : {
-              auth: 'trusted',
-              caller,
-            }
-        : { auth: 'none' },
-    ),
+    createMcpConvexCaller(event, {
+      caller,
+      actingFor,
+      isForwardedCaller: (candidate): candidate is Extract<WorkspaceCaller, { kind: 'agent' }> =>
+        candidate.kind === 'agent',
+    }),
   resolveCaller: async (event) => getMcpCaller(event),
   resolveAccess: async ({ caller, convex }) =>
     caller.kind === 'agent'
-      ? ((await convex.query(api.permissions.context.getAccessContext, {}))?.can ?? {
-          [workspaceRead.key]: false,
-          [todoCreate.key]: false,
-        })
-      : {
-          [workspaceRead.key]: false,
-          [todoCreate.key]: false,
-        },
+      ? ((await convex.query(api.permissions.context.getAccessContext, {}))?.can ??
+        deniedTodoAccess)
+      : deniedTodoAccess,
   callerKey: (caller) => (caller.kind === 'agent' ? `agent:${caller.agentId}` : caller.kind),
 })
 

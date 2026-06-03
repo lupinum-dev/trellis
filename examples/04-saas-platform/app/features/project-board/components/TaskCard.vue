@@ -18,6 +18,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const convex = useConvex()
+type RemoveTaskExecuteArgs = { id: Id<'tasks'>; _confirmationToken: string }
 
 const priorityColor = computed(() => {
   if (props.task.priority === 'high') return 'error'
@@ -57,7 +58,7 @@ const deleteTask = useConvexMutation(api.features.tasks.domain.remove, {
 })
 
 async function handleDeleteTask() {
-  const preview = await convex.mutation(api.features.tasks.operations.previewRemoveTask, {
+  const preview = await convex.mutation(api.features.tasks.domain.previewRemoveTask, {
     id: props.task._id,
   })
   const token = preview.confirmation?.token
@@ -69,7 +70,7 @@ async function handleDeleteTask() {
     })
     return
   }
-  await deleteTask({ id: props.task._id, _confirmationToken: token })
+  await deleteTask({ id: props.task._id, _confirmationToken: token } as RemoveTaskExecuteArgs)
 }
 </script>
 

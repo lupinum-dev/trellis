@@ -99,6 +99,7 @@ export interface TrellisCliInventoryPermission {
   file: string
   source: TrellisCliInventorySourceLocation
   label?: string
+  description?: string
   roles: string[]
   projected: boolean
 }
@@ -403,6 +404,7 @@ function collectPermissions(project: ProjectInspection): TrellisCliInventory['pe
       file: permission.file,
       source: toMetadataLocation(permission.file, permission.line),
       ...(permission.label ? { label: permission.label } : {}),
+      ...(permission.description ? { description: permission.description } : {}),
       roles: permission.roles,
       projected: permission.projected,
     })),

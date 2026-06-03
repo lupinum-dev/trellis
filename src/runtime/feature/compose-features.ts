@@ -1,12 +1,11 @@
 import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
 import {
   getOperationMetadata,
-  isOperationDescriptor,
+  trellisOperationMetadataKey,
   type McpWriteSafety,
-  type OperationDescriptor,
 } from '../functions/operation-metadata.js'
 import type { Expand, UnionToIntersection } from '../types/type-utils.js'
-import type { FeatureDefinition } from './define-feature.js'
+import type { FeatureDefinition, FeatureOperationDefinition } from './define-feature.js'
 
 type AnyFeature = FeatureDefinition<
   string,
@@ -15,7 +14,7 @@ type AnyFeature = FeatureDefinition<
   readonly string[],
   readonly string[],
   unknown,
-  readonly OperationDescriptor[]
+  readonly FeatureOperationDefinition[]
 >
 
 type FeatureSchema<TFeature extends AnyFeature> = TFeature['schema']
@@ -39,7 +38,7 @@ export interface FeatureManifest<
     readonly ErasedPermissionDefinition[],
   TTenantTable extends string = string,
   TGlobalTable extends string = string,
-  TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
+  TOperations extends readonly FeatureOperationDefinition[] = readonly FeatureOperationDefinition[],
 > {
   readonly schema: TSchema
   readonly permissions: TPermissions
@@ -55,7 +54,7 @@ export interface AppInventory<
     readonly ErasedPermissionDefinition[],
   TTenantTable extends string = string,
   TGlobalTable extends string = string,
-  TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
+  TOperations extends readonly FeatureOperationDefinition[] = readonly FeatureOperationDefinition[],
 > {
   readonly _type: 'app-inventory'
   readonly schemaVersion: 1
@@ -179,13 +178,19 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
     }
 
     for (const operation of feature.operations ?? []) {
-      if (!isOperationDescriptor(operation)) {
+      if (!(trellisOperationMetadataKey in operation)) {
         throw new Error(
-          `composeFeatures(...) received non-descriptor operation from feature "${feature.name}".`,
+          `composeFeatures(...) received operation without Trellis metadata from feature "${feature.name}".`,
         )
       }
 
       const metadata = getOperationMetadata(operation as never)
+      if (!metadata.kind) {
+        throw new Error(
+          `composeFeatures(...) received operation without Trellis metadata from feature "${feature.name}".`,
+        )
+      }
+
       if (!metadata.id) {
         operations.push(operation)
         continue

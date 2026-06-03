@@ -1,8 +1,8 @@
 {
   "name": "Trellis release compatibility",
   "releaseStack": {
-    "@lupinum/trellis": "0.1.1",
-    "@lupinum/trellis-bridge": "0.1.1"
+    "@lupinum/trellis": "0.2.0",
+    "@lupinum/trellis-bridge": "0.2.0"
   },
   "tracked": {
     "@convex-dev/better-auth": ["^0.12.2", "0.12.2"],
@@ -11,7 +11,7 @@
     "convex": ["1.38.0", "^1.38.0"],
     "convex-helpers": ["^0.1.117", "0.1.117"],
     "h3": ["1.15.11"],
-    "nuxt": ["^4.4.7", "4.4.7"],
+    "nuxt": ["^4.4.6", "4.4.6"],
     "typescript": ["~6.0.3", "^6.0.3", "6.0.3"],
     "vite": ["^7.3.3", "7.3.3"],
     "vue-tsc": ["^3.2.9", "3.2.9"],

@@ -58,12 +58,7 @@ Devtools reads the same runtime state and displays it.
 Create one runtime state composable for auth bootstrap:
 
 ```ts
-type AuthBootstrapStatus =
-  | 'disabled'
-  | 'not-installed'
-  | 'pending'
-  | 'ensured'
-  | 'failed'
+type AuthBootstrapStatus = 'disabled' | 'not-installed' | 'pending' | 'ensured' | 'failed'
 
 interface AuthBootstrapRuntimeState {
   status: AuthBootstrapStatus

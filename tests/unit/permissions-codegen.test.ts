@@ -29,6 +29,7 @@ describe('permission codegen', () => {
         export const taskRead = definePermission({
           key: 'task.read',
           label: 'Read tasks',
+          description: 'Allows reading tasks.',
           roles: ['owner', 'member'],
           check: true,
         })
@@ -60,6 +61,7 @@ describe('permission codegen', () => {
         file: 'convex/auth/permissions.ts',
         key: 'task.read',
         label: 'Read tasks',
+        description: 'Allows reading tasks.',
         line: expect.any(Number),
         projected: true,
         roles: ['owner', 'member'],
@@ -132,6 +134,7 @@ describe('permission codegen', () => {
         export const taskRead = definePermission({
           key: 'task.read',
           label: 'Read tasks',
+          description: 'Allows reading tasks.',
           roles: ['owner', 'member'],
           check: true,
         })
@@ -156,6 +159,7 @@ describe('permission codegen', () => {
     expect(runtime).toContain(`export const appPermissionMatrix = [`)
     expect(runtime).toContain(`"key": "task.read"`)
     expect(runtime).toContain(`"label": "Read tasks"`)
+    expect(runtime).toContain(`"description": "Allows reading tasks."`)
     expect(runtime).toContain(`"roles": [`)
     expect(runtime).not.toContain(`"key": "task.create"`)
   })

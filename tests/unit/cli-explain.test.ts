@@ -55,6 +55,57 @@ type ExplainMissingReport = {
   }
 }
 
+type ExplainPermissionReport = {
+  schemaVersion: 1
+  cwd: string
+  permission: {
+    key: string
+    exportName: string
+    label: string
+    description?: string
+    roles: string[]
+    projected: boolean
+    source: { path: string; line: number }
+    inventories: Array<{
+      exportName: string
+      file: string
+      source: { path: string; line: number }
+    }>
+    featureRefs: Array<{
+      exportName: string
+      name: string
+      file: string
+      source: { path: string; line: number }
+    }>
+  }
+}
+
+type ExplainPermissionMissingReport = {
+  schemaVersion: 1
+  cwd: string
+  error: {
+    code: 'permission-not-found' | 'no-permissions'
+    message: string
+    availablePermissionKeys: string[]
+    suggestedCommand: string
+  }
+}
+
+type PermissionMatrixReport = {
+  schemaVersion: 1
+  cwd: string
+  permissions: Array<{
+    key: string
+    exportName: string
+    label: string
+    description?: string
+    roles: string[]
+    source: { path: string; line: number }
+    inventories: string[]
+    features: string[]
+  }>
+}
+
 function runCli(args: string[], cwd: string) {
   return spawnSync(process.execPath, [cliEntry, ...args], {
     cwd,
@@ -91,6 +142,31 @@ function writeAppFile(appRoot: string, relativePath: string, source: string): vo
 function addOperationFixture(appRoot: string): void {
   writeAppFile(
     appRoot,
+    'convex/features/tasks/permissions.ts',
+    `
+import { buildPermissionMatrix, definePermission, open } from '@lupinum/trellis/auth'
+
+export const taskArchivePermission = definePermission({
+  key: 'tasks.archive',
+  label: 'Archive tasks',
+  description: 'Allows archiving tasks.',
+  roles: ['owner'],
+  check: open,
+})
+
+export const taskInternalPermission = definePermission({
+  key: 'tasks.internal',
+  label: 'Internal task maintenance',
+  project: false,
+  check: open,
+})
+
+export const taskPermissions = [taskArchivePermission, taskInternalPermission] as const
+export const taskPermissionMatrix = buildPermissionMatrix(taskPermissions)
+`.trimStart(),
+  )
+  writeAppFile(
+    appRoot,
     'convex/features/tasks/operations.ts',
     `
 import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
@@ -116,9 +192,11 @@ export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
     `
 import { defineFeature } from '@lupinum/trellis/backend'
 import { archiveTaskOp } from './operations'
+import { taskArchivePermission } from './permissions'
 
 export const tasksFeature = defineFeature({
   name: 'tasks',
+  permissions: [taskArchivePermission],
   operations: [archiveTaskOp],
 })
 `.trimStart(),
@@ -243,19 +321,19 @@ describe('CLI explain', () => {
     const report = parseJsonOutput<ExplainMissingReport>(result.stdout)
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
-    expect(report).toEqual({
+    expect(report).toMatchObject({
       schemaVersion: 1,
       cwd: appRoot,
       error: {
         code: 'operation-not-found',
         message: 'Operation "tasks.missing" was not found in inventory.',
-        availableOperationIds: ['tasks.archive'],
+        availableOperationIds: expect.arrayContaining(['tasks.archive']),
       },
     })
   })
 
   it('reports when no operations exist', () => {
-    const appRoot = createPublicApp()
+    const appRoot = createTempDir('trellis-explain-empty-')
 
     const result = runCli(
       ['explain', 'operation', 'tasks.archive', '--json', '--cwd', appRoot],
@@ -269,5 +347,118 @@ describe('CLI explain', () => {
       message: 'No operations were found in inventory.',
       availableOperationIds: [],
     })
+  })
+
+  it('explains a permission as versioned JSON from inventory', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(
+      ['explain', 'permission', 'tasks.archive', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainPermissionReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      permission: {
+        key: 'tasks.archive',
+        exportName: 'taskArchivePermission',
+        label: 'Archive tasks',
+        description: 'Allows archiving tasks.',
+        roles: ['owner'],
+        projected: true,
+        source: {
+          path: 'convex/features/tasks/permissions.ts',
+          line: expect.any(Number),
+        },
+        inventories: [
+          expect.objectContaining({
+            exportName: 'taskPermissions',
+            file: 'convex/features/tasks/permissions.ts',
+          }),
+        ],
+        featureRefs: [
+          expect.objectContaining({
+            exportName: 'tasksFeature',
+            name: 'tasks',
+            file: 'convex/features/tasks/feature.ts',
+          }),
+        ],
+      },
+    })
+  }, 30_000)
+
+  it('renders a human-readable permission explanation', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'permission', 'tasks.archive', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).toBe(0)
+    expect(result.stdout).toContain('Permission tasks.archive')
+    expect(result.stdout).toContain('Label: Archive tasks')
+    expect(result.stdout).toContain('Export: taskArchivePermission')
+    expect(result.stdout).toContain('Roles: owner')
+    expect(result.stdout).toContain('taskPermissions')
+    expect(result.stdout).toContain('tasksFeature (tasks)')
+  })
+
+  it('fails clearly for an unknown permission and points to the matrix', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(
+      ['explain', 'permission', 'tasks.missing', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const report = parseJsonOutput<ExplainPermissionMissingReport>(result.stdout)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report).toEqual({
+      schemaVersion: 1,
+      cwd: appRoot,
+      error: {
+        code: 'permission-not-found',
+        message: 'Permission "tasks.missing" was not found in inventory.',
+        availablePermissionKeys: ['tasks.archive', 'tasks.internal'],
+        suggestedCommand: 'trellis permissions matrix',
+      },
+    })
+  })
+
+  it('prints the static projected permission matrix', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['permissions', 'matrix', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<PermissionMatrixReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report.permissions).toEqual([
+      expect.objectContaining({
+        key: 'tasks.archive',
+        exportName: 'taskArchivePermission',
+        label: 'Archive tasks',
+        description: 'Allows archiving tasks.',
+        roles: ['owner'],
+        inventories: ['taskPermissions'],
+        features: ['tasks'],
+      }),
+    ])
+    expect(JSON.stringify(report)).not.toContain('tasks.internal')
+  })
+
+  it('does not add permissions explain as a second explain surface', () => {
+    const appRoot = createPublicApp()
+
+    const result = runCli(['permissions', 'explain', 'tasks.archive', '--cwd', appRoot], repoRoot)
+
+    expect(result.status).not.toBe(0)
   })
 })

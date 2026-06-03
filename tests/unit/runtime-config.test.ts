@@ -17,6 +17,41 @@ describe('runtime config normalization', () => {
     expect(config.auth.cache.ttl).toBe(60)
   })
 
+  it('defaults auth bootstrap to the canonical mutation only when auth is enabled', () => {
+    expect(normalizeConvexRuntimeConfig({}).auth.bootstrap).toEqual({
+      enabled: false,
+      mutation: 'auth.createUserIfNeeded',
+    })
+
+    expect(
+      normalizeConvexRuntimeConfig({
+        auth: {
+          enabled: true,
+        },
+      }).auth.bootstrap,
+    ).toEqual({
+      enabled: true,
+      mutation: 'auth.createUserIfNeeded',
+    })
+  })
+
+  it('preserves explicit disabled auth bootstrap runtime config', () => {
+    const config = normalizeConvexRuntimeConfig({
+      auth: {
+        enabled: true,
+        bootstrap: {
+          enabled: false,
+          mutation: 'accounts.bootstrapUser',
+        },
+      },
+    })
+
+    expect(config.auth.bootstrap).toEqual({
+      enabled: false,
+      mutation: 'accounts.bootstrapUser',
+    })
+  })
+
   it('keeps MCP runtime config empty by default', () => {
     const config = normalizeConvexRuntimeConfig({})
     expect(config.mcp).toEqual({})

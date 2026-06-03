@@ -7,18 +7,15 @@ export {
   getWorkspace,
   listPublic,
   listWorkspace,
+  previewBulkRemove,
+  previewRemove,
   remove,
   searchPublic,
   update,
   workspaceOverview,
 } from './domain'
 export { runbooksFeature } from './feature'
-export {
-  bulkRemoveRunbooksOp,
-  previewBulkRemove,
-  previewRemove,
-  removeRunbookOp,
-} from './operations'
+export { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
 export {
   runbookBulkDelete,
   runbookCreate,

@@ -24,6 +24,7 @@ export interface NormalizedConvexAuthConfig extends ConvexAuthConfig {
   skipAuthTokenFetchRoutes: string[]
   cache: { enabled: boolean; ttl: number }
   proxy: { maxRequestBodyBytes: number; maxResponseBodyBytes: number }
+  bootstrap: { enabled: boolean; mutation: string }
 }
 
 export interface NormalizedConvexPermissionsConfig {
@@ -71,6 +72,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const queryRaw = asRecord(raw?.query)
   const cacheRaw = asRecord(authRaw?.cache)
   const proxyRaw = asRecord(authRaw?.proxy)
+  const bootstrapRaw = asRecord(authRaw?.bootstrap)
   const uploadRaw = asRecord(raw?.upload)
 
   const envUrl = process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL
@@ -114,6 +116,13 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
           const n = Math.trunc(candidate)
           return n > 0 ? n : 1_048_576
         })(),
+      },
+      bootstrap: {
+        enabled: authRaw?.enabled === true && bootstrapRaw?.enabled !== false,
+        mutation:
+          typeof bootstrapRaw?.mutation === 'string' && bootstrapRaw.mutation.trim()
+            ? bootstrapRaw.mutation.trim()
+            : 'auth.createUserIfNeeded',
       },
     },
     permissions: {

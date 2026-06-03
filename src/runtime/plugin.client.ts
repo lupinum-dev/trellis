@@ -1,3 +1,4 @@
+import { makeFunctionReference } from 'convex/server'
 import { watch } from 'vue'
 
 /**
@@ -6,6 +7,8 @@ import { watch } from 'vue'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
+import { disableAuthBootstrapRuntimeState } from './auth/client/auth-bootstrap-state.js'
+import { setupConfiguredAuthBootstrap } from './auth/client/auth-bootstrap.js'
 import { initAuthClient } from './auth/client/auth-client.js'
 import { createSharedAuthEngine } from './auth/client/auth-engine.js'
 import { initHydrationState } from './auth/client/auth-hydration.js'
@@ -23,6 +26,14 @@ import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
 type HydrationState = ReturnType<typeof initHydrationState>
 type ClientDevtoolsApp = {
   provide: (name: string, value: unknown) => void
+}
+
+function toConvexFunctionPath(configuredPath: string): string {
+  if (configuredPath.includes(':')) return configuredPath
+  const segments = configuredPath.split('.').filter(Boolean)
+  if (segments.length < 2) return configuredPath
+  const exportName = segments.at(-1)
+  return `${segments.slice(0, -1).join('/')}:${exportName}`
 }
 
 export function setupClientDevtools(
@@ -198,6 +209,20 @@ export default defineNuxtPlugin({
     initRuntimeConnectionHooks(nuxtApp, client, logger)
     if (authEngine.client) {
       nuxtApp.provide('auth', authEngine.client)
+    }
+
+    const authBootstrap = authConfig.bootstrap ?? {
+      enabled: Boolean(isAuthEnabled),
+      mutation: 'auth.createUserIfNeeded',
+    }
+
+    if (isAuthEnabled && authBootstrap.enabled) {
+      setupConfiguredAuthBootstrap(
+        makeFunctionReference<'mutation'>(toConvexFunctionPath(authBootstrap.mutation)),
+        authBootstrap.mutation,
+      )
+    } else {
+      disableAuthBootstrapRuntimeState()
     }
 
     if (import.meta.dev) {

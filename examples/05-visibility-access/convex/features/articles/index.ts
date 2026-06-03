@@ -9,7 +9,8 @@ export {
   view,
 } from './domain'
 export { articlesFeature } from './feature'
-export { revokeShareTokenOp, previewRevokeShareToken } from './operations'
+export { previewRevokeShareToken } from './domain'
+export { revokeShareTokenOp } from './operations'
 export {
   articleCreate,
   articlePermissionMatrix,

@@ -1,17 +1,26 @@
+import { operation, workspaceScope } from '@lupinum/trellis/app'
+
 import { listMembers as listMembersArgs } from '../../../shared/features/memberships/contract'
+import type { Id } from '../../_generated/dataModel'
+import type { QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { query } from '../../functions'
 import { membershipRead } from './permissions'
 
-export const listMembers = query.protected({
-  args: listMembersArgs.args,
-  guard: membershipRead,
-  handler: async (ctx) => {
-    const appIdentity = await ctx.appIdentity()
-    if (!appIdentity) throw new Error('Current appIdentity is not assigned to a workspace.')
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
 
+export const listMembersOp = operation.query({
+  id: 'memberships.list',
+  args: listMembersArgs.args,
+  scope: workspaceScope(),
+  guard: membershipRead,
+  handler: async (ctx: WorkspaceQueryCtx) => {
     const memberships = await ctx.db
       .query('memberships')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
       .collect()
 
     return Promise.all(
@@ -29,3 +38,5 @@ export const listMembers = query.protected({
     )
   },
 })
+
+export const listMembers = query.protected(listMembersOp)

@@ -1,4 +1,10 @@
-import { isGuard, type AnyCheck } from './define-guard.js'
+import {
+  explainCheck,
+  isGuard,
+  type AnyCheck,
+  type GuardDecision,
+  type GuardExplanation,
+} from './define-guard.js'
 
 export interface ErasedPermissionDefinition<TKey extends string = string> {
   readonly _type: 'permission'
@@ -22,6 +28,17 @@ export interface PermissionDefinition<TKey extends string = string, TActor = unk
   'check'
 > {
   readonly check: AnyCheck<TActor>
+}
+
+export interface PermissionExplanation<TKey extends string = string> {
+  key: TKey
+  label: string
+  decision: GuardDecision
+  reason: string
+  description?: string
+  roles: readonly string[]
+  project: boolean
+  check: GuardExplanation
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
@@ -129,4 +146,22 @@ export function resolvePermissionKey<TKey extends string>(
 ): TKey {
   if (typeof permission === 'string') return permission
   return permission.key as TKey
+}
+
+export function explainPermission<TKey extends string, TActor>(
+  actor: TActor,
+  permission: PermissionDefinition<TKey, TActor>,
+): PermissionExplanation<TKey> {
+  const check = explainCheck(actor, permission.check)
+
+  return {
+    key: permission.key,
+    label: resolvePermissionLabel(permission),
+    decision: check.decision,
+    reason: check.reason,
+    ...(permission.description ? { description: permission.description } : {}),
+    roles: permission.roles ?? [],
+    project: permission.project !== false,
+    check,
+  }
 }

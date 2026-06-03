@@ -14,6 +14,7 @@ export type { AuthIdentity } from './auth-identity.js'
 export {
   authRequired,
   defineGuard,
+  explainCheck,
   isAuthRequiredGuard,
   isGuard,
   isOpenGuard,
@@ -23,6 +24,9 @@ export type {
   AnyCheck,
   AuthRequiredGuard,
   Check,
+  GuardDecision,
+  GuardExplain,
+  GuardExplanation,
   Guard,
   GuardKind,
   OpenGuard,
@@ -41,6 +45,7 @@ export { buildPermissionMatrix } from './build-permission-matrix.js'
 export type { PermissionMatrixRow } from './build-permission-matrix.js'
 export {
   definePermissionKey,
+  explainPermission,
   definePermission,
   isGuardPermissionDefinition,
   isPermissionDefinition,
@@ -52,6 +57,7 @@ export type {
   GuardPermissionDefinition,
   PermissionKeysByKey,
   PermissionDefinition,
+  PermissionExplanation,
   PermissionHandle,
   PermissionKeyDefinition,
   PermissionKeyHandle,

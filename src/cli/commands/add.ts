@@ -18,7 +18,7 @@ export const addCommand = defineCommand({
     feature: {
       type: 'positional',
       required: true,
-      description: 'Feature to add. One of: mcp, uploads, operation, entity',
+      description: 'Feature to add. One of: auth, workspace, mcp, uploads, operation, entity',
     },
     kind: {
       type: 'string',
@@ -44,12 +44,16 @@ export const addCommand = defineCommand({
   async run({ args }) {
     const feature = String(args.feature)
     if (
+      feature !== 'auth' &&
+      feature !== 'workspace' &&
       feature !== 'mcp' &&
       feature !== 'uploads' &&
       feature !== 'operation' &&
       feature !== 'entity'
     ) {
-      throw new Error('Invalid feature. Use one of: mcp, uploads, operation, entity.')
+      throw new Error(
+        'Invalid feature. Use one of: auth, workspace, mcp, uploads, operation, entity.',
+      )
     }
 
     const kind = String(args.kind)

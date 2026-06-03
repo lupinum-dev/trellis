@@ -18,24 +18,26 @@ export default defineNuxtConfig({
   hooks: {
     'vite:extendConfig': (config, { isClient }) => {
       if (!useLocalConvex || !isClient) return
-      config.plugins = [
-        ...(config.plugins ?? []),
-        convexLocal({
-          instanceName: 'trellis-starter-workspace',
-          stateIdSuffix: 'trellis-starter-workspace-local-v1',
-          port: 3210,
-          siteProxyPort: 3211,
-          convexDir: 'convex',
-          reset: resetLocalBackend,
-          envVars: {
-            SITE_URL: siteUrl,
-            AUTH_BASE_URL: process.env.AUTH_BASE_URL || siteUrl,
-            AUTH_TRUSTED_ORIGINS: process.env.AUTH_TRUSTED_ORIGINS || siteUrl,
-            BETTER_AUTH_SECRET:
-              process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
-          },
-        }),
-      ]
+      Object.assign(config, {
+        plugins: [
+          ...(config.plugins ?? []),
+          convexLocal({
+            instanceName: 'trellis-starter-workspace',
+            stateIdSuffix: 'trellis-starter-workspace-local-v1',
+            port: 3210,
+            siteProxyPort: 3211,
+            convexDir: 'convex',
+            reset: resetLocalBackend,
+            envVars: {
+              SITE_URL: siteUrl,
+              AUTH_BASE_URL: process.env.AUTH_BASE_URL || siteUrl,
+              AUTH_TRUSTED_ORIGINS: process.env.AUTH_TRUSTED_ORIGINS || siteUrl,
+              BETTER_AUTH_SECRET:
+                process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
+            },
+          }),
+        ],
+      })
     },
   },
 })

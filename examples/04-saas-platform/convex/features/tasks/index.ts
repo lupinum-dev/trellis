@@ -1,7 +1,8 @@
 export { taskCapabilities } from './recordAccess'
 export { canDeleteTask, canUpdateTask } from './checks'
 export { tasksFeature } from './feature'
-export { previewRemoveTask, removeTaskOp } from './operations'
+export { previewRemoveTask } from './domain'
+export { removeTaskOp } from './operations'
 export {
   taskAssign,
   taskCreate,

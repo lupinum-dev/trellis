@@ -77,10 +77,10 @@
 <script setup lang="ts">
 import AccessBadge from '~~/app/features/visibility-access/components/AccessBadge.vue'
 import ShareLinkDialog from '~~/app/features/visibility-access/components/ShareLinkDialog.vue'
+import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
 import { articleCreate, shareCreate } from '#trellis/permissions'
-import type { Id } from '~/convex/_generated/dataModel'
 
 const route = useRoute()
 const toast = useToast()

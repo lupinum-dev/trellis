@@ -19,6 +19,7 @@ export {
 } from '@nuxtjs/mcp-toolkit/server'
 
 export { defineMcpApp } from './define-mcp-app.js'
+export { createMcpConvexCaller, deniedMcpAccessSnapshot } from './create-mcp-convex-caller.js'
 export { stampMcpToolSafety, trellisMcpToolSafetyKey } from './operation-binding.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
 export { unsafe } from './unsafe-permit.js'
@@ -95,6 +96,7 @@ export type {
   ValidateMcpToolOptions,
 } from './define-mcp-app.js'
 
+export type { CreateMcpConvexCallerOptions } from './create-mcp-convex-caller.js'
 export type { TrellisMcpToolSafety } from './operation-binding.js'
 export type { TrellisUnsafePermit } from './unsafe-permit.js'
 

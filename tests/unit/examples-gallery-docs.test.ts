@@ -10,15 +10,18 @@ function read(relativePath: string) {
 }
 
 describe('examples gallery docs', () => {
-  it('keeps beginner starter docs on the current starter names', () => {
+  it('keeps beginner starter docs on the operation ladder', () => {
     const rootReadme = read('README.md')
     const gallery = read('examples/README.md')
     const combined = `${rootReadme}\n${gallery}`
 
-    expect(combined).toContain('--template workspace-mcp')
+    expect(combined).toContain('trellis init my-app')
+    expect(combined).toContain('trellis add auth')
+    expect(combined).toContain('trellis add workspace')
+    expect(combined).toContain('trellis add mcp')
     expect(combined).not.toContain('--template workspace --mcp')
     expect(combined).not.toContain('--template cms')
-    expect(rootReadme).toMatch(/\|\s*`workspace-mcp`\s*\|/)
+    expect(rootReadme).not.toContain('--preset workspace-mcp')
     expect(rootReadme).not.toMatch(/Official starters:[\s\S]*- `cms`/)
   })
 

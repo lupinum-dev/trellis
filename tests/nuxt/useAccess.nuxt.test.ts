@@ -272,7 +272,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
     expect(result.pushSpy).toHaveBeenCalledWith('/forbidden')
   })
 
-  it('warns when auth is ready but access context stays null for more than 2 seconds', async () => {
+  it('warns when module-owned auth bootstrap fails and access context stays null', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
@@ -299,9 +299,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       expect(convex.calls.onUpdate.length).toBeGreaterThan(0)
       await waitFor(() => warnSpy.mock.calls.length > 0, { timeoutMs: 3_500 })
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('stayed null for more than 2 seconds after auth became ready'),
-      )
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('auth bootstrap failed'))
     } finally {
       warnSpy.mockRestore()
     }

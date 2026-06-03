@@ -30,9 +30,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
-import type { Id } from '~/convex/_generated/dataModel'
 
 const props = defineProps<{
   articleId: Id<'articles'>

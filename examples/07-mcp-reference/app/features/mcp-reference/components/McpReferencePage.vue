@@ -618,11 +618,11 @@ curl {{ endpointBase }}/mcp \
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 import { computed, reactive, ref } from 'vue'
 import * as z from 'zod'
+import type { Id } from '~~/convex/_generated/dataModel'
+import { selectMcpBoundUser } from '~~/shared/features/mcpKeys/bound-user'
 
 import { api } from '#trellis/api'
 import { mcpManage, runbookCreate } from '#trellis/permissions'
-import type { Id } from '~/convex/_generated/dataModel'
-import { selectMcpBoundUser } from '~/shared/features/mcpKeys/bound-user'
 
 const { sessionUser, signOut } = useConvexAuth()
 const client = useBetterAuthClient()
@@ -865,7 +865,7 @@ async function handleCreateMcpKey() {
 
   await createKey({
     name: createKeyForm.name,
-    boundUserId,
+    boundUserId: boundUserId as Id<'users'>,
     prefix,
     hash,
   })

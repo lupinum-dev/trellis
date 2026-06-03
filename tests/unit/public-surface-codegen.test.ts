@@ -20,6 +20,79 @@ function createFixture(files: Record<string, string>) {
 }
 
 describe('public surface codegen', () => {
+  it('extracts beginner app operations and projections', () => {
+    const rootDir = createFixture({
+      'convex/features/todos/domain.ts': `
+        import { operation, operationPreview, previewOf } from '@lupinum/trellis/app'
+        import { mutation, query } from '../../functions'
+
+        export const listTodosOp = operation.query({
+          id: 'todos.list',
+          args: {},
+          handler: async () => [],
+        })
+
+        export const removeTodoOp = operation.destructive({
+          id: 'todos.remove',
+          safety: 'destructive-write',
+          args: {},
+          preview: async () => operationPreview({ summary: 'Remove todo', confirm: { id: 'todo_1' } }),
+          handler: async () => null,
+        })
+
+        export const listTodos = query.public(listTodosOp)
+        export const removeTodo = mutation.protected(removeTodoOp)
+        export const previewRemoveTodo = mutation.protected(previewOf(removeTodoOp))
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.operations).toEqual([
+      {
+        exportName: 'listTodosOp',
+        file: 'convex/features/todos/domain.ts',
+        id: 'todos.list',
+        kind: 'safe',
+        line: expect.any(Number),
+      },
+      {
+        exportName: 'removeTodoOp',
+        file: 'convex/features/todos/domain.ts',
+        id: 'todos.remove',
+        kind: 'destructive',
+        line: expect.any(Number),
+      },
+    ])
+
+    expect(metadata.projections).toEqual([
+      {
+        exportName: 'listTodos',
+        file: 'convex/features/todos/domain.ts',
+        line: expect.any(Number),
+        operationExportName: 'listTodosOp',
+        operationId: 'todos.list',
+        projection: 'execute',
+      },
+      {
+        exportName: 'removeTodo',
+        file: 'convex/features/todos/domain.ts',
+        line: expect.any(Number),
+        operationExportName: 'removeTodoOp',
+        operationId: 'todos.remove',
+        projection: 'execute',
+      },
+      {
+        exportName: 'previewRemoveTodo',
+        file: 'convex/features/todos/domain.ts',
+        line: expect.any(Number),
+        operationExportName: 'removeTodoOp',
+        operationId: 'todos.remove',
+        projection: 'preview',
+      },
+    ])
+  }, 15_000)
+
   it('extracts operations, projections, and MCP tool metadata', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

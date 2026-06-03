@@ -39,7 +39,7 @@ npm.
 Set the version once and use it throughout the release:
 
 ```bash
-VERSION=0.1.0
+VERSION=0.2.0
 ```
 
 1. Start from a clean working tree on the release branch:

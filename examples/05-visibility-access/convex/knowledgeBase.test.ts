@@ -482,7 +482,7 @@ describe('share tokens', () => {
       tokenId: tokenRecord!._id,
     }
     const revokePreview = await team.users.editor.mutation(
-      api.features.articles.operations.previewRevokeShareToken,
+      api.features.articles.domain.previewRevokeShareToken,
       revokeArgs,
     )
 

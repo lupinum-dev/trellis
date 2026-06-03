@@ -12,14 +12,12 @@ import { applyInitTemplateSet, getCanonicalAppTemplateSet } from '../lib/init.js
 function assertAppName(value: string | undefined): string {
   const appName = value?.trim()
   if (!appName) {
-    throw new Error(
-      'Missing app name. Use `trellis init <name> --template public|personal|workspace|workspace-mcp`.',
-    )
+    throw new Error('Missing app name. Use `trellis init <name>`.')
   }
 
   if (['app', 'auth', 'permissions', 'mcp'].includes(appName)) {
     throw new Error(
-      `Legacy init flow removed. Use \`trellis init <name> --template ...\` or \`trellis add ...\` instead of \`trellis init ${appName}\`.`,
+      `Legacy init flow removed. Use \`trellis init <name>\`, \`trellis init <name> --preset ...\`, or \`trellis add ...\` instead of \`trellis init ${appName}\`.`,
     )
   }
 
@@ -36,6 +34,17 @@ function assertAppName(value: string | undefined): string {
   return appName
 }
 
+function resolvePreset(args: { preset?: unknown; template?: unknown }): string {
+  const preset = args.preset === undefined ? undefined : String(args.preset)
+  const template = args.template === undefined ? undefined : String(args.template)
+
+  if (preset && template && preset !== template) {
+    throw new Error('Use either `--preset` or `--template`, not conflicting values.')
+  }
+
+  return preset ?? template ?? 'public'
+}
+
 export const initCommand = defineCommand({
   meta: {
     name: 'init',
@@ -49,8 +58,11 @@ export const initCommand = defineCommand({
     },
     template: {
       type: 'string',
-      required: true,
-      description: 'App template. One of: public, personal, workspace, workspace-mcp',
+      description: 'Compatibility alias for --preset',
+    },
+    preset: {
+      type: 'string',
+      description: 'App preset shortcut. One of: public, personal, workspace, workspace-mcp',
     },
     mcp: {
       type: 'boolean',
@@ -75,7 +87,7 @@ export const initCommand = defineCommand({
   },
   async run({ args }) {
     const appName = assertAppName(args.name ? String(args.name) : undefined)
-    const template = String(args.template)
+    const template = resolvePreset(args)
     const mcp = Boolean(args.mcp)
 
     if (
@@ -84,12 +96,12 @@ export const initCommand = defineCommand({
       template !== 'workspace' &&
       template !== 'workspace-mcp'
     ) {
-      throw new Error('Invalid template. Use one of: public, personal, workspace, workspace-mcp.')
+      throw new Error('Invalid preset. Use one of: public, personal, workspace, workspace-mcp.')
     }
 
     if (mcp && template !== 'workspace' && template !== 'workspace-mcp') {
       throw new Error(
-        '`--mcp` is currently only supported with `--template workspace` or `--template workspace-mcp`.',
+        '`--mcp` is currently only supported with `--preset workspace` or `--preset workspace-mcp`.',
       )
     }
 

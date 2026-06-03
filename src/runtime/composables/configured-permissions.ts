@@ -4,6 +4,7 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useNuxtApp, useRouter } from '#imports'
 
+import { useAuthBootstrapRuntimeState } from '../auth/client/auth-bootstrap-state.js'
 import { useConvexAuth } from '../auth/composables/useConvexAuth.js'
 import type { AccessContextBase } from '../auth/define-access-context.js'
 import type {
@@ -13,7 +14,7 @@ import type {
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { hasConvexAuthRuntime } from '../auth/internal/auth-runtime.js'
 import { createConvexQueryState } from '../convex/query/query-runtime.js'
-import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
+import { usePermissionDevtoolsState } from '../devtools/state.js'
 import type { NoInfer } from '../types/type-utils.js'
 
 export type AuthContext = AccessContextBase<Record<string, boolean>> & {
@@ -88,14 +89,11 @@ function useAccessContextState<
 >(query: Query, configuredQueryName: string) {
   const nuxtApp = useNuxtApp()
   const authState = hasConvexAuthRuntime(nuxtApp) ? useConvexAuth() : null
-  const authBootstrapState = useAuthBootstrapDevtoolsState()
+  const authBootstrapState = useAuthBootstrapRuntimeState()
 
   const shouldWaitForBootstrap = computed<boolean>(() => {
     if (!authState?.isAuthenticated.value) return false
-    if (!authBootstrapState.value.mutationName) return false
-    if (authBootstrapState.value.ensured) return false
-    if (authBootstrapState.value.error) return false
-    return true
+    return authBootstrapState.value.status === 'pending'
   })
   const queryArgs = computed<Record<string, never> | undefined>(() =>
     shouldWaitForBootstrap.value ? undefined : {},
@@ -161,6 +159,25 @@ function useAccessContextState<
           return
         }
         warnedAboutNullCtx = true
+        const bootstrap = authBootstrapState.value
+        if (bootstrap.status === 'disabled') {
+          console.warn(
+            `[trellis] useAccess("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Auth bootstrap is explicitly disabled, so verify this app does not need a Trellis app-owned user row.`,
+          )
+          return
+        }
+        if (bootstrap.status === 'not-installed' || !bootstrap.mutationName) {
+          console.warn(
+            `[trellis] useAccess("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready because auth bootstrap is not installed. Verify convex/auth.ts exports createUserIfNeeded and Trellis auth bootstrap is enabled, or set auth.bootstrap: false explicitly for apps that do not need app-user bootstrap.`,
+          )
+          return
+        }
+        if (bootstrap.status === 'failed') {
+          console.warn(
+            `[trellis] useAccess("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready because auth bootstrap failed: ${bootstrap.error ?? 'unknown error'}.`,
+          )
+          return
+        }
         console.warn(
           `[trellis] useAccess("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and appIdentity bootstrap flow.`,
         )

@@ -1,16 +1,35 @@
+import { operation, workspaceScope } from '@lupinum/trellis/app'
 import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createComment } from '../../../shared/features/comments/contract'
-import type { Doc } from '../../_generated/dataModel'
-import { requireWorkspaceTenant } from '../../auth/guards'
+import type { Doc, Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 import { commentCreate } from './permissions'
 
-export const listByTask = query.protected({
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type WorkspaceMutationCtx = MutationCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<NonNullable<AppIdentity>>
+}
+type ListCommentsByTaskArgs = { taskId: Id<'tasks'> }
+type CreateCommentArgs = {
+  taskId: Id<'tasks'>
+  body: string
+  attachmentStorageId?: Id<'_storage'>
+}
+
+export const listCommentsByTaskOp = operation.query({
+  id: 'comments.list-by-task',
   args: { taskId: v.id('tasks') },
+  scope: workspaceScope(),
   guard: commentCreate,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceQueryCtx, args: ListCommentsByTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
 
     loadResource(appIdentity, (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null, 'Task')
@@ -23,12 +42,15 @@ export const listByTask = query.protected({
   },
 })
 
-export const create = mutation.protected({
+export const listByTask = query.protected(listCommentsByTaskOp)
+
+export const createCommentOp = operation.mutation({
+  id: 'comments.create',
   args: createComment.args,
+  scope: workspaceScope(),
   guard: commentCreate,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateCommentArgs) => {
     const appIdentity = await ctx.appIdentity()
-    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const task = loadResource(
       appIdentity,
@@ -51,13 +73,13 @@ export const create = mutation.protected({
       body: args.body,
       attachmentStorageId: args.attachmentStorageId,
       ownerId: appIdentity.userId,
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId,
+      workspaceId: ctx.workspaceId,
       actorId: appIdentity.userId,
       entityType: 'comment',
       entityId: commentId,
@@ -69,3 +91,5 @@ export const create = mutation.protected({
     return commentId
   },
 })
+
+export const create = mutation.protected(createCommentOp)

@@ -1,13 +1,25 @@
+import { operation } from '@lupinum/trellis/app'
 import { authRequired } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
+import type { MutationCtx } from '../../_generated/server'
 import { mutation } from '../../functions'
 
-export const createWorkspaceMutation = mutation.protected({
+type WorkspaceBootstrapCtx = MutationCtx & {
+  caller: () => Promise<{ kind: string; authKey?: string }>
+}
+type CreateWorkspaceArgs = { name: string; slug: string }
+
+export const createWorkspaceOp = operation.mutation({
+  id: 'workspaces.create',
   guard: authRequired,
   args: createWorkspace.args,
-  handler: async (ctx, args) => {
-    const caller = (await ctx.caller()) as { authKey: string }
+  handler: async (ctx: WorkspaceBootstrapCtx, args: CreateWorkspaceArgs) => {
+    const caller = await ctx.caller()
+    if (caller.kind !== 'user' || !caller.authKey) {
+      throw new Error('Workspace creation requires a signed-in user.')
+    }
+    const authKey = caller.authKey
 
     const existing = await ctx.db
       .query('workspaces')
@@ -17,7 +29,7 @@ export const createWorkspaceMutation = mutation.protected({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_key', (q) => q.eq('authKey', caller.authKey))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', authKey))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
@@ -39,3 +51,5 @@ export const createWorkspaceMutation = mutation.protected({
     return workspaceId
   },
 })
+
+export const createWorkspaceMutation = mutation.protected(createWorkspaceOp)

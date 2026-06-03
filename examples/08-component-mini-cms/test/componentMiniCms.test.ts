@@ -202,12 +202,12 @@ describe('example 08 component mini cms', () => {
       'utf8',
     )
 
-    expect(source).toContain('tool.operation(publishPageDescriptor')
+    expect(source).toContain('tool.operation(publishPageOp')
     expect(source).toContain('transportExecuteOperationRef(')
-    expect(source).toContain('publishPageDescriptor')
+    expect(source).toContain('publishPageOp')
     expect(source).toContain('api.features.pages.domain.publishAction')
     expect(source).toContain("executeOperation: 'action'")
-    expect(source).toContain('previewOperationRef(publishPageDescriptor')
+    expect(source).toContain('previewOperationRef(publishPageOp')
     expect(source).toContain('api.features.pages.domain.previewPublish')
   })
 

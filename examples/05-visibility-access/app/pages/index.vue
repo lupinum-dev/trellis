@@ -350,13 +350,15 @@ const displayName = computed(
 const currentWorkspaceName = computed(() => ctx.value?.workspace?.name ?? null)
 const canCreate = can(kbCreate)
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
-const recordRuleRows = [
+type Role = (typeof allRoles)[number]
+type PermissionMatrixRow = { label: string; roles: Role[] }
+const recordRuleRows: PermissionMatrixRow[] = [
   { label: 'Update any article', roles: ['owner', 'admin'] },
   { label: 'Update own article', roles: ['owner', 'admin', 'editor', 'contributor'] },
 ]
-const permissionMatrix = [
-  ...knowledgeBasePermissionMatrix,
-  ...articlePermissionMatrix,
+const permissionMatrix: PermissionMatrixRow[] = [
+  ...knowledgeBasePermissionMatrix.map((row) => ({ ...row, roles: [...row.roles] as Role[] })),
+  ...articlePermissionMatrix.map((row) => ({ ...row, roles: [...row.roles] as Role[] })),
   ...recordRuleRows,
 ]
 

@@ -144,10 +144,10 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
 import ArticleCard from '~~/app/features/visibility-access/components/ArticleCard.vue'
+import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
 import { articleCreate, enrollmentManage } from '#trellis/permissions'
-import type { Id } from '~/convex/_generated/dataModel'
 
 const route = useRoute()
 const toast = useToast()

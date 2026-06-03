@@ -1,11 +1,26 @@
+import { operation } from '@lupinum/trellis/app'
 import { requireAuth } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
+import type { MutationCtx } from '../../_generated/server'
+import type { McpReferencePrincipal } from '../../auth/caller'
 import { mutation } from '../../functions'
 
-export const createWorkspaceMutation = mutation.public({
+type WorkspaceBootstrapCtx = MutationCtx & {
+  caller: () => Promise<McpReferencePrincipal>
+}
+type CreateWorkspaceArgs = { name: string; slug: string }
+
+function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
+  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
+    reason,
+  })
+}
+
+export const createWorkspaceOp = operation.mutation({
+  id: 'workspaces.create',
   args: createWorkspace.args,
-  handler: async (ctx, args) => {
+  handler: async (ctx: WorkspaceBootstrapCtx, args: CreateWorkspaceArgs) => {
     const caller = await ctx.caller()
     // This onboarding path is intentionally caller-gated instead of appIdentity-gated:
     // a signed-in user may exist before they have any workspace-bound appIdentity row.
@@ -29,9 +44,10 @@ export const createWorkspaceMutation = mutation.public({
     if (!user) throw new Error('Current user row not found.')
 
     const now = Date.now()
-    const crossTenantDb = ctx.db.escapeIsolation({
-      reason: 'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
-    })
+    const crossTenantDb = escapeIsolation(
+      ctx.db,
+      'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
+    )
     const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
@@ -89,3 +105,5 @@ export const createWorkspaceMutation = mutation.public({
     return workspaceId
   },
 })
+
+export const createWorkspaceMutation = mutation.public(createWorkspaceOp)

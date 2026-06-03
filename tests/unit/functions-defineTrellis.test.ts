@@ -1,10 +1,12 @@
 import { v } from 'convex/values'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { open } from '../../src/runtime/auth'
+import { operation as appOperation } from '../../src/runtime/app'
+import { definePermission, open } from '../../src/runtime/auth'
 import {
   defineCaller,
   defineTrellis,
+  getOperationMetadata,
   trellisBackendLaneMetadataKey,
   unsafe,
 } from '../../src/runtime/backend'
@@ -230,6 +232,104 @@ describe('defineTrellis', () => {
     expect(publicQuery[trellisBackendLaneMetadataKey]).toBe('public')
     expect(protectedMutation[trellisBackendLaneMetadataKey]).toBe('protected')
     expect(unsafeMutation[trellisBackendLaneMetadataKey]).toBe('unsafe')
+  })
+
+  it('registers beginner app operations through Convex backend lanes', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const args = { title: v.string() }
+    const listTodosOp = appOperation.query({
+      id: 'todos.list',
+      args,
+      permission: 'todos.read',
+      handler: async (_ctx, input: { title: string }) => ({ title: input.title }),
+    })
+
+    const definition = runtime.query.public(listTodosOp as never) as {
+      args: { fields: { title: typeof args.title } }
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: Record<string, never>
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { title: string },
+      ) => Promise<unknown>
+      [trellisBackendLaneMetadataKey]: 'public'
+    }
+
+    expect(listTodosOp.args).toBe(args)
+    expect(definition.args.fields.title).toBe(args.title)
+    expect(definition[trellisBackendLaneMetadataKey]).toBe('public')
+    expect(getOperationMetadata(definition)).toMatchObject({
+      id: 'todos.list',
+      kind: 'safe',
+      permissionKey: 'todos.read',
+    })
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: {},
+          observe: async () => {},
+        },
+        { title: 'Ship 0.2' },
+      ),
+    ).resolves.toEqual({ title: 'Ship 0.2' })
+  })
+
+  it('preserves app destructive operation permission metadata through preview and execute lanes', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+    const removeTodoPermission = definePermission({
+      key: 'todos.remove',
+      check: true,
+    })
+    const args = { id: v.string() }
+    const removeTodoOp = appOperation.destructive({
+      id: 'todos.remove',
+      args,
+      guard: removeTodoPermission,
+      permission: removeTodoPermission,
+      safety: 'destructive-write',
+      preview: async (_ctx, input: { id: string }) =>
+        operationPreview({
+          summary: `Remove ${input.id}`,
+          confirm: { id: input.id },
+        }),
+      handler: async () => null,
+    })
+
+    const previewDefinition = runtime.mutation.protected(previewOf(removeTodoOp as never)) as {
+      args: { fields: { id: typeof args.id } }
+    }
+    const executeDefinition = runtime.mutation.protected(removeTodoOp as never) as {
+      args: { fields: { id: typeof args.id } }
+    }
+
+    expect(previewDefinition.args.fields.id).toBe(args.id)
+    expect(executeDefinition.args.fields.id).toBe(args.id)
+    expect(getOperationMetadata(previewDefinition)).toMatchObject({
+      id: 'todos.remove',
+      kind: 'destructive',
+      permissionKey: 'todos.remove',
+      safety: 'destructive-write',
+    })
+    expect(getOperationMetadata(executeDefinition)).toEqual(getOperationMetadata(previewDefinition))
   })
 
   it('rejects guard on public backend lane', () => {

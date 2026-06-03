@@ -23,6 +23,7 @@ The model is Vue and Nuxt:
 
 Primary RFC: [0011: Hard-Cut Operation Ladder Release](./meta/rfc/0011-hard-cut-operation-ladder-release.md)
 Implementation checklist: [0.2 Workpackages](./meta/0.2-workpackages.md)
+Finalization sprint: [0.2 Sprint Plan](./meta/0.2-sprint-plan.md)
 
 ### Goal
 

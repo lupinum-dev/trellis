@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/trellis",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Opinionated app platform for repeated Nuxt + Convex + Better Auth + MCP apps",
   "keywords": [
     "authentication",
@@ -45,6 +45,9 @@
       "args": [
         "./dist/runtime/args/index.d.ts"
       ],
+      "app": [
+        "./dist/runtime/app/index.d.ts"
+      ],
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
@@ -83,6 +86,11 @@
     "./args": {
       "types": "./dist/runtime/args/index.d.ts",
       "import": "./dist/runtime/args/index.mjs"
+    },
+    "./app": {
+      "types": "./dist/runtime/app/index.d.ts",
+      "import": "./dist/runtime/app/index.js",
+      "default": "./dist/runtime/app/index.js"
     },
     "./composables": {
       "types": "./dist/runtime/composables/index.d.ts",
@@ -154,12 +162,12 @@
     "lint:src:core": "eslint src/analysis src/cli src/devtools src/eslint src/installers src/module.ts src/module-internals --ignore-pattern '**/_generated/**'",
     "lint:src:runtime:auth-convex": "NODE_OPTIONS=--max-old-space-size=6144 eslint src/runtime/auth src/runtime/convex --ignore-pattern '**/_generated/**'",
     "lint:src:runtime:functions-mcp": "NODE_OPTIONS=--max-old-space-size=6144 eslint src/runtime/functions src/runtime/mcp --ignore-pattern '**/_generated/**'",
-    "lint:src:runtime:rest": "NODE_OPTIONS=--max-old-space-size=6144 eslint src/runtime/args src/runtime/backend src/runtime/composables src/runtime/devtools src/runtime/feature src/runtime/identity-forwarding src/runtime/observability src/runtime/schema src/runtime/server src/runtime/testing src/runtime/type-primitives src/runtime/types src/runtime/utils src/runtime/visibility src/runtime/workspace --ignore-pattern '**/_generated/**'",
+    "lint:src:runtime:rest": "NODE_OPTIONS=--max-old-space-size=6144 eslint src/runtime/app src/runtime/args src/runtime/backend src/runtime/composables src/runtime/devtools src/runtime/feature src/runtime/identity-forwarding src/runtime/observability src/runtime/schema src/runtime/server src/runtime/testing src/runtime/type-primitives src/runtime/types src/runtime/utils src/runtime/visibility src/runtime/workspace --ignore-pattern '**/_generated/**'",
     "lint:tests": "NODE_OPTIONS=--max-old-space-size=6144 eslint tests --ignore-pattern '**/_generated/**'",
     "lint:examples": "eslint examples --ignore-pattern '**/_generated/**'",
     "check:repo-policies": "node scripts/check-repo-policies.mjs",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "format": "oxfmt --threads=4",
+    "format:check": "oxfmt --check --threads=4",
     "test:contracts:repo": "vitest run --project=unit --project=nuxt --project=server tests/nuxt tests/server tests/unit/cli-doctor.test.ts tests/unit/module-auto-imports.test.ts tests/unit/api-surface-doc.test.ts",
     "test:contracts": "pnpm run test:contracts:repo && pnpm run test:examples",
     "test:internals": "vitest run --project=unit tests/unit/auth-engine-state.test.ts tests/unit/module-setup.test.ts tests/unit/query-state.test.ts tests/unit/pagination-state.test.ts tests/unit/pagination-page-state.test.ts tests/unit/pagination-runtime-state.test.ts tests/unit/upload-queue-state.test.ts tests/unit/shared-query-subscription.test.ts tests/unit/upload-queue-runtime.test.ts tests/unit/global-hooks.test.ts",
@@ -188,9 +196,10 @@
   "dependencies": {
     "@clack/prompts": "^1.4.0",
     "@convex-dev/better-auth": "^0.12.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@noble/hashes": "^2.2.0",
     "@nuxt/devtools-kit": "^3.2.4",
-    "@nuxt/kit": "^4.4.7",
+    "@nuxt/kit": "^4.4.6",
     "@typescript-eslint/utils": "^8.59.3",
     "better-auth": "1.6.11",
     "citty": "^0.2.2",
@@ -201,7 +210,9 @@
     "ohash": "^2.0.11",
     "sirv": "^3.0.2",
     "ts-morph": "^28.0.0",
-    "ufo": "^1.6.4"
+    "ufo": "^1.6.4",
+    "unstorage": "^1.17.5",
+    "vue": "^3.5.35"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
@@ -209,12 +220,13 @@
     "@nuxt/devtools-ui-kit": "^3.2.4",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/module-builder": "^1.0.2",
-    "@nuxt/schema": "^4.4.7",
+    "@nuxt/schema": "^4.4.6",
     "@nuxt/test-utils": "^4.0.3",
     "@nuxtjs/mcp-toolkit": "^0.16.1",
     "@nuxtjs/robots": "6.0.8",
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.8.0",
+    "@typescript-eslint/parser": "^8.60.1",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vitest/browser-playwright": "^4.1.6",
     "ai": "^6.0.182",
@@ -230,14 +242,16 @@
     "jiti": "^2.7.0",
     "lint-staged": "^17.0.4",
     "nitropack": "2.13.3",
-    "nuxt": "^4.4.7",
+    "nuxt": "^4.4.6",
     "oxfmt": "^0.49.0",
     "playwright-core": "^1.60.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "typescript": "~6.0.3",
+    "vite": "^7.3.3",
     "vitest": "^4.1.6",
     "vitest-browser-vue": "^2.1.0",
+    "vue-eslint-parser": "^10.4.1",
     "vue-router": "5.0.7",
     "vue-tsc": "^3.2.9",
     "zod": "^4.4.3"
@@ -270,5 +284,5 @@
     "node": ">=18.18.0",
     "pnpm": ">=10.33.0"
   },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@11.5.0"
 }

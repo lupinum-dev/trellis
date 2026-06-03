@@ -1,4 +1,9 @@
-import { definePermission, defineAccessContext } from '@lupinum/trellis/auth'
+import {
+  definePermission,
+  defineAccessContext,
+  defineGuard,
+  explainPermission,
+} from '@lupinum/trellis/auth'
 import { expectTypeOf } from 'vitest'
 
 const readPermission = definePermission({
@@ -38,3 +43,19 @@ type ExpectedAccessContext = {
 
 expectTypeOf<AccessContextResult>().toMatchTypeOf<ExpectedAccessContext | null>()
 expectTypeOf<NonNullable<AccessContextResult>>().toMatchTypeOf<ExpectedAccessContext>()
+
+const ownsTask = defineGuard<{ userId: string }>({
+  label: 'ownsTask',
+  check: (caller) => caller.userId === 'user_1',
+  explain: ({ decision }) => (decision === 'allowed' ? 'Owns task.' : 'Does not own task.'),
+})
+
+const deletePermission = definePermission({
+  key: 'task.delete',
+  check: ownsTask,
+})
+
+const explanation = explainPermission({ userId: 'user_1' }, deletePermission)
+
+expectTypeOf(explanation.decision).toMatchTypeOf<'allowed' | 'denied'>()
+expectTypeOf(explanation.check.checks).toMatchTypeOf<readonly unknown[]>()

@@ -1,26 +1,54 @@
-import { requireRecord } from '@lupinum/trellis/auth'
 import {
-  implementOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
+  operationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from '@lupinum/trellis/app'
+import { requireRecord } from '@lupinum/trellis/auth'
+import { v } from 'convex/values'
 
-import { publishPageDescriptor } from '../../../../../shared/features/pages/contract'
+import { publishPage, publishPreviewValidator } from '../../../../../shared/features/pages/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { canManagePages, query } from '../../functions'
 
-export const publishPageOp = implementOperation(publishPageDescriptor, {
+type PublishPageArgs = { id: string }
+type LoadedPage = { page: Doc<'pages'> }
+type PageOperationCtx = {
+  db: {
+    get: (id: Id<'pages'>) => Promise<Doc<'pages'> | null>
+    patch?: (id: Id<'pages'>, value: Partial<Doc<'pages'>>) => Promise<void>
+  }
+}
+
+export const publishPageOp = operation.destructive({
+  id: 'pages.publish',
   identityForwardingFunctionRef: 'features/pages/domain:publish',
   identityForwardingTransport: 'bridge',
+  args: publishPage.args,
+  returns: v.object({
+    pageId: v.string(),
+    published: v.boolean(),
+  }),
   guard: canManagePages,
-  load: async (ctx, args) => {
+  safety: 'external-side-effect',
+  previewReturns: operationPreviewValidator({
+    details: publishPreviewValidator,
+    confirm: v.object({
+      operation: v.literal('pages.publish'),
+      targetId: v.string(),
+      affectedCounts: v.object({
+        pages: v.number(),
+      }),
+    }),
+  }),
+  load: async (ctx: PageOperationCtx, args: PublishPageArgs): Promise<LoadedPage> => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
     requireRecord(page, 'Page')
     return { page }
   },
-  preview: async (_ctx, _args, { page }: { page: Doc<'pages'> }) =>
+  preview: async (_ctx: PageOperationCtx, _args: PublishPageArgs, { page }: LoadedPage) =>
     operationPreview({
       summary: `Publish "${page.title}" at /${page.slug}`,
       warnings: [
@@ -47,8 +75,9 @@ export const publishPageOp = implementOperation(publishPageDescriptor, {
         affectedCounts: { pages: 1 },
       },
     }),
-  handler: async (ctx, _args, { page }: { page: Doc<'pages'> }) => {
+  handler: async (ctx: PageOperationCtx, _args: PublishPageArgs, { page }: LoadedPage) => {
     const now = Date.now()
+    if (!ctx.db.patch) throw new Error('Publish requires a mutation context.')
     await ctx.db.patch(page._id, {
       publishedBody: page.draftBody,
       status: 'published',

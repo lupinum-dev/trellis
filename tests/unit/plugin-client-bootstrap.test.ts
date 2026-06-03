@@ -167,6 +167,41 @@ describe('plugin.client bootstrap', () => {
     expect(nuxtApp.provide).toHaveBeenCalledWith('convexDevtoolsStore', store)
   })
 
+  it('installs Trellis auth bootstrap by default when auth is enabled', async () => {
+    const plugin = await loadClientPlugin()
+    await plugin(createNuxtAppMock({ serverRendered: false }) as never)
+
+    expect(stateStore.get('trellis:runtime:auth-bootstrap')?.value).toEqual({
+      status: 'not-installed',
+      mutationName: 'auth.createUserIfNeeded',
+      error: null,
+      lastEnsuredTokenHash: null,
+    })
+  })
+
+  it('marks Trellis auth bootstrap disabled when auth.bootstrap is false', async () => {
+    getConvexRuntimeConfigMock.mockReturnValue({
+      url: 'https://demo.convex.cloud',
+      siteUrl: 'https://demo.convex.site',
+      auth: {
+        enabled: true,
+        route: '/api/auth',
+        skipAuthTokenFetchRoutes: [],
+        bootstrap: { enabled: false, mutation: 'auth.createUserIfNeeded' },
+      },
+    })
+
+    const plugin = await loadClientPlugin()
+    await plugin(createNuxtAppMock({ serverRendered: false }) as never)
+
+    expect(stateStore.get('trellis:runtime:auth-bootstrap')?.value).toEqual({
+      status: 'disabled',
+      mutationName: null,
+      error: null,
+      lastEnsuredTokenHash: null,
+    })
+  })
+
   it('captures observation events into the devtools store during setup', async () => {
     const { setupClientDevtools } = await import('../../src/runtime/plugin.client.ts')
     const nuxtApp = createNuxtAppMock({ serverRendered: false })

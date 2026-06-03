@@ -37,10 +37,12 @@ describe('mcp entrypoint exports', () => {
     expect(Object.keys(mcpApi).sort()).toEqual(
       expect.arrayContaining([
         'completable',
+        'createMcpConvexCaller',
         'defineMcpApp',
         'defineMcpHandler',
         'defineMcpPrompt',
         'defineMcpResource',
+        'deniedMcpAccessSnapshot',
         'extractToolNames',
         'imageResult',
         'useMcpServer',

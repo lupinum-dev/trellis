@@ -1,5 +1,26 @@
 import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
-import { isOperationDescriptor, type OperationDescriptor } from '../functions/operation-metadata.js'
+import {
+  getOperationMetadata,
+  trellisOperationMetadataKey,
+  type OperationDescriptor,
+  type TrellisOperationMetadata,
+} from '../functions/operation-metadata.js'
+
+export type FeatureOperationDefinition =
+  | OperationDescriptor
+  | {
+      readonly [trellisOperationMetadataKey]?: TrellisOperationMetadata
+    }
+
+function hasOperationMetadata(value: unknown): value is FeatureOperationDefinition {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return false
+  const stamped = (value as { [trellisOperationMetadataKey]?: unknown })[
+    trellisOperationMetadataKey
+  ]
+  if (!stamped) return false
+  const metadata = getOperationMetadata(value as never)
+  return typeof metadata.kind === 'string'
+}
 
 export interface FeatureDefinition<
   TName extends string = string,
@@ -9,7 +30,7 @@ export interface FeatureDefinition<
   TTenantTables extends readonly string[] = readonly string[],
   TSharedTables extends readonly string[] = readonly string[],
   TAccess = unknown,
-  TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
+  TOperations extends readonly FeatureOperationDefinition[] = readonly FeatureOperationDefinition[],
 > {
   readonly _type: 'feature'
   readonly name: TName
@@ -28,7 +49,7 @@ export function defineFeature<
   TTenantTables extends readonly string[] = readonly [],
   TSharedTables extends readonly string[] = readonly [],
   TAccess = unknown,
-  TOperations extends readonly OperationDescriptor[] = readonly [],
+  TOperations extends readonly FeatureOperationDefinition[] = readonly [],
 >(definition: {
   name: TName
   schema?: TSchema
@@ -51,9 +72,9 @@ export function defineFeature<
   }
 
   for (const operation of definition.operations ?? []) {
-    if (isOperationDescriptor(operation)) continue
+    if (hasOperationMetadata(operation)) continue
     throw new Error(
-      `defineFeature(${definition.name}) operations must be shared operation descriptors, not Convex operation implementations.`,
+      `defineFeature(${definition.name}) operations must carry Trellis operation metadata.`,
     )
   }
 

@@ -57,13 +57,13 @@ Current first-class starters are:
 - `workspace`
 - `workspace-mcp`
 
-MCP remains a workspace capability. `workspace-mcp` is the first-class template
+MCP remains a workspace capability. `workspace-mcp` is the first-class preset
 name for the agent-enabled workspace starter.
 
 Canonical CLI shape:
 
 ```bash
-trellis init <name> --template public|personal|workspace|workspace-mcp
+trellis init <name> --preset public|personal|workspace|workspace-mcp
 trellis add entity <name>
 trellis add uploads
 trellis add operation <name> --kind safe|destructive
@@ -170,7 +170,7 @@ to `ginko-cms init`, `ginko-cms doctor`, and package-owned docs.
 - `07` is the maintained MCP reference.
 - `08` is the maintained component-boundary reference.
 
-Examples are not identical to CLI templates, but they must not contradict the framework model.
+Examples are not identical to CLI starter fixtures, but they must not contradict the framework model.
 
 ## Harness And Labs
 

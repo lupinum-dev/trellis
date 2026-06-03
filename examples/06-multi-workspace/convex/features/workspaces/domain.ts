@@ -1,3 +1,4 @@
+import { operation } from '@lupinum/trellis/app'
 import { deny } from '@lupinum/trellis/auth'
 
 import {
@@ -6,6 +7,8 @@ import {
   seedAgencyPortfolio,
   switchWorkspace as switchWorkspaceArgs,
 } from '../../../shared/features/workspaces/contract'
+import type { Id } from '../../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { getMemberships, requireWorkspaceMembership } from '../../auth/agency'
 import { getAppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
@@ -17,16 +20,24 @@ async function getIdentityAuthKey(ctx: {
   return identity?.tokenIdentifier ?? null
 }
 
-export const listAccessibleWorkspaces = query.public({
+function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
+  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
+    reason,
+  })
+}
+
+type CreateWorkspaceArgs = { name: string; slug: string }
+type SwitchWorkspaceArgs = { workspaceId: Id<'workspaces'> }
+
+export const listAccessibleWorkspacesOp = operation.query({
+  id: 'workspaces.list-accessible',
   args: listAccessibleWorkspacesArgs.args,
-  handler: async (ctx) => {
+  handler: async (ctx: QueryCtx) => {
     const appIdentity = await getAppIdentity(ctx)
     if (!appIdentity) return []
 
     // This lookup crosses tenant boundaries only to resolve the caller's own memberships.
-    const db = ctx.db.escapeIsolation({
-      reason: 'Agency membership lookup spans multiple workspaces.',
-    })
+    const db = escapeIsolation(ctx.db, 'Agency membership lookup spans multiple workspaces.')
     const memberships = await getMemberships(db, appIdentity.userId)
 
     return Promise.all(
@@ -42,17 +53,21 @@ export const listAccessibleWorkspaces = query.public({
   },
 })
 
-export const createWorkspaceMutation = mutation.public({
+export const listAccessibleWorkspaces = query.public(listAccessibleWorkspacesOp)
+
+export const createWorkspaceOp = operation.mutation({
+  id: 'workspaces.create',
   args: createWorkspace.args,
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args: CreateWorkspaceArgs) => {
     const authKey = await getIdentityAuthKey(ctx)
     if (!authKey) throw deny('Not authenticated.')
 
     // Workspace bootstrap is one of the few legitimate writes that must happen before the caller has
     // a current tenant.
-    const db = ctx.db.escapeIsolation({
-      reason: 'Workspace bootstrap must write outside the current tenant scope.',
-    })
+    const db = escapeIsolation(
+      ctx.db,
+      'Workspace bootstrap must write outside the current tenant scope.',
+    )
     const user = await ctx.db
       .query('users')
       .withIndex('by_auth_key', (q) => q.eq('authKey', authKey))
@@ -92,9 +107,12 @@ export const createWorkspaceMutation = mutation.public({
   },
 })
 
-export const switchWorkspace = mutation.public({
+export const createWorkspaceMutation = mutation.public(createWorkspaceOp)
+
+export const switchWorkspaceOp = operation.mutation({
+  id: 'workspaces.switch',
   args: switchWorkspaceArgs.args,
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args: SwitchWorkspaceArgs) => {
     const authKey = await getIdentityAuthKey(ctx)
     if (!authKey) throw deny('Not authenticated.')
 
@@ -108,9 +126,7 @@ export const switchWorkspace = mutation.public({
     // Switching tenants validates membership in another workspace before patching the user's active
     // workspace pointer.
     await requireWorkspaceMembership(
-      ctx.db.escapeIsolation({
-        reason: 'Workspace switching validates membership in another tenant.',
-      }),
+      escapeIsolation(ctx.db, 'Workspace switching validates membership in another tenant.'),
       user._id,
       args.workspaceId,
     )
@@ -122,17 +138,21 @@ export const switchWorkspace = mutation.public({
   },
 })
 
-export const seedAgencyPortfolioMutation = mutation.public({
+export const switchWorkspace = mutation.public(switchWorkspaceOp)
+
+export const seedAgencyPortfolioOp = operation.mutation({
+  id: 'workspaces.seed-agency-portfolio',
   args: seedAgencyPortfolio.args,
-  handler: async (ctx) => {
+  handler: async (ctx: MutationCtx) => {
     const appIdentity = await getAppIdentity(ctx)
     if (!appIdentity) throw deny('Not authenticated.')
 
     // Demo-only seed path: intentionally creates records across several workspaces so the operator
     // dashboard has something real to show.
-    const db = ctx.db.escapeIsolation({
-      reason: 'Agency portfolio seeding intentionally creates records across-scopes.',
-    })
+    const db = escapeIsolation(
+      ctx.db,
+      'Agency portfolio seeding intentionally creates records across-scopes.',
+    )
     const now = Date.now()
     const clientA = await db.insert('workspaces', {
       name: 'Client A',
@@ -180,3 +200,5 @@ export const seedAgencyPortfolioMutation = mutation.public({
     return { clientA, clientB }
   },
 })
+
+export const seedAgencyPortfolioMutation = mutation.public(seedAgencyPortfolioOp)

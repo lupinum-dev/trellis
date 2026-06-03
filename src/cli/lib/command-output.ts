@@ -34,6 +34,10 @@ export function renderTemplateCommandResult(result: TemplateCommandResult): void
   }
   if (result.skipped.length > 0) {
     note(formatList(result.skipped), 'skipped')
+    note(
+      'Existing files were kept. Review them manually, or rerun with --force when replacing them is intentional.',
+      'host files',
+    )
   }
   outro(`Finished ${result.label} ${result.command} in ${result.cwd}`)
 }

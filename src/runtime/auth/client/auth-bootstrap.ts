@@ -3,9 +3,13 @@ import { watch } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import { useAuthBootstrapDevtoolsState } from '../../devtools/state.js'
 import { toErrorMessage } from '../../utils/value-helpers.js'
 import { useConvexAuthController } from '../internal/useConvexAuthController.js'
+import {
+  fingerprintAuthBootstrapToken,
+  useAuthBootstrapRuntimeState,
+  type AuthBootstrapStatus,
+} from './auth-bootstrap-state.js'
 
 export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference<'mutation'>>(
   mutationRef: TMutation,
@@ -15,23 +19,30 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
 
   const nuxtApp = useNuxtApp()
   const auth = useConvexAuthController()
-  const state = useAuthBootstrapDevtoolsState()
+  const state = useAuthBootstrapRuntimeState()
   let lastEnsuredToken: string | null = null
   let activeBootstrapRequestId = 0
-  const setState = (input: { pending: boolean; ensured: boolean; error: string | null }) => {
+  const setState = (input: {
+    status: AuthBootstrapStatus
+    error: string | null
+    token: string | null
+  }) => {
     state.value = {
+      status: input.status,
       mutationName: configuredMutationName,
-      pending: input.pending,
-      ensured: input.ensured,
       error: input.error,
+      lastEnsuredTokenHash:
+        input.status === 'ensured' && input.token
+          ? fingerprintAuthBootstrapToken(input.token)
+          : state.value.lastEnsuredTokenHash,
     }
   }
 
   state.value = {
+    status: 'not-installed',
     mutationName: configuredMutationName,
-    pending: false,
-    ensured: false,
     error: null,
+    lastEnsuredTokenHash: null,
   }
 
   watch(
@@ -40,25 +51,25 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
       const requestId = ++activeBootstrapRequestId
       if (!authenticated || !token) {
         lastEnsuredToken = null
-        setState({ pending: false, ensured: false, error: null })
+        setState({ status: 'not-installed', error: null, token: null })
         return
       }
 
       if (lastEnsuredToken === token) {
-        setState({ pending: false, ensured: true, error: null })
+        setState({ status: 'ensured', error: null, token })
         return
       }
 
       if (!nuxtApp.$convex || typeof nuxtApp.$convex.mutation !== 'function') {
         setState({
-          pending: false,
-          ensured: false,
+          status: 'failed',
           error: 'Convex client is not initialized.',
+          token: null,
         })
         return
       }
 
-      setState({ pending: true, ensured: false, error: null })
+      setState({ status: 'pending', error: null, token: null })
 
       try {
         await nuxtApp.$convex.mutation(mutationRef, {} as never)
@@ -66,15 +77,15 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
           return
         }
         lastEnsuredToken = token
-        setState({ pending: false, ensured: true, error: null })
+        setState({ status: 'ensured', error: null, token })
       } catch (error) {
         if (requestId !== activeBootstrapRequestId) {
           return
         }
         setState({
-          pending: false,
-          ensured: false,
+          status: 'failed',
           error: toErrorMessage(error),
+          token: null,
         })
       }
     },

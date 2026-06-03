@@ -1,6 +1,6 @@
 # trellis-starter-workspace
 
-Generated with `trellis init trellis-starter-workspace --template workspace`.
+Generated with `trellis init trellis-starter-workspace`, `trellis add auth`, and `trellis add workspace`.
 
 ## Quick start
 

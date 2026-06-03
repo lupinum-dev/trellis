@@ -413,7 +413,7 @@ try {
     const result = runCli([
       'init',
       `demo-${template}`,
-      '--template',
+      '--preset',
       template,
       '--cwd',
       initRoot,

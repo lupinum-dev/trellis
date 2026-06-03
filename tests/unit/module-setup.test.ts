@@ -98,7 +98,59 @@ describe('module-setup', () => {
       auth: {
         route: '/api/auth',
         existingAuthKey: true,
+        bootstrap: {
+          enabled: true,
+          mutation: 'auth.createUserIfNeeded',
+        },
       },
+    })
+  })
+
+  it('enables auth bootstrap by default only when auth is enabled', () => {
+    expect(deriveModuleSetupState({}, {}).authBootstrap).toEqual({
+      enabled: false,
+      mutation: 'auth.createUserIfNeeded',
+    })
+
+    expect(deriveModuleSetupState({ auth: true }, {}).authBootstrap).toEqual({
+      enabled: true,
+      mutation: 'auth.createUserIfNeeded',
+    })
+  })
+
+  it('keeps auth.bootstrap false as the explicit advanced escape hatch', () => {
+    const setup = deriveModuleSetupState(
+      {
+        auth: {
+          enabled: true,
+          bootstrap: false,
+        },
+      },
+      {},
+    )
+
+    expect(setup.authBootstrap).toEqual({
+      enabled: false,
+      mutation: 'auth.createUserIfNeeded',
+    })
+  })
+
+  it('normalizes a custom auth bootstrap mutation path', () => {
+    const setup = deriveModuleSetupState(
+      {
+        auth: {
+          enabled: true,
+          bootstrap: {
+            mutation: 'accounts.bootstrapUser',
+          },
+        },
+      },
+      {},
+    )
+
+    expect(setup.authBootstrap).toEqual({
+      enabled: true,
+      mutation: 'accounts.bootstrapUser',
     })
   })
 

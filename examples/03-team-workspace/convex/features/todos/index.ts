@@ -1,7 +1,7 @@
 export { todoCapabilities } from './recordAccess'
 export { canDeleteTodo, canUpdateTodo } from './checks'
 export { todosFeature } from './feature'
-export { removeTodoDescriptor, removeTodoOp } from './operations'
+export { removeTodoOp } from './operations'
 export { todoCreate, todoPermissionMatrix, todoPermissions, todoRead } from './permissions'
 export { todosTables } from './schema'
 export { processTodoSyncWebhookMutation } from './webhooks'

@@ -63,6 +63,7 @@ async function bridgeForwardingArgs(
     issuer: bridgeForwardingIssuer,
     audience: bridgeForwardingAudience,
     transport: 'bridge',
+    operation: operation === 'operation-execute' ? 'mutation' : operation,
     purpose: operation,
     functionRef,
   })
@@ -144,6 +145,8 @@ export const publish = mutation.public({
       await bridgeForwardingArgs(ctx, args, 'mutation', 'features/pages/domain:publish'),
     ),
 })
+
+if (!action) throw new Error('Component mini CMS bridge requires an action builder.')
 
 export const publishAction = action.public({
   args: publishPageSchema.args,

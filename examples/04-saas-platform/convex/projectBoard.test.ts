@@ -113,7 +113,7 @@ describe('server integration workspace example', () => {
     })
     const archiveArgs = { id: projectId }
     const archivePreview = await team.users.owner.mutation(
-      api.features.projects.operations.previewArchiveProject,
+      api.features.projects.domain.previewArchiveProject,
       archiveArgs,
     )
     await team.users.owner.mutation(archiveProjectMutation, {

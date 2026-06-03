@@ -84,10 +84,42 @@ function unwrapExpression<T extends Node>(expression: T | undefined): Node | und
       continue
     }
 
+    if (Node.isNonNullExpression(current)) {
+      current = current.getExpression()
+      continue
+    }
+
     return current
   }
 
   return undefined
+}
+
+function readPreviewOperationIdentifier(expression: Node | undefined): string | null {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression) return null
+
+  if (Node.isCallExpression(unwrappedExpression)) {
+    const previewCallee = unwrapExpression(unwrappedExpression.getExpression())
+    if (!previewCallee || !Node.isIdentifier(previewCallee)) return null
+    if (previewCallee.getText() !== 'previewOf') return null
+
+    const [previewArg] = unwrappedExpression.getArguments()
+    const unwrappedPreviewArg = unwrapExpression(previewArg)
+    return unwrappedPreviewArg && Node.isIdentifier(unwrappedPreviewArg)
+      ? unwrappedPreviewArg.getText()
+      : null
+  }
+
+  if (Node.isObjectLiteralExpression(unwrappedExpression)) {
+    for (const property of unwrappedExpression.getProperties()) {
+      if (!Node.isSpreadAssignment(property)) continue
+      const operationIdentifier = readPreviewOperationIdentifier(property.getExpression())
+      if (operationIdentifier) return operationIdentifier
+    }
+  }
+
+  return null
 }
 
 function readStringProperty(node: ObjectLiteralExpression, name: string): string | undefined {
@@ -115,9 +147,14 @@ function readNestedStringProperty(
   return readStringProperty(initializer, childName)
 }
 
+type ReadOperationDefinitionResult = {
+  definition: ObjectLiteralExpression
+  kind?: 'safe' | 'destructive'
+}
+
 function readOperationDefinitionObject(
   declaration: VariableDeclaration,
-): ObjectLiteralExpression | null {
+): ReadOperationDefinitionResult | null {
   if (!declaration.getVariableStatement()?.isExported()) return null
 
   const initializer = unwrapExpression(declaration.getInitializer())
@@ -127,7 +164,26 @@ function readOperationDefinitionObject(
   if (Node.isIdentifier(callee) && callee.getText() === 'defineOperation') {
     const [arg] = initializer.getArguments()
     const unwrappedArg = unwrapExpression(arg)
-    return unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null
+    return unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg)
+      ? { definition: unwrappedArg }
+      : null
+  }
+
+  if (callee && Node.isPropertyAccessExpression(callee)) {
+    const operationKind = callee.getName()
+    if (
+      ['query', 'mutation', 'destructive'].includes(operationKind) &&
+      callee.getExpression().getText() === 'operation'
+    ) {
+      const [arg] = initializer.getArguments()
+      const unwrappedArg = unwrapExpression(arg)
+      return unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg)
+        ? {
+            definition: unwrappedArg,
+            kind: operationKind === 'destructive' ? 'destructive' : 'safe',
+          }
+        : null
+    }
   }
 
   if (!callee || !Node.isCallExpression(callee)) return null
@@ -138,7 +194,9 @@ function readOperationDefinitionObject(
 
   const [arg] = initializer.getArguments()
   const unwrappedArg = unwrapExpression(arg)
-  return unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null
+  return unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg)
+    ? { definition: unwrappedArg }
+    : null
 }
 
 function extractOperationDefinitions(
@@ -148,8 +206,9 @@ function extractOperationDefinitions(
   const operations: OperationDefinitionMetadata[] = []
 
   for (const declaration of sourceFile.getVariableDeclarations()) {
-    const definition = readOperationDefinitionObject(declaration)
-    if (!definition) continue
+    const operationDefinition = readOperationDefinitionObject(declaration)
+    if (!operationDefinition) continue
+    const { definition } = operationDefinition
 
     const id = readStringProperty(definition, 'id')
     if (!id) continue
@@ -163,7 +222,9 @@ function extractOperationDefinitions(
         ? { name: readStringProperty(definition, 'name') }
         : {}),
       kind:
-        (readStringProperty(definition, 'kind') as 'safe' | 'destructive' | undefined) ?? 'safe',
+        operationDefinition.kind ??
+        (readStringProperty(definition, 'kind') as 'safe' | 'destructive' | undefined) ??
+        'safe',
     })
   }
 
@@ -171,6 +232,7 @@ function extractOperationDefinitions(
 }
 
 function extractProjectionBinding(
+  rootDir: string,
   declaration: VariableDeclaration,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
 ): OperationProjectionBindingMetadata | null {
@@ -191,29 +253,23 @@ function extractProjectionBinding(
       operationId: operation.id,
       operationExportName: operation.exportName,
       exportName: declaration.getName(),
-      file: operation.file,
+      file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
       line: declaration.getNameNode().getStartLineNumber(),
       projection: 'execute',
     }
   }
 
-  if (!Node.isCallExpression(unwrappedFirstArg)) return null
-  const previewCallee = unwrapExpression(unwrappedFirstArg.getExpression())
-  if (!previewCallee || !Node.isIdentifier(previewCallee)) return null
-  if (previewCallee.getText() !== 'previewOf') return null
+  const previewOperationIdentifier = readPreviewOperationIdentifier(unwrappedFirstArg)
+  if (!previewOperationIdentifier) return null
 
-  const [previewArg] = unwrappedFirstArg.getArguments()
-  const unwrappedPreviewArg = unwrapExpression(previewArg)
-  if (!unwrappedPreviewArg || !Node.isIdentifier(unwrappedPreviewArg)) return null
-
-  const operation = operationsByExport.get(unwrappedPreviewArg.getText())
+  const operation = operationsByExport.get(previewOperationIdentifier)
   if (!operation) return null
 
   return {
     operationId: operation.id,
     operationExportName: operation.exportName,
     exportName: declaration.getName(),
-    file: operation.file,
+    file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
     line: declaration.getNameNode().getStartLineNumber(),
     projection: 'preview',
   }
@@ -360,17 +416,8 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
   for (const sourceFile of project.getSourceFiles()) {
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
 
-    const fileOperationsByExport = new Map(
-      operations
-        .filter(
-          (operation) =>
-            operation.file === toPosixPath(relative(rootDir, sourceFile.getFilePath())),
-        )
-        .map((operation) => [operation.exportName, operation]),
-    )
-
     for (const declaration of sourceFile.getVariableDeclarations()) {
-      const binding = extractProjectionBinding(declaration, fileOperationsByExport)
+      const binding = extractProjectionBinding(rootDir, declaration, operationsByExport)
       if (binding) projections.push(binding)
     }
 

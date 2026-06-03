@@ -9,6 +9,7 @@ describe('package subpath exports', () => {
 
     expect(packageJson.exports).toHaveProperty('./auth')
     expect(packageJson.exports).toHaveProperty('./args')
+    expect(packageJson.exports).toHaveProperty('./app')
     expect(packageJson.exports).toHaveProperty('./backend')
     expect(packageJson.exports).toHaveProperty('./workspace')
     expect(packageJson.exports).toHaveProperty('./composables')
@@ -30,6 +31,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports).not.toHaveProperty('./visibility')
     expect(packageJson.typesVersions['*']).toHaveProperty('args')
     expect(packageJson.typesVersions['*']).toHaveProperty('auth')
+    expect(packageJson.typesVersions['*']).toHaveProperty('app')
     expect(packageJson.typesVersions['*']).toHaveProperty('backend')
     expect(packageJson.typesVersions['*']).toHaveProperty('workspace')
     expect(packageJson.typesVersions['*']).toHaveProperty('composables')
@@ -56,6 +58,7 @@ describe('package subpath exports', () => {
 
     expect(packageJson.exports['./auth'].import).toBe('./dist/runtime/auth/index.mjs')
     expect(packageJson.exports['./args'].import).toBe('./dist/runtime/args/index.mjs')
+    expect(packageJson.exports['./app'].import).toBe('./dist/runtime/app/index.js')
     expect(packageJson.exports['./backend'].import).toBe('./dist/runtime/backend/index.js')
     expect(packageJson.exports['./workspace'].import).toBe('./dist/runtime/workspace/index.js')
     expect(packageJson.exports['./composables'].import).toBe('./dist/runtime/composables/index.mjs')

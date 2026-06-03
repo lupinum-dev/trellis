@@ -1,7 +1,9 @@
 import type { Ref } from 'vue'
+import { watch } from 'vue'
 
 import { useState } from '#app'
 
+import { useAuthBootstrapRuntimeState } from '../auth/client/auth-bootstrap-state.js'
 import type { AuthBootstrapState, AccessContextState } from './types.js'
 
 export type PermissionDevtoolsState = AccessContextState
@@ -22,10 +24,26 @@ export function usePermissionDevtoolsState(): Ref<PermissionDevtoolsState> {
 }
 
 export function useAuthBootstrapDevtoolsState(): Ref<AuthBootstrapDevtoolsState> {
-  return useState<AuthBootstrapDevtoolsState>(AUTH_BOOTSTRAP_STATE_KEY, () => ({
-    mutationName: null,
-    pending: false,
-    ensured: false,
-    error: null,
+  const runtimeState = useAuthBootstrapRuntimeState()
+  const devtoolsState = useState<AuthBootstrapDevtoolsState>(AUTH_BOOTSTRAP_STATE_KEY, () => ({
+    mutationName: runtimeState.value.mutationName,
+    pending: runtimeState.value.status === 'pending',
+    ensured: runtimeState.value.status === 'ensured',
+    error: runtimeState.value.error,
   }))
+
+  watch(
+    runtimeState,
+    (state) => {
+      devtoolsState.value = {
+        mutationName: state.mutationName,
+        pending: state.status === 'pending',
+        ensured: state.status === 'ensured',
+        error: state.error,
+      }
+    },
+    { immediate: true, deep: true },
+  )
+
+  return devtoolsState
 }

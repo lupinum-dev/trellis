@@ -28,19 +28,22 @@ each project to invent its own auth, access, and feature layout.
 Create a starter app:
 
 ```bash
-pnpm dlx @lupinum/trellis init my-app --template public
+pnpm dlx @lupinum/trellis init my-app
 cd my-app
-pnpm dlx @lupinum/trellis doctor
+pnpm install
+pnpm dev
 ```
 
-Choose the smallest starter that matches the product:
+Add capabilities only when the product needs them:
 
-| Starter         | Use it when                                                           |
-| --------------- | --------------------------------------------------------------------- |
-| `public`        | The app needs public SSR and live Convex queries without sign-in yet. |
-| `personal`      | The app needs signed-in users without workspace-scoped data.          |
-| `workspace`     | The app needs roles, tenant data, or trusted server callers.          |
-| `workspace-mcp` | The workspace baseline also needs MCP tools from day one.             |
+```bash
+trellis add auth
+trellis add workspace
+trellis add mcp
+```
+
+Presets remain shortcuts for generated fixtures, but the normal path is the ladder: start public,
+then add auth, workspace, and MCP as real requirements appear.
 
 If you are adding Trellis to an existing Nuxt app instead:
 
@@ -71,7 +74,7 @@ pnpm dlx @lupinum/trellis doctor
 - Permission-aware composables and backend access projection.
 - Operation primitives for preview, confirmation, and execute flows.
 - MCP helpers for tools, prompts, resources, and runtime checks.
-- Starter fixtures, generators, examples, lint rules, and `doctor`.
+- Starter fixtures, ladder generators, examples, lint rules, and `doctor`.
 
 ## Good Fit
 
