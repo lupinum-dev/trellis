@@ -1,8 +1,11 @@
 # Trellis vNext Roadmap
 
-Status: Draft
+Status: Historical Draft
 Date: 2026-05-24
 Owner: Matthias
+
+This draft is superseded for current planning by [../ROADMAP.md](../ROADMAP.md). Keep this file only as
+historical context for the earlier auth-foundation and vNext research pass.
 
 Related:
 

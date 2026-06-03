@@ -16,7 +16,10 @@ each project to invent its own auth, access, and feature layout.
 - [Examples](./examples/README.md)
 - [Architecture](./ARCHITECTURE.md)
 - [Security](./SECURITY.md)
+- [Roadmap](./ROADMAP.md)
+- [0.2 Workpackages](./meta/0.2-workpackages.md)
 - [ADRs](./adr/README.md)
+- [RFCs](./rfc/README.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Development](./DEVELOPMENT.md)
 
