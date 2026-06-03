@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
@@ -79,20 +79,6 @@ function findFinding(report: UpgradeCheckReport, id: string) {
 }
 
 describe('CLI upgrade', () => {
-  beforeAll(() => {
-    const buildResult = spawnSync('pnpm', ['run', 'build:cli'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        NUXT_TELEMETRY_DISABLED: '1',
-      },
-    })
-
-    const output = `${buildResult.stdout ?? ''}\n${buildResult.stderr ?? ''}`
-    expect(buildResult.status, output).toBe(0)
-  }, 30_000)
-
   it('renders the upgrade help surface', () => {
     const result = runCli(['--help'], repoRoot)
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`

@@ -206,6 +206,7 @@ describe('fixture-backed beginner starter manifests', () => {
       'convex/features/todos/domain.ts',
       'convex/features/todos/feature.ts',
       'convex/features/todos/index.ts',
+      'convex/features/todos/operations.ts',
       'convex/features/todos/permissions.ts',
       'convex/features/todos/schema.ts',
       'convex/features/users/feature.ts',
@@ -244,14 +245,19 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('@lupinum/ginko')
     expect(fixtureText).not.toContain('cms')
     const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
-    expect(todosDomain).toContain(
+    const todosOperations = readFileSync(join(root, 'convex/features/todos/operations.ts'), 'utf8')
+    const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
+    expect(todosDomain).toContain('query.protected(listTodosOp)')
+    expect(todosDomain).toContain('mutation.protected(createTodoOp)')
+    expect(todosOperations).toContain(
       "import { operation, workspaceScope } from '@lupinum/trellis/app'",
     )
-    expect(todosDomain).toContain('scope: workspaceScope()')
-    expect(todosDomain).toContain("q.eq('workspaceId', ctx.workspaceId)")
-    expect(todosDomain).toContain('workspaceId: ctx.workspaceId')
-    expect(todosDomain).not.toContain('appIdentity.workspaceId')
-    expect(todosDomain).not.toContain('const appIdentity = await ctx.appIdentity()')
+    expect(todosOperations).toContain('scope: workspaceScope()')
+    expect(todosOperations).toContain("q.eq('workspaceId', ctx.workspaceId)")
+    expect(todosOperations).toContain('workspaceId: ctx.workspaceId')
+    expect(todosOperations).not.toContain('appIdentity.workspaceId')
+    expect(todosOperations).not.toContain('const appIdentity = await ctx.appIdentity()')
+    expect(todosFeature).toContain('operations: [listTodosOp, createTodoOp]')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 
@@ -278,6 +284,7 @@ describe('fixture-backed beginner starter manifests', () => {
       'convex/features/todos/domain.ts',
       'convex/features/todos/feature.ts',
       'convex/features/todos/index.ts',
+      'convex/features/todos/operations.ts',
       'convex/features/todos/permissions.ts',
       'convex/features/todos/schema.ts',
       'convex/features/users/feature.ts',
@@ -323,14 +330,19 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('deleteProjectDescriptor')
     expect(fixtureText).not.toContain('createProjectToolDescriptor')
     const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
-    expect(todosDomain).toContain(
+    const todosOperations = readFileSync(join(root, 'convex/features/todos/operations.ts'), 'utf8')
+    const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
+    expect(todosDomain).toContain('query.protected(listTodosOp)')
+    expect(todosDomain).toContain('mutation.protected(createTodoOp)')
+    expect(todosOperations).toContain(
       "import { operation, workspaceScope } from '@lupinum/trellis/app'",
     )
-    expect(todosDomain).toContain('scope: workspaceScope()')
-    expect(todosDomain).toContain("q.eq('workspaceId', ctx.workspaceId)")
-    expect(todosDomain).toContain('workspaceId: ctx.workspaceId')
-    expect(todosDomain).not.toContain('appIdentity.workspaceId')
-    expect(todosDomain).not.toContain('const appIdentity = await ctx.appIdentity()')
+    expect(todosOperations).toContain('scope: workspaceScope()')
+    expect(todosOperations).toContain("q.eq('workspaceId', ctx.workspaceId)")
+    expect(todosOperations).toContain('workspaceId: ctx.workspaceId')
+    expect(todosOperations).not.toContain('appIdentity.workspaceId')
+    expect(todosOperations).not.toContain('const appIdentity = await ctx.appIdentity()')
+    expect(todosFeature).toContain('operations: [listTodosOp, createTodoOp]')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 })

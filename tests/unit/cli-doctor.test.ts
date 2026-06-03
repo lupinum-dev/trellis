@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { relative, resolve } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { buildDoctorReport } from '../../src/cli/lib/doctor-report'
 
@@ -303,20 +303,6 @@ function appendDoctorEnv(appRoot: string, lines: string[]) {
 }
 
 describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
-  beforeAll(() => {
-    const buildResult = spawnSync('pnpm', ['run', 'build:cli'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        NUXT_TELEMETRY_DISABLED: '1',
-      },
-    })
-
-    const output = `${buildResult.stdout ?? ''}\n${buildResult.stderr ?? ''}`
-    expect(buildResult.status, output).toBe(0)
-  }, cliDoctorTestTimeoutMs)
-
   it('renders the cutover help surface', () => {
     const result = runCli(['--help'], repoRoot)
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
@@ -382,7 +368,12 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot, { auth: true, permissions: true })
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('permissions:')
-    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain('workspaceScope')
+    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain(
+      'query.protected(listTodosOp)',
+    )
+    expect(read(resolve(appRoot, 'convex/features/todos/operations.ts'))).toContain(
+      'workspaceScope',
+    )
   })
 
   it('generates exact baseline env examples for each app shape', () => {
@@ -486,7 +477,12 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(read(resolve(appRoot, 'app/pages/index.vue'))).toContain('WorkspaceStarterPage')
     expect(read(resolve(appRoot, 'convex/functions.ts'))).toContain('isolation:')
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('workspaceTables')
-    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain('workspaceScope()')
+    expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain(
+      'query.protected(listTodosOp)',
+    )
+    expect(read(resolve(appRoot, 'convex/features/todos/operations.ts'))).toContain(
+      'workspaceScope()',
+    )
     expect(read(resolve(appRoot, 'convex/features/users/schema.ts'))).toContain('workspaceId')
     expect(existsSync(resolve(appRoot, 'convex/permissions/context.ts'))).toBe(true)
     expect(existsSync(resolve(appRoot, 'shared/features/workspaces/contract.ts'))).toBe(true)
@@ -672,10 +668,11 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(mcpAuthMiddleware).toContain("{ auth: 'none' }")
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
+    const todoOperations = read(resolve(appRoot, 'convex/features/todos/operations.ts'))
     const mcpKeys = read(resolve(appRoot, 'convex/features/mcpKeys/domain.ts'))
     expect(functions).toContain('@lupinum/trellis/backend')
-    expect(todos).toContain('operation.query({')
-    expect(todos).toContain('operation.mutation({')
+    expect(todoOperations).toContain('operation.query({')
+    expect(todoOperations).toContain('operation.mutation({')
     expect(todos).toContain('query.protected(listTodosOp)')
     expect(todos).toContain('mutation.protected(createTodoOp)')
     expect(mcpKeys).toContain('ctx.db.get(key.boundUserId)')
@@ -722,8 +719,9 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     expect(existsSync(resolve(appRoot, 'server/mcp/.gitkeep'))).toBe(false)
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
-    expect(todos).toContain('operation.query({')
-    expect(todos).toContain('operation.mutation({')
+    const todoOperations = read(resolve(appRoot, 'convex/features/todos/operations.ts'))
+    expect(todoOperations).toContain('operation.query({')
+    expect(todoOperations).toContain('operation.mutation({')
     expect(todos).toContain('query.protected(listTodosOp)')
     expect(todos).toContain('mutation.protected(createTodoOp)')
     expectNoOldBackendSurface(todos, 'workspace-mcp todos domain')
@@ -968,6 +966,78 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
       expect.objectContaining({
         status: 'pass',
         message: expect.stringContaining('auth.bootstrap: false'),
+      }),
+    )
+  })
+
+  it('fails doctor when Trellis auth bootstrap is enabled but the bootstrap export is missing', () => {
+    const cwd = createTempDir('trellis-doctor-bootstrap-missing-export-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    const authPath = resolve(appRoot, 'convex/auth.ts')
+    const auth = read(authPath)
+    writeFileSync(
+      authPath,
+      auth.replace('export const createUserIfNeeded = auth.createUserIfNeeded', ''),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(report.findings.find((entry) => entry.id === 'trellis-auth-bootstrap-exported')).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('does not export createUserIfNeeded'),
+      }),
+    )
+  })
+
+  it('fails doctor when an app-owned auth bootstrap plugin remains enabled', () => {
+    const cwd = createTempDir('trellis-doctor-app-owned-bootstrap-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    mkdirSync(resolve(appRoot, 'app/plugins'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, 'app/plugins/trellisAuthBootstrap.client.ts'),
+      `
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.hook('trellis:auth:changed', async () => {
+    await callConvex('auth:createUserIfNeeded')
+  })
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string; fixHint: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(report.findings.find((entry) => entry.id === 'app-owned-auth-bootstrap-plugin')).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('app-owned auth bootstrap plugin'),
+        fixHint: expect.stringContaining('Delete the app-owned bootstrap plugin'),
       }),
     )
   })
@@ -2407,9 +2477,11 @@ export const uploadUrl = mutation.unsafe({
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
 
+    const operationsPath = resolve(appRoot, 'convex/features/todos/operations.ts')
     writeFileSync(
-      resolve(appRoot, 'convex/features/todos/operations.ts'),
-      `
+      operationsPath,
+      `${read(operationsPath)}
+
 import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 import { query } from '../../functions'
@@ -2423,7 +2495,7 @@ export const purgeTodoOp = defineOperation({
 })
 
 export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
-`.trimStart(),
+`,
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)

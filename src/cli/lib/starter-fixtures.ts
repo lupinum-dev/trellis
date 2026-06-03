@@ -27,11 +27,15 @@ const sourceAppNames: Record<FixtureBackedTemplate, string> = {
 }
 
 const fixtureRootCandidates = [
+  resolve(dirname(fileURLToPath(import.meta.url)), './starter-fixtures'),
+  resolve(dirname(fileURLToPath(import.meta.url)), './cli/starter-fixtures'),
   resolve(dirname(fileURLToPath(import.meta.url)), '../starter-fixtures'),
   resolve(dirname(fileURLToPath(import.meta.url)), '../../starter-fixtures'),
 ]
 
 const addFixtureRootCandidates = [
+  resolve(dirname(fileURLToPath(import.meta.url)), './add-fixtures'),
+  resolve(dirname(fileURLToPath(import.meta.url)), './cli/add-fixtures'),
   resolve(dirname(fileURLToPath(import.meta.url)), '../add-fixtures'),
   resolve(dirname(fileURLToPath(import.meta.url)), '../../add-fixtures'),
 ]

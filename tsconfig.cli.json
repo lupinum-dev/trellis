@@ -10,6 +10,6 @@
     "sourceMap": false,
     "types": ["node"]
   },
-  "include": ["src/cli.mts", "src/cli/**/*.ts"],
+  "include": ["src/cli.mts", "src/cli/**/*.ts", "src/module-internals/**/*.ts"],
   "exclude": ["dist", "node_modules", "src/cli/starter-fixtures", "src/cli/add-fixtures"]
 }

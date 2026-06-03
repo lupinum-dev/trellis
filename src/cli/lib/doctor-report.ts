@@ -71,6 +71,17 @@ function hasCanonicalMcpBearerAuth(project: ProjectInspection): boolean {
   )
 }
 
+function hasAppOwnedAuthBootstrapPlugin(project: ProjectInspection): boolean {
+  return project.sourceFiles.some((file) => {
+    if (!/[/\\](?:app[/\\])?plugins[/\\].*\.[cm]?[jt]s$/u.test(file.path)) return false
+    return (
+      /trellisAuthBootstrap/u.test(file.path) ||
+      (file.text.includes('trellis:auth:changed') &&
+        (file.text.includes('auth:createUserIfNeeded') || file.text.includes('createUserIfNeeded')))
+    )
+  })
+}
+
 function expectsCanonicalMcpBearerAuth(project: ProjectInspection): boolean {
   return project.sourceFiles.some((file) =>
     /[/\\](?:server[/\\]middleware[/\\]mcp-auth|convex[/\\]features[/\\]mcpKeys[/\\]domain)\.[cm]?[jt]s$/u.test(
@@ -131,6 +142,7 @@ function createDoctorFindings(
   const convexAuthSource = findConvexAuthSource(project)
   const expectsTrellisUsers = usesTrellisUsersTable(project)
   const hasAuthBootstrap = hasBetterAuthBootstrapExport(project)
+  const appOwnedAuthBootstrapPlugin = hasAppOwnedAuthBootstrapPlugin(project)
   const identityForwardingExpected = inventory.forwarding.expected
   const mcpExpected = inventory.mcp.toolCount > 0 || identityForwardingExpected
   const nitroAsyncContextEnabled = hasNitroAsyncContextEnabled(project)
@@ -369,6 +381,24 @@ function createDoctorFindings(
         : 'Register your Better Auth bridge in convex/http.ts so the Nuxt auth proxy can exchange session cookies for Convex JWTs.',
     },
     {
+      id: 'app-owned-auth-bootstrap-plugin',
+      category: 'auth',
+      title: 'App-owned auth bootstrap plugin',
+      status:
+        authExpected && !authBootstrapDisabled && appOwnedAuthBootstrapPlugin ? 'fail' : 'pass',
+      message: !authExpected
+        ? 'Auth is explicitly disabled in nuxt.config.'
+        : authBootstrapDisabled
+          ? 'Trellis auth bootstrap is explicitly disabled with auth.bootstrap: false.'
+          : appOwnedAuthBootstrapPlugin
+            ? 'Found an app-owned auth bootstrap plugin while Trellis auth bootstrap is enabled.'
+            : 'No app-owned Trellis auth bootstrap plugin was found.',
+      fixHint:
+        authExpected && !authBootstrapDisabled && appOwnedAuthBootstrapPlugin
+          ? 'Delete the app-owned bootstrap plugin and let the Trellis module install the canonical auth bootstrap, or set auth.bootstrap: false for an explicit advanced override.'
+          : 'Keep auth bootstrap ownership in one place.',
+    },
+    {
       id: 'trellis-auth-bootstrap-exported',
       category: 'auth',
       title: 'Trellis auth bootstrap export',
@@ -376,7 +406,7 @@ function createDoctorFindings(
         authExpected && expectsTrellisUsers && !authBootstrapDisabled
           ? hasAuthBootstrap
             ? 'pass'
-            : 'warn'
+            : 'fail'
           : 'pass',
       message: !authExpected
         ? 'Auth is explicitly disabled in nuxt.config.'
