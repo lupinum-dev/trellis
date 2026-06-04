@@ -1,8 +1,8 @@
-import { defineCaller, type DefaultCaller, type CallerDefinition } from '@lupinum/trellis/backend'
 import {
-  clearIdentityForwardingContext,
-  setIdentityForwardingContext,
-  withIdentityForwarding,
+  defineCaller,
+  withVerifiedIdentityForwardingContext,
+  type CallerDefinition,
+  type DefaultCaller,
 } from '@lupinum/trellis/backend'
 import {
   customAction,

@@ -1,5 +1,5 @@
 import {
-  createIdentityForwardingEnvelope,
+  createIdentityForwardingEnvelopeArgs,
   extractSubject,
   getIdentityForwardingKeyProductionIssue,
 } from '@lupinum/trellis/backend'
@@ -35,6 +35,17 @@ const bridgeForwardingTtlsMs = {
 
 type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 export type IdentityForwardingKeyInput = string | ((args?: unknown) => string)
+
+function withResolvedSubject(caller: unknown, subject: string): { subject: string } & Record<
+  string,
+  unknown
+> {
+  if (typeof caller === 'object' && caller !== null && !Array.isArray(caller)) {
+    return { ...(caller as Record<string, unknown>), subject }
+  }
+
+  return { subject }
+}
 
 function resolveBridgeCallerSubject(caller: unknown): string {
   if (
@@ -127,7 +138,7 @@ export function createBridgeForwardingEnvelope(
 ): string {
   const subject = resolveBridgeCallerSubject(options.caller)
   const jti = options.jtiPrefix ? `${options.jtiPrefix}-${createBridgeJti()}` : createBridgeJti()
-  return createIdentityForwardingEnvelope({
+  const forwardingArgs = createIdentityForwardingEnvelopeArgs({
     key: options.identityForwardingKey,
     keyId:
       (typeof process !== 'undefined' ? process.env?.CONVEX_IDENTITY_FORWARDING_KEY_ID : '') ||
@@ -135,14 +146,20 @@ export function createBridgeForwardingEnvelope(
     iss: bridgeForwardingIssuer,
     aud: bridgeForwardingAudience,
     jti,
-    sub: subject,
-    caller: options.caller,
+    caller: withResolvedSubject(options.caller, subject),
     transport: 'bridge',
+    operation: options.operation === 'operation-execute' ? 'mutation' : options.operation,
     purpose: options.operation,
     functionRef: options.functionRef,
     args: options.args,
     ttlMs: bridgeForwardingTtlsMs[options.operation],
   })
+  const envelope = forwardingArgs._trellisForwarding
+  if (typeof envelope !== 'string') {
+    throw new Error('createComponentBridge() failed to create a forwarding envelope.')
+  }
+
+  return envelope
 }
 
 function createBridgeIdentityForwardingFields(

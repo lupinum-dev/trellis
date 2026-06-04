@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 
 import {
-  createIdentityForwardingEnvelope,
+  createIdentityForwardingEnvelopeArgs,
   requireDelegationBinding,
 } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
@@ -60,25 +60,22 @@ function withSignedForwarding(
     throw new Error('Signed test forwarding requires a canonical caller subject.')
   }
 
-  return {
-    ...args,
-    _trellisForwarding: createIdentityForwardingEnvelope({
-      key: IDENTITY_FORWARDING_KEY,
-      keyId: 'default',
-      iss: 'trellis://server',
-      aud: 'trellis://convex',
-      jti: `mcp-reference-${options.operation}-${principalSubject}`,
-      sub: principalSubject,
-      caller: options.caller,
-      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
-      transport: options.transport ?? 'server',
-      purpose: options.operation,
-      ...(options.replayMode ? { replayMode: options.replayMode } : {}),
-      functionRef: getFunctionRef(options.ref),
-      args,
-      ttlMs: options.operation === 'query' ? 60_000 : 30_000,
-    }),
-  }
+  return createIdentityForwardingEnvelopeArgs({
+    args,
+    key: IDENTITY_FORWARDING_KEY,
+    keyId: 'default',
+    issuer: 'trellis://server',
+    audience: 'trellis://convex',
+    jti: `mcp-reference-${options.operation}-${principalSubject}`,
+    caller: options.caller as { subject: string } & Record<string, unknown>,
+    ...(options.actingFor ? { actingFor: options.actingFor } : {}),
+    transport: options.transport ?? 'server',
+    purpose: options.operation,
+    ...(options.replayMode ? { replayMode: options.replayMode } : {}),
+    functionRef: getFunctionRef(options.ref),
+    operation: options.operation,
+    ttlMs: options.operation === 'query' ? 60_000 : 30_000,
+  })
 }
 
 function mcpKeyDelegation(input: { keyId: string; userId: string; workspaceId: string }) {

@@ -91,10 +91,14 @@ describe('auth engine', () => {
     const signOutPromise = harness.engine.signOut()
     await harness.flush()
     expect(harness.pending.value).toBe(true)
+    expect(harness.token.value).toMatch(/^eyJ/)
+    expect(harness.user.value?.email).toBe('pending@test.com')
 
     await refreshPromise
     await harness.flush()
     expect(harness.pending.value).toBe(true)
+    expect(harness.token.value).toMatch(/^eyJ/)
+    expect(harness.user.value?.email).toBe('pending@test.com')
 
     signOutDeferred.resolve(undefined)
     await signOutPromise

@@ -14,6 +14,7 @@ export const getResponseBodySizeErrorMock = vi.fn()
 
 export interface CreateEventOptions {
   cookie?: string
+  contentLength?: string
   method?: string
   origin?: string
   rawPathname?: string
@@ -27,6 +28,9 @@ export function createEvent(pathname: string, options: CreateEventOptions = {}) 
   }
   if (options.origin) {
     headers.set('origin', options.origin)
+  }
+  if (options.contentLength) {
+    headers.set('content-length', options.contentLength)
   }
 
   return {

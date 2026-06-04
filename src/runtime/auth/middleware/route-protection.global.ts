@@ -49,6 +49,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     // Fall through to secure default route protection if still pending.
   }
 
+  if (isPending.value) return navigateTo(decision.redirectTo)
   if (isAuthenticated.value) return
   return navigateTo(decision.redirectTo)
 })

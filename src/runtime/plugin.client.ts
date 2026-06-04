@@ -186,6 +186,9 @@ export default defineNuxtPlugin({
           nuxtApp,
           router,
           traceId,
+          onBetterAuthSessionSignal: async () => {
+            await authEngine.refreshAuth({ trigger: 'auth-session-signal' })
+          },
         }),
       )
     } else if (isAuthEnabled) {

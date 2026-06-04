@@ -66,6 +66,33 @@ export function clearIdentityForwardingContext(ctx: unknown): void {
   Object.assign(ctx, createIdentityForwardingContextDelta(null))
 }
 
+/**
+ * Verify forwarded identity for the duration of one backend callback.
+ *
+ * This is the safe bridge for package-level integrations that need existing
+ * caller resolvers to see verified forwarding state without exposing raw
+ * set/clear context mutation as a public backend API.
+ */
+export async function withVerifiedIdentityForwardingContext<TCtx extends object, TResult>(
+  ctx: TCtx,
+  args: unknown,
+  options: IdentityForwardingKeyInput | IdentityForwardingEnvelopeContextOptions | undefined,
+  run: (ctx: TCtx) => TResult | Promise<TResult>,
+): Promise<TResult> {
+  if (!isIdentityForwardingContextCarrier(ctx)) {
+    return await run(ctx)
+  }
+
+  const identityForwarding = extractIdentityForwardingFromArgs(args, options)
+  Object.assign(ctx, createIdentityForwardingContextDelta(identityForwarding, args))
+
+  try {
+    return await run(ctx)
+  } finally {
+    Object.assign(ctx, createIdentityForwardingContextDelta(null))
+  }
+}
+
 /** Read the identity forwarding state from args or an already-populated context carrier. */
 export function getIdentityForwarding(args?: unknown): IdentityForwardingIdentity | null {
   if (args === undefined) {

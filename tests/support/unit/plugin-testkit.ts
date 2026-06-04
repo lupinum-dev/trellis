@@ -25,6 +25,8 @@ const pluginTestkitHoisted = vi.hoisted(() => {
     fetchToken: null as null | ((input: { forceRefreshToken: boolean }) => Promise<string | null>),
     setAuthCalls: 0,
     skipOnChangeAfterFetch: false,
+    sessionSignalValue: false,
+    sessionSignalListeners: [] as Array<(value: boolean, oldValue?: boolean) => void>,
     mutations: [] as Array<{ name: string; args: unknown }>,
   }
   const hookRegistry = new Map<string, (...args: unknown[]) => unknown>()
@@ -115,6 +117,14 @@ export {
   useStateMock,
 }
 
+export function emitBetterAuthSessionSignal() {
+  const oldValue = clientState.sessionSignalValue
+  clientState.sessionSignalValue = !clientState.sessionSignalValue
+  for (const listener of clientState.sessionSignalListeners) {
+    listener(clientState.sessionSignalValue, oldValue)
+  }
+}
+
 vi.mock('#app', () => ({
   defineNuxtPlugin: defineNuxtPluginMock,
   useRuntimeConfig: useRuntimeConfigMock,
@@ -180,6 +190,8 @@ export function resetPluginClientTestkit() {
   clientState.fetchToken = null
   clientState.setAuthCalls = 0
   clientState.skipOnChangeAfterFetch = false
+  clientState.sessionSignalValue = false
+  clientState.sessionSignalListeners = []
   clientState.mutations = []
   hookRegistry.clear()
   setCurrentNuxtApp(null)
@@ -229,6 +241,22 @@ export function resetPluginClientTestkit() {
   })
 
   createAuthClientMock.mockReturnValue({
+    $store: {
+      listen: vi.fn(
+        (signal: string, listener: (value: boolean, oldValue?: boolean) => void) => {
+          if (signal !== '$sessionSignal') {
+            return
+          }
+          clientState.sessionSignalListeners.push(listener)
+          listener(clientState.sessionSignalValue)
+          return () => {
+            clientState.sessionSignalListeners = clientState.sessionSignalListeners.filter(
+              (candidate) => candidate !== listener,
+            )
+          }
+        },
+      ),
+    },
     convex: {
       token: tokenMock,
     },

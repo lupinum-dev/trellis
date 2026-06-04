@@ -124,7 +124,7 @@ describe('Auth Identity Continuity', () => {
     })
   })
 
-  it('signOut still fails closed before surfacing the upstream error', async () => {
+  it('failed upstream signOut keeps the real Better Auth session represented', async () => {
     h = await createAuthHarness({
       initialToken: TEST_USERS.alice.token,
       initialUser: TEST_USERS.alice.user,
@@ -133,12 +133,12 @@ describe('Auth Identity Continuity', () => {
 
     await expect(h.triggerSignOut()).rejects.toThrow('Upstream signOut failed')
 
-    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.token.value).toBeNull()
-    expect(h.user.value).toBeNull()
+    expect(h.token.value).toBe(TEST_USERS.alice.token)
+    expect(h.user.value).toEqual(TEST_USERS.alice.user)
     expect(h.rawAuthError.value).toMatch(/Upstream signOut failed/)
-    expect(h.invalidateHandlerSpy).toHaveBeenCalledTimes(1)
+    expect(h.invalidateHandlerSpy).not.toHaveBeenCalled()
     expect(h.signOutSpy).toHaveBeenCalledTimes(1)
   })
 })

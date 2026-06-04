@@ -52,6 +52,12 @@ interface TokenResponse {
 
 type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
   convex: { token: () => Promise<TokenResponse> }
+  $store?: {
+    listen?: (
+      signal: '$sessionSignal',
+      listener: (value: boolean, oldValue?: boolean) => void,
+    ) => void
+  }
 }
 
 interface AuthClientOptions {
@@ -64,6 +70,7 @@ interface AuthClientOptions {
   nuxtApp: MinimalNuxtApp
   router: MinimalRouter
   traceId: string
+  onBetterAuthSessionSignal?: () => void | Promise<void>
 }
 
 /**
@@ -127,6 +134,7 @@ export function initAuthClient(
     nuxtApp,
     router,
     traceId,
+    onBetterAuthSessionSignal,
   } = options
 
   const authClient = createAuthClient({
@@ -134,6 +142,29 @@ export function initAuthClient(
     plugins: [convexClient()],
     fetchOptions: { credentials: 'include' },
   }) as AuthClientWithConvex
+
+  if (onBetterAuthSessionSignal && authClient.$store?.listen) {
+    let receivedInitialSessionSignal = false
+    authClient.$store.listen('$sessionSignal', (value, oldValue) => {
+      if (!receivedInitialSessionSignal) {
+        receivedInitialSessionSignal = true
+        return
+      }
+
+      if (value === oldValue) {
+        return
+      }
+
+      void Promise.resolve(onBetterAuthSessionSignal()).catch((error: unknown) => {
+        logger.auth({
+          phase: 'better-auth-session-signal',
+          outcome: 'error',
+          details: { traceId },
+          error: error instanceof Error ? error : new Error(String(error)),
+        })
+      })
+    })
+  }
 
   let lastTokenValidation = Date.now()
   let inflightFetch: Promise<ClientAuthStateResult> | null = null

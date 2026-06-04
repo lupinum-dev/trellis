@@ -198,7 +198,8 @@ describe('defineTrellis', () => {
       query: builder,
       mutation: builder,
     })
-    let rawDb: ReturnType<typeof createMemoryDb>['db']
+    const memory = createMemoryDb()
+    const rawDb = memory.db
 
     const definition = runtime.query.public({
       args: {},
@@ -239,9 +240,6 @@ describe('defineTrellis', () => {
         canStillQuery: boolean
       }>
     }
-
-    const memory = createMemoryDb()
-    rawDb = memory.db
 
     await expect(
       definition.handler(

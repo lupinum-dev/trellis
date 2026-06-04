@@ -15,7 +15,6 @@ import type { PermissionKey } from '../../src/runtime/composables/configured-per
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { defineOperation } from '../../src/runtime/functions'
 import { createIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
-import { defineTool } from '../../src/runtime/mcp/advanced'
 import { createTestContext } from '../../src/runtime/testing'
 
 type Assert<T extends true> = T
@@ -169,43 +168,6 @@ const _createTaskOperation = defineOperation({
   handler: async (_ctx, _args, _loaded) => null,
 })
 void _createTaskOperation
-
-// @ts-expect-error standalone MCP tools must declare a custom-tool effect
-defineTool({
-  schema: toolSchema,
-  handler: async () => ({ ok: true }),
-})
-
-defineTool({
-  schema: toolSchema,
-  effect: 'read',
-  auth: 'required',
-  scoped: true,
-  handler: async (_args, ctx) => {
-    // @ts-expect-error standalone custom tools cannot call Convex mutations
-    await ctx.mutation({} as never)
-    // @ts-expect-error standalone custom tools cannot call Convex actions
-    await ctx.action({} as never)
-    return { ok: true }
-  },
-})
-
-// @ts-expect-error scoped tools must require auth
-defineTool({
-  schema: toolSchema,
-  effect: 'read',
-  auth: 'optional',
-  scoped: true,
-  handler: async () => ({ ok: true }),
-})
-
-// @ts-expect-error scoped tools must require auth explicitly
-defineTool({
-  schema: toolSchema,
-  effect: 'read',
-  scoped: true,
-  handler: async () => ({ ok: true }),
-})
 
 const testContext = createTestContext({ schema: {} as never })
 void testContext

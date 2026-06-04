@@ -20,13 +20,13 @@ Scope source: `0.3.0.md`
 | Phase | Status | Notes |
 | --- | --- | --- |
 | Phase -1: Prove risky mechanics | Active | Source-policy, raw DB, cross-tenant, and public DB runtime proofs have passing focused evidence |
-| Phase 0: Freeze unsafe growth | Active | Source-policy, packed export gate, cross-tenant ban, and touched example typechecks pass; broader release gates still pending |
+| Phase 0: Freeze unsafe growth | Active | Source-policy, packed export gate, focused runtime security proofs, cross-tenant ban, touched example typechecks pass, and `test:security` is wired into `check`/`release:verify`; broader release gates still pending |
 | Phase 1: Backend authority cutover | Pending | Waiting on Phase -1 proofs |
 | Phase 2: Operations, replay, trusted proofs | Active | Opaque transport proof cutover and framework JTI replay claim/complete/fail pass focused tests; domain idempotency remains app-owned and webhook recovery is still pending |
 | Phase 3: MCP cutover | Pending | Waiting on operation-backed consumer fixture proof |
-| Phase 4: Webhooks, delegation, server routes | Active | HMAC helper parse-before-idempotency, example 04 backend delivery idempotency, and example 03 backend-revalidated delegation binding pass focused gates; example 07 remains pending |
-| Phase 5: Client auth lifecycle | Pending | Waiting on Better Auth sync proof |
-| Phase 6: Examples, docs, public surface, release gate | Pending | Starts after core mechanics are proven |
+| Phase 4: Webhooks, delegation, server routes | Active | HMAC helper parse-before-idempotency, example 04 backend delivery idempotency, example 03 delegation, and example 07 MCP/webhook delegation pass focused gates |
+| Phase 5: Client auth lifecycle | Active | Better Auth `$sessionSignal` and upstream-authoritative sign-out have focused Nuxt proof; stale protected-navigation smoke remains |
+| Phase 6: Examples, docs, public surface, release gate | Active | Phase A security contract exists and is wired into `test:security`; broader examples/docs/consumer/release gates remain |
 
 ## Proof Spike Ledger
 
@@ -34,16 +34,18 @@ Scope source: `0.3.0.md`
 | --- | --- | --- | --- |
 | Raw DB removal | Passed | Handler-visible `ctx.db` no longer carries raw DB by reference, symbol, or descriptor; destructive internals still pass tests | Remove `escapeIsolation` normal-lane API in cross-tenant capability spike |
 | Public-safe DB facade | Passed | Public `ctx.db` is read-only and table-limited; public writes require operation-backed `publicWrite` narrow methods and emit `db.public_write.used` | Keep regression coverage while moving to trusted proof/replay work |
-| Strict evaluator | Passed | Core auth and MCP checks require exact boolean results | Keep coverage in security gate/regression suite |
+| Strict evaluator | Passed | Core auth and MCP checks require exact boolean results | Covered by expanded `test:security`; keep release gates green |
 | Cross-tenant capability | Passed | Normal handler `ctx.db` no longer exposes `escapeIsolation`; named `crossTenant` capabilities are table-limited, read-only by default, and write mode requires operation metadata | Keep policy gate banning generic escape hatches and continue with public-safe DB facade proof |
 | Service subject | Active | Example 03 `todo-sync-webhook` service is configured as derived, table-restricted access scoped from `workspaceId` | Extend proof to remaining maintained service lanes |
 | Trusted proof | Passed | Server/MCP forwarding now uses branded `transportProof.*(...)`; raw `auth: 'trusted'` rejects before fetch; source policy scans the server helper | Keep proof-object coverage while finishing webhook/delegation lanes |
 | Replay store | Active | `jti-redemption` and `operation-confirmation` envelopes carry signed replay mode and use `trustedReplay` to claim before handler execution, then mark `completed` or `failed`; duplicate JTI tests execute the handler once | Prove webhook/domain idempotency recovery and add release-gate coverage |
-| Webhook idempotency | Active | `verifyHmacWebhookDelivery(...)` reads raw body once, rejects blank/stale/tampered deliveries, parses before idempotency; example 04 stores delivery id with the business write; example 03 stores workspace-scoped processed events with the business write | Extend proof to example 07 or keep that route disabled |
-| Delegation binding | Active | `delegateToUser` is replaced by required binding evidence; example 03 route creates a short-lived binding and Convex revalidates service/user/workspace/purpose/expiry before writing | Extend backend-revalidated evidence to example 07 and docs/API reference |
+| Webhook idempotency | Active | `verifyHmacWebhookDelivery(...)` reads raw body once, rejects blank/stale/tampered deliveries, parses before idempotency; examples 03, 04, and 07 store delivery/idempotency rows with the business write | Add broader maintained-example/release-gate coverage |
+| Delegation binding | Active | `delegateToUser` is replaced by required binding evidence; examples 03 and 07 create short-lived bindings and Convex revalidates service/user/workspace/purpose/expiry before writing | Extend docs/API reference and add forged/expired/wrong-binding negative coverage where missing |
 | MCP operation migration | Active | Production-copyable MCP write tools no longer use tool-local safety stamping | Add consumer fixture/assertions for operation-backed MCP writes |
-| Better Auth sync | Pending | Existing review proved stale local auth windows | Prove session mutation invalidates Trellis state |
-| Packed exports | Passed | Stale `dist` failed with 25 banned public export violations; rebuilt package entries now pass packed export gate | Keep wired into `test:security` |
+| Better Auth sync | Passed | Better Auth `$sessionSignal` is observed by the auth transport, routed through `authEngine.refreshAuth({ trigger: 'auth-session-signal' })`, and focused tests prove fresh-token adoption and stale-token clearing | Add browser/Nuxt protected-navigation smoke before release viability |
+| Sign-out ordering | Passed | Local logout now commits only after upstream Better Auth sign-out succeeds; failed upstream logout keeps the existing session represented with an auth error and skips local invalidation | Keep Nuxt auth smoke green and add stale protected-navigation proof |
+| Packed exports | Passed | Stale `dist` failed with 25 banned public export violations; rebuilt package entries now pass packed export gate | Covered by expanded `test:security`; keep release gates green |
+| Security contract | Active | Phase A generated contract inventories public exports, banned export absence, source-policy rules, public read tables, backend lanes, operations, MCP tools, and runtime proof files | Phase B route/delegation/service metadata remains explicitly deferred |
 
 ## Implementation Log
 
@@ -657,7 +659,279 @@ Resolved initial violation classes:
   real `mcpKeys` row as binding evidence and delegated webhook writes call the
   webhook-specific mutation.
 - Verification is pending.
+- Partial verification:
+  - In-process TypeScript compiler diagnostics for `examples/07-mcp-reference`
+    reported no project-local diagnostics after the current fixes.
+  - Static source-policy simulation on the changed example 07 files reported no
+    banned delegation/trusted-auth/open-guard patterns.
+- Focused test status:
+  - `node ./node_modules/vitest/vitest.mjs run --config vitest.config.ts
+    server/api/runbook-webhook.post.test.ts test/mcpReference.test.ts`
+    successfully ran once and reported 9 passing tests / 6 failing tests.
+  - Fixed the reported stale test import by switching from removed
+    `createIdentityForwardingEnvelope` to
+    `createIdentityForwardingEnvelopeArgs(...)`.
+  - Fixed first-workspace onboarding by replacing the appIdentity-oriented
+    `authRequired` runtime behavior so it enforces a non-anonymous caller
+    without requiring appIdentity before the handler. The example 07 workspace
+    bootstrap path now stays on `authRequired` and keeps `requireAuth(caller)`
+    in the handler.
+  - Fixed public/cross-tenant `db.get(id)` table inference for Convex test ids
+    by teaching `getServiceTableFromId(...)` to recognize the
+    `digits + tableName` id shape used by `convex-test`.
+  - Updated `functions-defineHandler` unit expectations to match the corrected
+    `authRequired` contract: authenticated callers without appIdentity may
+    reach the handler, while `authorize` still fails without appIdentity.
 - Failure: after the first example 07 test attempt, the local environment
   stopped spawning new processes with `Resource temporarily unavailable (os
   error 35)`. Even `pwd` could not spawn, so focused tests, typecheck, search,
   and diff checks could not run yet.
+- Failure: the process limit recurred after the fixes above, so the focused
+  example 07 tests still need to be rerun and confirmed green.
+- Failure: after the authRequired/unit-test fixes, shell process creation still
+  failed with `Resource temporarily unavailable (os error 35)`. In-process
+  TypeScript diagnostics reported no changed-file diagnostics, but Vitest,
+  example typecheck, security gates, and diff checks remain pending.
+- Recovered verification:
+  - `node ./node_modules/vitest/vitest.mjs run --config vitest.config.ts
+    server/api/runbook-webhook.post.test.ts test/mcpReference.test.ts` passed:
+    2 files / 15 tests.
+  - `node ./node_modules/vitest/vitest.mjs run --project=unit
+    tests/unit/functions-defineHandler.test.ts` passed: 1 file / 16 tests.
+  - `node ./node_modules/vitest/vitest.mjs run --project=unit
+    tests/unit/functions-defineTrellis.test.ts
+    tests/unit/functions-defineHandler.test.ts` passed: 2 files / 59 tests.
+  - `pnpm --dir examples/07-mcp-reference typecheck` passed.
+  - `pnpm run build:module` passed.
+  - `pnpm run check:security:source-policy` passed.
+  - `pnpm run check:security:packed-exports` passed.
+  - `pnpm run check:publish-surface` passed.
+  - `git diff --check` passed.
+- Current state:
+  - Example 07 delegated MCP access and runbook webhook creation now have
+    green focused tests, typecheck, source-policy, packed-export, and
+    publish-surface coverage.
+  - Continue with the next 0.3.0 implementation slice; this does not make the
+    full 0.3.0 objective complete.
+
+### 2026-06-04 Security Gate Wiring
+
+- Wired the existing `test:security` command into:
+  - `pnpm run check`
+  - `pnpm run release:verify`
+- Rationale:
+  - 0.3.0 requires the local and release gates to run the security source
+    policy, module build, and packed-export security checks.
+  - This keeps the gate derived from source/build artifacts instead of adding a
+    manual approval layer.
+- Verification:
+  - Package script assertion passed:
+    `node -e "const s=require('./package.json').scripts; ..."` confirmed both
+    `check` and `release:verify` include `pnpm run test:security`.
+  - First `pnpm run test:security` attempt failed before security checks because
+    pnpm wanted to repair `node_modules` after `package.json` changed and the
+    sandbox could not resolve npm registry hosts.
+  - Restored dependencies with `CI=true pnpm install` using network escalation;
+    install completed with the lockfile unchanged.
+  - `pnpm run test:security` passed:
+    - `check:security:source-policy`
+    - `build:module`
+    - `check:security:packed-exports`
+  - `git diff --check` passed.
+- Current state:
+  - The Phase 0 security gate now participates in both normal local checks and
+    release verification.
+  - Full `pnpm run check` and `pnpm run release:verify` are still broader
+    release gates and have not been run in this slice.
+
+### 2026-06-04 Security Gate Runtime Proof Expansion
+
+- Strengthened `test:security` so it no longer only checks static policy and
+  packed exports.
+- Added the focused runtime/security proof group to `test:security`:
+  - `functions-defineTrellis.test.ts`
+  - `functions-defineHandler.test.ts`
+  - `auth-access-context.test.ts`
+  - `define-convex-tool.test.ts`
+  - `mcp-convex-caller.test.ts`
+  - `server-index-exports.test.ts`
+  - `backend-index-exports.test.ts`
+  - `mcp-index-exports.test.ts`
+  - `example-webhook-security.test.ts`
+  - `identity-forwarding-envelope.test.ts`
+  - `identity-forwarding.test.ts`
+  - `destructive-confirmation.test.ts`
+  - `mcp-operation-binding.test.ts`
+  - `mcp-descriptor-boundary.test.ts`
+  - `mcp-definition-preflight.test.ts`
+  - `mcp-invalid-bearer-throttle.test.ts`
+  - `use-mcp-session.test.ts`
+- Fixed stale webhook-security expectations:
+  - The test no longer expects removed shared-secret helper usage.
+  - It now asserts maintained webhook examples use
+    `verifyHmacWebhookDelivery(...)`, do not use raw trusted auth, and that
+    forwarded examples use `transportProof.webhook(...)`,
+    `domainIdempotency(...)`, and `requireDelegationBinding(...)`.
+- Verification:
+  - Focused runtime group passed before wiring: 17 files / 178 tests.
+  - Expanded `pnpm run test:security` passed:
+    - source-policy check
+    - module build
+    - packed-export policy
+    - 17 focused runtime/security test files / 178 tests
+  - Script assertion passed: `check`, `release:verify`, and `test:security`
+    all include the required security gate/runtime proof wiring.
+  - `git diff --check` passed.
+- Failure/recovery:
+  - Because `package.json` changed, pnpm attempted dependency repair in the
+    restricted sandbox and failed DNS resolution.
+  - Restored `node_modules` with `CI=true pnpm install` using network
+    escalation; the lockfile stayed up to date.
+
+### 2026-06-04 Phase A Security Contract
+
+- Added a deterministic Phase A security contract generator:
+  - `scripts/generate-security-contract.mjs`
+  - `scripts/lib/security-contract.mjs`
+  - `security-contract.generated.json`
+- Refactored source-policy checks into a shared helper so source policy and the
+  contract do not drift:
+  - `scripts/lib/security-source-policy.mjs`
+  - `scripts/check-security-source-policy.mjs`
+- Added package scripts:
+  - `pnpm run security:contract`
+  - `pnpm run check:security:contract`
+- Wired `check:security:contract` into `test:security`.
+- Added `tests/unit/security-contract.test.ts`.
+- Contract scope:
+  - public package exports
+  - banned public export absence rules
+  - source-policy roots and policies
+  - source-policy violation count
+  - focused runtime proof files
+  - public `readTables`
+  - backend function lane inventory
+  - operation inventory
+  - MCP tool inventory
+- Explicitly deferred to Phase B:
+  - verified route proof kind
+  - trusted route idempotency source
+  - delegation binding source
+  - webhook verifier canonicalization metadata
+  - service-subject contract metadata
+- Verification:
+  - `node scripts/check-security-source-policy.mjs` passed.
+  - `node scripts/generate-security-contract.mjs --check` passed.
+  - `node ./node_modules/vitest/vitest.mjs run --project=unit
+    tests/unit/security-contract.test.ts` passed: 1 file / 2 tests.
+  - `pnpm run test:security` passed:
+    - source-policy check
+    - security contract drift check
+    - module build
+    - packed-export policy
+    - 18 focused runtime/security test files / 180 tests
+  - Package script assertion passed and confirmed `test:security` runs the
+    contract check and the contract unit test.
+  - `git diff --check` passed.
+- Failure/recovery:
+  - After script changes, refreshed `node_modules` with `CI=true pnpm install`
+    using network escalation so pnpm would not stop on non-TTY dependency
+    repair during gate execution.
+
+### 2026-06-04 Better Auth Session Sync Proof
+
+- Confirmed the correct hook source from the installed Better Auth client:
+  `authClient.$store.listen('$sessionSignal', ...)`.
+- Kept session observation in `initAuthClient(...)` and Trellis state mutation
+  in the shared auth engine:
+  - `auth-client` observes Better Auth session signal changes.
+  - `plugin.client` maps the signal to
+    `authEngine.refreshAuth({ trigger: 'auth-session-signal' })`.
+  - The engine performs the forced token exchange and is still the only writer
+    for token/user/error state.
+- Added `auth-session-signal` to the auth trigger vocabulary so logs and tests
+  can distinguish session-driven refreshes from manual refreshes and auth
+  actions.
+- Added/expanded focused unit coverage:
+  - `tests/unit/auth-client.test.ts` proves the transport ignores the initial
+    Better Auth store notification and only forwards real signal changes.
+  - `tests/unit/plugin-client-refresh.test.ts` proves a Better Auth session
+    signal adopts a fresh token.
+  - `tests/unit/plugin-client-refresh.test.ts` proves a Better Auth session
+    signal with no Better Auth token clears stale Trellis token/user state.
+- Failure/recovery:
+  - An attempted plugin-level session bridge created a duplicate listener in
+    focused tests. Removed it and kept one source of truth: the auth transport
+    observes Better Auth, and the auth engine owns state writes.
+  - `pnpm exec tsc --noEmit --pretty false` is not a valid repo gate here; it
+    typechecks starter/fixture sources without generated Convex/Nuxt files and
+    fails on missing generated modules. Use repo scripts instead.
+  - `pnpm run typecheck` is not present in this package.
+- Verification:
+  - `pnpm exec vitest run --project=unit
+    tests/unit/plugin-client-refresh.test.ts tests/unit/auth-client.test.ts`
+    passed: 2 files / 9 tests.
+  - `pnpm run test:security` passed:
+    - source-policy check
+    - security contract drift check
+    - module build
+    - packed-export policy
+    - 18 focused runtime/security test files / 180 tests
+- Current state:
+  - Better Auth session mutation no longer relies on callers remembering to
+    manually refresh Trellis auth state.
+  - Phase 5 remains active until protected-navigation/session-switch and
+    sign-out smoke are covered by the appropriate Nuxt/browser gates.
+
+### 2026-06-04 Upstream-Authoritative Sign-Out Proof
+
+- Changed sign-out ordering to match the 0.3.0 contract:
+  - Begin a pending auth operation immediately and invalidate older refreshes.
+  - Call upstream Better Auth `signOut()` before committing local logout.
+  - Commit local token/user clearing only after upstream sign-out succeeds.
+  - If upstream sign-out fails, keep the existing token/user represented,
+    surface the auth error, clear pending, and skip local Convex invalidation.
+  - If upstream sign-out succeeds but local transport invalidation fails, clear
+    local token/user because Better Auth is already signed out, keep the error,
+    and reject.
+- Updated Nuxt auth tests away from the old fake-logout behavior:
+  - `tests/nuxt/identity-continuity.nuxt.test.ts` now proves failed upstream
+    sign-out leaves the real Better Auth session represented and does not call
+    local invalidation.
+  - `tests/nuxt/auth-engine.nuxt.test.ts` now proves pending sign-out keeps the
+    existing session represented until upstream logout resolves.
+- Finding:
+  - The prior behavior was intentionally fail-closed but wrong for 0.3.0:
+    a failed upstream logout could make Trellis look unauthenticated while the
+    Better Auth session still existed. That is a confusing and unsafe source of
+    truth split.
+- Verification:
+  - Focused Nuxt auth runtime pass:
+    `pnpm exec vitest run --project=nuxt
+    tests/nuxt/identity-continuity.nuxt.test.ts
+    tests/nuxt/auth-engine.nuxt.test.ts
+    tests/nuxt/useConvexAuthInternal.nuxt.test.ts
+    tests/nuxt/owasp.nuxt.test.ts
+    tests/nuxt/token-lifecycle.nuxt.test.ts`
+    passed: 5 files / 38 tests.
+  - Broader Nuxt auth smoke from the Trellis workspace:
+    `pnpm exec vitest run --project=nuxt
+    tests/nuxt/useConvexAuthFlow.nuxt.test.ts
+    tests/nuxt/token-lifecycle.nuxt.test.ts
+    tests/nuxt/useConvexAuthInternal.nuxt.test.ts
+    tests/nuxt/owasp.nuxt.test.ts
+    tests/nuxt/auth-engine.nuxt.test.ts
+    tests/nuxt/configured-auth-bootstrap.nuxt.test.ts
+    tests/nuxt/identity-continuity.nuxt.test.ts`
+    passed: 7 files / 60 tests.
+  - `pnpm run test:security` passed:
+    - source-policy check
+    - security contract drift check
+    - module build
+    - packed-export policy
+    - 18 focused runtime/security test files / 180 tests
+  - `git diff --check` passed.
+- Current state:
+  - Failed sign-out acceptance has focused Nuxt proof.
+  - Phase 5 still needs stale protected-navigation proof before it can be
+    treated as fully covered.

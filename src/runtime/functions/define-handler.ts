@@ -532,30 +532,10 @@ function createStructuredBuilder<
             )
           }
 
-          const appIdentity = await actorAccessor()
-          const allowed = appIdentity != null
           await observe?.({
-            name: allowed ? 'guard.allowed' : 'guard.denied',
-            status: allowed ? 'success' : 'deny',
-            reasonCode: allowed ? undefined : 'guard.denied',
-            details: allowed
-              ? undefined
-              : {
-                  label: authRequiredGuard.label,
-                  explanation: createDenialExplanation({
-                    reasonCode: 'guard.denied',
-                    decision: 'guard',
-                    message: authRequiredGuard.label,
-                    policy: authRequiredGuard.label,
-                    suggestedAction: 'grant_recordAccess',
-                  }),
-                },
+            name: 'guard.allowed',
+            status: 'success',
           })
-          if (!allowed) {
-            throw deny(
-              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, caller, appIdentity)}`,
-            )
-          }
         } else if (!isOpenGuard(definition.guard)) {
           const appIdentity = await actorAccessor()
           const guardCheck = getGuardCheck<TCaller, TActor>(definition.guard)

@@ -38,6 +38,7 @@ export {
   getForwardedCaller,
   getIdentityForwarding,
   getIdentityForwardingKeyProductionIssue,
+  withVerifiedIdentityForwardingContext,
 } from '../identity-forwarding/index.js'
 export {
   assertDelegationBinding,
@@ -96,6 +97,7 @@ export type {
   IdentityForwardingTransport,
   VerifyIdentityForwardingEnvelopeOptions,
 } from '../identity-forwarding/envelope.js'
+export type { IdentityForwardingEnvelopeContextOptions } from '../identity-forwarding/index.js'
 export type {
   DelegationBinding,
   DelegationBindingExpectation,

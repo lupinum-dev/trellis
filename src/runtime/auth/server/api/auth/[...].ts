@@ -35,6 +35,19 @@ import { getAuthRoutePattern, isOriginAllowed } from './security.js'
 
 const GENERIC_CORS_ALLOW_METHODS = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
 const CRITICAL_AUTH_ENDPOINT_ALLOW_METHODS = ['GET', 'OPTIONS'] as const
+const BODY_FORWARD_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'] as const
+
+function methodCanForwardBody(method: string): boolean {
+  return BODY_FORWARD_METHODS.includes(method as (typeof BODY_FORWARD_METHODS)[number])
+}
+
+function hasDeclaredRequestBody(event: H3Event): boolean {
+  const contentLength = event.headers.get('content-length')
+  if (!contentLength) return false
+
+  const parsed = Number(contentLength)
+  return Number.isFinite(parsed) ? parsed > 0 : true
+}
 
 function getCriticalEndpointAllowMethods(path: string): ReadonlyArray<string> | null {
   if (path === '/convex/token' || path === '/get-session') {
@@ -188,9 +201,9 @@ export default defineEventHandler(async (event: H3Event) => {
       canonicalOrigin: siteOrigin,
     })
 
-    // Get request body for POST/PUT/PATCH
+    // Get request body for body-capable auth methods.
     let body: string | undefined
-    if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
+    if (methodCanForwardBody(event.method)) {
       const requestBodySizeError = getRequestBodySizeError(
         event.headers.get('content-length'),
         authProxy.maxRequestBodyBytes,
@@ -207,6 +220,12 @@ export default defineEventHandler(async (event: H3Event) => {
         })
       }
       body = await readRequestBodyWithLimit(event, authProxy.maxRequestBodyBytes)
+    } else if (hasDeclaredRequestBody(event)) {
+      throw createError({
+        statusCode: 400,
+        message: 'Request body is not supported for this auth proxy method',
+        data: { code: 'BCN_AUTH_PROXY_BODY_NOT_ALLOWED', method: event.method },
+      })
     }
 
     // Make request to Convex (manual redirect handling).

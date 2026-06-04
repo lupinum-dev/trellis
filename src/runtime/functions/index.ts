@@ -1044,8 +1044,10 @@ function getServiceError(serviceId: string, table: string): Error {
 function getServiceTableFromId(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const separator = value.lastIndexOf(';')
-  if (separator === -1) return null
-  return value.slice(separator + 1)
+  if (separator !== -1) return value.slice(separator + 1)
+
+  const convexTestId = value.match(/^\d+([A-Za-z_][A-Za-z0-9_]*)$/)
+  return convexTestId?.[1] ?? null
 }
 
 function assertServiceTableAccess<DataModel extends GenericDataModel>(

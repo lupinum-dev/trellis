@@ -33,6 +33,7 @@ export type AuthTrigger =
   | 'convex-set-auth'
   | 'manual-refresh'
   | 'auth-action'
+  | 'auth-session-signal'
   | 'post-signout'
   | 'invalidate'
   | 'bootstrap'
@@ -129,7 +130,7 @@ export interface SharedAuthEngine {
   isSessionExpired: ComputedRef<boolean>
   readonly client: AuthClient | null
   configureTransport: (transport: AuthTransport | null) => void
-  refreshAuth: () => Promise<void>
+  refreshAuth: (options?: { trigger?: AuthTrigger }) => Promise<void>
   invalidateAuth: (options?: {
     clearWasAuthenticated?: boolean
     preservePending?: boolean
@@ -462,7 +463,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     await state.transport.invalidate()
   }
 
-  // Sign-out is fail-closed: clear local auth first, then clean up upstream state.
+  // Better Auth is the session authority: only commit local logout after upstream logout succeeds.
   const signOut = async (): Promise<void> => {
     if (state.signOutPromise) {
       return state.signOutPromise
@@ -474,40 +475,28 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
       rawAuthError.value = null
       const operationId = ++state.operationId
       beginPendingOperation(operationId)
-      commitUnauthenticated(null, { clearWasAuthenticated: true })
 
-      let firstError: unknown = null
-      const captureCleanupError = (error: unknown, phase: 'invalidate' | 'signOut') => {
-        if (firstError === null) {
-          firstError = error
-          return
-        }
-
-        console.error(`[trellis] Additional auth signOut ${phase} error:`, error)
-      }
+      let upstreamSignOutSucceeded = false
 
       try {
-        if (transport) {
-          try {
-            await transport.invalidate()
-          } catch (error) {
-            captureCleanupError(error, 'invalidate')
-          }
-        }
-
         if (client) {
-          try {
-            await client.signOut()
-          } catch (error) {
-            captureCleanupError(error, 'signOut')
-          }
+          await client.signOut()
+        }
+        upstreamSignOutSucceeded = true
+
+        if (transport) {
+          await transport.invalidate()
         }
 
-        if (firstError) {
-          const message = firstError instanceof Error ? firstError.message : String(firstError)
+        commitUnauthenticated(null, { clearWasAuthenticated: true })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (upstreamSignOutSucceeded) {
+          commitUnauthenticated(message, { clearWasAuthenticated: true })
+        } else {
           rawAuthError.value = message
-          throw firstError
         }
+        throw error
       } finally {
         clearPendingOperation(operationId)
         state.signOutPromise = null

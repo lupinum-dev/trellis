@@ -11,7 +11,7 @@ import {
   previewOperationRef,
   type OperationPreviewEnvelope,
 } from '../../src/runtime/functions'
-import { defineMcpApp, stampMcpToolSafety, type McpConvexCaller } from '../../src/runtime/mcp'
+import { defineMcpApp, type McpConvexCaller } from '../../src/runtime/mcp'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -41,18 +41,6 @@ const queryRef = {} as FunctionReference<
   { title: string; count: number }
 >
 
-const mutationRef = {} as FunctionReference<
-  'mutation',
-  'internal',
-  { caller: Caller },
-  { published: true }
->
-const mutationToolSafety = {
-  kind: 'bounded-write',
-  reason: 'Publishes one entry explicitly named by args.',
-} as const
-const safeMutationRef = stampMcpToolSafety(mutationRef, mutationToolSafety)
-
 const runtime = defineMcpApp<Caller, RecordAccess>({
   callConvex: async (_event: H3Event, { caller: _principal, actingFor: _delegation }) =>
     ({
@@ -80,17 +68,6 @@ runtime.tool.query({
   permission: readEntryPermission,
   // @ts-expect-error generic MCP previews are unsupported; use tool.operation(...)
   preview: queryRef,
-})
-
-runtime.tool.mutation({
-  schema,
-  call: safeMutationRef,
-  permission: publishEntryPermission,
-  safety: mutationToolSafety,
-  respond: ({ result, ok }) => {
-    type _mutationResult = Assert<IsEqual<typeof result, { published: true }>>
-    return ok(result)
-  },
 })
 
 // @ts-expect-error Direct action projection is intentionally unavailable; use tool.operation(...)
