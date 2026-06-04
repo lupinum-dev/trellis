@@ -47,6 +47,7 @@ export const assignTask = defineArgs({
 export const createTaskFromWebhook = defineArgs({
   description: 'Create a task from a verified webhook route.',
   args: {
+    deliveryId: v.string(),
     projectId: v.id('projects'),
     title: v.string(),
     priority: v.optional(taskPriorityValidator),

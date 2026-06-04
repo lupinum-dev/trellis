@@ -1,6 +1,6 @@
 /**
  * Integration tests for isolation runtime enforcement and
- * the `ctx.db.escapeIsolation(...)` / `unsafe.*` escape hatches.
+ * named cross-tenant capabilities / `unsafe.*` escape hatches.
  *
  * The default-db path (`ctx.db`) is already covered by posts.test.ts
  * (see "returns posts in users org only" and "surfaces a tenant
@@ -8,7 +8,7 @@
  *
  * This file adds the missing pieces:
  *
- * 1. `ctx.db.escapeIsolation(...)` actually sees across-scopes
+ * 1. named cross-tenant capabilities actually see across scopes
  * 2. `query.unsafe(...)`                 still respects isolation on plain `ctx.db`
  *
  * Together with posts.test.ts these prove the Spec §14 claim that
@@ -67,7 +67,7 @@ describe('isolation — ctx.db (default)', () => {
   })
 })
 
-describe('isolation — ctx.db.escapeIsolation', () => {
+describe('isolation — named crossTenant capability', () => {
   it('can read posts from another tenant', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
@@ -76,8 +76,8 @@ describe('isolation — ctx.db.escapeIsolation', () => {
       content: 'Content',
     })
 
-    // user2 lives in a different org. Default ctx.db would return
-    // nothing; ctx.db.escapeIsolation crosses the boundary explicitly.
+    // user2 lives in a different org. Default ctx.db would return nothing;
+    // the named crossTenant capability crosses the boundary explicitly.
     const crossRead = await asUser2.query(api.crossTenant.getAnyPost, { id: user1PostId })
 
     expect(crossRead).not.toBeNull()

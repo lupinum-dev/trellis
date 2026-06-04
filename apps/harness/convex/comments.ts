@@ -1,3 +1,4 @@
+import { operation } from '@lupinum/trellis/app'
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import { createComment } from '../shared/schemas/comment'
@@ -11,7 +12,8 @@ const canCreateScopedComment = defineGuard<AppIdentity>(
   (appIdentity) => !!appIdentity?.workspaceId && canCreateComment(appIdentity),
 )
 
-export const create = mutation.protected({
+export const createCommentOp = operation.mutation({
+  id: 'comments.create',
   args: createComment.args,
   guard: canCreateScopedComment,
   handler: async (ctx, args) => {
@@ -29,3 +31,5 @@ export const create = mutation.protected({
     })
   },
 })
+
+export const create = mutation.protected(createCommentOp)

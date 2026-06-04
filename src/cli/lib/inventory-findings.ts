@@ -102,11 +102,11 @@ function createForwardedCallerFinding(inventory: TrellisCliInventory): DoctorFin
     status: locations.length > 0 ? 'fail' : 'pass',
     message:
       locations.length > 0
-        ? `Found forwarded \`caller\` options outside an \`auth: 'trusted'\` call in ${formatInventoryLocations(locations)}.`
+        ? `Found forwarded \`caller\` options outside a transport proof call in ${formatInventoryLocations(locations)}.`
         : 'No forwarded principals were found outside verified identity-forwarding calls.',
     fixHint:
       locations.length > 0
-        ? "Only pass `caller` on verified server calls that also set `auth: 'trusted'`."
+        ? 'Only pass `caller` through verifier-produced `transportProof.*(...)` auth.'
         : 'Keep forwarded principals confined to verified identity-forwarding lanes.',
     sources: [findingInventorySource('forwarding.forwardedCallerMisuses', locations)],
   }

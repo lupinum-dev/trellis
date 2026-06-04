@@ -1,50 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { createErrorMock, readBodyMock, serverConvexMutationMock } = vi.hoisted(() => ({
-  createErrorMock: vi.fn((input: { statusCode: number; message: string }) =>
-    Object.assign(new Error(input.message), input),
+import { createWebhookHmacSignature } from '../../../../src/runtime/server/webhooks'
+
+const { createErrorMock, readRawBodyMock, serverConvexMutationMock } = vi.hoisted(() => ({
+  createErrorMock: vi.fn((input: { statusCode: number; message?: string; statusMessage?: string }) =>
+    Object.assign(new Error(input.message ?? input.statusMessage ?? 'error'), input),
   ),
-  readBodyMock: vi.fn(),
+  readRawBodyMock: vi.fn(),
   serverConvexMutationMock: vi.fn(),
 }))
 
 vi.mock('h3', () => ({
   createError: createErrorMock,
   defineEventHandler: (handler: unknown) => handler,
-  readBody: readBodyMock,
+  readRawBody: readRawBodyMock,
 }))
 
-vi.mock('#trellis/server', () => ({
-  readSharedSecretWebhookBody: async ({
-    signature,
-    secret,
-    readBody,
-    parse,
-  }: {
-    signature: string | string[] | undefined
-    secret: string
-    readBody: () => Promise<unknown>
-    parse?: (body: unknown) => unknown | Promise<unknown>
-  }) => {
-    if (signature !== secret) {
-      throw createErrorMock({ statusCode: 401, message: 'Invalid signature' })
-    }
-    const body = await readBody()
-    return parse ? await parse(body) : body
-  },
-  delegateToUser: async ({ userId, reason }: { userId: string; reason?: string }) => ({
-    subject: `user:${userId}`,
-    ...(reason ? { reason } : {}),
-  }),
-  serverConvexMutation: serverConvexMutationMock,
-}))
+vi.mock('#trellis/server', async () => {
+  const webhooks = await vi.importActual<typeof import('../../../../src/runtime/server/webhooks')>(
+    '../../../../src/runtime/server/webhooks',
+  )
+  const actingFor = await vi.importActual<
+    typeof import('../../../../src/runtime/server/acting-for')
+  >('../../../../src/runtime/server/acting-for')
 
-vi.mock('#trellis/api', () => ({
+  return {
+    domainIdempotency: (input: Record<string, unknown>) => ({
+      mode: 'domain-idempotency',
+      ...input,
+      target:
+        typeof input.target === 'object' &&
+        input.target !== null &&
+        typeof (input.target as { _path?: unknown })._path === 'string'
+          ? (input.target as { _path: string })._path
+          : input.target,
+    }),
+    requireDelegationBinding: actingFor.requireDelegationBinding,
+    serverConvexMutation: serverConvexMutationMock,
+    transportProof: {
+      webhook: (input: Record<string, unknown>) => ({ transport: 'webhook', ...input }),
+    },
+    verifyHmacWebhookDelivery: webhooks.verifyHmacWebhookDelivery,
+  }
+})
+
+vi.mock('../../convex/_generated/api', () => ({
   api: {
     features: {
       runbooks: {
-        domain: {
-          create: { _path: 'features/runbooks/domain:create' },
+        webhooks: {
+          createRunbookFromWebhookMutation: {
+            _path: 'features/runbooks/webhooks:createRunbookFromWebhookMutation',
+          },
         },
       },
     },
@@ -53,12 +60,25 @@ vi.mock('#trellis/api', () => ({
 
 const { default: handler } = await import('./runbook-webhook.post')
 
-function createEvent(signature = 'mcp-reference-demo') {
+function createEvent(rawBody: string, signatureOverride?: string) {
+  const timestamp = String(Date.now())
+  const deliveryId = 'delivery_123'
+  const signature =
+    signatureOverride ??
+    createWebhookHmacSignature({
+      secret: 'runbook-webhook-demo',
+      timestamp,
+      deliveryId,
+      rawBody,
+    })
+
   return {
     node: {
       req: {
         headers: {
           'x-example-signature': signature,
+          'x-example-timestamp': timestamp,
+          'x-example-delivery-id': deliveryId,
         },
       },
     },
@@ -68,19 +88,23 @@ function createEvent(signature = 'mcp-reference-demo') {
 describe('example 07 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.MCP_REFERENCE_WEBHOOK_SECRET = 'mcp-reference-demo'
-    process.env.MCP_REFERENCE_WEBHOOK_USER_ID = 'user_bot'
+    process.env.MCP_REFERENCE_WEBHOOK_SECRET = 'runbook-webhook-demo'
   })
 
-  it('verifies the route secret and forwards a service caller plus delegated user', async () => {
-    readBodyMock.mockResolvedValue({
+  it('forwards HMAC-verified runbook webhooks with binding evidence and domain idempotency', async () => {
+    const rawBody = JSON.stringify({
+      workspaceId: 'workspace_123',
+      targetUserId: 'user_123',
       title: 'Webhook runbook',
+      summary: 'Created from webhook',
+      content: '# Webhook runbook',
       visibility: 'workspace',
-      tags: ['webhook', 'ops'],
+      tags: ['webhook'],
     })
+    readRawBodyMock.mockResolvedValue(rawBody)
     serverConvexMutationMock.mockResolvedValue('runbook_123')
 
-    const result = await handler(createEvent() as never)
+    const result = await handler(createEvent(rawBody) as never)
 
     expect(result).toEqual({
       ok: true,
@@ -91,85 +115,112 @@ describe('example 07 webhook handler', () => {
         node: expect.any(Object),
       }),
       expect.objectContaining({
-        _path: 'features/runbooks/domain:create',
+        _path: 'features/runbooks/webhooks:createRunbookFromWebhookMutation',
       }),
       {
+        deliveryId: 'delivery_123',
+        workspaceId: 'workspace_123',
         title: 'Webhook runbook',
-        summary: 'Created by the verified webhook example.',
-        content: '# Imported runbook\n\nThis runbook came through the verified webhook path.',
+        summary: 'Created from webhook',
+        content: '# Webhook runbook',
         visibility: 'workspace',
-        tags: ['webhook', 'ops'],
+        tags: ['webhook'],
       },
       {
-        auth: 'trusted',
-        caller: {
-          kind: 'service',
-          serviceId: 'runbook-webhook',
-          subject: 'service:runbook-webhook',
-        },
-        actingFor: {
-          subject: 'user:user_bot',
-          reason: 'verified runbook webhook',
-        },
+        auth: expect.objectContaining({
+          transport: 'webhook',
+          caller: {
+            kind: 'service',
+            serviceId: 'runbook-webhook',
+            subject: 'service:runbook-webhook',
+          },
+          actingFor: expect.objectContaining({
+            subject: 'user:user_123',
+            grantSource: 'workspace-service-policy',
+            serviceId: 'runbook-webhook',
+            targetUserId: 'user_123',
+            workspaceId: 'workspace_123',
+            purpose: 'runbook-webhook:create',
+            grantId: 'delivery:delivery_123',
+          }),
+          replay: expect.objectContaining({
+            mode: 'domain-idempotency',
+            key: 'delivery_123',
+            target: 'features/runbooks/webhooks:createRunbookFromWebhookMutation',
+          }),
+        }),
       },
     )
   })
 
-  it('rejects webhook bodies that omit the required title', async () => {
-    readBodyMock.mockResolvedValue({
-      visibility: 'workspace',
+  it('rejects webhook bodies that omit required delegation fields', async () => {
+    const rawBody = JSON.stringify({
+      workspaceId: 'workspace_123',
+      title: 'Webhook runbook',
+      summary: 'Created from webhook',
+      content: '# Webhook runbook',
     })
+    readRawBodyMock.mockResolvedValue(rawBody)
 
-    await expect(handler(createEvent() as never)).rejects.toMatchObject({
+    await expect(handler(createEvent(rawBody) as never)).rejects.toMatchObject({
       statusCode: 400,
-      message: 'title is required.',
+      message: 'workspaceId, targetUserId, title, summary, and content are required.',
     })
+    expect(serverConvexMutationMock).not.toHaveBeenCalled()
   })
 
-  it('rejects invalid visibility values', async () => {
-    readBodyMock.mockResolvedValue({
+  it('rejects invalid HMAC signatures', async () => {
+    const rawBody = JSON.stringify({
+      workspaceId: 'workspace_123',
+      targetUserId: 'user_123',
       title: 'Webhook runbook',
-      visibility: 'invalid',
+      summary: 'Created from webhook',
+      content: '# Webhook runbook',
     })
+    readRawBodyMock.mockResolvedValue(rawBody)
 
-    await expect(handler(createEvent() as never)).rejects.toMatchObject({
-      statusCode: 400,
-      message: 'visibility must be one of: draft, workspace, public.',
-    })
-  })
-
-  it('fails closed when the route secret is not configured', async () => {
-    delete process.env.MCP_REFERENCE_WEBHOOK_SECRET
-    readBodyMock.mockResolvedValue({
-      title: 'Webhook runbook',
-    })
-
-    await expect(handler(createEvent() as never)).rejects.toMatchObject({
-      statusCode: 500,
-      message: 'MCP_REFERENCE_WEBHOOK_SECRET is required for the webhook example.',
-    })
-  })
-
-  it('fails closed when the delegated webhook appIdentity is not configured', async () => {
-    delete process.env.MCP_REFERENCE_WEBHOOK_USER_ID
-    readBodyMock.mockResolvedValue({
-      title: 'Webhook runbook',
-    })
-
-    await expect(handler(createEvent() as never)).rejects.toMatchObject({
-      statusCode: 500,
-      message: 'MCP_REFERENCE_WEBHOOK_USER_ID is required for the webhook example.',
-    })
-  })
-
-  it('rejects invalid signatures', async () => {
-    readBodyMock.mockResolvedValue({
-      title: 'Webhook runbook',
-    })
-
-    await expect(handler(createEvent('wrong-signature') as never)).rejects.toMatchObject({
+    await expect(handler(createEvent(rawBody, 'sha256=wrong') as never)).rejects.toMatchObject({
       statusCode: 401,
       message: 'Invalid signature',
+    })
+    expect(serverConvexMutationMock).not.toHaveBeenCalled()
+  })
+
+  it('does not route-consume valid deliveries when backend dispatch fails', async () => {
+    const rawBody = JSON.stringify({
+      workspaceId: 'workspace_123',
+      targetUserId: 'user_123',
+      title: 'Webhook runbook',
+      summary: 'Created from webhook',
+      content: '# Webhook runbook',
+    })
+    readRawBodyMock.mockResolvedValue(rawBody)
+    serverConvexMutationMock.mockRejectedValueOnce(new Error('Convex unavailable'))
+    serverConvexMutationMock.mockResolvedValueOnce('runbook_123')
+
+    await expect(handler(createEvent(rawBody) as never)).rejects.toThrow(/Convex unavailable/)
+    await expect(handler(createEvent(rawBody) as never)).resolves.toEqual({
+      ok: true,
+      runbookId: 'runbook_123',
+    })
+
+    expect(serverConvexMutationMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('fails closed when the webhook route secret is not configured', async () => {
+    delete process.env.MCP_REFERENCE_WEBHOOK_SECRET
+    const rawBody = JSON.stringify({
+      workspaceId: 'workspace_123',
+      targetUserId: 'user_123',
+      title: 'Webhook runbook',
+      summary: 'Created from webhook',
+      content: '# Webhook runbook',
+    })
+    readRawBodyMock.mockResolvedValue(rawBody)
+
+    await expect(handler(createEvent(rawBody) as never)).rejects.toMatchObject({
+      statusCode: 500,
+      message: 'MCP_REFERENCE_WEBHOOK_SECRET is required for the runbook webhook example.',
     })
   })
 })

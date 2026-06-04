@@ -13,7 +13,7 @@ import { subject, type Subject } from '../auth/index.js'
 import type { SchemaFieldMeta } from '../convex/shared/define-convex-schema.js'
 import type { ActingFor } from '../functions/define-acting-for.js'
 import { extractSubject } from '../identity-forwarding/shared.js'
-import { createServerConvexCaller } from '../server/index.js'
+import { createServerConvexCaller, transportProof } from '../server/index.js'
 import type { ConvexToolOperation } from '../utils/types.js'
 import { convexToMcpZodFields } from './convex-to-mcp-zod.js'
 import { normalizeMcpError } from './error-normalization.js'
@@ -312,12 +312,23 @@ async function resolveToolAccess<TRole extends string = string>(
       return { appIdentity, deniedReason: 'Authentication required.' }
     }
     const allowed = await check(appIdentity)
+    if (allowed !== true && allowed !== false) {
+      throw new TypeError(
+        `[trellis] MCP tool checks must return a boolean. Received ${describeInvalidToolCheckResult(allowed)}.`,
+      )
+    }
     if (!allowed) {
       return { appIdentity, deniedReason: 'Forbidden.' }
     }
   }
 
   return { appIdentity, deniedReason: null }
+}
+
+function describeInvalidToolCheckResult(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'array'
+  return typeof value
 }
 
 function createToolCallFns(
@@ -351,9 +362,10 @@ function createToolCallFns(
 
     convex = appIdentity
       ? createServerConvexCaller(event, {
-          auth: 'trusted',
-          caller: requireTrustedCaller(),
-          ...(actingFor ? { actingFor } : {}),
+          auth: transportProof.mcp({
+            caller: requireTrustedCaller(),
+            ...(actingFor ? { actingFor } : {}),
+          }),
         })
       : createServerConvexCaller(event, { auth: 'none' })
 

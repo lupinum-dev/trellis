@@ -96,6 +96,40 @@ describe('buildStructuredFunctions', () => {
     expect(called).toBe(false)
   })
 
+  it('rejects invalid protected guard results before business logic runs', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const guard = defineGuard<AppIdentity>(
+      'dashboard.read',
+      (async () => false) as unknown as (appIdentity: AppIdentity) => boolean,
+    )
+    let called = false
+
+    const query = handlers.query({
+      args: {},
+      guard,
+      handler: async () => {
+        called = true
+        return null
+      },
+    }) as BuiltHandler
+
+    await expect(
+      query.handler(
+        {
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
+          marker: 'blocked',
+        },
+        {},
+      ),
+    ).rejects.toThrow(/Authorization checks must return a boolean\. Received Promise\./)
+
+    expect(called).toBe(false)
+  })
+
   it('supports public handlers via open', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),

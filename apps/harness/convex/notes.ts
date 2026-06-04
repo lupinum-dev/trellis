@@ -1,4 +1,5 @@
 import { defineArgs } from '@lupinum/trellis/args'
+import { operation } from '@lupinum/trellis/app'
 import { open } from '@lupinum/trellis/auth'
 
 import { createNote, searchNotes } from '../shared/schemas/note'
@@ -41,7 +42,8 @@ export const search = query.public({
   },
 })
 
-export const add = mutation.protected({
+export const addNoteOp = operation.mutation({
+  id: 'notes.add',
   args: createNote.args,
   identityForwardingFunctionRef: 'notes:add',
   guard: open,
@@ -53,3 +55,5 @@ export const add = mutation.protected({
     })
   },
 })
+
+export const add = mutation.protected(addNoteOp)

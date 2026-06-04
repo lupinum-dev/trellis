@@ -15,6 +15,7 @@
     "@convex-dev/better-auth": "^0.12.2",
     "@iconify-json/lucide": "^1.2.107",
     "@lupinum/trellis": "workspace:*",
+    "@lupinum/trellis-bridge": "workspace:*",
     "@nuxt/ui": "^4.7.1",
     "better-auth": "1.6.11",
     "convex": "1.38.0",

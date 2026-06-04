@@ -13,6 +13,26 @@ import { internalMutation } from '../../_generated/server'
 export const createTaskFromWebhookMutation = internalMutation({
   args: createTaskFromWebhook.args,
   handler: async (ctx, args) => {
+    const deliveryDb = ctx.db as {
+      query: (table: 'webhookDeliveries') => {
+        withIndex: (
+          index: 'by_delivery_id',
+          filter: (q: { eq: (field: 'deliveryId', value: string) => unknown }) => unknown,
+        ) => { unique: () => Promise<unknown> }
+      }
+      insert: (
+        table: 'webhookDeliveries',
+        value: { deliveryId: string; taskId: unknown; createdAt: number },
+      ) => Promise<unknown>
+    }
+    const existingDelivery = await deliveryDb
+      .query('webhookDeliveries')
+      .withIndex('by_delivery_id', (q) => q.eq('deliveryId', args.deliveryId))
+      .unique()
+    if (existingDelivery) {
+      throw deny('Duplicate webhook delivery.')
+    }
+
     const project = (await ctx.db.get(args.projectId)) as Doc<'projects'> | null
     if (!project) {
       throw deny('Project not found.')
@@ -43,6 +63,12 @@ export const createTaskFromWebhookMutation = internalMutation({
       entityId: taskId,
       action: 'task.webhook_created',
       description: `Created task "${args.title}" from verified webhook route.`,
+      createdAt: now,
+    })
+
+    await deliveryDb.insert('webhookDeliveries', {
+      deliveryId: args.deliveryId,
+      taskId,
       createdAt: now,
     })
 

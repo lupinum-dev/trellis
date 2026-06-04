@@ -30,7 +30,8 @@ Convex:
 Server:
 
 - use `serverConvexQuery`, `serverConvexMutation`, and `serverConvexAction`;
-- use `auth: 'trusted'` only after the server route verified the request.
+- do not forward caller or acting-for data from server routes until the 0.3
+  proof API is available.
 
 MCP:
 

@@ -2,7 +2,10 @@
 
 import { readFileSync } from 'node:fs'
 
-import { createIdentityForwardingEnvelope } from '@lupinum/trellis/backend'
+import {
+  createIdentityForwardingEnvelope,
+  requireDelegationBinding,
+} from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -48,6 +51,8 @@ function withSignedForwarding(
     actingFor?: Record<string, unknown>
     ref: unknown
     operation: 'query' | 'mutation' | 'action'
+    transport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+    replayMode?: 'domain-idempotency' | 'jti-redemption' | 'operation-confirmation'
   },
 ) {
   const principalSubject = options.caller.subject
@@ -66,13 +71,42 @@ function withSignedForwarding(
       sub: principalSubject,
       caller: options.caller,
       ...(options.actingFor ? { actingFor: options.actingFor } : {}),
-      transport: 'server',
+      transport: options.transport ?? 'server',
       purpose: options.operation,
+      ...(options.replayMode ? { replayMode: options.replayMode } : {}),
       functionRef: getFunctionRef(options.ref),
       args,
       ttlMs: options.operation === 'query' ? 60_000 : 30_000,
     }),
   }
+}
+
+function mcpKeyDelegation(input: { keyId: string; userId: string; workspaceId: string }) {
+  return requireDelegationBinding({
+    serviceId: input.keyId,
+    targetUserId: input.userId,
+    workspaceId: input.workspaceId,
+    purpose: 'mcp-session',
+    grantSource: 'mcp-key-binding',
+    grantId: input.keyId,
+    expiresAt: Date.now() + 60_000,
+  })
+}
+
+function runbookWebhookDelegation(input: {
+  userId: string
+  workspaceId: string
+  deliveryId: string
+}) {
+  return requireDelegationBinding({
+    serviceId: 'runbook-webhook',
+    targetUserId: input.userId,
+    workspaceId: input.workspaceId,
+    purpose: 'runbook-webhook:create',
+    grantSource: 'workspace-service-policy',
+    grantId: `delivery:${input.deliveryId}`,
+    expiresAt: Date.now() + 60_000,
+  })
 }
 
 describe('mcp reference example', () => {
@@ -200,8 +234,15 @@ describe('mcp reference example', () => {
     const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
+        owner: { role: 'owner' },
         member: { role: 'member' },
       },
+    })
+    const keyId = await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
+      name: 'Record access key',
+      boundUserId: team.users.member.id,
+      prefix: 'mcp_record...',
+      hash: 'hash_record_access',
     })
 
     const accessContext = await ctx.raw.query(
@@ -213,13 +254,15 @@ describe('mcp reference example', () => {
           operation: 'query',
           caller: {
             kind: 'agent',
-            agentId: 'primary-mcp-key',
-            subject: 'agent:primary-mcp-key',
+            agentId: keyId,
+            subject: `agent:${keyId}`,
             provider: 'mcp',
           },
-          actingFor: {
-            subject: `user:${team.users.member.id}`,
-          },
+          actingFor: mcpKeyDelegation({
+            keyId,
+            userId: team.users.member.id,
+            workspaceId: team.id,
+          }),
         },
       ),
     )
@@ -319,9 +362,11 @@ describe('mcp reference example', () => {
 
     await expect(
       ctx.raw.mutation(
-        api.features.runbooks.domain.create,
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
         withSignedForwarding(
           {
+            deliveryId: 'delivery_viewer',
+            workspaceId: team.id,
             title: 'Webhook viewer should fail',
             summary: 'No permission',
             content: '# Nope',
@@ -329,17 +374,20 @@ describe('mcp reference example', () => {
             tags: ['webhook'],
           },
           {
-            ref: api.features.runbooks.domain.create,
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
             operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
             caller: {
               kind: 'service',
               serviceId: 'runbook-webhook',
               subject: 'service:runbook-webhook',
             },
-            actingFor: {
-              subject: `user:${team.users.viewer.id}`,
-              reason: 'verified runbook webhook',
-            },
+            actingFor: runbookWebhookDelegation({
+              userId: team.users.viewer.id,
+              workspaceId: team.id,
+              deliveryId: 'delivery_viewer',
+            }),
           },
         ),
       ),
@@ -347,9 +395,11 @@ describe('mcp reference example', () => {
 
     await expect(
       ctx.raw.mutation(
-        api.features.runbooks.domain.create,
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
         withSignedForwarding(
           {
+            deliveryId: 'delivery_member',
+            workspaceId: team.id,
             title: 'Webhook member may create',
             summary: 'Allowed',
             content: '# Allowed',
@@ -357,21 +407,57 @@ describe('mcp reference example', () => {
             tags: ['webhook'],
           },
           {
-            ref: api.features.runbooks.domain.create,
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
             operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
             caller: {
               kind: 'service',
               serviceId: 'runbook-webhook',
               subject: 'service:runbook-webhook',
             },
-            actingFor: {
-              subject: `user:${team.users.member.id}`,
-              reason: 'verified runbook webhook',
-            },
+            actingFor: runbookWebhookDelegation({
+              userId: team.users.member.id,
+              workspaceId: team.id,
+              deliveryId: 'delivery_member',
+            }),
           },
         ),
       ),
     ).resolves.toBeTruthy()
+
+    await expect(
+      ctx.raw.mutation(
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+        withSignedForwarding(
+          {
+            deliveryId: 'delivery_member',
+            workspaceId: team.id,
+            title: 'Webhook duplicate',
+            summary: 'Duplicate',
+            content: '# Duplicate',
+            visibility: 'workspace',
+            tags: ['webhook'],
+          },
+          {
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+            operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            actingFor: runbookWebhookDelegation({
+              userId: team.users.member.id,
+              workspaceId: team.id,
+              deliveryId: 'delivery_member',
+            }),
+          },
+        ),
+      ),
+    ).rejects.toThrow(/Duplicate webhook delivery/)
   })
 
   it('stores only hashes for MCP keys and debounces last-used writes', async () => {

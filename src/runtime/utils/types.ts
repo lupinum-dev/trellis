@@ -80,7 +80,7 @@ export type ConvexClientAuthMode = 'auto' | 'none'
 /**
  * Server-side auth mode for server helper calls.
  */
-export type ConvexServerAuthMode = 'auto' | 'required' | 'none' | 'trusted'
+export type ConvexServerAuthMode = 'auto' | 'required' | 'none'
 
 // ============================================================================
 // Error Types

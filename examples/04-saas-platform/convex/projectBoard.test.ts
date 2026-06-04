@@ -286,6 +286,7 @@ describe('server integration workspace example', () => {
     })
 
     await ctx.raw.mutation(internal.features.tasks.webhooks.createTaskFromWebhookMutation, {
+      deliveryId: 'delivery_123',
       projectId,
       title: 'Created from webhook',
       priority: 'high',
@@ -298,6 +299,40 @@ describe('server integration workspace example', () => {
     expect(tasks[0]?.title).toBe('Created from webhook')
     expect(tasks[0]?.priority).toBe('high')
     expect(tasks[0]?.ownerId).toBe(team.users.owner.id)
+  })
+
+  it('rejects duplicate webhook delivery ids in the backend mutation', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: { owner: { role: 'owner' } },
+    })
+
+    const projectId = await team.users.owner.mutation(api.features.projects.domain.create, {
+      name: 'Webhook board',
+      summary: 'Webhook demo',
+    })
+
+    await ctx.raw.mutation(internal.features.tasks.webhooks.createTaskFromWebhookMutation, {
+      deliveryId: 'delivery_duplicate',
+      projectId,
+      title: 'Created from webhook',
+      priority: 'high',
+    })
+    await expect(
+      ctx.raw.mutation(internal.features.tasks.webhooks.createTaskFromWebhookMutation, {
+        deliveryId: 'delivery_duplicate',
+        projectId,
+        title: 'Created twice',
+        priority: 'low',
+      }),
+    ).rejects.toThrow(/Duplicate webhook delivery/)
+
+    const tasks = await team.users.owner.query(api.features.tasks.domain.listByProject, {
+      projectId,
+    })
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]?.title).toBe('Created from webhook')
   })
 
   it('returns access context booleans for owners and viewers', async () => {

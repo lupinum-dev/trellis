@@ -1,5 +1,5 @@
-import { getAuth, getSubjectValue, type DefaultAppIdentity } from '@lupinum/trellis/auth'
-import type { ActingFor } from '@lupinum/trellis/backend'
+import { deny, getAuth, getSubjectValue, type DefaultAppIdentity } from '@lupinum/trellis/auth'
+import { assertDelegationBinding, type ActingFor } from '@lupinum/trellis/backend'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -76,7 +76,16 @@ export async function getAppIdentityFromCaller(
 ): Promise<AppIdentity | null> {
   const delegatedUserId = getDelegatedUserId(actingFor)
   if (delegatedUserId) {
-    return await loadActorByUserId(ctx, delegatedUserId)
+    const delegatedActor = await loadActorByUserId(ctx, delegatedUserId)
+    if (caller.kind === 'service') {
+      const binding = assertDelegationBinding(actingFor, {
+        serviceId: caller.serviceId,
+      })
+      if (!delegatedActor || delegatedActor.workspaceId !== binding.workspaceId) {
+        throw deny('Delegation binding is not valid for this service caller.')
+      }
+    }
+    return delegatedActor
   }
 
   if (caller.kind === 'user') {

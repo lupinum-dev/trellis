@@ -8,7 +8,7 @@ import { runbookPermissions } from '~~/convex/features/runbooks/permissions'
 
 import { api } from '#trellis/api'
 import { createMcpConvexCaller, defineMcpApp, deniedMcpAccessSnapshot } from '#trellis/mcp'
-import { delegateToUser } from '#trellis/server'
+import { requireDelegationBinding } from '#trellis/server'
 
 import { mcpRateLimitStore } from './rate-limit-store'
 
@@ -41,11 +41,17 @@ function getMcpCaller(event: H3Event): McpReferencePrincipal {
 
 async function getMcpDelegation(event: H3Event): Promise<ActingFor | null> {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
-  if (!auth?.userId) return null
+  if (!auth?.keyId || !auth.userId || !auth.workspaceId) return null
 
-  return await delegateToUser({
-    userId: auth.userId,
-    allow: true,
+  return requireDelegationBinding({
+    serviceId: auth.keyId,
+    targetUserId: auth.userId,
+    workspaceId: auth.workspaceId,
+    purpose: 'mcp-session',
+    grantSource: 'mcp-key-binding',
+    grantId: auth.keyId,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+    reason: 'Validated MCP bearer key binding',
   })
 }
 

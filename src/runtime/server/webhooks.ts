@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { createError } from 'h3'
+import { createError, readRawBody, type H3Event } from 'h3'
 
 function toUtf8Buffer(value: string): Buffer {
   return Buffer.from(value, 'utf8')
@@ -8,6 +8,16 @@ function toUtf8Buffer(value: string): Buffer {
 
 function singleHeader(value: string | string[] | undefined): string | null {
   return typeof value === 'string' ? value : null
+}
+
+function readEventHeader(event: H3Event, name: string): string | string[] | undefined {
+  const normalized = name.toLowerCase()
+  const value = event.node?.req?.headers?.[normalized]
+  if (typeof value === 'string' || Array.isArray(value)) return value
+  if (event.headers && typeof event.headers.get === 'function') {
+    return event.headers.get(name) ?? undefined
+  }
+  return undefined
 }
 
 function safeEqualString(left: string, right: string): boolean {
@@ -132,7 +142,9 @@ export function isWebhookHmacSignatureValid(options: WebhookHmacVerificationOpti
   const signature = singleHeader(options.signature)
   const timestamp = singleHeader(options.timestamp)
   const deliveryId = singleHeader(options.deliveryId)
-  if (!signature || !timestamp || !deliveryId || !deliveryId.trim()) return false
+  if (!signature || !timestamp || !deliveryId || !deliveryId.trim() || !options.secret.trim()) {
+    return false
+  }
 
   const timestampMs = normalizeTimestampMs(timestamp)
   if (timestampMs === null) return false
@@ -158,6 +170,24 @@ export type ReadHmacVerifiedWebhookBodyOptions<TParsed> = WebhookHmacVerificatio
   }
 }
 
+export type VerifiedHmacWebhookDelivery<TBody> = {
+  id: string
+  body: TBody
+  rawBody: string
+  timestamp: string
+  signature: string
+}
+
+export type VerifyHmacWebhookDeliveryOptions<TBody> = {
+  secret: string
+  parse: (rawBody: string) => TBody | Promise<TBody>
+  signatureHeader?: string
+  timestampHeader?: string
+  deliveryIdHeader?: string
+  nowMs?: number
+  toleranceMs?: number
+}
+
 export async function readHmacVerifiedWebhookBody<TParsed>(
   options: ReadHmacVerifiedWebhookBodyOptions<TParsed>,
 ): Promise<TParsed> {
@@ -166,6 +196,7 @@ export async function readHmacVerifiedWebhookBody<TParsed>(
   }
 
   const deliveryId = singleHeader(options.deliveryId)!
+  const parsed = await options.parse(options.rawBody)
   if (options.idempotency) {
     const accepted = await options.idempotency.consume(deliveryId)
     if (!accepted) {
@@ -176,5 +207,55 @@ export async function readHmacVerifiedWebhookBody<TParsed>(
     }
   }
 
-  return await options.parse(options.rawBody)
+  return parsed
+}
+
+export async function verifyHmacWebhookDelivery<TBody>(
+  event: H3Event,
+  options: VerifyHmacWebhookDeliveryOptions<TBody>,
+): Promise<VerifiedHmacWebhookDelivery<TBody>> {
+  if (!options.secret.trim()) {
+    throw createError({ statusCode: 500, message: 'Webhook HMAC secret must be configured.' })
+  }
+
+  const rawBody = await readRawBody(event)
+  if (rawBody === undefined || rawBody === null || rawBody.length === 0) {
+    throw createError({ statusCode: 400, message: 'Webhook body is required.' })
+  }
+
+  const signatureHeader = options.signatureHeader ?? 'x-signature'
+  const timestampHeader = options.timestampHeader ?? 'x-timestamp'
+  const deliveryIdHeader = options.deliveryIdHeader ?? 'x-delivery-id'
+  const signature = readEventHeader(event, signatureHeader)
+  const timestamp = readEventHeader(event, timestampHeader)
+  const deliveryId = readEventHeader(event, deliveryIdHeader)
+
+  if (
+    !isWebhookHmacSignatureValid({
+      signature,
+      timestamp,
+      deliveryId,
+      secret: options.secret,
+      rawBody,
+      ...(options.nowMs !== undefined ? { nowMs: options.nowMs } : {}),
+      ...(options.toleranceMs !== undefined ? { toleranceMs: options.toleranceMs } : {}),
+    })
+  ) {
+    throw createError({ statusCode: 401, message: 'Invalid signature' })
+  }
+
+  const id = singleHeader(deliveryId)
+  const timestampValue = singleHeader(timestamp)
+  const signatureValue = singleHeader(signature)
+  if (!id || !timestampValue || !signatureValue) {
+    throw createError({ statusCode: 401, message: 'Invalid signature' })
+  }
+
+  return {
+    id,
+    rawBody,
+    timestamp: timestampValue,
+    signature: signatureValue,
+    body: await options.parse(rawBody),
+  }
 }

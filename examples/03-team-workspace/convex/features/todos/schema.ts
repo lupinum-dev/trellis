@@ -17,6 +17,9 @@ export const todosTables = {
   processedEvents: defineTable({
     eventId: v.string(),
     source: v.string(),
+    workspaceId: v.optional(v.id('workspaces')),
     processedAt: v.number(),
-  }).index('by_source_event_id', ['source', 'eventId']),
+  })
+    .index('by_source_event_id', ['source', 'eventId'])
+    .index('by_source_event_workspace', ['source', 'eventId', 'workspaceId']),
 }

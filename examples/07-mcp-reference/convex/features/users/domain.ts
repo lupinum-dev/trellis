@@ -10,18 +10,22 @@ type WorkspaceQueryCtx = QueryCtx & {
   workspaceId: Id<'workspaces'>
   appIdentity: () => Promise<AppIdentity>
 }
-type PublicQueryCtx = QueryCtx & {
-  appIdentity: () => Promise<AppIdentity | null>
-}
 
 export const getCurrentUserOp = operation.query({
   id: 'users.current',
   args: {},
-  handler: async (ctx: PublicQueryCtx) => {
+  crossTenant: {
+    reason: 'Load the signed-in user row for current-user UI bootstrap.',
+    tables: ['users'],
+    access: ({ db }) => ({
+      getUser: async (id: Id<'users'>) => await db.get(id),
+    }),
+  },
+  handler: async (ctx) => {
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity) return null
 
-    return await ctx.db.get(appIdentity.userId as Id<'users'>)
+    return await ctx.crossTenant.getUser(appIdentity.userId as Id<'users'>)
   },
 })
 

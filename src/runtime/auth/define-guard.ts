@@ -44,8 +44,30 @@ export type AuthRequiredGuard = Guard<unknown> & {
   not: () => never
 }
 
+function describeInvalidCheckResult(value: unknown): string {
+  if (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
+  ) {
+    return 'Promise'
+  }
+
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'array'
+  return typeof value
+}
+
 export function runCheck<P>(caller: P, check: AnyCheck<P>): boolean {
-  return typeof check === 'function' ? (check as Check<P>)(caller) : check
+  const result = typeof check === 'function' ? (check as Check<P>)(caller) : check
+
+  if (result !== true && result !== false) {
+    throw new TypeError(
+      `[trellis] Authorization checks must return a boolean. Received ${describeInvalidCheckResult(result)}.`,
+    )
+  }
+
+  return result
 }
 
 export function isGuard<P = unknown>(value: unknown): value is Guard<P> {

@@ -8,6 +8,10 @@ export type IdentityForwardingPurpose =
   | 'action'
   | 'operation-preview'
   | 'operation-execute'
+export type IdentityForwardingReplayMode =
+  | 'domain-idempotency'
+  | 'jti-redemption'
+  | 'operation-confirmation'
 
 export interface IdentityForwardingEnvelopePayload {
   readonly v: 1
@@ -20,6 +24,7 @@ export interface IdentityForwardingEnvelopePayload {
   readonly actingFor?: unknown
   readonly transport: IdentityForwardingTransport
   readonly purpose: IdentityForwardingPurpose
+  readonly replayMode?: IdentityForwardingReplayMode
   readonly functionRef: string
   readonly argsHash: string
   readonly issuedAt: number
@@ -85,6 +90,11 @@ export const identityForwardingPurposeMaxTtlsMs = {
   'operation-preview': 30_000,
   'operation-execute': 10_000,
 } satisfies Record<IdentityForwardingPurpose, number>
+const identityForwardingReplayModes = new Set<IdentityForwardingReplayMode>([
+  'domain-idempotency',
+  'jti-redemption',
+  'operation-confirmation',
+])
 const excludedArgsKeys = new Set([
   '_trellisForwarding',
   '_trellisForwardingKey',
@@ -273,6 +283,7 @@ export function createIdentityForwardingEnvelope(
     ...(options.actingFor === undefined ? {} : { actingFor: options.actingFor }),
     transport: options.transport,
     purpose: options.purpose,
+    ...(options.replayMode ? { replayMode: options.replayMode } : {}),
     functionRef: options.functionRef,
     argsHash: hashForwardingArgs(options.args),
     issuedAt: now,
@@ -356,6 +367,12 @@ export function verifyIdentityForwardingEnvelope(
   }
   if (options.expectedPurpose !== undefined && payload.purpose !== options.expectedPurpose) {
     throw new IdentityForwardingEnvelopeError('Forwarding envelope purpose mismatch.', 'purpose')
+  }
+  if (
+    payload.replayMode !== undefined &&
+    !identityForwardingReplayModes.has(payload.replayMode)
+  ) {
+    throw new IdentityForwardingEnvelopeError('Malformed forwarding envelope payload.', 'malformed')
   }
   if (options.expectedTransport !== undefined && payload.transport !== options.expectedTransport) {
     throw new IdentityForwardingEnvelopeError(

@@ -4,9 +4,11 @@ import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/va
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
 import type { AwaitedValue, FallbackIfUnknownOrNever } from '../types/type-utils.js'
 import type {
+  StructuredCrossTenantCapability,
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
+  StructuredPublicWriteCapability,
 } from './define-handler.js'
 import {
   getOperationMetadata,
@@ -80,6 +82,8 @@ export type OperationDefinition<
   TLoaded,
   TResult,
   TPreview = unknown,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
 > = StructuredHandlerDefinition<
   TCtx,
   TCaller,
@@ -88,7 +92,9 @@ export type OperationDefinition<
   TGuard,
   TArgsValidator,
   TLoaded,
-  TResult
+  TResult,
+  TCrossTenant,
+  TPublicWrite
 > & {
   id?: string
   name?: string
@@ -107,6 +113,8 @@ export type OperationShape = {
   handler: (...args: any[]) => unknown
   load?: (...args: any[]) => unknown
   preview?: (...args: any[]) => unknown
+  crossTenant?: StructuredCrossTenantCapability<any, any, any>
+  publicWrite?: StructuredPublicWriteCapability<any, any, any>
   returns?: GenericValidator
   previewReturns?: GenericValidator
   id?: string

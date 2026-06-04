@@ -1,14 +1,30 @@
-import { subject } from '@lupinum/trellis/auth'
-import { createError, defineEventHandler, readBody } from 'h3'
+/**
+ * Why this file exists:
+ * It proves the MCP reference webhook lane without route-owned authorization:
+ * the route verifies the external delivery and forwards binding evidence; the
+ * Convex mutation revalidates the user/workspace/service binding and owns
+ * idempotency with the runbook write.
+ */
+import { createError, defineEventHandler } from 'h3'
 
-import { api } from '#trellis/api'
-import { delegateToUser, readSharedSecretWebhookBody, serverConvexMutation } from '#trellis/server'
+import {
+  domainIdempotency,
+  requireDelegationBinding,
+  serverConvexMutation,
+  transportProof,
+  verifyHmacWebhookDelivery,
+} from '#trellis/server'
 
-type WebhookBody = {
+import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
+
+type RunbookWebhookBody = {
+  workspaceId?: string
+  targetUserId?: string
   title?: string
   summary?: string
   content?: string
-  visibility?: 'draft' | 'workspace' | 'public'
+  visibility?: 'public' | 'workspace' | 'draft'
   tags?: string[]
 }
 
@@ -17,103 +33,80 @@ function getWebhookSecret(): string {
   if (!secret) {
     throw createError({
       statusCode: 500,
-      message: 'MCP_REFERENCE_WEBHOOK_SECRET is required for the webhook example.',
+      message: 'MCP_REFERENCE_WEBHOOK_SECRET is required for the runbook webhook example.',
     })
   }
 
   return secret
 }
 
-function getWebhookActorUserId(): string {
-  const userId = process.env.MCP_REFERENCE_WEBHOOK_USER_ID?.trim()
-  if (!userId) {
-    throw createError({
-      statusCode: 500,
-      message: 'MCP_REFERENCE_WEBHOOK_USER_ID is required for the webhook example.',
-    })
-  }
-
-  return userId
-}
-
-function normalizeVisibility(value: WebhookBody['visibility']): 'draft' | 'workspace' | 'public' {
-  if (!value) return 'workspace'
-  if (value === 'draft' || value === 'workspace' || value === 'public') {
-    return value
-  }
-
-  throw createError({
-    statusCode: 400,
-    message: 'visibility must be one of: draft, workspace, public.',
-  })
-}
-
-function normalizeTags(value: WebhookBody['tags']): string[] {
-  if (!value) return ['webhook']
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
-    throw createError({
-      statusCode: 400,
-      message: 'tags must be an array of strings when provided.',
-    })
-  }
-
-  return value
-}
-
 export default defineEventHandler(async (event) => {
-  const userId = getWebhookActorUserId()
-  const body = await readSharedSecretWebhookBody({
-    // Keep the transport check small so the service-caller + actingFor path is the thing being
-    // demonstrated. Production senders should usually add timestamped HMAC verification too.
-    signature: event.node.req.headers['x-example-signature'],
+  const delivery = await verifyHmacWebhookDelivery(event, {
+    signatureHeader: 'x-example-signature',
+    timestampHeader: 'x-example-timestamp',
+    deliveryIdHeader: 'x-example-delivery-id',
     secret: getWebhookSecret(),
-    readBody: async () => await readBody<WebhookBody>(event),
-    parse: (value: WebhookBody) => {
-      if (!value.title?.trim()) {
+    parse: (value) => {
+      const parsed = JSON.parse(String(value)) as RunbookWebhookBody
+      if (
+        !parsed.workspaceId ||
+        !parsed.targetUserId ||
+        !parsed.title ||
+        !parsed.summary ||
+        !parsed.content
+      ) {
         throw createError({
           statusCode: 400,
-          message: 'title is required.',
+          message: 'workspaceId, targetUserId, title, summary, and content are required.',
         })
       }
 
-      return value
+      return parsed as Required<
+        Pick<
+          RunbookWebhookBody,
+          'workspaceId' | 'targetUserId' | 'title' | 'summary' | 'content'
+        >
+      > &
+        RunbookWebhookBody
     },
   })
-  const title = body.title?.trim()
-  if (!title) {
-    throw createError({
-      statusCode: 400,
-      message: 'title is required.',
-    })
-  }
+  const body = delivery.body
+  const target = api.features.runbooks.webhooks.createRunbookFromWebhookMutation
+  const actingFor = requireDelegationBinding({
+    serviceId: 'runbook-webhook',
+    targetUserId: body.targetUserId,
+    workspaceId: body.workspaceId,
+    purpose: 'runbook-webhook:create',
+    grantSource: 'workspace-service-policy',
+    grantId: `delivery:${delivery.id}`,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+    reason: 'HMAC verified runbook webhook',
+  })
 
-  // The webhook is the real caller, but it is allowed to act for one bound
-  // workspace user so the app can authorize the mutation as that user.
   const runbookId = await serverConvexMutation(
     event,
-    api.features.runbooks.domain.create,
+    target,
     {
-      title,
-      summary: body.summary?.trim() || 'Created by the verified webhook example.',
-      content:
-        body.content?.trim() ||
-        ['# Imported runbook', '', 'This runbook came through the verified webhook path.'].join(
-          '\n',
-        ),
-      visibility: normalizeVisibility(body.visibility),
-      tags: normalizeTags(body.tags),
+      deliveryId: delivery.id,
+      workspaceId: body.workspaceId as Id<'workspaces'>,
+      title: body.title,
+      summary: body.summary,
+      content: body.content,
+      ...(body.visibility ? { visibility: body.visibility } : {}),
+      ...(body.tags ? { tags: body.tags } : {}),
     },
     {
-      auth: 'trusted',
-      caller: {
-        kind: 'service',
-        serviceId: 'runbook-webhook',
-        subject: subject.service('runbook-webhook'),
-      },
-      actingFor: await delegateToUser({
-        userId,
-        allow: true,
-        reason: 'verified runbook webhook',
+      auth: transportProof.webhook({
+        caller: {
+          kind: 'service',
+          serviceId: 'runbook-webhook',
+          subject: 'service:runbook-webhook',
+        },
+        actingFor,
+        replay: domainIdempotency({
+          key: delivery.id,
+          target,
+        }),
       }),
     },
   )

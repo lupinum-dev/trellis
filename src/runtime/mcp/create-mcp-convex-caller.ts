@@ -1,10 +1,23 @@
 import type { H3Event } from 'h3'
 
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
+import type {
+  AnyActionFunction,
+  AnyMutationFunction,
+  AnyQueryFunction,
+  FunctionLikeArgs,
+  FunctionLikeReturnType,
+} from '../convex/shared/convex-shared.js'
 import type { ActingFor } from '../functions/define-acting-for.js'
 import type { Subject } from '../functions/define-caller.js'
 import { extractSubject } from '../identity-forwarding/shared.js'
-import { createServerConvexCaller } from '../server/index.js'
+import {
+  serverConvexAction,
+  serverConvexMutation,
+  serverConvexQuery,
+  transportProof,
+  type TrustedTransportReplay,
+} from '../server/index.js'
 
 type ForwardedMcpCaller = { subject: Subject } & Record<string, unknown>
 
@@ -14,6 +27,11 @@ export type CreateMcpConvexCallerOptions<TCaller> = {
   isForwardedCaller?: (caller: TCaller) => boolean
   identityForwardingKey?: string
   identityForwardingKeyEnvAliases?: readonly string[]
+}
+
+export type McpConvexCallerOptions = {
+  purpose?: 'operation-preview' | 'operation-execute'
+  replay?: TrustedTransportReplay
 }
 
 function hasForwardableSubject(caller: unknown): caller is ForwardedMcpCaller {
@@ -73,24 +91,76 @@ export function createMcpConvexCaller<TCaller>(
     if (options.actingFor) {
       throw new Error('createMcpConvexCaller() cannot set actingFor for an anonymous MCP caller.')
     }
-    return createServerConvexCaller(event, { auth: 'none' })
+    return {
+      query: async <Query extends AnyQueryFunction>(
+        fn: Query,
+        args?: FunctionLikeArgs<Query>,
+      ): Promise<FunctionLikeReturnType<Query>> =>
+        await serverConvexQuery(event, fn, args ?? ({} as FunctionLikeArgs<Query>), {
+          auth: 'none',
+        }),
+      mutation: async <Mutation extends AnyMutationFunction>(
+        fn: Mutation,
+        args?: FunctionLikeArgs<Mutation>,
+      ): Promise<FunctionLikeReturnType<Mutation>> =>
+        await serverConvexMutation(event, fn, args ?? ({} as FunctionLikeArgs<Mutation>), {
+          auth: 'none',
+        }),
+      action: async <Action extends AnyActionFunction>(
+        fn: Action,
+        args?: FunctionLikeArgs<Action>,
+      ): Promise<FunctionLikeReturnType<Action>> =>
+        await serverConvexAction(event, fn, args ?? ({} as FunctionLikeArgs<Action>), {
+          auth: 'none',
+        }),
+    }
   }
 
   if (!hasForwardableSubject(options.caller)) {
     throw new Error('createMcpConvexCaller() forwarded MCP callers must include subject.')
   }
+  const forwardedCaller = options.caller as ForwardedMcpCaller
 
   const identityForwardingKey = resolveIdentityForwardingKey(
     options.identityForwardingKey,
     options.identityForwardingKeyEnvAliases,
   )
 
-  return createServerConvexCaller(event, {
-    auth: 'trusted',
-    caller: options.caller,
-    ...(options.actingFor ? { actingFor: options.actingFor } : {}),
-    ...(identityForwardingKey ? { identityForwardingKey } : {}),
-  })
+  const proof = (callOptions?: McpConvexCallerOptions) =>
+    transportProof.mcp({
+      caller: forwardedCaller,
+      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
+      ...(identityForwardingKey ? { identityForwardingKey } : {}),
+      ...(callOptions?.purpose ? { purpose: callOptions.purpose } : {}),
+      ...(callOptions?.replay ? { replay: callOptions.replay } : {}),
+    })
+
+  return {
+    query: async <Query extends AnyQueryFunction>(
+      fn: Query,
+      args?: FunctionLikeArgs<Query>,
+      callOptions?: McpConvexCallerOptions,
+    ): Promise<FunctionLikeReturnType<Query>> =>
+      await serverConvexQuery(event, fn, args ?? ({} as FunctionLikeArgs<Query>), {
+        auth: proof(callOptions),
+      }),
+    mutation: async <Mutation extends AnyMutationFunction>(
+      fn: Mutation,
+      args?: FunctionLikeArgs<Mutation>,
+      callOptions?: McpConvexCallerOptions,
+    ): Promise<FunctionLikeReturnType<Mutation>> =>
+      await serverConvexMutation(event, fn, args ?? ({} as FunctionLikeArgs<Mutation>), {
+        auth: proof(callOptions),
+      }),
+    action: async <Action extends AnyActionFunction>(
+      fn: Action,
+      args?: FunctionLikeArgs<Action>,
+      callOptions?: McpConvexCallerOptions,
+    ): Promise<FunctionLikeReturnType<Action>> =>
+      await serverConvexAction(event, fn, args ?? ({} as FunctionLikeArgs<Action>), {
+        auth: proof(callOptions),
+      }),
+  }
 }
 
 export function deniedMcpAccessSnapshot(

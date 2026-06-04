@@ -6,9 +6,9 @@ import type { NoInfer } from '../types/type-utils.js'
 // that own auth, preview, confirmation, tenant binding, and result envelopes.
 // First-reader docs and examples should use these only.
 //
-// Low-level helpers `defineMcpTool` / `defineTool` are exposed under
-// `@lupinum/trellis/mcp/advanced` for tools that genuinely need handler
-// control outside a single Convex ref.
+// Toolkit-level resource, prompt, and handler helpers are exposed under
+// `@lupinum/trellis/mcp/advanced` for tools that genuinely need custom
+// non-Convex orchestration.
 export {
   completable,
   defineMcpHandler,
@@ -20,7 +20,6 @@ export {
 
 export { defineMcpApp } from './define-mcp-app.js'
 export { createMcpConvexCaller, deniedMcpAccessSnapshot } from './create-mcp-convex-caller.js'
-export { stampMcpToolSafety, trellisMcpToolSafetyKey } from './operation-binding.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
 export { unsafe } from './unsafe-permit.js'
 
@@ -97,7 +96,6 @@ export type {
 } from './define-mcp-app.js'
 
 export type { CreateMcpConvexCallerOptions } from './create-mcp-convex-caller.js'
-export type { TrellisMcpToolSafety } from './operation-binding.js'
 export type { TrellisUnsafePermit } from './unsafe-permit.js'
 
 export type {

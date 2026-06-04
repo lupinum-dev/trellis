@@ -1,21 +1,25 @@
-import { subject } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
- * Nitro route that receives external webhook payloads and forwards them to a protected Convex
- * mutation after verifying a server-owned signature.
- *
- * This example keeps the transport boundary deliberately small. The important thing to study is the
- * trusted caller plus delegated user that reaches the protected mutation, while replay protection
- * lives in the app layer through processed event ids.
+ * It proves the 0.3 webhook lane: verify the external delivery, forward a
+ * short-lived service/user delegation binding, and let Convex revalidate the
+ * user/workspace binding plus domain idempotency in one mutation.
  */
-import { createError, defineEventHandler, readBody } from 'h3'
-import { api } from '~~/convex/_generated/api'
-import type { Id } from '~~/convex/_generated/dataModel'
+import { createError, defineEventHandler } from 'h3'
 
-import { delegateToUser, readSharedSecretWebhookBody, serverConvexMutation } from '#trellis/server'
+import {
+  domainIdempotency,
+  requireDelegationBinding,
+  serverConvexMutation,
+  transportProof,
+  verifyHmacWebhookDelivery,
+} from '#trellis/server'
+
+import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 
 type WebhookBody = {
   workspaceId?: string
+  targetUserId?: string
   eventId?: string
   title?: string
   completed?: boolean
@@ -23,73 +27,79 @@ type WebhookBody = {
 }
 
 function getWebhookSecret(): string {
-  const secret = process.env.TEAM_WORKSPACE_WEBHOOK_SECRET?.trim()
+  const secret = process.env.TEAM_TODO_WEBHOOK_SECRET?.trim()
   if (!secret) {
     throw createError({
       statusCode: 500,
-      message: 'TEAM_WORKSPACE_WEBHOOK_SECRET is required for the webhook example.',
+      message: 'TEAM_TODO_WEBHOOK_SECRET is required for the webhook example.',
     })
   }
 
   return secret
 }
 
-function getWebhookActorUserId(): string {
-  const userId = process.env.TEAM_WORKSPACE_WEBHOOK_USER_ID?.trim()
-  if (!userId) {
-    throw createError({
-      statusCode: 500,
-      message: 'TEAM_WORKSPACE_WEBHOOK_USER_ID is required for the webhook example.',
-    })
-  }
-
-  return userId
-}
-
 export default defineEventHandler(async (event) => {
-  const userId = getWebhookActorUserId()
-  const body = await readSharedSecretWebhookBody({
-    // Demo route boundary: one shared secret header. Production integrations usually add a
-    // timestamped HMAC scheme and replay window on top of this before forwarding inward.
-    signature: event.node.req.headers['x-example-signature'],
+  const delivery = await verifyHmacWebhookDelivery(event, {
+    signatureHeader: 'x-example-signature',
+    timestampHeader: 'x-example-timestamp',
+    deliveryIdHeader: 'x-example-delivery-id',
     secret: getWebhookSecret(),
-    readBody: async () => await readBody<WebhookBody>(event),
     parse: (value) => {
-      if (!value.workspaceId || !value.eventId || !value.title) {
+      const parsed = JSON.parse(String(value)) as WebhookBody
+      if (!parsed.workspaceId || !parsed.targetUserId || !parsed.eventId || !parsed.title) {
         throw createError({
           statusCode: 400,
-          statusMessage: 'Missing required fields: workspaceId, eventId, title',
+          message: 'workspaceId, targetUserId, eventId, and title are required.',
         })
       }
 
-      return value as Required<Pick<WebhookBody, 'workspaceId' | 'eventId' | 'title'>> & WebhookBody
+      return parsed as Required<
+        Pick<WebhookBody, 'workspaceId' | 'targetUserId' | 'eventId' | 'title'>
+      > &
+        WebhookBody
     },
+  })
+  const body = delivery.body
+  const target = api.features.todos.webhooks.processTodoSyncWebhookMutation
+  const actingFor = requireDelegationBinding({
+    serviceId: 'todo-sync-webhook',
+    targetUserId: body.targetUserId,
+    workspaceId: body.workspaceId,
+    purpose: 'todo-sync-webhook',
+    grantSource: 'workspace-service-policy',
+    grantId: `delivery:${delivery.id}`,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+    reason: 'HMAC verified todo sync webhook',
   })
 
   const todoId = await serverConvexMutation(
     event,
-    api.features.todos.webhooks.processTodoSyncWebhookMutation,
+    target,
     {
       workspaceId: body.workspaceId as Id<'workspaces'>,
       eventId: body.eventId,
       title: body.title,
-      completed: body.completed,
-      externalId: body.externalId,
+      ...(body.completed !== undefined ? { completed: body.completed } : {}),
+      ...(body.externalId ? { externalId: body.externalId } : {}),
     },
     {
-      auth: 'trusted',
-      caller: {
-        kind: 'service',
-        serviceId: 'team-workspace-webhook',
-        subject: subject.service('team-workspace-webhook'),
-      },
-      actingFor: await delegateToUser({
-        userId,
-        allow: true,
-        reason: 'verified workspace todo webhook',
+      auth: transportProof.webhook({
+        caller: {
+          kind: 'service',
+          serviceId: 'todo-sync-webhook',
+          subject: 'service:todo-sync-webhook',
+        },
+        actingFor,
+        replay: domainIdempotency({
+          key: delivery.id,
+          target,
+        }),
       }),
     },
   )
 
-  return { ok: true, todoId }
+  return {
+    ok: true,
+    todoId,
+  }
 })

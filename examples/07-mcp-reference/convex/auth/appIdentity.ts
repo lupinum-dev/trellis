@@ -1,5 +1,5 @@
-import { getAuth, getSubjectValue, type DefaultAppIdentity } from '@lupinum/trellis/auth'
-import type { ActingFor } from '@lupinum/trellis/backend'
+import { deny, getAuth, getSubjectValue, type DefaultAppIdentity } from '@lupinum/trellis/auth'
+import { assertDelegationBinding, type ActingFor } from '@lupinum/trellis/backend'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -95,7 +95,24 @@ async function resolveAccessIdentityFromCaller(
   // When a non-user caller acts for a user, permissions resolve as that user.
   const delegatedUserId = getDelegatedUserId(actingFor)
   if (delegatedUserId) {
-    return await loadUserActorByUserId(ctx, delegatedUserId)
+    const delegatedActor = await loadUserActorByUserId(ctx, delegatedUserId)
+    if (caller.kind === 'agent') {
+      const binding = assertDelegationBinding(actingFor, {
+        serviceId: caller.agentId,
+      })
+      if (!delegatedActor || delegatedActor.workspaceId !== binding.workspaceId) {
+        throw deny('Delegation binding is not valid for this MCP caller.')
+      }
+    }
+    if (caller.kind === 'service') {
+      const binding = assertDelegationBinding(actingFor, {
+        serviceId: caller.serviceId,
+      })
+      if (!delegatedActor || delegatedActor.workspaceId !== binding.workspaceId) {
+        throw deny('Delegation binding is not valid for this service caller.')
+      }
+    }
+    return delegatedActor
   }
 
   // Browser-style calls resolve directly from the user caller.

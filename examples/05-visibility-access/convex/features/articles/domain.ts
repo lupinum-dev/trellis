@@ -21,7 +21,7 @@ import {
   viewArticle,
 } from '../../../shared/features/articles/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { DatabaseReader, MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
 import { getAppIdentity } from '../../auth/appIdentity'
 import { hasRole } from '../../auth/guards'
@@ -42,12 +42,6 @@ function isStaffActor(
   appIdentity: NonNullable<Awaited<ReturnType<typeof getAppIdentity>>>,
 ): boolean {
   return hasRole('owner', 'admin', 'editor')(appIdentity)
-}
-
-function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
-  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
-    reason,
-  })
 }
 
 type WorkspaceQueryCtx = QueryCtx & {
@@ -123,19 +117,25 @@ export const list = query.protected(listArticlesOp)
 export const viewArticleOp = operation.query({
   id: 'articles.view',
   args: viewArticle.args,
-  handler: async (ctx: QueryCtx, args: ViewArticleArgs) => {
-    // Keep the cross-scope seam narrow: this is only for one hashed share token resolving one
-    // article before a workspace appIdentity exists.
-    const crossTenantDb = escapeIsolation(
-      ctx.db,
-      'Resolve share-token reads across-scope boundaries.',
-    )
-
+  crossTenant: {
+    reason: 'Resolve share-token reads across-scope boundaries.',
+    tables: ['shareTokens', 'articles'],
+    access: ({ db }: { db: DatabaseReader }) => ({
+      resolveSharedArticle: async (args: Required<Pick<ViewArticleArgs, 'shareToken' | 'id'>>) => {
+        const grant = await resolveShareToken(db, args.shareToken)
+        if (grant.articleId !== args.id) throw deny('Token does not match this article.')
+        const article = await db.get(args.id)
+        requireRecord(article, 'Article')
+        return { article, grant }
+      },
+    }),
+  },
+  handler: async (ctx, args: ViewArticleArgs) => {
     if (args.shareToken) {
-      const grant = await resolveShareToken(crossTenantDb, args.shareToken)
-      if (grant.articleId !== args.id) throw deny('Token does not match this article.')
-      const article = await crossTenantDb.get(args.id)
-      requireRecord(article, 'Article')
+      const { article, grant } = await ctx.crossTenant.resolveSharedArticle({
+        shareToken: args.shareToken,
+        id: args.id,
+      })
       return projectArticle(null, article, (safeArticle) => ({
         ...safeArticle,
         _access: grant.level,

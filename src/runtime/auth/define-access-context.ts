@@ -39,6 +39,7 @@ type AccessContextHandlerResult<
 type AccessContextOptions = {
   resolve: (ctx: any) => Promise<unknown | null>
   permissions: PermissionTuple
+  crossTenant?: any
   extend?: (
     ctx: any,
     appIdentity: any,
@@ -87,6 +88,7 @@ export type AccessContextDefinition<
   args: Record<string, never>
   guard: typeof open
   permissions: TPermissions
+  crossTenant?: any
   handler: (ctx: TCtx) => Promise<AccessContextHandlerResult<TPermissions, TContext> | null>
 }
 
@@ -124,6 +126,7 @@ export function defineAccessContext<TOptions extends AccessContextOptions>(
     args: {},
     guard: open,
     permissions: options.permissions,
+    ...(options.crossTenant ? { crossTenant: options.crossTenant } : {}),
     handler: async (ctx: MergedCtx<TOptions>) => {
       const appIdentity = await options.resolve(ctx as ResolveCtx<TOptions>)
       if (!appIdentity) return null

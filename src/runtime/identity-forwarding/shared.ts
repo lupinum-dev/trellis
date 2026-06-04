@@ -11,6 +11,7 @@ import {
   IdentityForwardingEnvelopeError,
   verifyIdentityForwardingEnvelope,
   type IdentityForwardingPurpose,
+  type IdentityForwardingReplayMode,
   type IdentityForwardingTransport,
 } from './envelope.js'
 
@@ -42,7 +43,14 @@ export type IdentityForwardingPayload = {
 export type IdentityForwardingEnvelopeState = {
   jti: string
   purpose: IdentityForwardingPurpose
+  replayMode?: IdentityForwardingReplayMode
+  transport: IdentityForwardingTransport
   functionRef: string
+  argsHash: string
+  subject: Subject
+  issuer: string
+  audience: string
+  expiresAt: number
 }
 
 const envelopePayloadByArgs = new WeakMap<object, IdentityForwardingPayload>()
@@ -82,6 +90,7 @@ export type CreateIdentityForwardingArgsOptions = {
   operation: 'query' | 'mutation' | 'action'
   purpose?: IdentityForwardingPurpose
   transport?: IdentityForwardingTransport
+  replayMode?: IdentityForwardingReplayMode
   key?: string
   keyId?: string
   issuer?: string
@@ -363,7 +372,14 @@ export function extractIdentityForwardingFromArgs(
       envelopeStateByArgs.set(args, {
         jti: payload.jti,
         purpose: payload.purpose,
+        ...(payload.replayMode ? { replayMode: payload.replayMode } : {}),
+        transport: payload.transport,
         functionRef: payload.functionRef,
+        argsHash: payload.argsHash,
+        subject: payload.sub as Subject,
+        issuer: payload.iss,
+        audience: payload.aud,
+        expiresAt: payload.expiresAt,
       })
 
       return {
@@ -441,6 +457,7 @@ export function createIdentityForwardingEnvelopeArgs(
       ...(options.actingFor !== undefined ? { actingFor: options.actingFor } : {}),
       transport: options.transport ?? 'server',
       purpose,
+      ...(options.replayMode ? { replayMode: options.replayMode } : {}),
       functionRef: options.functionRef,
       args,
       ...(options.now !== undefined ? { now: options.now } : {}),

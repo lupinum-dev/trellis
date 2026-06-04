@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearServerJwksCache } from '../../src/runtime/auth/server/verified-jwt'
 import {
+  domainIdempotency,
+  operationConfirmation,
   serverConvexAction,
   serverConvexMutation,
   serverConvexQuery,
+  transportProof,
 } from '../../src/runtime/convex/server/convex'
 import { verifyIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
 import { createObservationCapture } from '../../src/runtime/testing'
@@ -432,7 +435,7 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:trusted injects a signed identity forwarding envelope instead of bearer auth', async () => {
+  it('transport proof auth injects a signed identity forwarding envelope instead of bearer auth', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -447,12 +450,14 @@ describe('server Convex fetch helpers', () => {
       { _path: 'tasks:create' } as never,
       { title: 'From webhook' } as never,
       {
-        auth: 'trusted',
-        caller: {
-          kind: 'user',
-          userId: 'user_admin',
-          subject: 'user:user_admin',
-        },
+        auth: transportProof.server({
+          caller: {
+            kind: 'user',
+            userId: 'user_admin',
+            subject: 'user:user_admin',
+          },
+          replay: domainIdempotency({ key: 'webhook-delivery-1', target: 'tasks:create' }),
+        }),
       },
     )
 
@@ -491,7 +496,7 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:trusted can bind operation-execute envelopes to the confirmation jti', async () => {
+  it('transport proof auth can bind operation-execute envelopes to the confirmation jti', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -506,16 +511,15 @@ describe('server Convex fetch helpers', () => {
       { _path: 'tasks:delete' } as never,
       { id: 'task_1' } as never,
       {
-        auth: 'trusted',
-        caller: {
-          kind: 'agent',
-          agentId: 'assistant',
-          subject: 'agent:assistant',
-        },
-        identityForwardingEnvelope: {
+        auth: transportProof.server({
+          caller: {
+            kind: 'agent',
+            agentId: 'assistant',
+            subject: 'agent:assistant',
+          },
           purpose: 'operation-execute',
-          jti: 'confirmation-jti-1',
-        },
+          replay: operationConfirmation({ jti: 'confirmation-jti-1' }),
+        }),
       },
     )
 
@@ -536,7 +540,59 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:trusted requires an explicit caller', async () => {
+  it('transport proof writes require replay metadata before the request is sent', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        { title: 'From webhook' } as never,
+        {
+          auth: transportProof.server({
+            caller: {
+              kind: 'user',
+              userId: 'user_admin',
+              subject: 'user:user_admin',
+            },
+          }),
+        },
+      ),
+    ).rejects.toThrow(/require replay metadata/i)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('transport proof rejects purpose mismatches before the request is sent', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        { title: 'From webhook' } as never,
+        {
+          auth: transportProof.server({
+            caller: {
+              kind: 'user',
+              userId: 'user_admin',
+              subject: 'user:user_admin',
+            },
+            purpose: 'operation-preview',
+            replay: domainIdempotency({ key: 'webhook-delivery-1', target: 'tasks:create' }),
+          }),
+        },
+      ),
+    ).rejects.toThrow(/purpose "operation-preview" is not valid for mutation/i)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects raw trusted strings instead of accepting user-authored transport trust', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -551,12 +607,12 @@ describe('server Convex fetch helpers', () => {
         createEvent(),
         { _path: 'tasks:create' } as never,
         { title: 'From webhook' } as never,
-        { auth: 'trusted' },
+        { auth: 'trusted' } as never,
       ),
-    ).rejects.toThrow('requires `options.caller`')
+    ).rejects.toThrow(/verifier-produced transport proof/)
   })
 
-  it('auth:trusted rejects weak identity forwarding keys in production', async () => {
+  it('transport proof auth rejects weak identity forwarding keys in production', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     process.env.NODE_ENV = 'production'
@@ -568,12 +624,14 @@ describe('server Convex fetch helpers', () => {
         { _path: 'tasks:create' } as never,
         { title: 'From webhook' } as never,
         {
-          auth: 'trusted',
-          caller: {
-            kind: 'user',
-            userId: 'user_admin',
-            subject: 'user:user_admin',
-          },
+          auth: transportProof.server({
+            caller: {
+              kind: 'user',
+              userId: 'user_admin',
+              subject: 'user:user_admin',
+            },
+            replay: domainIdempotency({ key: 'webhook-delivery-1', target: 'tasks:create' }),
+          }),
         },
       ),
     ).rejects.toThrow(/at least 32 characters/i)
@@ -581,7 +639,7 @@ describe('server Convex fetch helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('auth:trusted rejects anonymous or subject-less forwarded principals', async () => {
+  it('transport proof auth rejects anonymous or subject-less forwarded principals', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-123'
@@ -592,8 +650,10 @@ describe('server Convex fetch helpers', () => {
         { _path: 'tasks:create' } as never,
         { title: 'From webhook' } as never,
         {
-          auth: 'trusted',
-          caller: { kind: 'anonymous', subject: 'system:anonymous' } as never,
+          auth: transportProof.server({
+            caller: { kind: 'anonymous', subject: 'system:anonymous' } as never,
+            replay: domainIdempotency({ key: 'webhook-delivery-1', target: 'tasks:create' }),
+          }),
         },
       ),
     ).rejects.toThrow(/non-anonymous forwarded `caller`/i)
@@ -604,8 +664,10 @@ describe('server Convex fetch helpers', () => {
         { _path: 'tasks:create' } as never,
         { title: 'From webhook' } as never,
         {
-          auth: 'trusted',
-          caller: { kind: 'agent' } as never,
+          auth: transportProof.server({
+            caller: { kind: 'agent' } as never,
+            replay: domainIdempotency({ key: 'webhook-delivery-2', target: 'tasks:create' }),
+          }),
         },
       ),
     ).rejects.toThrow(/forwarded `caller\.subject`/i)
@@ -631,7 +693,7 @@ describe('server Convex fetch helpers', () => {
         } as never,
         { auth: 'auto' },
       ),
-    ).rejects.toThrow(/Forwarded identity fields are only allowed with `auth: 'trusted'`/i)
+    ).rejects.toThrow(/Forwarded identity fields are only allowed with transport proof auth/i)
 
     await expect(
       serverConvexMutation(
@@ -643,7 +705,7 @@ describe('server Convex fetch helpers', () => {
         } as never,
         { auth: 'none' },
       ),
-    ).rejects.toThrow(/Forwarded identity fields are only allowed with `auth: 'trusted'`/i)
+    ).rejects.toThrow(/Forwarded identity fields are only allowed with transport proof auth/i)
 
     expect(fetchMock).not.toHaveBeenCalled()
   })

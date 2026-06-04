@@ -1,36 +1,40 @@
-import { stampMcpToolSafety } from '@lupinum/trellis/mcp'
+import { executeOperationRef } from '@lupinum/trellis/backend'
+import type { Id } from '~~/convex/_generated/dataModel'
 import { runbookCreate } from '~~/convex/features/runbooks/permissions'
+import { updateRunbookOp } from '~~/convex/features/runbooks/domain'
 import { updateRunbook } from '~~/shared/features/runbooks/contract'
 
 import { api } from '#trellis/api'
 
 import { tool } from '../../runtime'
 
-const updateRunbookSafety = {
-  kind: 'bounded-write',
-  reason: 'Updates one runbook explicitly named by args.',
-} as const
-
-export default tool.mutation({
+export default tool.operation(updateRunbookOp, {
   schema: updateRunbook,
-  call: stampMcpToolSafety(api.features.runbooks.domain.update, updateRunbookSafety),
+  execute: executeOperationRef(updateRunbookOp, api.features.runbooks.domain.update),
   permission: runbookCreate,
-  safety: updateRunbookSafety,
   group: 'workspace',
   middleware: async (args, ctx, next) => {
+    const request = args as {
+      id: Id<'runbooks'>
+      title?: string
+      summary?: string
+      content?: string
+      visibility?: string
+      tags?: string[]
+    }
     if (
-      args.title === undefined &&
-      args.summary === undefined &&
-      args.content === undefined &&
-      args.visibility === undefined &&
-      args.tags === undefined
+      request.title === undefined &&
+      request.summary === undefined &&
+      request.content === undefined &&
+      request.visibility === undefined &&
+      request.tags === undefined
     ) {
       return ctx.error('validation', 'Provide at least one field to update.')
     }
 
-    const existing = await ctx.query(api.features.runbooks.domain.getWorkspace, { id: args.id })
+    const existing = await ctx.query(api.features.runbooks.domain.getWorkspace, { id: request.id })
     if (!existing) {
-      return ctx.error('not_found', `Runbook "${args.id}" not found.`)
+      return ctx.error('not_found', `Runbook "${request.id}" not found.`)
     }
 
     return await next()

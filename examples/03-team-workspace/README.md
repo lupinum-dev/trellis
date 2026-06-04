@@ -55,18 +55,17 @@ App-owned env vars:
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `CONVEX_IDENTITY_FORWARDING_KEY`: shared secret for identity forwarding from the webhook route into Convex
-- `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
-- `TEAM_WORKSPACE_WEBHOOK_USER_ID`: local `users._id` that verified webhook calls act for
+- `TEAM_TODO_WEBHOOK_SECRET`: HMAC webhook route signature secret
 
 ## Production notes
 
-- This example keeps the route boundary intentionally small: one verified shared-secret header plus a
-  delegated identity-forwarding call into the protected mutation.
+- This example keeps the route boundary intentionally small: timestamped HMAC verification plus a
+  short-lived delegation binding forwarded into the protected mutation.
 - Replay protection is demonstrated in the app layer, not just at the route edge. The webhook
-  mutation stores processed event ids so external retries stay safe.
-- If you need timestamped HMAC verification, signature rotation, or several service principals, use
-  this as the tenant-safe baseline and then study [`07-mcp-reference`](../07-mcp-reference/README.md)
-  for the fuller server-owned identity shape.
+  mutation stores workspace-scoped processed event ids with the business write so external retries
+  stay safe.
+- The backend revalidates the forwarded service/user/workspace binding before resolving
+  `appIdentity`; the Nitro route does not become the source of authorization truth.
 
 ## Test
 

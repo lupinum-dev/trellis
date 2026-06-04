@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig(
   convexTestConfig({
     test: {
-      include: ['convex/**/*.test.ts'],
+      include: ['convex/**/*.test.ts', 'server/**/*.test.ts'],
       name: 'example-team-todo',
     },
   }),

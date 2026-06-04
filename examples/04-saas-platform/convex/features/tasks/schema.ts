@@ -29,4 +29,10 @@ export const taskTables = {
     .index('by_project', ['projectId'])
     .index('by_owner', ['ownerId'])
     .index('by_assignee', ['assigneeId']),
+
+  webhookDeliveries: defineTable({
+    deliveryId: v.string(),
+    taskId: v.id('tasks'),
+    createdAt: v.number(),
+  }).index('by_delivery_id', ['deliveryId']),
 }

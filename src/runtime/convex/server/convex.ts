@@ -4,7 +4,10 @@ import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 import { resolveRequestAuthToken } from '../../auth/server/auth-resolver.js'
 import type { ActingFor } from '../../functions/define-acting-for.js'
 import type { Subject } from '../../functions/define-caller.js'
-import type { IdentityForwardingPurpose } from '../../identity-forwarding/envelope.js'
+import type {
+  IdentityForwardingPurpose,
+  IdentityForwardingTransport,
+} from '../../identity-forwarding/envelope.js'
 import {
   createIdentityForwardingEnvelopeArgs,
   extractSubject,
@@ -36,13 +39,49 @@ import { fetchWithTimeout } from './http.js'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'
+type ServerConvexAuthLabel = ConvexServerAuthMode | 'transport-proof'
+
+const transportProofBrand = Symbol('trellis.transportProof')
+
+export type TrustedTransportReplay =
+  | {
+      mode: 'domain-idempotency'
+      key: string
+      target?: string
+    }
+  | {
+      mode: 'jti-redemption'
+      jti: string
+    }
+  | {
+      mode: 'operation-confirmation'
+      jti: string
+    }
+
+export type TrustedTransportProof = {
+  readonly [transportProofBrand]: true
+  readonly transport: Extract<IdentityForwardingTransport, 'server' | 'webhook' | 'mcp'>
+  readonly caller: { subject: Subject } & Record<string, unknown>
+  readonly actingFor?: ActingFor
+  readonly identityForwardingKey?: string
+  readonly purpose?: IdentityForwardingPurpose
+  readonly replay?: TrustedTransportReplay
+}
+
+export type TrustedTransportProofInput = {
+  caller: { subject: Subject } & Record<string, unknown>
+  actingFor?: ActingFor
+  identityForwardingKey?: string
+  purpose?: IdentityForwardingPurpose
+  replay?: TrustedTransportReplay
+}
 
 interface ServerConvexErrorContext {
   helper: ServerConvexHelperName
   operation: ConvexOperationType
   functionPath: string
   convexUrl?: string
-  authMode: ConvexServerAuthMode
+  authMode: ServerConvexAuthLabel
 }
 
 function readEventHeader(event: H3Event, name: string): string | undefined {
@@ -64,32 +103,115 @@ export interface ServerConvexOptions {
    * - 'auto': use session cookie when available (default)
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
-   * - 'trusted': inject identity forwarding args for server-to-server scoped/authed calls
+   * - transportProof.*(...): inject verifier-produced identity forwarding proof args
    */
-  auth?: ConvexServerAuthMode
+  auth?: ConvexServerAuthMode | TrustedTransportProof
   /**
    * Explicit auth token override. When provided, skips auto resolution.
    */
   authToken?: string
-  /**
-   * Explicit caller to inject when auth='trusted'.
-   */
-  caller?: { subject: Subject } & Record<string, unknown>
-  /**
-   * Optional represented identity for trusted forwarded calls.
-   */
-  actingFor?: ActingFor
-  /**
-   * Explicit identity forwarding key override. Defaults to CONVEX_IDENTITY_FORWARDING_KEY.
-   */
-  identityForwardingKey?: string
-  /**
-   * Internal alpha override for operation-backed identity forwarding envelopes.
-   */
-  identityForwardingEnvelope?: {
-    purpose?: IdentityForwardingPurpose
-    jti?: string
+}
+
+function requireNonEmptyProofString(value: string, label: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) throw new Error(`${label} must be a non-empty string.`)
+  return trimmed
+}
+
+function normalizeReplay(replay: TrustedTransportReplay): TrustedTransportReplay {
+  if (replay.mode === 'domain-idempotency') {
+    return {
+      mode: 'domain-idempotency',
+      key: requireNonEmptyProofString(replay.key, 'domainIdempotency.key'),
+      ...(replay.target ? { target: requireNonEmptyProofString(replay.target, 'domainIdempotency.target') } : {}),
+    }
   }
+  if (replay.mode === 'jti-redemption') {
+    return {
+      mode: 'jti-redemption',
+      jti: requireNonEmptyProofString(replay.jti, 'jtiRedemption.jti'),
+    }
+  }
+  if (replay.mode === 'operation-confirmation') {
+    return {
+      mode: 'operation-confirmation',
+      jti: requireNonEmptyProofString(replay.jti, 'operationConfirmation.jti'),
+    }
+  }
+  throw new Error('Unknown trusted transport replay mode.')
+}
+
+function createTransportProof(
+  transport: TrustedTransportProof['transport'],
+  input: TrustedTransportProofInput,
+): TrustedTransportProof {
+  return {
+    [transportProofBrand]: true,
+    transport,
+    caller: input.caller,
+    ...(input.actingFor ? { actingFor: input.actingFor } : {}),
+    ...(input.identityForwardingKey ? { identityForwardingKey: input.identityForwardingKey } : {}),
+    ...(input.purpose ? { purpose: input.purpose } : {}),
+    ...(input.replay ? { replay: normalizeReplay(input.replay) } : {}),
+  }
+}
+
+export function domainIdempotency(input: {
+  key: string
+  target?: string | AnyConvexFunction
+}): TrustedTransportReplay {
+  const target =
+    typeof input.target === 'string'
+      ? input.target
+      : input.target === undefined
+        ? undefined
+        : getFunctionName(input.target)
+  return {
+    mode: 'domain-idempotency',
+    key: requireNonEmptyProofString(input.key, 'domainIdempotency.key'),
+    ...(target ? { target: requireNonEmptyProofString(target, 'domainIdempotency.target') } : {}),
+  }
+}
+
+export function jtiRedemption(input: { jti: string }): TrustedTransportReplay {
+  return {
+    mode: 'jti-redemption',
+    jti: requireNonEmptyProofString(input.jti, 'jtiRedemption.jti'),
+  }
+}
+
+export function operationConfirmation(input: { jti: string }): TrustedTransportReplay {
+  return {
+    mode: 'operation-confirmation',
+    jti: requireNonEmptyProofString(input.jti, 'operationConfirmation.jti'),
+  }
+}
+
+export const transportProof = {
+  server: (input: TrustedTransportProofInput): TrustedTransportProof =>
+    createTransportProof('server', input),
+  webhook: (input: TrustedTransportProofInput): TrustedTransportProof =>
+    createTransportProof('webhook', input),
+  mcp: (input: TrustedTransportProofInput): TrustedTransportProof =>
+    createTransportProof('mcp', input),
+}
+
+function isTransportProof(value: unknown): value is TrustedTransportProof {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { [transportProofBrand]?: unknown })[transportProofBrand] === true
+  )
+}
+
+function normalizeServerAuth(auth: ServerConvexOptions['auth'] | undefined): {
+  authMode: ServerConvexAuthLabel
+  proof?: TrustedTransportProof
+} {
+  if (auth === undefined) return { authMode: 'auto' }
+  if (isTransportProof(auth)) return { authMode: 'transport-proof', proof: auth }
+  if (auth === 'auto' || auth === 'required' || auth === 'none') return { authMode: auth }
+  throw new Error('Server Convex trusted calls require a verifier-produced transport proof.')
 }
 
 function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
@@ -147,9 +269,45 @@ function validateForwardedActingFor(actingFor: unknown): Subject {
   return subject
 }
 
+function resolveTransportProofPurpose(
+  proof: TrustedTransportProof,
+  operationType: ConvexOperationType,
+  functionPath: string,
+): IdentityForwardingPurpose {
+  const purpose = proof.purpose ?? operationType
+  if (purpose === operationType) return purpose
+
+  if (operationType === 'query' && purpose === 'operation-preview') {
+    return purpose
+  }
+  if (
+    (operationType === 'mutation' || operationType === 'action') &&
+    purpose === 'operation-execute'
+  ) {
+    return purpose
+  }
+
+  throw new Error(
+    `Transport proof purpose "${purpose}" is not valid for ${operationType} ${functionPath}.`,
+  )
+}
+
+function getReplayJti(replay: TrustedTransportReplay | undefined): string | undefined {
+  if (!replay) return undefined
+  if (replay.mode === 'jti-redemption' || replay.mode === 'operation-confirmation') {
+    return replay.jti
+  }
+  return undefined
+}
+
 async function resolveAuthToken(
   event: H3Event,
-  options: ServerConvexOptions | undefined,
+  options:
+    | {
+        auth?: ConvexServerAuthMode
+        authToken?: string
+      }
+    | undefined,
 ): Promise<string | undefined> {
   const config = normalizeConvexRuntimeConfig(useRuntimeConfig(event).public.convex)
   return await resolveRequestAuthToken(event, config, options)
@@ -165,7 +323,7 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
   const runtimeConfig = useRuntimeConfig(event)
   const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
   const convexUrl = convexConfig.url
-  const authMode = options?.auth ?? 'auto'
+  const { authMode, proof: authProof } = normalizeServerAuth(options?.auth)
   const errorContext: ServerConvexErrorContext = {
     helper: getHelperName(operationType),
     operation: operationType,
@@ -246,23 +404,29 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
     }
   }
   let authToken: string | undefined
-  if (authMode === 'trusted') {
-    const caller = options?.caller
-    if (!caller) {
+  if (authProof) {
+    if (options?.authToken) {
       throw createServerConvexError(
-        `Identity forwarding auth for ${functionPath} requires \`options.caller\`.`,
+        `Transport proof auth for ${functionPath} cannot be combined with \`authToken\`.`,
+        errorContext,
+      )
+    }
+    if (operationType !== 'query' && !authProof.replay) {
+      throw createServerConvexError(
+        `Transport proof ${operationType} calls for ${functionPath} require replay metadata.`,
         errorContext,
       )
     }
 
-    validateForwardedCaller(caller)
-    if (options?.actingFor) validateForwardedActingFor(options.actingFor)
+    validateForwardedCaller(authProof.caller)
+    if (authProof.actingFor) validateForwardedActingFor(authProof.actingFor)
 
+    const purpose = resolveTransportProofPurpose(authProof, operationType, functionPath)
     const identityForwardingKey =
-      options?.identityForwardingKey ?? process.env.CONVEX_IDENTITY_FORWARDING_KEY
+      authProof.identityForwardingKey ?? process.env.CONVEX_IDENTITY_FORWARDING_KEY
     if (!identityForwardingKey) {
       throw createServerConvexError(
-        `Identity forwarding auth for ${functionPath} requires \`CONVEX_IDENTITY_FORWARDING_KEY\` or \`options.identityForwardingKey\`.`,
+        `Transport proof auth for ${functionPath} requires \`CONVEX_IDENTITY_FORWARDING_KEY\` or a proof identityForwardingKey.`,
         errorContext,
       )
     }
@@ -275,23 +439,20 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
     const trustedAppArgs = stripForwardedIdentityFields(requestArgs as Record<string, unknown>)
     requestArgs = createIdentityForwardingEnvelopeArgs({
       args: trustedAppArgs,
-      caller,
-      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
+      caller: authProof.caller,
+      ...(authProof.actingFor ? { actingFor: authProof.actingFor } : {}),
       functionRef: functionPath,
       operation: operationType,
-      ...(options?.identityForwardingEnvelope?.purpose
-        ? { purpose: options.identityForwardingEnvelope.purpose }
-        : {}),
-      ...(options?.identityForwardingEnvelope?.jti
-        ? { jti: options.identityForwardingEnvelope.jti }
-        : {}),
+      purpose,
+      ...(getReplayJti(authProof.replay) ? { jti: getReplayJti(authProof.replay) } : {}),
+      ...(authProof.replay ? { replayMode: authProof.replay.mode } : {}),
       key: identityForwardingKey,
-      transport: 'server',
+      transport: authProof.transport,
     }) as FunctionLikeArgs<Fn>
   } else {
     if (hasForwardedIdentityFields(rawRequestArgs)) {
       throw createServerConvexError(
-        `Forwarded identity fields are only allowed with \`auth: 'trusted'\` for ${functionPath}.`,
+        `Forwarded identity fields are only allowed with transport proof auth for ${functionPath}.`,
         errorContext,
       )
     }
@@ -299,7 +460,15 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
     requestArgs = stripForwardedIdentityFields(rawRequestArgs)
 
     try {
-      authToken = await resolveAuthToken(event, options)
+      authToken = await resolveAuthToken(
+        event,
+        options
+          ? {
+              ...(authMode === 'transport-proof' ? {} : { auth: authMode }),
+              ...(options.authToken ? { authToken: options.authToken } : {}),
+            }
+          : undefined,
+      )
     } catch (error) {
       const err = toServerConvexError(error, errorContext, 'auth')
       const duration = Date.now() - startTime

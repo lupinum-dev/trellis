@@ -1,5 +1,5 @@
 import { operation } from '@lupinum/trellis/app'
-import { requireAuth } from '@lupinum/trellis/auth'
+import { authRequired, requireAuth } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import type { MutationCtx } from '../../_generated/server'
@@ -8,18 +8,68 @@ import { mutation } from '../../functions'
 
 type WorkspaceBootstrapCtx = MutationCtx & {
   caller: () => Promise<McpReferencePrincipal>
+  crossTenant: {
+    seedRunbooks: (input: { workspaceId: string; userId: string; now: number }) => Promise<void>
+  }
 }
 type CreateWorkspaceArgs = { name: string; slug: string }
-
-function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
-  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
-    reason,
-  })
-}
 
 export const createWorkspaceOp = operation.mutation({
   id: 'workspaces.create',
   args: createWorkspace.args,
+  guard: authRequired,
+  crossTenant: {
+    mode: 'write',
+    reason: 'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
+    tables: ['runbooks'],
+    access: ({ db }) => ({
+      seedRunbooks: async (input: {
+        workspaceId: string
+        userId: string
+        now: number
+      }) => {
+        const writer = db as typeof db & {
+          insert: (table: string, value: unknown) => Promise<unknown>
+        }
+        await writer.insert('runbooks', {
+          title: 'Public onboarding guide',
+          summary: 'A public runbook that demonstrates the unauthenticated MCP surface.',
+          content: [
+            '# Public onboarding guide',
+            '',
+            '- Public tools can list and search this runbook without auth.',
+            '- Scoped tools operate on workspace runbooks after MCP key auth succeeds.',
+            '- Sessions enable stored preferences and dynamic per-session tools.',
+          ].join('\n'),
+          visibility: 'public',
+          tags: ['public', 'onboarding'],
+          ownerId: input.userId,
+          workspaceId: input.workspaceId,
+          createdAt: input.now,
+          updatedAt: input.now,
+          publishedAt: input.now,
+        })
+
+        await writer.insert('runbooks', {
+          title: 'Internal incident checklist',
+          summary: 'A workspace-only runbook seeded so the authenticated MCP tools have content.',
+          content: [
+            '# Internal incident checklist',
+            '',
+            '1. Acknowledge the incident.',
+            '2. Assign an owner.',
+            '3. Capture current impact and next update time.',
+          ].join('\n'),
+          visibility: 'workspace',
+          tags: ['incident', 'ops'],
+          ownerId: input.userId,
+          workspaceId: input.workspaceId,
+          createdAt: input.now,
+          updatedAt: input.now,
+        })
+      },
+    }),
+  },
   handler: async (ctx: WorkspaceBootstrapCtx, args: CreateWorkspaceArgs) => {
     const caller = await ctx.caller()
     // This onboarding path is intentionally caller-gated instead of appIdentity-gated:
@@ -44,10 +94,6 @@ export const createWorkspaceOp = operation.mutation({
     if (!user) throw new Error('Current user row not found.')
 
     const now = Date.now()
-    const crossTenantDb = escapeIsolation(
-      ctx.db,
-      'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
-    )
     const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
@@ -63,47 +109,16 @@ export const createWorkspaceOp = operation.mutation({
       updatedAt: now,
     })
 
-    // On first-workspace creation there is no tenant-bound appIdentity yet, so seed
-    // content must bypass isolation explicitly.
-    await crossTenantDb.insert('runbooks', {
-      title: 'Public onboarding guide',
-      summary: 'A public runbook that demonstrates the unauthenticated MCP surface.',
-      content: [
-        '# Public onboarding guide',
-        '',
-        '- Public tools can list and search this runbook without auth.',
-        '- Scoped tools operate on workspace runbooks after MCP key auth succeeds.',
-        '- Sessions enable stored preferences and dynamic per-session tools.',
-      ].join('\n'),
-      visibility: 'public',
-      tags: ['public', 'onboarding'],
-      ownerId: user._id,
-      workspaceId: workspaceId,
-      createdAt: now,
-      updatedAt: now,
-      publishedAt: now,
-    })
-
-    await crossTenantDb.insert('runbooks', {
-      title: 'Internal incident checklist',
-      summary: 'A workspace-only runbook seeded so the authenticated MCP tools have content.',
-      content: [
-        '# Internal incident checklist',
-        '',
-        '1. Acknowledge the incident.',
-        '2. Assign an owner.',
-        '3. Capture current impact and next update time.',
-      ].join('\n'),
-      visibility: 'workspace',
-      tags: ['incident', 'ops'],
-      ownerId: user._id,
-      workspaceId: workspaceId,
-      createdAt: now,
-      updatedAt: now,
+    // On first-workspace creation there is no tenant-bound appIdentity yet, so seeding is an
+    // operation-backed cross-tenant write capability declared above.
+    await ctx.crossTenant.seedRunbooks({
+      workspaceId,
+      userId: user._id,
+      now,
     })
 
     return workspaceId
   },
 })
 
-export const createWorkspaceMutation = mutation.public(createWorkspaceOp)
+export const createWorkspaceMutation = mutation.protected(createWorkspaceOp)

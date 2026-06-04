@@ -4,11 +4,14 @@
  * distinct appIdentity type and explicit membership helpers.
  */
 import { deny, getAuth } from '@lupinum/trellis/auth'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
-type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type Ctx = {
+  auth: GenericQueryCtx<DataModel>['auth']
+  db: Pick<GenericQueryCtx<DataModel>['db'], 'query'>
+}
 type Db = Ctx['db']
 type Membership = Doc<'memberships'>
 
@@ -19,7 +22,7 @@ export type AgencyActor = {
 }
 
 export async function getAgencyActor(ctx: Ctx): Promise<AgencyActor | null> {
-  const auth = await getAuth(ctx)
+  const auth = await getAuth(ctx as unknown as GenericQueryCtx<DataModel>)
   if (!auth) return null
 
   const user = await ctx.db

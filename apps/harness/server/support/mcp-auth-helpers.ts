@@ -1,6 +1,6 @@
 import { createError, getRequestHeader, type H3Event } from 'h3'
 
-import { defineMcpTool, defineTool } from '#trellis/mcp/advanced'
+import { defineMcpTool } from '#trellis/mcp/advanced'
 
 import { serverConvexQuery } from '../../../../src/runtime/convex/server/convex'
 import { api } from '../../convex/_generated/api'
@@ -83,13 +83,6 @@ export async function requireHarnessMcpAuth(event: H3Event): Promise<HarnessMcpA
     throw createError({ statusCode: 403, message: 'Authentication required.' })
   }
   return auth
-}
-
-export function defineHarnessTool(options: Parameters<typeof defineTool>[0]) {
-  return defineTool({
-    ...options,
-    resolveAuth: resolveHarnessMcpAuth,
-  })
 }
 
 export function defineHarnessMcpTool(options: Parameters<typeof defineMcpTool>[0]) {

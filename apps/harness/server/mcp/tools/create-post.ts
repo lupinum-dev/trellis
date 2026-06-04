@@ -1,21 +1,16 @@
-import { stampMcpToolSafety } from '#trellis/mcp'
+import { executeOperationRef } from '@lupinum/trellis/backend'
 
 import { api } from '../../../convex/_generated/api'
+import { createPostOp } from '../../../convex/posts'
 import { createPost } from '../../../shared/schemas/post'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 import { tool } from '../runtime'
 
 const harnessApi = api as any
 
-const createPostSafety = {
-  kind: 'bounded-write',
-  reason: 'Creates one draft post explicitly named by args.',
-} as const
-
-export default tool.mutation({
+export default tool.operation(createPostOp, {
   schema: createPost,
-  call: stampMcpToolSafety(harnessApi.posts.create, createPostSafety),
-  safety: createPostSafety,
+  execute: executeOperationRef(createPostOp, harnessApi.posts.create),
   enabled: async (ctx) => {
     const auth = await resolveHarnessMcpAuth(ctx.event)
     return !!auth?.workspaceId && ['owner', 'admin', 'member'].includes(auth.role)
@@ -23,5 +18,8 @@ export default tool.mutation({
   meta: {
     name: 'create-post',
   },
-  respond: ({ args, result, ok }) => ok({ id: result }, `Created post "${args.title}"`),
+  respond: ({ args, result, ok }) => {
+    const request = args as { title: string }
+    return ok({ id: result }, `Created post "${request.title}"`)
+  },
 })

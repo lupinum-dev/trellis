@@ -25,6 +25,7 @@ describe('app entrypoint exports', () => {
     expect(appApi).toHaveProperty('operation')
     expect(appApi.operation).toHaveProperty('query')
     expect(appApi.operation).toHaveProperty('mutation')
+    expect(appApi.operation).toHaveProperty('publicMutation')
     expect(appApi.operation).toHaveProperty('destructive')
     expect(appApi).toHaveProperty('workspaceScope')
     expect(appApi).toHaveProperty('operationPreview')
@@ -49,6 +50,18 @@ describe('app entrypoint exports', () => {
       guard: open,
       handler: async () => ({ ok: true }),
     })
+    const createPublicTodo = operation.publicMutation({
+      id: 'todos.publicCreate',
+      args: { title: v.string() },
+      publicWrite: {
+        reason: 'Public todo starter allows anonymous todo creation.',
+        tables: ['todos'],
+        access: () => ({
+          create: async () => ({ ok: true }),
+        }),
+      },
+      handler: async (ctx) => await ctx.publicWrite.create(),
+    })
 
     expect(getOperationMetadata(listTodos)).toMatchObject({
       id: 'todos.list',
@@ -56,6 +69,10 @@ describe('app entrypoint exports', () => {
     })
     expect(getOperationMetadata(createTodo)).toMatchObject({
       id: 'todos.create',
+      kind: 'safe',
+    })
+    expect(getOperationMetadata(createPublicTodo)).toMatchObject({
+      id: 'todos.publicCreate',
       kind: 'safe',
     })
   })

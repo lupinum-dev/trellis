@@ -21,6 +21,14 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: vi.fn(),
   serverConvexMutation: vi.fn(),
   serverConvexAction: vi.fn(),
+  transportProof: {
+    mcp: (input: Record<string, unknown>) => ({ transport: 'mcp', ...input }),
+  },
+  operationConfirmation: (input: { jti: string }) => ({
+    mode: 'operation-confirmation',
+    jti: input.jti,
+  }),
+  jtiRedemption: (input: { jti: string }) => ({ mode: 'jti-redemption', jti: input.jti }),
 }))
 
 function createEvent(): H3Event {
@@ -132,18 +140,14 @@ describe('phase0 workspace-mcp fixture', () => {
         operation: 'query',
         args: { id: 'project-1' },
         options: {
-          identityForwardingEnvelope: {
-            purpose: 'operation-preview',
-          },
+          purpose: 'operation-preview',
         },
       },
       {
         operation: 'query',
         args: { id: 'project-1' },
         options: {
-          identityForwardingEnvelope: {
-            purpose: 'operation-preview',
-          },
+          purpose: 'operation-preview',
         },
       },
       {
@@ -152,8 +156,9 @@ describe('phase0 workspace-mcp fixture', () => {
           id: 'project-1',
         },
         options: {
-          identityForwardingEnvelope: {
-            purpose: 'operation-execute',
+          purpose: 'operation-execute',
+          replay: {
+            mode: 'operation-confirmation',
             jti: expect.any(String),
           },
         },

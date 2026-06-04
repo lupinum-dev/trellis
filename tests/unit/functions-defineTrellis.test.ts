@@ -101,6 +101,22 @@ function createMemoryDb() {
         }
         throw new Error(`Missing row "${id}"`)
       },
+      replace: async (id: string, value: MemoryRow) => {
+        const match = findRow(id)
+        if (match) {
+          match.rows[match.rows.indexOf(match.row)] = { _id: id, ...value }
+          return null
+        }
+        throw new Error(`Missing row "${id}"`)
+      },
+      delete: async (id: string) => {
+        const match = findRow(id)
+        if (match) {
+          match.rows.splice(match.rows.indexOf(match.row), 1)
+          return null
+        }
+        throw new Error(`Missing row "${id}"`)
+      },
     },
   }
 }
@@ -174,6 +190,677 @@ describe('defineTrellis', () => {
     expect(runtime.unsafe.mutation).toBeTypeOf('function')
     expect(runtime).not.toHaveProperty('app')
     expect(runtime).not.toHaveProperty('publicQuery')
+  })
+
+  it('does not attach recoverable raw DB to normal handler-visible ctx.db', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    let rawDb: ReturnType<typeof createMemoryDb>['db']
+
+    const definition = runtime.query.public({
+      args: {},
+      handler: async (ctx) => {
+        const db = ctx.db as object & Record<PropertyKey, unknown>
+        const descriptors = Object.getOwnPropertyDescriptors(db)
+        const ownSymbols = Object.getOwnPropertySymbols(db)
+        const ownValues = Object.values(descriptors).flatMap((descriptor) =>
+          'value' in descriptor ? [descriptor.value] : [],
+        )
+        const symbolValues = ownSymbols.map((symbol) => db[symbol])
+
+        return {
+          sameReference: db === rawDb,
+          ownSymbols: ownSymbols.length,
+          descriptorLeaksRawDb: ownValues.includes(rawDb),
+          symbolLeaksRawDb: symbolValues.includes(rawDb),
+          knownStringLeaksRawDb: db.trellisUnsafeDb === rawDb,
+          exposesEscapeIsolation: typeof db.escapeIsolation === 'function',
+          canStillQuery: typeof db.query === 'function',
+        }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<{
+        sameReference: boolean
+        ownSymbols: number
+        descriptorLeaksRawDb: boolean
+        symbolLeaksRawDb: boolean
+        knownStringLeaksRawDb: boolean
+        exposesEscapeIsolation: boolean
+        canStillQuery: boolean
+      }>
+    }
+
+    const memory = createMemoryDb()
+    rawDb = memory.db
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: rawDb,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).resolves.toEqual({
+      sameReference: false,
+      ownSymbols: 0,
+      descriptorLeaksRawDb: false,
+      symbolLeaksRawDb: false,
+      knownStringLeaksRawDb: false,
+      exposesEscapeIsolation: false,
+      canStillQuery: true,
+    })
+  })
+
+  it('limits public handler ctx.db to explicitly declared read tables', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        public: {
+          readTables: ['catalog'] as never[],
+        },
+      },
+    )
+
+    const definition = runtime.query.public({
+      args: {
+        catalogId: v.string(),
+        privateId: v.string(),
+      },
+      handler: async (ctx, args) => {
+        const catalogRows = await ctx.db.query('catalog' as never).collect()
+        const catalogRow = await ctx.db.get(args.catalogId as never)
+        let blockedRead = 'allowed'
+        try {
+          await ctx.db.query('privateUsers' as never).collect()
+        } catch (error) {
+          blockedRead = error instanceof Error ? error.message : String(error)
+        }
+        let blockedGet = 'allowed'
+        try {
+          await ctx.db.get(args.privateId as never)
+        } catch (error) {
+          blockedGet = error instanceof Error ? error.message : String(error)
+        }
+        let blockedWrite = 'allowed'
+        try {
+          await (ctx.db as { insert: (table: string, value: object) => unknown }).insert(
+            'catalog',
+            { title: 'write' },
+          )
+        } catch (error) {
+          blockedWrite = error instanceof Error ? error.message : String(error)
+        }
+
+        return {
+          catalogRows,
+          catalogRow,
+          blockedRead,
+          blockedGet,
+          blockedWrite,
+        }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { catalogId: string; privateId: string },
+      ) => Promise<{
+        catalogRows: MemoryRow[]
+        catalogRow: MemoryRow | null
+        blockedRead: string
+        blockedGet: string
+        blockedWrite: string
+      }>
+    }
+
+    const memory = createMemoryDb()
+    const catalogId = await memory.db.insert('catalog', { title: 'public' })
+    const privateId = await memory.db.insert('privateUsers', { email: 'secret@example.test' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { catalogId, privateId },
+      ),
+    ).resolves.toMatchObject({
+      catalogRows: [{ _id: catalogId, title: 'public' }],
+      catalogRow: { _id: catalogId, title: 'public' },
+      blockedRead:
+        'Public handlers cannot access table "privateUsers". Add an explicit public.readTables entry or move this handler behind authentication.',
+      blockedGet:
+        'Public handlers cannot access table "privateUsers". Add an explicit public.readTables entry or move this handler behind authentication.',
+      blockedWrite:
+        'Public handlers cannot write through ctx.db. Use an operation-backed public write contract.',
+    })
+  })
+
+  it('denies public handler ctx.db reads by default', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const definition = runtime.query.public({
+      args: {},
+      handler: async (ctx) => {
+        try {
+          await ctx.db.query('catalog' as never).collect()
+          return 'allowed'
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error)
+        }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<string>
+    }
+
+    const memory = createMemoryDb()
+    await memory.db.insert('catalog', { title: 'public' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).resolves.toBe(
+      'Public handlers cannot access table "catalog". Add an explicit public.readTables entry or move this handler behind authentication.',
+    )
+  })
+
+  it('allows operation-backed public writes only through ctx.publicWrite', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        public: {
+          readTables: ['todos'] as never[],
+        },
+      },
+    )
+    const capture = createObservationCapture()
+    const definition = runtime.mutation.public(
+      appOperation.publicMutation({
+        id: 'todos.publicCreate',
+        args: {
+          title: v.string(),
+        },
+        publicWrite: {
+          reason: 'Public todo demo allows anonymous todo creation.',
+          tables: ['todos'],
+          access: ({ db }) => ({
+            create: async (title: string) =>
+              await db.insert('todos' as never, {
+                title,
+                completed: false,
+              }),
+          }),
+        },
+        handler: async (ctx, args) => {
+          let directWrite = 'allowed'
+          try {
+            await (ctx.db as { insert: (table: string, value: object) => unknown }).insert(
+              'todos',
+              { title: 'direct' },
+            )
+          } catch (error) {
+            directWrite = error instanceof Error ? error.message : String(error)
+          }
+          const id = await ctx.publicWrite.create(args.title)
+          return {
+            id,
+            directWrite,
+          }
+        },
+      }),
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { title: string },
+      ) => Promise<{ id: string; directWrite: string }>
+    }
+
+    const memory = createMemoryDb()
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { title: 'public' },
+      ),
+    ).resolves.toEqual({
+      id: 'todos:1;todos',
+      directWrite:
+        'Public handlers cannot write through ctx.db. Use an operation-backed public write contract.',
+    })
+    expect(memory.tables.todos).toEqual([
+      {
+        _id: 'todos:1;todos',
+        title: 'public',
+        completed: false,
+      },
+    ])
+    expect(capture.find('db.public_write.used')).toContainEqual(
+      expect.objectContaining({
+        name: 'db.public_write.used',
+        details: expect.objectContaining({
+          reason: 'Public todo demo allows anonymous todo creation.',
+          table: 'todos',
+        }),
+      }),
+    )
+    expect(capture.find('db.cross_tenant.used')).toEqual([])
+  })
+
+  it('requires publicWrite to be operation-backed', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const definition = runtime.mutation.public({
+      args: {},
+      publicWrite: {
+        reason: 'Attempt anonymous write without an operation id.',
+        tables: ['todos'],
+        access: ({ db }) => ({
+          create: async () => await db.insert('todos' as never, { title: 'bad' }),
+        }),
+      },
+      handler: async (ctx) => await ctx.publicWrite.create(),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<unknown>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/publicWrite capabilities require an operation-backed handler with `id`/)
+  })
+
+  it('keeps publicWrite table-limited', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const definition = runtime.mutation.public(
+      appOperation.publicMutation({
+        id: 'todos.publicWriteTableLimit',
+        args: {},
+        publicWrite: {
+          reason: 'Attempt adjacent table write.',
+          tables: ['todos'],
+          access: ({ db }) => ({
+            createPrivate: async () => await db.insert('privateUsers' as never, { email: 'x' }),
+          }),
+        },
+        handler: async (ctx) => await ctx.publicWrite.createPrivate(),
+      }),
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<unknown>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/publicWrite capability does not allow table "privateUsers"/)
+  })
+
+  it('rejects publicWrite outside public mutation handlers', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const queryDefinition = runtime.query.public({
+      args: {},
+      publicWrite: {
+        reason: 'Invalid query write capability.',
+        tables: ['todos'],
+        access: () => ({}),
+      },
+      handler: async () => null,
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<unknown>
+    }
+    const protectedDefinition = runtime.mutation.protected(
+      appOperation.publicMutation({
+        id: 'todos.protectedPublicWrite',
+        args: {},
+        guard: open,
+        publicWrite: {
+          reason: 'Invalid protected write capability.',
+          tables: ['todos'],
+          access: () => ({}),
+        },
+        handler: async () => null,
+      } as never),
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<unknown>
+    }
+
+    await expect(
+      queryDefinition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/publicWrite capabilities are only valid on public mutation handlers/)
+
+    await expect(
+      protectedDefinition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/publicWrite capabilities are only valid on public mutation handlers/)
+  })
+
+  it('rejects duplicate public read table declarations', () => {
+    const builder = (() => null) as never
+
+    expect(() =>
+      defineTrellis(
+        {
+          query: builder,
+          mutation: builder,
+        },
+        {
+          public: {
+            readTables: ['catalog', 'catalog'] as never[],
+          },
+        },
+      ),
+    ).toThrow(/public\.readTables contains a duplicate table: "catalog"/)
+  })
+
+  it('exposes named read-only cross-tenant capabilities without a generic ctx.db escape', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        isolation: {
+          tables: ['tasks'] as never[],
+          field: 'workspaceId',
+        },
+      },
+    )
+    const capture = createObservationCapture()
+    const definition = runtime.query.public({
+      args: {
+        id: v.string(),
+      },
+      crossTenant: {
+        reason: 'Resolve visible task across workspace boundaries.',
+        tables: ['tasks'],
+        access: ({ db }) => ({
+          getTask: async (id: string) => await db.get(id),
+          listComments: async () => await db.query('comments' as never).collect(),
+          insertTask: async () =>
+            await (db as { insert: (table: string, value: unknown) => Promise<unknown> }).insert(
+              'tasks',
+              { title: 'bad', workspaceId: 'ws_2' },
+            ),
+        }),
+      },
+      handler: async (ctx, args) => {
+        const task = await ctx.crossTenant.getTask(args.id)
+        let adjacentDenied = false
+        try {
+          await ctx.crossTenant.listComments()
+        } catch (error) {
+          adjacentDenied =
+            error instanceof Error && /does not allow table "comments"/i.test(error.message)
+        }
+        let writeDenied = false
+        try {
+          await ctx.crossTenant.insertTask()
+        } catch (error) {
+          writeDenied = error instanceof Error && /read-only/i.test(error.message)
+        }
+        return {
+          title: task?.title,
+          adjacentDenied,
+          writeDenied,
+          dbEscape: typeof (ctx.db as object & { escapeIsolation?: unknown }).escapeIsolation,
+        }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string },
+      ) => Promise<{
+        title: string
+        adjacentDenied: boolean
+        writeDenied: boolean
+        dbEscape: string
+      }>
+    }
+
+    const memory = createMemoryDb()
+    const id = await memory.db.insert('tasks', { title: 'cross', workspaceId: 'ws_2' })
+    await memory.db.insert('comments', { body: 'nope', workspaceId: 'ws_2' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { id },
+      ),
+    ).resolves.toEqual({
+      title: 'cross',
+      adjacentDenied: true,
+      writeDenied: true,
+      dbEscape: 'undefined',
+    })
+    expect(capture.find('db.cross_tenant.used')).toContainEqual(
+      expect.objectContaining({
+        name: 'db.cross_tenant.used',
+        details: expect.objectContaining({
+          reason: 'Resolve visible task across workspace boundaries.',
+          table: 'tasks',
+        }),
+      }),
+    )
+  })
+
+  it('requires cross-tenant writes to be operation-backed', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const definition = runtime.mutation.public({
+      args: {},
+      crossTenant: {
+        mode: 'write',
+        reason: 'Attempt non-operation write.',
+        tables: ['tasks'],
+        access: ({ db }) => ({
+          create: async () =>
+            await (db as { insert: (table: string, value: unknown) => Promise<unknown> }).insert(
+              'tasks',
+              { title: 'bad', workspaceId: 'ws_1' },
+            ),
+        }),
+      },
+      handler: async (ctx) => await ctx.crossTenant.create(),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<unknown>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/operation-backed handler with `id`/)
+  })
+
+  it('allows operation-backed cross-tenant write capabilities to expose narrow methods', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const createTaskOp = appOperation.mutation({
+      id: 'tasks.cross-tenant-create',
+      args: {
+        title: v.string(),
+      },
+      crossTenant: {
+        mode: 'write',
+        reason: 'Operation-backed workspace bootstrap writes one task table.',
+        tables: ['tasks'],
+        access: ({ db }) => ({
+          create: async (title: string) =>
+            await (db as { insert: (table: string, value: unknown) => Promise<unknown> }).insert(
+              'tasks',
+              { title, workspaceId: 'ws_2' },
+            ),
+        }),
+      },
+      handler: async (ctx, args: { title: string }) => await ctx.crossTenant.create(args.title),
+    } as never)
+    const definition = runtime.mutation.public(createTaskOp as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { title: string },
+      ) => Promise<string>
+    }
+    const memory = createMemoryDb()
+
+    const id = await definition.handler(
+      {
+        auth: { getUserIdentity: async () => null },
+        db: memory.db,
+        observe: async () => {},
+      },
+      { title: 'bootstrapped' },
+    )
+
+    await expect(memory.db.get(id)).resolves.toEqual(
+      expect.objectContaining({
+        title: 'bootstrapped',
+        workspaceId: 'ws_2',
+      }),
+    )
   })
 
   it('does not expose callable root backend builders', () => {
@@ -767,6 +1454,184 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(
       /Destructive safety for operation "tasks:delete" is misconfigured.*destructiveConfirmations.*by_jti.*destructiveAuditLog/i,
     )
+    expect(executed).toBe(false)
+  })
+
+  it('claims and completes trusted JTI redemption before allowing a mutation handler', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        trustedReplay: {
+          table: 'trustedReplay' as never,
+        },
+      },
+    )
+
+    let executions = 0
+    const definition = runtime.mutation.public({
+      args: {
+        title: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:create',
+      handler: async () => {
+        executions += 1
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const memory = createMemoryDb()
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Create once' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      replayMode: 'jti-redemption',
+      jti: 'trusted-jti-1',
+    })
+    const ctx = {
+      auth: { getUserIdentity: async () => null },
+      db: memory.db,
+      observe: async () => {},
+    }
+
+    await expect(definition.handler(ctx, args)).resolves.toEqual({ ok: true })
+    await expect(definition.handler(ctx, args)).rejects.toThrow(/already been redeemed/i)
+
+    expect(executions).toBe(1)
+    expect(memory.tables.trustedReplay).toHaveLength(1)
+    expect(memory.tables.trustedReplay[0]).toMatchObject({
+      jti: 'trusted-jti-1',
+      functionRef: 'tasks:create',
+      replayMode: 'jti-redemption',
+      state: 'completed',
+    })
+  })
+
+  it('marks failed trusted JTI redemption and blocks replay after handler failure', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        trustedReplay: {
+          table: 'trustedReplay' as never,
+        },
+      },
+    )
+
+    let executions = 0
+    const definition = runtime.mutation.public({
+      args: {
+        title: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:create',
+      handler: async () => {
+        executions += 1
+        throw new Error('business failed')
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const memory = createMemoryDb()
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Fail once' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      replayMode: 'jti-redemption',
+      jti: 'trusted-jti-failed',
+    })
+    const ctx = {
+      auth: { getUserIdentity: async () => null },
+      db: memory.db,
+      observe: async () => {},
+    }
+
+    await expect(definition.handler(ctx, args)).rejects.toThrow(/business failed/)
+    await expect(definition.handler(ctx, args)).rejects.toThrow(/already been redeemed/i)
+
+    expect(executions).toBe(1)
+    expect(memory.tables.trustedReplay).toHaveLength(1)
+    expect(memory.tables.trustedReplay[0]).toMatchObject({
+      jti: 'trusted-jti-failed',
+      state: 'failed',
+      failure: { message: 'business failed' },
+    })
+  })
+
+  it('fails closed for trusted JTI redemption when no replay table is configured', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    let executed = false
+    const definition = runtime.mutation.public({
+      args: {
+        title: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:create',
+      handler: async () => {
+        executed = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'No table' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      replayMode: 'jti-redemption',
+      jti: 'trusted-jti-no-table',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/trusted identity forwarding writes require defineTrellis/i)
     expect(executed).toBe(false)
   })
 
@@ -1488,6 +2353,9 @@ describe('defineTrellis', () => {
       },
       {
         caller: serviceCaller,
+        public: {
+          readTables: ['tasks'] as never[],
+        },
         isolation: {
           tables: ['tasks'] as never[],
           field: 'workspaceId',
@@ -1571,6 +2439,9 @@ describe('defineTrellis', () => {
       },
       {
         caller: serviceCaller,
+        public: {
+          readTables: ['tasks', 'comments'] as never[],
+        },
         isolation: {
           tables: ['tasks'] as never[],
           field: 'workspaceId',

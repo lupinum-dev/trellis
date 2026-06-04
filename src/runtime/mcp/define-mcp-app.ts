@@ -27,12 +27,16 @@ import {
   type OperationPreviewEnvelope,
   type OperationProjectionRef,
 } from '../functions/define-operation.js'
-import type { IdentityForwardingPurpose } from '../identity-forwarding/envelope.js'
 import {
   getEventObservationState,
   sanitizeCorrelationId,
   type EventObservationState,
 } from '../observability/envelope.js'
+import {
+  jtiRedemption,
+  operationConfirmation,
+  type TrustedTransportReplay,
+} from '../server/index.js'
 import {
   createDenialExplanation,
   createObservationEmitter,
@@ -102,10 +106,8 @@ export interface McpConvexCaller {
 }
 
 export type McpConvexCallOptions = {
-  identityForwardingEnvelope?: {
-    purpose?: IdentityForwardingPurpose
-    jti?: string
-  }
+  purpose?: 'operation-preview' | 'operation-execute'
+  replay?: TrustedTransportReplay
 }
 
 type ProjectionAccessSnapshot = Record<string, boolean>
@@ -1319,9 +1321,7 @@ export function defineMcpApp<
                     PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
                   >,
                   {
-                    identityForwardingEnvelope: {
-                      purpose: 'operation-preview',
-                    },
+                    purpose: 'operation-preview',
                   },
                 )
               } catch (error) {
@@ -1410,9 +1410,7 @@ export function defineMcpApp<
                     PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
                   >,
                   {
-                    identityForwardingEnvelope: {
-                      purpose: 'operation-preview',
-                    },
+                    purpose: 'operation-preview',
                   },
                 )
               } catch (error) {
@@ -1470,12 +1468,19 @@ export function defineMcpApp<
               }) as FunctionLikeArgs<TExecute>,
               confirmationToken && isDestructive && confirmationMode === 'transport'
                 ? {
-                    identityForwardingEnvelope: {
-                      purpose: 'operation-execute',
-                      ...(operationExecuteJti ? { jti: operationExecuteJti } : {}),
-                    },
+                    purpose: 'operation-execute',
+                    replay: operationConfirmation({
+                      jti: operationExecuteJti ?? crypto.randomUUID(),
+                    }),
                   }
-                : undefined,
+                : options.executeOperation === 'query'
+                  ? undefined
+                  : {
+                      replay:
+                        confirmationToken && isDestructive
+                          ? operationConfirmation({ jti: confirmationToken })
+                          : jtiRedemption({ jti: crypto.randomUUID() }),
+                    },
             )
 
             await projectionCtx.observe({

@@ -13,36 +13,42 @@ import type {
   FunctionLikeArgs,
   FunctionLikeReturnType,
 } from '../convex/shared/convex-shared.js'
-import type { ActingFor } from '../functions/define-acting-for.js'
-import type { Subject } from '../functions/define-caller.js'
 
 export {
+  domainIdempotency,
+  jtiRedemption,
+  operationConfirmation,
   serverConvexQuery,
   serverConvexMutation,
   serverConvexAction,
+  transportProof,
   type ServerConvexOptions,
+  type TrustedTransportReplay,
+  type TrustedTransportProof,
 } from '../convex/server/convex.js'
-export { delegateToUser } from './acting-for.js'
-export type { DelegateToUserOptions } from './acting-for.js'
+export {
+  assertDelegationBinding,
+  requireDelegationBinding,
+  type DelegationBinding,
+  type DelegationBindingExpectation,
+  type RequireDelegationBindingOptions,
+} from './acting-for.js'
 export {
   createWebhookHmacSignature,
   isSharedSecretWebhookSignatureValid,
   isWebhookHmacSignatureValid,
   readHmacVerifiedWebhookBody,
-  readSharedSecretWebhookBody,
+  verifyHmacWebhookDelivery,
 } from './webhooks.js'
 export type {
   ReadHmacVerifiedWebhookBodyOptions,
-  ReadSharedSecretWebhookBodyOptions,
+  VerifiedHmacWebhookDelivery,
+  VerifyHmacWebhookDeliveryOptions,
   WebhookHmacVerificationOptions,
 } from './webhooks.js'
 
-type ForwardedCallerOptions = {
-  caller?: ({ subject: Subject } & Record<string, unknown>) | undefined
-  actingFor?: ActingFor
-} & ServerConvexOptions
-
-type ServerConvexCallOptions = Pick<ServerConvexOptions, 'identityForwardingEnvelope'>
+type ServerConvexCallerOptions = ServerConvexOptions
+type ServerConvexCallOptions = Pick<ServerConvexOptions, 'auth'>
 
 /**
  * Server-side convenience wrapper over the `serverConvex*` helpers.
@@ -52,9 +58,8 @@ type ServerConvexCallOptions = Pick<ServerConvexOptions, 'identityForwardingEnve
  * `event` every time.
  *
  * The returned helpers reuse the same auth surface as the per-call
- * `serverConvex*` helpers and default to `auth: 'auto'` unless overridden.
- * Forward an explicit caller into protected root refs when business
- * authorization should run against app-owned identity instead of request auth.
+ * `serverConvex*` helpers and default to `auth: 'auto'` unless overridden. Use
+ * `transportProof.*(...)` for verified server-to-server forwarding.
  *
  * @example
  * ```ts
@@ -62,28 +67,10 @@ type ServerConvexCallOptions = Pick<ServerConvexOptions, 'identityForwardingEnve
  * const post = await convex.query(internal.posts.getForAutomation, { id, caller })
  * ```
  */
-export function createServerConvexCaller(event: H3Event, options?: ForwardedCallerOptions) {
+export function createServerConvexCaller(event: H3Event, options?: ServerConvexCallerOptions) {
   const callOptions: ServerConvexOptions = {
     auth: options?.auth ?? 'auto',
     ...(options?.authToken ? { authToken: options.authToken } : {}),
-    ...(options?.caller ? { caller: options.caller } : {}),
-    ...(options?.actingFor ? { actingFor: options.actingFor } : {}),
-    ...(options?.identityForwardingKey
-      ? { identityForwardingKey: options.identityForwardingKey }
-      : {}),
-  }
-
-  if (
-    (options?.caller !== undefined || options?.actingFor !== undefined) &&
-    callOptions.auth !== 'trusted'
-  ) {
-    throw new Error(
-      "createServerConvexCaller() only allows forwarded identity on `auth: 'trusted'` calls.",
-    )
-  }
-
-  if (callOptions.auth === 'trusted' && options?.caller === undefined) {
-    throw new Error('createServerConvexCaller() requires `caller` on identity forwarding calls.')
   }
 
   return {

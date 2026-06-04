@@ -7,7 +7,6 @@ import { operation } from '@lupinum/trellis/app'
  */
 import { resolveMcpUserByEmail } from '../../../shared/features/users/contract'
 import type { QueryCtx } from '../../_generated/server'
-import { query } from '../../functions'
 
 export const resolveMcpUserByEmailOp = operation.query({
   id: 'users.resolve-mcp-user-by-email',
@@ -27,5 +26,3 @@ export const resolveMcpUserByEmailOp = operation.query({
     }
   },
 })
-
-export const resolveMcpUserByEmailQuery = query.public(resolveMcpUserByEmailOp)

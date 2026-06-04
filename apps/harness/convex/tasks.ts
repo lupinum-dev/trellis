@@ -1,3 +1,4 @@
+import { operation } from '@lupinum/trellis/app'
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import { addTask } from '../shared/schemas/task'
@@ -6,7 +7,8 @@ import { mutation } from './functions'
 
 const canAddTask = defineGuard<AppIdentity>('task.add', (appIdentity) => appIdentity !== null)
 
-export const add = mutation.protected({
+export const addTaskOp = operation.mutation({
+  id: 'tasks.add',
   args: addTask.args,
   guard: canAddTask,
   handler: async (ctx, args) => {
@@ -20,3 +22,5 @@ export const add = mutation.protected({
     })
   },
 })
+
+export const add = mutation.protected(addTaskOp)

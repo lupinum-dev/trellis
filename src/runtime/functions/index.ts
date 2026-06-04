@@ -61,14 +61,17 @@ import { defineActingFor, type ActingFor, type ActingForDefinition } from './def
 import { defineCaller, type DefaultCaller, type CallerDefinition } from './define-caller.js'
 import { buildStructuredBuilder } from './define-handler.js'
 import type {
+  StructuredCrossTenantCapability,
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
+  StructuredPublicWriteCapability,
 } from './define-handler.js'
 import {
   getOperationMetadata,
   getOperationProjectionMetadata,
   isOperationPreviewEnvelope,
+  trellisOperationMetadataKey,
   type TrellisOperationMetadata,
   type TrellisOperationProjectionMetadata,
   type OperationPreviewEnvelope,
@@ -76,9 +79,11 @@ import {
 import { assertUnsafePermit, type TrellisUnsafePermit } from './unsafe-permit.js'
 
 export type {
+  StructuredCrossTenantCapability,
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
+  StructuredPublicWriteCapability,
 } from './define-handler.js'
 export {
   defineOperationDescriptor,
@@ -142,9 +147,8 @@ type ObserveFn = (event: ObservationEventInput) => Promise<void>
 type UnsafeDefinition = {
   permit: TrellisUnsafePermit
   identityForwardingFunctionRef?: string
-  identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
 }
-type EscapeIsolationOptions = { reason: string }
 type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
   ? ObjectType<TArgsValidator>
   : [TArgsValidator] extends [GenericValidator]
@@ -192,7 +196,7 @@ export type ValidateOperationProjection<
   TProjection extends 'execute' | 'preview' = 'execute' | 'preview',
 > = TProjection extends NoInfer<AvailableOperationProjection<TId>> ? TProjection : never
 
-const trellisUnsafeDbKey = Symbol('trellisUnsafeDb')
+const internalUnsafeDbByDecoratedDb = new WeakMap<object, object>()
 
 function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn>[0]): void {
   try {
@@ -213,16 +217,14 @@ export type FunctionsCtxExtension<TCaller, TActingFor, TActor> = {
   observe: ObserveFn
 }
 
-type QueryDbWithRuntime<DataModel extends GenericDataModel> = GenericQueryCtx<DataModel>['db'] & {
-  escapeIsolation: (options: EscapeIsolationOptions) => GenericQueryCtx<DataModel>['db']
-  [trellisUnsafeDbKey]: GenericQueryCtx<DataModel>['db']
-}
+type QueryDbWithRuntime<DataModel extends GenericDataModel> = GenericQueryCtx<DataModel>['db']
 
-type MutationDbWithRuntime<DataModel extends GenericDataModel> =
-  GenericMutationCtx<DataModel>['db'] & {
-    escapeIsolation: (options: EscapeIsolationOptions) => GenericMutationCtx<DataModel>['db']
-    [trellisUnsafeDbKey]: GenericMutationCtx<DataModel>['db']
-  }
+type MutationDbWithRuntime<DataModel extends GenericDataModel> = GenericMutationCtx<DataModel>['db']
+
+type PublicSafeDb<DataModel extends GenericDataModel> = Pick<
+  GenericQueryCtx<DataModel>['db'],
+  'get' | 'normalizeId' | 'query'
+>
 
 type AnyCtxWithRuntime<
   DataModel extends GenericDataModel,
@@ -249,6 +251,24 @@ type MutationCtxWithRuntime<
   db: MutationDbWithRuntime<DataModel>
 } & FunctionsCtxExtension<TCaller, TActingFor, TActor>
 
+type PublicQueryCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+> = Omit<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, 'db'> & {
+  db: PublicSafeDb<DataModel>
+}
+
+type PublicMutationCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+> = Omit<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, 'db'> & {
+  db: PublicSafeDb<DataModel>
+}
+
 type ActionCtxWithRuntime<
   DataModel extends GenericDataModel,
   TCaller,
@@ -273,6 +293,10 @@ type IsolationOptions<DataModel extends GenericDataModel> = {
   tables: Array<TableNamesInDataModel<DataModel>>
   sharedTables?: Array<TableNamesInDataModel<DataModel>>
   field?: string
+}
+
+type PublicAccessOptions = {
+  readTables?: string[]
 }
 
 type ServiceAccessDefinition<DataModel extends GenericDataModel, TCaller> = ServiceDefinitions<
@@ -303,7 +327,11 @@ type ActionCustomizationCtx<
 
 type IdentityForwardingCustomizationExtra = {
   identityForwardingFunctionRef?: string
-  identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  trellisBackendLane?: TrellisBackendLane
+  crossTenant?: StructuredCrossTenantCapability<object, Record<string, unknown>, unknown>
+  publicWrite?: StructuredPublicWriteCapability<object, Record<string, unknown>, unknown>
+  [trellisOperationMetadataKey]?: TrellisOperationMetadata
 }
 
 type DestructiveConfirmationReader<DataModel extends GenericDataModel> = {
@@ -320,6 +348,22 @@ type DestructiveOperationsDb<DataModel extends GenericDataModel> =
     insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
     patch: (id: unknown, value: unknown) => Promise<unknown>
   }
+
+type TrustedReplayDb<DataModel extends GenericDataModel> = {
+  query: (table: TableNamesInDataModel<DataModel>) => {
+    withIndex: (
+      indexName: string,
+      callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
+    ) => { unique: () => Promise<unknown> }
+  }
+  insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
+  patch: (id: unknown, value: unknown) => Promise<unknown>
+}
+
+type TrustedReplayClaim<DataModel extends GenericDataModel> = {
+  table: TableNamesInDataModel<DataModel>
+  id: unknown
+}
 
 type Awaitable<T> = T | Promise<T>
 
@@ -339,6 +383,11 @@ type DestructivePreviewConfirmationOptions<
     args: Record<string, unknown>,
     loaded: unknown,
   ) => Awaitable<string>
+  ttlSeconds?: number
+}
+
+type TrustedReplayOptions<DataModel extends GenericDataModel> = {
+  table: TableNamesInDataModel<DataModel>
   ttlSeconds?: number
 }
 
@@ -372,6 +421,7 @@ export interface DefineTrellisOptions<
     caller: TCaller,
     actingFor: TActingFor | null,
   ) => Promise<TActor | null>
+  public?: PublicAccessOptions
   isolation?: IsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TCaller>
   observability?: TrellisObservabilityOptions
@@ -386,6 +436,7 @@ export interface DefineTrellisOptions<
       TActor
     >
   }
+  trustedReplay?: TrustedReplayOptions<DataModel>
   triggers?: Triggers<
     DataModel,
     GenericMutationCtx<DataModel> & FunctionsCtxExtension<TCaller, TActingFor, TActor>
@@ -444,6 +495,21 @@ function validateIsolationOptions<DataModel extends GenericDataModel>(
   }
 }
 
+function validatePublicAccessOptions(options: PublicAccessOptions | undefined): void {
+  if (!options?.readTables) return
+
+  const seen = new Set<string>()
+  for (const table of options.readTables) {
+    if (typeof table !== 'string' || table.trim().length === 0) {
+      throw new Error('public.readTables must only contain non-empty table names.')
+    }
+    if (seen.has(table)) {
+      throw new Error(`public.readTables contains a duplicate table: "${table}".`)
+    }
+    seen.add(table)
+  }
+}
+
 function rejectRemovedCustomRlsOption(options: unknown): void {
   if (
     typeof options === 'object' &&
@@ -472,8 +538,8 @@ function requireNonEmptyReason(value: unknown, context: string): string {
   return value.trim()
 }
 
-function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb {
-  return (db as TDb & { [trellisUnsafeDbKey]: TDb })[trellisUnsafeDbKey]
+function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb | undefined {
+  return internalUnsafeDbByDecoratedDb.get(db) as TDb | undefined
 }
 
 function destructiveOperationsMisconfiguredError(
@@ -518,6 +584,141 @@ function getDestructiveOperationsDb<DataModel extends GenericDataModel>(
   }
 
   return reader as DestructiveOperationsDb<DataModel>
+}
+
+function trustedReplayMisconfiguredError(table: string): Error {
+  return new Error(
+    `Trusted replay is misconfigured. Ensure table "${table}" exists with "jti" and "state" fields plus "by_jti" and "by_expires_at" indexes before accepting trusted mutation/action forwarding.`,
+  )
+}
+
+function getTrustedReplayDb<DataModel extends GenericDataModel>(
+  db: unknown,
+  options: TrustedReplayOptions<DataModel>,
+): TrustedReplayDb<DataModel> {
+  if (
+    !db ||
+    typeof db !== 'object' ||
+    !('query' in db) ||
+    typeof (db as { query?: unknown }).query !== 'function' ||
+    !('insert' in db) ||
+    typeof (db as { insert?: unknown }).insert !== 'function' ||
+    !('patch' in db) ||
+    typeof (db as { patch?: unknown }).patch !== 'function'
+  ) {
+    throw trustedReplayMisconfiguredError(String(options.table))
+  }
+
+  return db as TrustedReplayDb<DataModel>
+}
+
+function getTrustedReplayRowId(row: unknown): unknown {
+  if (!row || typeof row !== 'object') return undefined
+  return (row as { _id?: unknown })._id
+}
+
+function describeTrustedReplayState(row: unknown): string | undefined {
+  if (!row || typeof row !== 'object') return undefined
+  const state = (row as { state?: unknown }).state
+  return typeof state === 'string' ? state : undefined
+}
+
+async function claimTrustedReplayJti<
+  DataModel extends GenericDataModel,
+  TCtx extends AnyCtx<DataModel>,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+>(
+  ctx: TCtx,
+  ctxWithIdentityForwarding: TCtx & Record<PropertyKey, unknown>,
+  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
+): Promise<TrustedReplayClaim<DataModel> | null> {
+  const envelope = getIdentityForwardingEnvelopeState(ctxWithIdentityForwarding)
+  if (
+    !envelope?.replayMode ||
+    envelope.replayMode === 'domain-idempotency' ||
+    typeof envelope.jti !== 'string'
+  ) {
+    return null
+  }
+
+  if (!options.trustedReplay) {
+    throw deny('Trusted identity forwarding writes require defineTrellis({ trustedReplay }).', {
+      source: 'identity-forwarding',
+      category: 'auth',
+    })
+  }
+
+  const db = 'db' in ctx ? (ctx as { db?: unknown }).db : undefined
+  const replayDb = getTrustedReplayDb<DataModel>(
+    getInternalUnsafeDb((db as object) ?? {}) ?? db,
+    options.trustedReplay,
+  )
+
+  let existing: unknown
+  try {
+    existing = await replayDb
+      .query(options.trustedReplay.table)
+      .withIndex('by_jti', (q) => q.eq('jti', envelope.jti))
+      .unique()
+  } catch {
+    throw trustedReplayMisconfiguredError(String(options.trustedReplay.table))
+  }
+
+  if (existing) {
+    const state = describeTrustedReplayState(existing)
+    throw deny(
+      state === 'claimed'
+        ? 'Trusted identity forwarding replay JTI is already claimed.'
+        : 'Trusted identity forwarding replay JTI has already been redeemed.',
+      {
+        source: 'identity-forwarding',
+        category: 'auth',
+      },
+    )
+  }
+
+  const now = Date.now()
+  const ttlSeconds = options.trustedReplay.ttlSeconds ?? 24 * 60 * 60
+  const id = await replayDb.insert(options.trustedReplay.table, {
+    jti: envelope.jti,
+    functionRef: envelope.functionRef,
+    purpose: envelope.purpose,
+    transport: envelope.transport,
+    replayMode: envelope.replayMode,
+    argsHash: envelope.argsHash,
+    subject: envelope.subject,
+    issuer: envelope.issuer,
+    audience: envelope.audience,
+    state: 'claimed',
+    createdAt: now,
+    updatedAt: now,
+    expiresAt: Math.max(envelope.expiresAt, now + ttlSeconds * 1000),
+  })
+
+  return { table: options.trustedReplay.table, id }
+}
+
+async function patchTrustedReplayClaim<DataModel extends GenericDataModel>(
+  ctx: AnyCtx<DataModel>,
+  claim: TrustedReplayClaim<DataModel> | null,
+  state: 'completed' | 'failed',
+  details?: Record<string, unknown>,
+): Promise<void> {
+  if (!claim) return
+  const db = 'db' in ctx ? (ctx as { db?: unknown }).db : undefined
+  const replayDb = getTrustedReplayDb<DataModel>(
+    getInternalUnsafeDb((db as object) ?? {}) ?? db,
+    { table: claim.table },
+  )
+  const now = Date.now()
+  await replayDb.patch(claim.id, {
+    state,
+    updatedAt: now,
+    ...(state === 'completed' ? { completedAt: now } : { failedAt: now }),
+    ...(details ? { failure: details } : {}),
+  })
 }
 
 async function assertNoOperationExecuteEnvelopeReplay<
@@ -690,6 +891,15 @@ function stampBackendLane<TResult>(value: TResult, lane: TrellisBackendLane): TR
   return value
 }
 
+function cloneDefinitionWithExtras(
+  definition: object,
+  extras: Record<string | symbol, unknown>,
+): object {
+  const clone = {}
+  Object.defineProperties(clone, Object.getOwnPropertyDescriptors(definition))
+  return Object.assign(clone, extras)
+}
+
 function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown>(
   protectedBuilder: TBuilder,
 ): TBuilder {
@@ -705,10 +915,12 @@ function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown
     }
 
     return stampBackendLane(
-      protectedBuilder({
-        ...(definition as object),
-        guard: open,
-      } as never),
+      protectedBuilder(
+        cloneDefinitionWithExtras(definition as object, {
+          guard: open,
+          trellisBackendLane: 'public',
+        }) as never,
+      ),
       'public',
     )
   }) as unknown as TBuilder
@@ -728,7 +940,14 @@ function createProtectedLaneBuilder<TBuilder extends (definition: never) => unkn
       )
     }
 
-    return stampBackendLane(protectedBuilder(definition as never), 'protected')
+    return stampBackendLane(
+      protectedBuilder(
+        cloneDefinitionWithExtras(definition, {
+          trellisBackendLane: 'protected',
+        }) as never,
+      ),
+      'protected',
+    )
   }) as unknown as TBuilder
 }
 
@@ -902,6 +1121,82 @@ function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
       return original.bind(target)
     },
   }) as TDb
+}
+
+function createPublicDbError(table?: string): Error {
+  return new Error(
+    table
+      ? `Public handlers cannot access table "${table}". Add an explicit public.readTables entry or move this handler behind authentication.`
+      : 'Public handlers cannot write through ctx.db. Use an operation-backed public write contract.',
+  )
+}
+
+function assertPublicReadTableAccess(tables: ReadonlySet<string>, table: string): void {
+  if (!tables.has(table)) throw createPublicDbError(table)
+}
+
+function createPublicSafeDb<TDb extends object, DataModel extends GenericDataModel>(
+  db: TDb,
+  options: PublicAccessOptions | undefined,
+): TDb {
+  const readTables = new Set<string>((options?.readTables ?? []).map(String))
+
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === 'query') {
+          return (table: TableNamesInDataModel<DataModel>) => {
+            assertPublicReadTableAccess(readTables, String(table))
+            return (db as { query: (table: TableNamesInDataModel<DataModel>) => unknown }).query(
+              table,
+            )
+          }
+        }
+
+        if (prop === 'get') {
+          return (id: unknown, ...args: unknown[]) => {
+            const table = getServiceTableFromId(id)
+            if (!table) {
+              throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+            }
+            assertPublicReadTableAccess(readTables, table)
+            return (db as { get: (id: unknown, ...args: unknown[]) => unknown }).get(id, ...args)
+          }
+        }
+
+        if (prop === 'normalizeId') {
+          return (table: TableNamesInDataModel<DataModel>, id: unknown) => {
+            assertPublicReadTableAccess(readTables, String(table))
+            return (
+              db as {
+                normalizeId?: (table: TableNamesInDataModel<DataModel>, id: unknown) => unknown
+              }
+            ).normalizeId?.(table, id)
+          }
+        }
+
+        if (prop === 'insert' || prop === 'patch' || prop === 'replace' || prop === 'delete') {
+          return () => {
+            throw createPublicDbError()
+          }
+        }
+
+        return undefined
+      },
+      has(_target, prop) {
+        return (
+          prop === 'query' ||
+          prop === 'get' ||
+          prop === 'normalizeId' ||
+          prop === 'insert' ||
+          prop === 'patch' ||
+          prop === 'replace' ||
+          prop === 'delete'
+        )
+      },
+    },
+  ) as TDb
 }
 
 function createServiceScopeRule<TDoc extends Record<string, unknown>>(
@@ -1147,6 +1442,8 @@ type StructuredQueryBuilder<
   TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: StructuredHandlerDefinition<
@@ -1157,7 +1454,9 @@ type StructuredQueryBuilder<
     TGuard,
     TArgsValidator,
     TLoaded,
-    TResult
+    TResult,
+    TCrossTenant,
+    TPublicWrite
   >,
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
@@ -1171,6 +1470,8 @@ type PublicStructuredQueryBuilder<
 > = <
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: Omit<
@@ -1182,7 +1483,9 @@ type PublicStructuredQueryBuilder<
       typeof open,
       TArgsValidator,
       TLoaded,
-      TResult
+      TResult,
+      TCrossTenant,
+      TPublicWrite
     >,
     'guard'
   > & { guard?: never },
@@ -1199,6 +1502,8 @@ type StructuredMutationBuilder<
   TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: StructuredHandlerDefinition<
@@ -1209,7 +1514,9 @@ type StructuredMutationBuilder<
     TGuard,
     TArgsValidator,
     TLoaded,
-    TResult
+    TResult,
+    TCrossTenant,
+    TPublicWrite
   >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
@@ -1223,6 +1530,8 @@ type PublicStructuredMutationBuilder<
 > = <
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: Omit<
@@ -1234,7 +1543,9 @@ type PublicStructuredMutationBuilder<
       typeof open,
       TArgsValidator,
       TLoaded,
-      TResult
+      TResult,
+      TCrossTenant,
+      TPublicWrite
     >,
     'guard'
   > & { guard?: never },
@@ -1251,6 +1562,8 @@ type StructuredTransportMutationBuilder<
   TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: StructuredHandlerDefinition<
@@ -1261,7 +1574,9 @@ type StructuredTransportMutationBuilder<
     TGuard,
     TArgsValidator,
     TLoaded,
-    TResult
+    TResult,
+    TCrossTenant,
+    TPublicWrite
   >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
@@ -1276,6 +1591,8 @@ type StructuredActionBuilder<
   TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: StructuredHandlerDefinition<
@@ -1286,7 +1603,9 @@ type StructuredActionBuilder<
     TGuard,
     TArgsValidator,
     TLoaded,
-    TResult
+    TResult,
+    TCrossTenant,
+    TPublicWrite
   >,
 ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
 
@@ -1300,6 +1619,8 @@ type PublicStructuredActionBuilder<
 > = <
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
   TResult = unknown,
 >(
   definition: Omit<
@@ -1311,7 +1632,9 @@ type PublicStructuredActionBuilder<
       typeof open,
       TArgsValidator,
       TLoaded,
-      TResult
+      TResult,
+      TCrossTenant,
+      TPublicWrite
     >,
     'guard'
   > & { guard?: never },
@@ -1328,6 +1651,7 @@ type RuntimeBundle<
   actingFor: ActingForAccessor<TActingFor>
   appIdentity: AppIdentityAccessor<TActor>
   baseCtx: TCtx & FunctionsCtxExtension<TCaller, TActingFor, TActor>
+  replayClaim: TrustedReplayClaim<DataModel> | null
 }
 
 function resolveCaller<DataModel extends GenericDataModel, TCaller>(
@@ -1423,6 +1747,7 @@ async function createContextWithRuntime<
       : {}),
   })
   await assertNoOperationExecuteEnvelopeReplay(ctx, ctxWithIdentityForwarding, options)
+  const replayClaim = await claimTrustedReplayJti(ctx, ctxWithIdentityForwarding, options)
   const identityForwarding = getIdentityForwarding(ctxWithIdentityForwarding)
   if (!identityForwarding && hasForwardedIdentityFields(rawAppArgs)) {
     throw deny(
@@ -1505,6 +1830,7 @@ async function createContextWithRuntime<
       appIdentity,
       observe,
     } as TCtx & FunctionsCtxExtension<TCaller, TActingFor, TActor>,
+    replayClaim,
   }
 }
 
@@ -1523,60 +1849,288 @@ function createOnSuccessHandler<Ctx>(
   }
 }
 
-function decorateDb<TDb extends object>(
-  db: TDb,
-  unsafeDb: TDb,
-  crossTenantDb: TDb,
-  observe: ObserveFn,
-): TDb & {
-  escapeIsolation: (options: EscapeIsolationOptions) => TDb
-  [trellisUnsafeDbKey]: TDb
-} {
-  const instrument = (targetDb: TDb, name: 'db.escape_isolation.used', reason: string): TDb =>
-    new Proxy(targetDb, {
-      get(target, prop, receiver) {
-        const original = Reflect.get(target, prop, receiver)
-        if (typeof original !== 'function') return original
-        return (...args: unknown[]) => {
-          const table =
-            typeof args[0] === 'string'
-              ? String(args[0])
-              : typeof prop === 'string' &&
-                  ['get', 'patch', 'replace', 'delete'].includes(prop) &&
-                  typeof getServiceTableFromId(args[0]) === 'string'
-                ? getServiceTableFromId(args[0])
-                : null
-          safeObserve(observe, {
-            name,
-            status: 'success',
-            details: {
-              reason,
-              ...(table ? { table } : {}),
-            },
-          })
-          return original.apply(target, args)
-        }
-      },
-    }) as TDb
+function trustedReplayFailureDetails(error: unknown): Record<string, unknown> {
+  return error instanceof Error ? { message: error.message } : { message: String(error) }
+}
 
-  Object.defineProperty(db, trellisUnsafeDbKey, {
-    value: unsafeDb,
-    enumerable: false,
-    configurable: false,
-    writable: false,
-  })
+function createReplayAwareOnSuccess<DataModel extends GenericDataModel, TCtx extends AnyCtx<DataModel>>(
+  ctx: TCtx,
+  replayClaim: TrustedReplayClaim<DataModel> | null,
+  onSuccess:
+    | ((payload: { args: Record<string, unknown>; result: unknown }) => Promise<void>)
+    | undefined,
+): ((payload: { args: Record<string, unknown>; result: unknown }) => Promise<void>) | undefined {
+  if (!replayClaim && !onSuccess) return undefined
 
-  return Object.assign(db, {
-    escapeIsolation: ({ reason }: EscapeIsolationOptions) =>
-      instrument(
-        crossTenantDb,
-        'db.escape_isolation.used',
-        requireNonEmptyReason(reason, 'ctx.db.escapeIsolation'),
-      ),
-  }) as TDb & {
-    escapeIsolation: (options: EscapeIsolationOptions) => TDb
-    [trellisUnsafeDbKey]: TDb
+  return async (payload) => {
+    await patchTrustedReplayClaim(ctx, replayClaim, 'completed')
+    if (onSuccess) await onSuccess(payload)
   }
+}
+
+function createReplayAwareOnError<DataModel extends GenericDataModel, TCtx extends AnyCtx<DataModel>>(
+  ctx: TCtx,
+  replayClaim: TrustedReplayClaim<DataModel> | null,
+): ((payload: { args: Record<string, unknown>; error: unknown }) => Promise<void>) | undefined {
+  if (!replayClaim) return undefined
+
+  return async ({ error }) => {
+    await patchTrustedReplayClaim(ctx, replayClaim, 'failed', trustedReplayFailureDetails(error))
+  }
+}
+
+function decorateDb<TDb extends object>(db: TDb, unsafeDb: TDb): TDb {
+  const decoratedDb = new Proxy(db, {}) as TDb
+
+  internalUnsafeDbByDecoratedDb.set(decoratedDb, unsafeDb)
+  return decoratedDb
+}
+
+function requireCapabilityTables(value: unknown, label: string): ReadonlySet<string> {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(`${label} must include at least one table.`)
+  }
+
+  const tables = new Set<string>()
+  for (const table of value) {
+    if (typeof table !== 'string' || table.trim().length === 0) {
+      throw new Error(`${label} must contain non-empty table names.`)
+    }
+    const normalized = table.trim()
+    if (tables.has(normalized)) {
+      throw new Error(`${label} contains a duplicate table: "${normalized}".`)
+    }
+    tables.add(normalized)
+  }
+  return tables
+}
+
+function assertCapabilityTableAccess(
+  tables: ReadonlySet<string>,
+  table: string,
+  reason: string,
+  observe: ObserveFn,
+  capability: string,
+  eventName: 'db.cross_tenant.used' | 'db.public_write.used',
+): void {
+  if (!tables.has(table)) {
+    throw new Error(`${capability} capability does not allow table "${table}".`)
+  }
+  safeObserve(observe, {
+    name: eventName,
+    status: 'success',
+    details: {
+      reason,
+      table,
+    },
+  })
+}
+
+function createCrossTenantDb<TDb extends object>(input: {
+  db: TDb
+  mode: 'read' | 'write'
+  reason: string
+  tables: ReadonlySet<string>
+  observe: ObserveFn
+  capability: string
+  eventName: 'db.cross_tenant.used' | 'db.public_write.used'
+}): TDb {
+  const readOnlyWriteError = () =>
+    new Error(`${input.capability} capability is read-only. Use an operation-backed write capability.`)
+
+  const reader = {
+    get: async (id: unknown, ...args: unknown[]) => {
+      const table = getServiceTableFromId(id)
+      if (!table) {
+        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      }
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return await (input.db as { get: (id: unknown, ...args: unknown[]) => unknown }).get(
+        id,
+        ...args,
+      )
+    },
+    normalizeId: (table: string, id: unknown) => {
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return (input.db as { normalizeId?: (table: string, id: unknown) => unknown }).normalizeId?.(
+        table,
+        id,
+      )
+    },
+    query: (table: string) => {
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return (input.db as { query: (table: string) => unknown }).query(table)
+    },
+    insert: async (table: string, value: unknown) => {
+      if (input.mode !== 'write') throw readOnlyWriteError()
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return await (input.db as { insert: (table: string, value: unknown) => unknown }).insert(
+        table,
+        value,
+      )
+    },
+    patch: async (id: unknown, value: unknown) => {
+      if (input.mode !== 'write') throw readOnlyWriteError()
+      const table = getServiceTableFromId(id)
+      if (!table) {
+        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      }
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return await (input.db as { patch: (id: unknown, value: unknown) => unknown }).patch(
+        id,
+        value,
+      )
+    },
+    replace: async (id: unknown, value: unknown) => {
+      if (input.mode !== 'write') throw readOnlyWriteError()
+      const table = getServiceTableFromId(id)
+      if (!table) {
+        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      }
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return await (input.db as { replace: (id: unknown, value: unknown) => unknown }).replace(
+        id,
+        value,
+      )
+    },
+    delete: async (id: unknown) => {
+      if (input.mode !== 'write') throw readOnlyWriteError()
+      const table = getServiceTableFromId(id)
+      if (!table) {
+        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      }
+      assertCapabilityTableAccess(
+        input.tables,
+        table,
+        input.reason,
+        input.observe,
+        input.capability,
+        input.eventName,
+      )
+      return await (input.db as { delete: (id: unknown) => unknown }).delete(id)
+    },
+  }
+
+  return reader as TDb
+}
+
+async function resolveCrossTenantCapability<
+  TCtx extends object,
+  TArgs extends Record<string, unknown>,
+>(input: {
+  capability: StructuredCrossTenantCapability<TCtx, TArgs, unknown> | undefined
+  ctx: TCtx
+  args: TArgs
+  db: object
+  observe: ObserveFn
+  operationMetadata?: TrellisOperationMetadata
+}): Promise<unknown> {
+  if (!input.capability) return undefined
+
+  const reason = requireNonEmptyReason(input.capability.reason, 'crossTenant.reason')
+  const tables = requireCapabilityTables(input.capability.tables, 'crossTenant.tables')
+  const mode = input.capability.mode ?? 'read'
+  if (mode !== 'read' && mode !== 'write') {
+    throw new Error('crossTenant.mode must be "read" or "write".')
+  }
+  if (mode === 'write' && !input.operationMetadata?.id) {
+    throw new Error('crossTenant write capabilities require an operation-backed handler with `id`.')
+  }
+
+  return await input.capability.access({
+    ctx: input.ctx,
+    args: input.args,
+    db: createCrossTenantDb({
+      db: input.db,
+      mode,
+      reason,
+      tables,
+      observe: input.observe,
+      capability: 'crossTenant',
+      eventName: 'db.cross_tenant.used',
+    }) as never,
+  })
+}
+
+async function resolvePublicWriteCapability<
+  TCtx extends object,
+  TArgs extends Record<string, unknown>,
+>(input: {
+  capability: StructuredPublicWriteCapability<TCtx, TArgs, unknown> | undefined
+  ctx: TCtx
+  args: TArgs
+  db: object
+  observe: ObserveFn
+  lane?: TrellisBackendLane
+  operationMetadata?: TrellisOperationMetadata
+}): Promise<unknown> {
+  if (!input.capability) return undefined
+
+  if (input.lane !== 'public') {
+    throw new Error('publicWrite capabilities are only valid on public mutation handlers.')
+  }
+  const operationId = input.operationMetadata?.id
+  if (!operationId) {
+    throw new Error('publicWrite capabilities require an operation-backed handler with `id`.')
+  }
+  const reason = requireNonEmptyReason(input.capability.reason, 'publicWrite.reason')
+  const tables = requireCapabilityTables(input.capability.tables, 'publicWrite.tables')
+
+  return await input.capability.access({
+    ctx: input.ctx,
+    args: input.args,
+    db: createCrossTenantDb({
+      db: input.db,
+      mode: 'write',
+      reason,
+      tables,
+      observe: input.observe,
+      capability: 'publicWrite',
+      eventName: 'db.public_write.used',
+    }) as never,
+  })
 }
 
 function stripConfirmationToken(args: Record<string, unknown>): Record<string, unknown> {
@@ -1774,7 +2328,10 @@ function createQueryCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx } = await createContextWithRuntime(
+      if (extra.publicWrite) {
+        throw new Error('publicWrite capabilities are only valid on public mutation handlers.')
+      }
+      const { baseCtx, replayClaim } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -1790,19 +2347,37 @@ function createQueryCustomization<
       )
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
-      const db = dbRules ? wrapDatabaseReader(baseCtx, serviceDb, dbRules) : serviceDb
+      const scopedDb = dbRules ? wrapDatabaseReader(baseCtx, serviceDb, dbRules) : serviceDb
+      const db =
+        extra.trellisBackendLane === 'public'
+          ? createPublicSafeDb(scopedDb, options.public)
+          : scopedDb
       const crossTenantDb = crossTenantRules
         ? wrapDatabaseReader(baseCtx, serviceDb, crossTenantRules)
         : serviceDb
+      const crossTenant = await resolveCrossTenantCapability({
+        capability: extra.crossTenant,
+        ctx: baseCtx,
+        args: stripTransportReservedArgs(args),
+        db: crossTenantDb,
+        observe: baseCtx.observe,
+        operationMetadata: extra[trellisOperationMetadataKey],
+      })
       const finalCtx: QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor> = {
         ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>),
-        db: decorateDb(db, rawDb, crossTenantDb, baseCtx.observe),
+        db: decorateDb(db, rawDb),
+        ...(crossTenant === undefined ? {} : { crossTenant }),
       }
 
       return {
         ctx: finalCtx,
         args: {},
-        onSuccess: createOnSuccessHandler(options.onSuccess?.query, finalCtx),
+        onSuccess: createReplayAwareOnSuccess(
+          ctx,
+          replayClaim,
+          createOnSuccessHandler(options.onSuccess?.query, finalCtx),
+        ),
+        onError: createReplayAwareOnError(ctx, replayClaim),
       }
     },
   }
@@ -1833,7 +2408,7 @@ function createMutationCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx } = await createContextWithRuntime(
+      const { baseCtx, replayClaim } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -1849,7 +2424,11 @@ function createMutationCustomization<
       )
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
-      let db = dbRules ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules) : serviceDb
+      const scopedDb = dbRules ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules) : serviceDb
+      let db =
+        extra.trellisBackendLane === 'public'
+          ? createPublicSafeDb(scopedDb, options.public)
+          : scopedDb
       let crossTenantDb = crossTenantRules
         ? wrapDatabaseWriter(baseCtx, serviceDb, crossTenantRules)
         : serviceDb
@@ -1865,15 +2444,39 @@ function createMutationCustomization<
         }).db
       }
 
+      const crossTenant = await resolveCrossTenantCapability({
+        capability: extra.crossTenant,
+        ctx: baseCtx,
+        args: stripTransportReservedArgs(args),
+        db: crossTenantDb,
+        observe: baseCtx.observe,
+        operationMetadata: extra[trellisOperationMetadataKey],
+      })
+      const publicWrite = await resolvePublicWriteCapability({
+        capability: extra.publicWrite,
+        ctx: baseCtx,
+        args: stripTransportReservedArgs(args),
+        db: crossTenantDb,
+        observe: baseCtx.observe,
+        lane: extra.trellisBackendLane,
+        operationMetadata: extra[trellisOperationMetadataKey],
+      })
       const finalCtx: MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor> = {
         ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>),
-        db: decorateDb(db, rawDb, crossTenantDb, baseCtx.observe),
+        db: decorateDb(db, rawDb),
+        ...(crossTenant === undefined ? {} : { crossTenant }),
+        ...(publicWrite === undefined ? {} : { publicWrite }),
       }
 
       return {
         ctx: finalCtx,
         args: {},
-        onSuccess: createOnSuccessHandler(options.onSuccess?.mutation, finalCtx),
+        onSuccess: createReplayAwareOnSuccess(
+          ctx,
+          replayClaim,
+          createOnSuccessHandler(options.onSuccess?.mutation, finalCtx),
+        ),
+        onError: createReplayAwareOnError(ctx, replayClaim),
       }
     },
   }
@@ -1904,7 +2507,7 @@ function createActionCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx } = await createContextWithRuntime(
+      const { baseCtx, replayClaim } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -1923,7 +2526,12 @@ function createActionCustomization<
       return {
         ctx: finalCtx,
         args: {},
-        onSuccess: createOnSuccessHandler(options.onSuccess?.action, finalCtx),
+        onSuccess: createReplayAwareOnSuccess(
+          ctx,
+          replayClaim,
+          createOnSuccessHandler(options.onSuccess?.action, finalCtx),
+        ),
+        onError: createReplayAwareOnError(ctx, replayClaim),
       }
     },
   }
@@ -1948,6 +2556,7 @@ type FullArgsCustomizationResult<
     args: Record<string, unknown>
     result: unknown
   }) => void | Promise<void>
+  onError?: (obj: { ctx: TCtx; args: Record<string, unknown>; error: unknown }) => void | Promise<void>
 }
 
 type FullArgsCustomization<
@@ -2008,13 +2617,20 @@ function createFullArgsCustomBuilder<
           const added = await customInput(ctx as TCtx, rawArgs, extra as TExtra)
           const finalCtx = { ...(ctx as object), ...added.ctx }
           const finalArgs = { ...rawArgs, ...added.args }
-          const result = await (
-            handler as (ctx: unknown, args: Record<string, unknown>) => unknown
-          )(finalCtx, finalArgs)
-          if (added.onSuccess) {
-            await added.onSuccess({ ctx: ctx as TCtx, args: rawArgs, result })
+          try {
+            const result = await (
+              handler as (ctx: unknown, args: Record<string, unknown>) => unknown
+            )(finalCtx, finalArgs)
+            if (added.onSuccess) {
+              await added.onSuccess({ ctx: ctx as TCtx, args: rawArgs, result })
+            }
+            return result
+          } catch (error) {
+            if (added.onError) {
+              await added.onError({ ctx: ctx as TCtx, args: rawArgs, error })
+            }
+            throw error
           }
-          return result
         },
       })
     }
@@ -2027,14 +2643,20 @@ function createFullArgsCustomBuilder<
         const appArgs = omitKeys(allArgs, inputKeys)
         const finalCtx = { ...(ctx as object), ...added.ctx }
         const finalArgs = { ...appArgs, ...added.args }
-        const result = await (handler as (ctx: unknown, args: Record<string, unknown>) => unknown)(
-          finalCtx,
-          finalArgs,
-        )
-        if (added.onSuccess) {
-          await added.onSuccess({ ctx: ctx as TCtx, args: appArgs, result })
+        try {
+          const result = await (
+            handler as (ctx: unknown, args: Record<string, unknown>) => unknown
+          )(finalCtx, finalArgs)
+          if (added.onSuccess) {
+            await added.onSuccess({ ctx: ctx as TCtx, args: appArgs, result })
+          }
+          return result
+        } catch (error) {
+          if (added.onError) {
+            await added.onError({ ctx: ctx as TCtx, args: appArgs, error })
+          }
+          throw error
         }
-        return result
       },
     })
   }) as unknown as TBuilder
@@ -2080,7 +2702,7 @@ type QueryWithBackendLanes<
   TActor,
 > = {
   public: PublicStructuredQueryBuilder<
-    QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor
   >
@@ -2100,7 +2722,7 @@ type MutationWithBackendLanes<
   TActor,
 > = {
   public: PublicStructuredMutationBuilder<
-    MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor
   >
@@ -2209,6 +2831,7 @@ function buildUnsafeFunctions<
   ActionVisibility
 > {
   rejectRemovedCustomRlsOption(options)
+  validatePublicAccessOptions(options.public)
   validateIsolationOptions(options.isolation)
 
   if (!!builders.internalQuery !== !!builders.internalMutation) {
@@ -3014,7 +3637,7 @@ function buildTrellisRuntime<
     explicitUnsafe.query as never,
   ) as unknown as {
     public: PublicStructuredQueryBuilder<
-      QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
       QueryVisibility,
       TActor
     >
@@ -3026,7 +3649,7 @@ function buildTrellisRuntime<
     explicitUnsafe.mutation as never,
   ) as unknown as {
     public: PublicStructuredMutationBuilder<
-      MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
       MutationVisibility,
       TActor
     >
@@ -3039,7 +3662,7 @@ function buildTrellisRuntime<
         explicitUnsafe.internalQuery as never,
       ) as unknown as {
         public: PublicStructuredQueryBuilder<
-          QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
           InternalQueryVisibility,
           TActor
         >
@@ -3053,7 +3676,7 @@ function buildTrellisRuntime<
         explicitUnsafe.internalMutation as never,
       ) as unknown as {
         public: PublicStructuredMutationBuilder<
-          MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
           InternalMutationVisibility,
           TActor
         >

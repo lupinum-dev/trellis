@@ -1,22 +1,20 @@
-import { stampMcpToolSafety } from '#trellis/mcp'
+import { executeOperationRef } from '@lupinum/trellis/backend'
 
 import { api } from '../../../convex/_generated/api'
+import { addNoteOp } from '../../../convex/notes'
 import { createNote } from '../../../shared/schemas/note'
 import { tool } from '../runtime'
 
 const harnessApi = api as any
 
-const createNoteSafety = {
-  kind: 'bounded-write',
-  reason: 'Creates one note explicitly named by args.',
-} as const
-
-export default tool.mutation({
+export default tool.operation(addNoteOp, {
   schema: createNote,
-  call: stampMcpToolSafety(harnessApi.notes.add, createNoteSafety),
-  safety: createNoteSafety,
+  execute: executeOperationRef(addNoteOp, harnessApi.notes.add),
   meta: {
     name: 'create-note',
   },
-  respond: ({ args, result, ok }) => ok({ id: result }, `Created note "${args.title}"`),
+  respond: ({ args, result, ok }) => {
+    const request = args as { title: string }
+    return ok({ id: result }, `Created note "${request.title}"`)
+  },
 })

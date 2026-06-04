@@ -179,6 +179,27 @@ export default defineSchema({
     executePath: v.string(),
   }),
 
+  trustedReplay: defineTable({
+    jti: v.string(),
+    functionRef: v.string(),
+    purpose: v.string(),
+    transport: v.string(),
+    replayMode: v.string(),
+    argsHash: v.string(),
+    subject: v.string(),
+    issuer: v.string(),
+    audience: v.string(),
+    state: v.union(v.literal('claimed'), v.literal('completed'), v.literal('failed')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+    completedAt: v.optional(v.number()),
+    failedAt: v.optional(v.number()),
+    failure: v.optional(v.object({ message: v.string() })),
+  })
+    .index('by_jti', ['jti'])
+    .index('by_expires_at', ['expiresAt']),
+
   // ============================================
   // EXPERIMENT TABLES (trellis-testing branch)
   // ============================================

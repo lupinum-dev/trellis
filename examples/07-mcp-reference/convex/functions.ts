@@ -26,5 +26,8 @@ export const { mutation, query, unsafe } = defineTrellis(
       confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',
     },
+    trustedReplay: {
+      table: 'trustedReplay',
+    },
   },
 )

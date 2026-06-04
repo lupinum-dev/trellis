@@ -1,4 +1,5 @@
 import { defineArgs } from '@lupinum/trellis/args'
+import { operation } from '@lupinum/trellis/app'
 import { can, defineGuard, open } from '@lupinum/trellis/auth'
 import {
   implementOperation,
@@ -125,7 +126,8 @@ export const get = query.public({
   },
 })
 
-export const create = mutation.protected({
+export const createPostOp = operation.mutation({
+  id: 'posts.create',
   args: createPost.args,
   identityForwardingFunctionRef: 'posts:create',
   guard: canCreatePostActor,
@@ -147,6 +149,8 @@ export const create = mutation.protected({
     })
   },
 })
+
+export const create = mutation.protected(createPostOp)
 
 export const update = mutation.protected({
   args: updatePost.args,

@@ -7,9 +7,9 @@
  * identity-forwarding model where a service caller and delegated user flow through the protected
  * root refs themselves.
  */
-import { createError, defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler } from 'h3'
 
-import { readSharedSecretWebhookBody, serverConvexMutation } from '#trellis/server'
+import { serverConvexMutation, verifyHmacWebhookDelivery } from '#trellis/server'
 
 import { internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -32,28 +32,30 @@ function getWebhookSecret(): string {
   return secret
 }
 export default defineEventHandler(async (event) => {
-  const body = await readSharedSecretWebhookBody({
-    // Demo transport boundary: shared route secret only. Add timestamped HMAC verification and a
-    // replay window in production if the sender supports it.
-    signature: event.node.req.headers['x-example-signature'],
+  const delivery = await verifyHmacWebhookDelivery(event, {
+    signatureHeader: 'x-example-signature',
+    timestampHeader: 'x-example-timestamp',
+    deliveryIdHeader: 'x-example-delivery-id',
     secret: getWebhookSecret(),
-    readBody: async () => await readBody<WebhookBody>(event),
-    parse: (value: WebhookBody) => {
-      if (!value.projectId || !value.title) {
+    parse: (value) => {
+      const parsed = JSON.parse(String(value)) as WebhookBody
+      if (!parsed.projectId || !parsed.title) {
         throw createError({
           statusCode: 400,
           message: 'projectId and title are required.',
         })
       }
 
-      return value as Required<Pick<WebhookBody, 'projectId' | 'title'>> & WebhookBody
+      return parsed as Required<Pick<WebhookBody, 'projectId' | 'title'>> & WebhookBody
     },
   })
+  const body = delivery.body
 
   const taskId = await serverConvexMutation(
     event,
     internal.features.tasks.webhooks.createTaskFromWebhookMutation,
     {
+      deliveryId: delivery.id,
       projectId: body.projectId as Id<'projects'>,
       title: body.title,
       priority: body.priority ?? 'medium',

@@ -12,6 +12,20 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: serverConvexQueryMock,
   serverConvexMutation: serverConvexMutationMock,
   serverConvexAction: serverConvexActionMock,
+  transportProof: {
+    server: (input: Record<string, unknown>) => ({ transport: 'server', ...input }),
+    webhook: (input: Record<string, unknown>) => ({ transport: 'webhook', ...input }),
+    mcp: (input: Record<string, unknown>) => ({ transport: 'mcp', ...input }),
+  },
+  operationConfirmation: (input: { jti: string }) => ({
+    mode: 'operation-confirmation',
+    jti: input.jti,
+  }),
+  jtiRedemption: (input: { jti: string }) => ({ mode: 'jti-redemption', jti: input.jti }),
+  domainIdempotency: (input: { key: string; target?: string }) => ({
+    mode: 'domain-idempotency',
+    ...input,
+  }),
 }))
 
 vi.mock('#imports', () => ({
@@ -38,6 +52,11 @@ describe('server entrypoint exports', () => {
     expect(serverApi).toHaveProperty('serverConvexMutation')
     expect(serverApi).toHaveProperty('serverConvexAction')
     expect(serverApi).toHaveProperty('createServerConvexCaller')
+    expect(serverApi).toHaveProperty('transportProof')
+    expect(serverApi).toHaveProperty('domainIdempotency')
+    expect(serverApi).toHaveProperty('verifyHmacWebhookDelivery')
+    expect(serverApi).toHaveProperty('requireDelegationBinding')
+    expect(serverApi).toHaveProperty('assertDelegationBinding')
   })
 
   it('does not expose legacy or MCP-only helper names', () => {
@@ -45,6 +64,7 @@ describe('server entrypoint exports', () => {
     expect(serverApi).not.toHaveProperty('fetchMutation')
     expect(serverApi).not.toHaveProperty('fetchAction')
     expect(serverApi).not.toHaveProperty('defineConvexMcpTool')
+    expect(serverApi).not.toHaveProperty('delegateToUser')
   })
 
   it('creates a caller that defaults to auth:auto', async () => {
@@ -89,16 +109,15 @@ describe('server entrypoint exports', () => {
     )
   })
 
-  it('forwards trusted auth, caller, and actingFor options to each request-scoped call', async () => {
+  it('forwards transport proof auth to request-scoped calls', async () => {
     serverConvexQueryMock.mockResolvedValueOnce({ ok: true })
 
     const event = { __is_event__: true } as never
     const caller = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
     const actingFor = { subject: 'user:u1', reason: 'approved' }
+    const proof = serverApi.transportProof.server({ caller, actingFor })
     const convex = serverApi.createServerConvexCaller(event, {
-      auth: 'trusted',
-      caller,
-      actingFor,
+      auth: proof,
     })
 
     await expect(
@@ -111,25 +130,27 @@ describe('server entrypoint exports', () => {
       event,
       { _path: 'notes:list' },
       { limit: 2 },
-      { auth: 'trusted', caller, actingFor },
+      { auth: proof },
     )
   })
 
-  it('forwards per-call trusted envelope options to request-scoped calls', async () => {
+  it('forwards per-call transport proof options to request-scoped calls', async () => {
     serverConvexMutationMock.mockResolvedValueOnce({ ok: true })
 
     const event = { __is_event__: true } as never
     const caller = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
-    const convex = serverApi.createServerConvexCaller(event, {
-      auth: 'trusted',
+    const baseProof = serverApi.transportProof.server({ caller })
+    const executeProof = serverApi.transportProof.server({
       caller,
+      purpose: 'operation-execute',
+      replay: serverApi.operationConfirmation({ jti: 'confirm-1' }),
+    })
+    const convex = serverApi.createServerConvexCaller(event, {
+      auth: baseProof,
     })
 
     await convex.mutation({ _path: 'notes:delete' } as never, { id: 'n1' } as never, {
-      identityForwardingEnvelope: {
-        purpose: 'operation-execute',
-        jti: 'confirm-1',
-      },
+      auth: executeProof,
     })
 
     expect(serverConvexMutationMock).toHaveBeenCalledWith(
@@ -137,45 +158,19 @@ describe('server entrypoint exports', () => {
       { _path: 'notes:delete' },
       { id: 'n1' },
       {
-        auth: 'trusted',
-        caller,
-        identityForwardingEnvelope: {
-          purpose: 'operation-execute',
-          jti: 'confirm-1',
-        },
+        auth: executeProof,
       },
     )
   })
 
-  it('rejects forwarded principals outside the identity forwarding path', () => {
+  it('does not expose forwarded identity as request-scoped caller options', () => {
     const event = { __is_event__: true } as never
+    const convex = serverApi.createServerConvexCaller(event, {
+      auth: 'auto',
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      actingFor: { subject: 'user:u1', reason: 'approved' },
+    } as never)
 
-    expect(() =>
-      serverApi.createServerConvexCaller(event, {
-        auth: 'auto',
-        caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
-      }),
-    ).toThrow(/only allows forwarded identity on `auth: 'trusted'` calls/)
-  })
-
-  it('requires caller when using identity forwarding', () => {
-    const event = { __is_event__: true } as never
-
-    expect(() =>
-      serverApi.createServerConvexCaller(event, {
-        auth: 'trusted',
-      }),
-    ).toThrow(/requires `caller` on identity forwarding calls/)
-  })
-
-  it('rejects forwarded actingFor outside the identity forwarding path', () => {
-    const event = { __is_event__: true } as never
-
-    expect(() =>
-      serverApi.createServerConvexCaller(event, {
-        auth: 'auto',
-        actingFor: { subject: 'user:u1', reason: 'approved' },
-      }),
-    ).toThrow(/only allows forwarded identity on `auth: 'trusted'` calls/)
+    expect(convex).toHaveProperty('query')
   })
 })

@@ -16,6 +16,7 @@ export {
 } from './domain'
 export { runbooksFeature } from './feature'
 export { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
+export { createRunbookFromWebhookMutation } from './webhooks'
 export {
   runbookBulkDelete,
   runbookCreate,

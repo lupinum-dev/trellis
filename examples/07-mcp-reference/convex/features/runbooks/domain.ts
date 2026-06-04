@@ -1,6 +1,5 @@
 import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
 import { can, deny, loadTenantResource as loadResource, requireRecord } from '@lupinum/trellis/auth'
-import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import {
   createRunbook,
@@ -18,12 +17,6 @@ import { canUpdateRunbook } from './checks'
 import { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
 import { runbookCreate, runbookPublish, runbookRead } from './permissions'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './recordAccess'
-
-function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
-  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
-    reason,
-  })
-}
 
 function toPublicRunbook(runbook: {
   _id: string
@@ -91,41 +84,45 @@ type UpdateRunbookArgs = {
 }
 type LoadedRunbook = { runbook: Doc<'runbooks'> }
 
-export const listPublic = query.unsafe({
-  permit: unsafePermit.permit({
-    kind: 'publicCatalog',
-    reason: 'Expose the public runbook catalog without a workspace appIdentity.',
-    scope: ['runbooks'],
-  }),
+export const listPublic = query.public({
   args: listRunbooks.args,
+  crossTenant: {
+    reason: 'Expose the public runbook catalog without a workspace appIdentity.',
+    tables: ['runbooks'],
+    access: ({ db }) => ({
+      listPublicRunbooks: async () =>
+        await db
+          .query('runbooks')
+          .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
+          .order('desc')
+          .take(50),
+    }),
+  },
   handler: async (ctx) => {
     // Public by design, but still bounded to already-public records and a capped catalog read.
-    const db = escapeIsolation(ctx.db, 'Public runbook catalog intentionally spans all workspaces.')
-    const runbooks = await db
-      .query('runbooks')
-      .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
-      .order('desc')
-      .take(50)
+    const runbooks = await ctx.crossTenant.listPublicRunbooks()
     return runbooks.map(toPublicRunbook)
   },
 })
 
-export const searchPublic = query.unsafe({
-  permit: unsafePermit.permit({
-    kind: 'publicCatalogSearch',
-    reason: 'Search the public runbook catalog across workspaces.',
-    scope: ['runbooks'],
-  }),
+export const searchPublic = query.public({
   args: searchRunbooks.args,
+  crossTenant: {
+    reason: 'Search the public runbook catalog across workspaces.',
+    tables: ['runbooks'],
+    access: ({ db }) => ({
+      listPublicRunbooks: async () =>
+        await db
+          .query('runbooks')
+          .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
+          .order('desc')
+          .take(50),
+    }),
+  },
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
     // Search the same public catalog, but keep the candidate set bounded before local filtering.
-    const db = escapeIsolation(ctx.db, 'Public runbook search intentionally spans all workspaces.')
-    const candidates = await db
-      .query('runbooks')
-      .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
-      .order('desc')
-      .take(50)
+    const candidates = await ctx.crossTenant.listPublicRunbooks()
 
     return candidates
       .filter((runbook: Doc<'runbooks'>) => matchesTerm(runbook, term))
@@ -152,21 +149,22 @@ export const listWorkspaceRunbooksOp = operation.query({
 
 export const listWorkspace = query.protected(listWorkspaceRunbooksOp)
 
-export const get = query.unsafe({
-  permit: unsafePermit.permit({
-    kind: 'publicRunbookRead',
-    reason: 'Read public runbooks before the caller resolves to a workspace appIdentity.',
-    scope: ['runbooks'],
-  }),
+export const get = query.public({
   args: getRunbook.args,
+  crossTenant: {
+    reason: 'Read public runbooks before the caller resolves to a workspace appIdentity.',
+    tables: ['runbooks'],
+    access: ({ db }) => ({
+      getRunbook: async (id: Id<'runbooks'>) => await db.get(id),
+    }),
+  },
   handler: async (ctx, args) => {
     // This query may cross-scopes, but only to read one public runbook before a workspace appIdentity is
     // available. Workspace-only records still fall back to the normal appIdentity checks below.
-    const db = escapeIsolation(ctx.db, 'Reading a public runbook may cross-scope boundaries.')
-    const runbook = await db.get(args.id as Id<'runbooks'>)
+    const runbook = await ctx.crossTenant.getRunbook(args.id as Id<'runbooks'>)
     if (!runbook) return null
 
-    const appIdentity = await getAppIdentity(ctx)
+    const appIdentity = await ctx.appIdentity()
 
     if (runbook.visibility === 'public') {
       const withCapabilities = publicRunbookCapabilities.attach(appIdentity, {

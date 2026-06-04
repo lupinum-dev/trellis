@@ -205,9 +205,7 @@ while current-workspace project actions stay behind their own feature API.
               <WorkspaceSwitcher
                 :workspaces="accessibleWorkspaces"
                 :current-workspace-id="workspaceId"
-                :seed-loading="seedAgencyPortfolio.pending.value"
                 @switch="handleSwitchWorkspace"
-                @seed="handleSeed"
               />
 
               <MemberList :members="members" />
@@ -267,15 +265,6 @@ const switchWorkspace = useConvexMutation(api.features.workspaces.domain.switchW
   onError: (error) =>
     toast.add({ title: 'Could not switch workspace', description: error.message, color: 'error' }),
 })
-const seedAgencyPortfolio = useConvexMutation(
-  api.features.workspaces.domain.seedAgencyPortfolioMutation,
-  {
-    onSuccess: () => toast.add({ title: 'Agency portfolio seeded', color: 'success' }),
-    onError: (error) =>
-      toast.add({ title: 'Could not seed portfolio', description: error.message, color: 'error' }),
-  },
-)
-
 const workspaceArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: accessibleWorkspaces } = await useConvexQuery(
   api.features.workspaces.domain.listAccessibleWorkspaces,
@@ -322,9 +311,5 @@ async function handleSignOut() {
 
 async function handleSwitchWorkspace(workspaceId: Id<'workspaces'>) {
   await switchWorkspace({ workspaceId })
-}
-
-async function handleSeed() {
-  await seedAgencyPortfolio({})
 }
 </script>

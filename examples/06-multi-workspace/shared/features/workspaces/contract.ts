@@ -20,8 +20,3 @@ export const switchWorkspace = defineArgs({
     workspaceId: v.id('workspaces'),
   },
 })
-
-export const seedAgencyPortfolio = defineArgs({
-  description: 'Seed two demo client workspaces with agency memberships and projects.',
-  args: {},
-})

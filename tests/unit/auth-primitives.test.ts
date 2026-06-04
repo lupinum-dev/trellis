@@ -251,6 +251,63 @@ describe('auth primitives', () => {
     ).toThrow('boom')
   })
 
+  it('rejects non-boolean guard results instead of coercing them', () => {
+    expect(() =>
+      can({}, (async () => false) as unknown as () => boolean),
+    ).toThrow(/Authorization checks must return a boolean\. Received Promise\./)
+
+    expect(() =>
+      enforce({}, 'Invalid guard', (async () => false) as unknown as () => boolean),
+    ).toThrow(/Authorization checks must return a boolean\. Received Promise\./)
+
+    expect(() => can({}, (() => ({ allowed: true })) as unknown as () => boolean)).toThrow(
+      /Authorization checks must return a boolean\. Received object\./,
+    )
+
+    expect(() => can({}, (() => 'true') as unknown as () => boolean)).toThrow(
+      /Authorization checks must return a boolean\. Received string\./,
+    )
+  })
+
+  it('rejects non-boolean results inside composed guards', () => {
+    const asyncFalse = defineGuard<object>(
+      'async-false',
+      (async () => false) as unknown as () => boolean,
+    )
+
+    expect(() => can({}, and(true, asyncFalse))).toThrow(
+      /Authorization checks must return a boolean\. Received Promise\./,
+    )
+    expect(() => can({}, or(false, asyncFalse))).toThrow(
+      /Authorization checks must return a boolean\. Received Promise\./,
+    )
+    expect(() => can({}, asyncFalse.not())).toThrow(
+      /Authorization checks must return a boolean\. Received Promise\./,
+    )
+  })
+
+  it('explains non-boolean permission checks as denied errors', () => {
+    const permission = definePermission({
+      key: 'billing.manage',
+      check: defineGuard(
+        'async-false',
+        (async () => false) as unknown as () => boolean,
+      ),
+    })
+
+    expect(explainPermission({}, permission)).toMatchObject({
+      decision: 'denied',
+      check: {
+        label: 'async-false',
+        decision: 'denied',
+        error: {
+          name: 'TypeError',
+          message: expect.stringContaining('Authorization checks must return a boolean'),
+        },
+      },
+    })
+  })
+
   it('requireRecord throws ConvexError with NOT_FOUND code', () => {
     expect(() => requireRecord(null)).toThrow()
     expect(() => requireRecord(undefined)).toThrow()

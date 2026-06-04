@@ -14,6 +14,9 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: serverConvexQueryMock,
   serverConvexMutation: serverConvexMutationMock,
   serverConvexAction: serverConvexActionMock,
+  transportProof: {
+    mcp: (input: Record<string, unknown>) => ({ transport: 'mcp', ...input }),
+  },
 }))
 
 vi.mock('#imports', () => ({
@@ -101,8 +104,8 @@ describe('createMcpConvexCaller', () => {
     })
 
     await convex.mutation({ _path: 'todos:create' } as never, { title: 'Hello' } as never, {
-      identityForwardingEnvelope: {
-        purpose: 'mutation',
+      replay: {
+        mode: 'jti-redemption',
         jti: 'call-1',
       },
     })
@@ -112,13 +115,15 @@ describe('createMcpConvexCaller', () => {
       { _path: 'todos:create' },
       { title: 'Hello' },
       {
-        auth: 'trusted',
-        caller,
-        actingFor,
-        identityForwardingKey: 'explicit-forwarding-key',
-        identityForwardingEnvelope: {
-          purpose: 'mutation',
-          jti: 'call-1',
+        auth: {
+          transport: 'mcp',
+          caller,
+          actingFor,
+          identityForwardingKey: 'explicit-forwarding-key',
+          replay: {
+            mode: 'jti-redemption',
+            jti: 'call-1',
+          },
         },
       },
     )
@@ -143,9 +148,11 @@ describe('createMcpConvexCaller', () => {
       { _path: 'todos:sync' },
       {},
       {
-        auth: 'trusted',
-        caller,
-        identityForwardingKey: 'canonical-forwarding-key',
+        auth: {
+          transport: 'mcp',
+          caller,
+          identityForwardingKey: 'canonical-forwarding-key',
+        },
       },
     )
   })
@@ -171,9 +178,11 @@ describe('createMcpConvexCaller', () => {
       { _path: 'todos:sync' },
       {},
       {
-        auth: 'trusted',
-        caller,
-        identityForwardingKey: 'integration-forwarding-key',
+        auth: {
+          transport: 'mcp',
+          caller,
+          identityForwardingKey: 'integration-forwarding-key',
+        },
       },
     )
   })

@@ -2,18 +2,15 @@
  * Tenant-isolation integration surface.
  *
  * These handlers exist to exercise three distinct trust levels that
- * `defineTrellis` exposes on `ctx.db`:
+ * `defineTrellis` exposes:
  *
  * - `ctx.db`              — default; RLS + isolation enforced. Writes
  *                           and reads for other tenants are blocked.
- * - `ctx.db.escapeIsolation({ reason })`
- *                         — bypasses isolation only. Service rules
- *                           and triggers still apply. Must emit
- *                           `db.escape_isolation.used` on use.
+ * - `crossTenant`         — definition-visible named capability. The handler
+ *                           receives narrow methods, not a generic DB escape.
  * - `query.unsafe(...)`   — bypasses the protected handler pipeline, but plain
  *                           `ctx.db` still keeps isolation unless the
- *                           handler explicitly calls
- *                           `ctx.db.escapeIsolation({ reason })`.
+ *                           handler uses a reviewed capability.
  *
  * The `posts` table in this harness is configured to participate in
  * isolation via `organizationId` (see ./functions.ts). Tests in
@@ -37,31 +34,42 @@ const getPostArgs = defineArgs({
 })
 
 /**
- * Read a post across-scopes using the explicit isolation escape seam.
+ * Read a post across scopes using an explicit named cross-tenant capability.
  *
  * In contrast to `posts.get`, this handler does not manually check
  * `appIdentity.workspaceId === post.organizationId`. The runtime's cross-scope
- * db exposes the post regardless of the appIdentity's tenant.
+ * capability exposes the post regardless of the appIdentity's tenant.
  */
 export const getAnyPost = query.protected({
   args: getPostArgs.args,
   guard: authed,
+  crossTenant: {
+    reason: 'Harness cross-scope post lookup.',
+    tables: ['posts'],
+    access: ({ db }) => ({
+      getPost: async (id: string) => await db.get(id as never),
+    }),
+  },
   handler: async (ctx, args) => {
-    return await ctx.db.escapeIsolation({ reason: 'Harness cross-scope post lookup.' }).get(args.id)
+    return await ctx.crossTenant.getPost(args.id)
   },
 })
 
 /**
- * List all posts across all tenants using `ctx.db.escapeIsolation({ reason })`.
+ * List all posts across all tenants using an explicit named capability.
  */
 export const listAllPosts = query.protected({
   args: {},
   guard: authed,
+  crossTenant: {
+    reason: 'Harness cross-scope post listing.',
+    tables: ['posts'],
+    access: ({ db }) => ({
+      listPosts: async () => await db.query('posts' as never).collect(),
+    }),
+  },
   handler: async (ctx) => {
-    return await ctx.db
-      .escapeIsolation({ reason: 'Harness cross-scope post listing.' })
-      .query('posts')
-      .collect()
+    return await ctx.crossTenant.listPosts()
   },
 })
 

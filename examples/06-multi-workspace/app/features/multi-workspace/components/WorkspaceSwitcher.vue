@@ -23,22 +23,6 @@
       </UButton>
     </div>
 
-    <div class="mt-3">
-      <UButton
-        color="neutral"
-        variant="ghost"
-        leading-icon="i-lucide-database"
-        size="sm"
-        :loading="seedLoading"
-        @click="$emit('seed')"
-      >
-        Seed agency portfolio
-      </UButton>
-      <p class="mt-1 text-xs text-muted">
-        Creates two demo client workspaces and assigns you as agency_manager, so the agency
-        portfolio card appears below.
-      </p>
-    </div>
   </UCard>
 </template>
 
@@ -48,12 +32,10 @@ import type { Id } from '~~/convex/_generated/dataModel'
 defineProps<{
   workspaces: Array<{ workspaceId: Id<'workspaces'>; name: string; role: string }> | null
   currentWorkspaceId: string | null
-  seedLoading?: boolean
 }>()
 
 defineEmits<{
   switch: [workspaceId: Id<'workspaces'>]
-  seed: []
 }>()
 
 function roleBadgeColor(role: string) {

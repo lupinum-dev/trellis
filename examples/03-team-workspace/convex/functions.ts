@@ -5,6 +5,7 @@ import { mutation as generatedMutation, query as generatedQuery } from './_gener
 import { actingFor } from './auth/actingFor'
 import { getAppIdentityFromCaller } from './auth/appIdentity'
 import { caller } from './auth/caller'
+import { services } from './auth/services'
 import { sharedTables, tenantTables } from './features'
 
 const isolatedTables = [...tenantTables] as TableNames[]
@@ -16,6 +17,7 @@ export const { mutation, query, unsafe } = defineTrellis(
     caller,
     actingFor,
     appIdentity: getAppIdentityFromCaller,
+    services,
     isolation: {
       tables: isolatedTables,
       sharedTables: explicitlySharedTables,
@@ -23,6 +25,9 @@ export const { mutation, query, unsafe } = defineTrellis(
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',
+    },
+    trustedReplay: {
+      table: 'trustedReplay',
     },
   },
 )

@@ -32,5 +32,8 @@ export const { mutation, query, unsafe } = defineTrellis(
         scopeKey: async (ctx) => String((await requirePreviewIdentity(ctx)).workspaceId),
       },
     },
+    trustedReplay: {
+      table: 'trustedReplay',
+    },
   },
 )

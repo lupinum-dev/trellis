@@ -19,6 +19,8 @@ type BoundUser = Pick<
 >
 type McpKeyDoc = Doc<'mcpKeys'>
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type ReadDb = Pick<QueryCtx['db'], 'get' | 'query'>
+type HashIndexQuery = { eq: (field: 'hash', value: string) => unknown }
 type KeyUsability = 'usable' | 'revoked' | 'bound_user_missing' | 'bound_user_workspace_mismatch'
 type WorkspaceQueryCtx = QueryCtx & {
   workspaceId: Id<'workspaces'>
@@ -38,7 +40,11 @@ type RevokeMcpKeyArgs = { id: Id<'mcpKeys'> }
 type ValidateMcpKeyArgs = { hash: string }
 
 async function getBoundUser(ctx: Ctx, boundUserId: Id<'users'>): Promise<BoundUser | null> {
-  const user = await ctx.db.get(boundUserId)
+  return await getBoundUserFromDb(ctx.db, boundUserId)
+}
+
+async function getBoundUserFromDb(db: ReadDb, boundUserId: Id<'users'>): Promise<BoundUser | null> {
+  const user = await db.get(boundUserId)
 
   return user ?? null
 }
@@ -164,47 +170,65 @@ export const validateMcpKeyOp = operation.query({
   args: {
     hash: createMcpKey.args.hash,
   },
-  handler: async (ctx: QueryCtx, args: ValidateMcpKeyArgs) => {
-    const key = await ctx.db
-      .query('mcpKeys')
-      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
-      .first()
+  crossTenant: {
+    reason: 'Validate MCP bearer keys before an appIdentity exists for the MCP request.',
+    tables: ['mcpKeys', 'users'],
+    access: ({ db, args }) => ({
+      validateKey: async () => {
+        const key = await db
+          .query('mcpKeys')
+          .withIndex('by_hash', (q: HashIndexQuery) => q.eq('hash', args.hash))
+          .first()
 
-    if (!key || key.status !== 'active') return null
-    const boundUser = await getBoundUser(ctx, key.boundUserId)
-    if (!boundUser?.workspaceId || boundUser.workspaceId !== key.boundWorkspaceId) return null
+        if (!key || key.status !== 'active') return null
+        const boundUser = await getBoundUserFromDb(db, key.boundUserId)
+        if (!boundUser?.workspaceId || boundUser.workspaceId !== key.boundWorkspaceId) return null
 
-    return {
-      id: key._id,
-      role: boundUser.role,
-      userId: boundUser._id,
-      workspaceId: boundUser.workspaceId,
-      lastUsedAt: key.lastUsedAt ?? null,
-    }
+        return {
+          id: key._id,
+          role: boundUser.role,
+          userId: boundUser._id,
+          workspaceId: boundUser.workspaceId,
+          lastUsedAt: key.lastUsedAt ?? null,
+        }
+      },
+    }),
+  },
+  handler: async (ctx) => {
+    return await ctx.crossTenant.validateKey()
   },
 })
 
 export const validate = query.public(validateMcpKeyOp)
 
-export const touchMcpKeyOp = operation.mutation({
+export const touchMcpKeyOp = operation.publicMutation({
   id: 'mcpKeys.touch',
   args: {
     hash: v.string(),
   },
-  handler: async (ctx: MutationCtx, args: ValidateMcpKeyArgs) => {
-    const key = await ctx.db
-      .query('mcpKeys')
-      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
-      .first()
-    if (!key || key.status !== 'active') return
+  publicWrite: {
+    reason: 'Update MCP key last-used metadata for a validated bearer key.',
+    tables: ['mcpKeys'],
+    access: ({ db, args }) => ({
+      touchKey: async () => {
+        const key = await db
+          .query('mcpKeys')
+          .withIndex('by_hash', (q: HashIndexQuery) => q.eq('hash', args.hash))
+          .first()
+        if (!key || key.status !== 'active') return
 
-    const now = Date.now()
-    const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
-    if (now - lastUsedAt < TOUCH_DEBOUNCE_MS) return
+        const now = Date.now()
+        const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
+        if (now - lastUsedAt < TOUCH_DEBOUNCE_MS) return
 
-    await ctx.db.patch(key._id, {
-      lastUsedAt: now,
-    })
+        await db.patch(key._id, {
+          lastUsedAt: now,
+        })
+      },
+    }),
+  },
+  handler: async (ctx) => {
+    await ctx.publicWrite.touchKey()
   },
 })
 

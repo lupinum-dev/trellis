@@ -58,11 +58,13 @@ describe('mcp entrypoint exports', () => {
   it('does not surface low-level helpers from the top-level entrypoint', () => {
     expect(mcpApi).not.toHaveProperty('defineMcpTool')
     expect(mcpApi).not.toHaveProperty('defineTool')
+    expect(mcpApi).not.toHaveProperty('stampMcpToolSafety')
+    expect(mcpApi).not.toHaveProperty('trellisMcpToolSafetyKey')
   })
 
-  it('exposes low-level helpers under the advanced subpath', () => {
+  it('exposes toolkit-level helpers under the advanced subpath', () => {
     expect(advancedApi).toHaveProperty('defineMcpTool')
-    expect(advancedApi).toHaveProperty('defineTool')
+    expect(advancedApi).not.toHaveProperty('defineTool')
   })
 
   it('exports toolkit primitives and envelope helpers', () => {

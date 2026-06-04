@@ -21,4 +21,13 @@ export const runbookTables = {
     .index('by_visibility', ['visibility'])
     .index('by_workspace_visibility', ['workspaceId', 'visibility'])
     .index('by_owner', ['ownerId']),
+
+  runbookWebhookDeliveries: defineTable({
+    deliveryId: v.string(),
+    workspaceId: v.id('workspaces'),
+    runbookId: v.id('runbooks'),
+    createdAt: v.number(),
+  })
+    .index('by_delivery_id', ['deliveryId'])
+    .index('by_workspace_delivery', ['workspaceId', 'deliveryId']),
 }

@@ -77,10 +77,10 @@ export const listPublishedPagesOp = operation.query({
   returns: v.array(publishedPageValidator),
   identityForwardingFunctionRef: 'features/pages/domain:listPublished',
   identityForwardingTransport: 'bridge',
-  handler: async (ctx: QueryCtx) => {
+  handler: async (ctx) => {
     const pages = await ctx.db
       .query('pages')
-      .withIndex('by_status', (q) => q.eq('status', 'published'))
+      .withIndex('by_status', (q: any) => q.eq('status', 'published'))
       .order('desc')
       .collect()
 
@@ -96,10 +96,10 @@ export const getPublishedPageOp = operation.query({
   returns: v.union(publishedPageValidator, v.null()),
   identityForwardingFunctionRef: 'features/pages/domain:getPublished',
   identityForwardingTransport: 'bridge',
-  handler: async (ctx: QueryCtx, args: GetPublishedPageArgs) => {
+  handler: async (ctx, args: GetPublishedPageArgs) => {
     const page = await ctx.db
       .query('pages')
-      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q: any) => q.eq('slug', args.slug))
       .unique()
 
     if (!page || page.status !== 'published') return null

@@ -37,6 +37,14 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: vi.fn(),
   serverConvexMutation: vi.fn(),
   serverConvexAction: vi.fn(),
+  transportProof: {
+    mcp: (input: Record<string, unknown>) => ({ transport: 'mcp', ...input }),
+  },
+  operationConfirmation: (input: { jti: string }) => ({
+    mode: 'operation-confirmation',
+    jti: input.jti,
+  }),
+  jtiRedemption: (input: { jti: string }) => ({ mode: 'jti-redemption', jti: input.jti }),
 }))
 
 function deletePostPreview(extra?: { version?: unknown }) {
@@ -219,6 +227,23 @@ describe('defineTool visibility and auth parity', () => {
     ).resolves.toBe(true)
   })
 
+  it('rejects non-boolean MCP check results during discovery', async () => {
+    const tool = defineTool({
+      schema: emptySchema,
+      effect: 'read',
+      name: 'invalid-check-tool',
+      auth: 'required',
+      check: (async () => ({ allowed: true })) as unknown as (appIdentity: {
+        role: string
+      }) => boolean,
+      handler: async (_args, ctx) => ctx.ok({ ok: true }),
+    })
+
+    await expect(
+      tool.enabled?.(createEvent({ role: 'member', userId: 'member-1', workspaceId: 'org-1' })),
+    ).rejects.toThrow(/MCP tool checks must return a boolean\. Received object\./)
+  })
+
   it('hides scoped tools when the appIdentity has no workspaceId', async () => {
     const tool = defineTool({
       schema: scopedSchema,
@@ -260,6 +285,35 @@ describe('defineTool visibility and auth parity', () => {
         error: {
           category: 'auth',
           message: 'Forbidden.',
+        },
+      },
+    })
+  })
+
+  it('rejects invalid MCP check results before handler execution', async () => {
+    const handler = vi.fn(async (_args, ctx) => ctx.ok({ ok: true }))
+    const tool = defineTool({
+      schema: emptySchema,
+      effect: 'read',
+      name: 'invalid-handler-check-tool',
+      auth: 'required',
+      check: (() => 'true') as unknown as (appIdentity: { role: string }) => boolean,
+      handler,
+    })
+
+    useEventMock.mockReturnValue(
+      createEvent({ role: 'member', userId: 'member-1', workspaceId: 'org-1' }),
+    )
+
+    const result = await tool.handler({} as never, {} as never)
+
+    expect(handler).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: {
+        ok: false,
+        error: {
+          message: expect.stringContaining('MCP tool checks must return a boolean'),
         },
       },
     })
@@ -375,9 +429,11 @@ describe('defineMcpApp middleware forwarding', () => {
       }),
       callConvex: async (event, caller) =>
         createServerConvexCaller(event, {
-          auth: 'trusted',
-          caller: caller.caller,
-          ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
+          auth: {
+            transport: 'mcp',
+            caller: caller.caller,
+            ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
+          } as never,
         }),
     })
 
@@ -407,14 +463,16 @@ describe('defineMcpApp middleware forwarding', () => {
         id: 'runbook_1',
       },
       {
-        auth: 'trusted',
-        caller: {
-          kind: 'agent',
-          agentId: 'assistant-bot',
-          subject: 'agent:assistant-bot',
-        },
-        actingFor: {
-          subject: 'user:user_1',
+        auth: {
+          transport: 'mcp',
+          caller: {
+            kind: 'agent',
+            agentId: 'assistant-bot',
+            subject: 'agent:assistant-bot',
+          },
+          actingFor: {
+            subject: 'user:user_1',
+          },
         },
       },
     )
@@ -1213,8 +1271,9 @@ describe('Destructive confirmation payload validation', () => {
 
     expect(executedArgs).toEqual({ id: 'post-1' })
     expect(executeCallOptions).toMatchObject({
-      identityForwardingEnvelope: {
-        purpose: 'operation-execute',
+      purpose: 'operation-execute',
+      replay: {
+        mode: 'operation-confirmation',
         jti: expect.any(String),
       },
     })
@@ -1316,9 +1375,11 @@ describe('Destructive confirmation payload validation', () => {
       resolveActingFor: async () => actingFor,
       callConvex: async (event, caller) =>
         createServerConvexCaller(event, {
-          auth: 'trusted',
-          caller: caller.caller,
-          ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
+          auth: {
+            transport: 'mcp',
+            caller: caller.caller,
+            ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
+          } as never,
         }),
       scopeKey: () => 'global',
     })
@@ -1349,12 +1410,12 @@ describe('Destructive confirmation payload validation', () => {
       preview,
       { id: 'post-1' },
       {
-        auth: 'trusted',
-        caller,
-        actingFor,
-        identityForwardingEnvelope: {
-          purpose: 'operation-preview',
+        auth: {
+          transport: 'mcp',
+          caller,
+          actingFor,
         },
+        purpose: 'operation-preview',
       },
     )
     expect(serverConvexMutation).toHaveBeenCalledWith(
@@ -1365,9 +1426,15 @@ describe('Destructive confirmation payload validation', () => {
         _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
       },
       {
-        auth: 'trusted',
-        caller,
-        actingFor,
+        auth: {
+          transport: 'mcp',
+          caller,
+          actingFor,
+        },
+        replay: {
+          mode: 'operation-confirmation',
+          jti: previewResult.structuredContent?.preview?.confirmation?.token,
+        },
       },
     )
   })

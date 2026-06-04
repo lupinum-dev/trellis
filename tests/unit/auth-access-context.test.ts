@@ -69,6 +69,25 @@ describe('access context primitives', () => {
     })
   })
 
+  it('rejects non-boolean permission projection results', async () => {
+    const query = defineAccessContext({
+      resolve: async () => ({ userId: 'alice', role: 'member' }),
+      permissions: [
+        definePermission({
+          key: 'async.permission',
+          check: defineGuard(
+            'async.permission',
+            (async () => false) as unknown as () => boolean,
+          ),
+        }),
+      ],
+    })
+
+    await expect(query.handler({})).rejects.toThrow(
+      /Authorization checks must return a boolean\. Received Promise\./,
+    )
+  })
+
   it('returns a public definition that app.query can consume directly', async () => {
     const query = defineAccessContext({
       resolve: async () => ({

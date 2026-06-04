@@ -28,22 +28,21 @@ export {
 
 export {
   canonicalizeForwardingArgs,
-  createIdentityForwardingEnvelope,
   hashForwardingArgs,
   IdentityForwardingEnvelopeError,
-  verifyIdentityForwardingEnvelope,
 } from '../identity-forwarding/envelope.js'
 export {
-  clearIdentityForwardingContext,
   createIdentityForwardingEnvelopeArgs,
   extractSubject,
   getForwardedActingFor,
   getForwardedCaller,
   getIdentityForwarding,
   getIdentityForwardingKeyProductionIssue,
-  setIdentityForwardingContext,
-  withIdentityForwarding,
 } from '../identity-forwarding/index.js'
+export {
+  assertDelegationBinding,
+  requireDelegationBinding,
+} from '../identity-forwarding/delegation-binding.js'
 
 export type {
   AppIdentityAccessor,
@@ -97,3 +96,8 @@ export type {
   IdentityForwardingTransport,
   VerifyIdentityForwardingEnvelopeOptions,
 } from '../identity-forwarding/envelope.js'
+export type {
+  DelegationBinding,
+  DelegationBindingExpectation,
+  RequireDelegationBindingOptions,
+} from '../identity-forwarding/delegation-binding.js'

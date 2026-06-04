@@ -187,6 +187,15 @@ export type MutationOperationDefinition<TDefinition extends AppOperationShape = 
     safety?: Exclude<McpWriteSafety, 'destructive-write'>
   }
 
+export type PublicMutationOperationDefinition<
+  TDefinition extends AppOperationShape = AppOperationShape,
+> = BaseAppOperationDefinition<TDefinition> & {
+  id: string
+  publicWrite: NonNullable<TDefinition['publicWrite']>
+  kind?: never
+  safety?: Exclude<McpWriteSafety, 'destructive-write'>
+}
+
 export type DestructiveOperationDefinition<
   TDefinition extends AppOperationShape = AppOperationShape,
 > = Omit<BaseAppOperationDefinition<TDefinition>, 'id'> & {
@@ -223,6 +232,15 @@ function defineMutationOperation<const TDefinition extends MutationOperationDefi
   } as never) as AppOperationResult<TDefinition, 'safe'>
 }
 
+function definePublicMutationOperation<const TDefinition extends PublicMutationOperationDefinition>(
+  definition: TDefinition,
+): AppOperationResult<TDefinition, 'safe'> {
+  return defineOperation({
+    ...applyWorkspaceScope(definition),
+    kind: 'safe',
+  } as never) as AppOperationResult<TDefinition, 'safe'>
+}
+
 function defineDestructiveOperation<const TDefinition extends DestructiveOperationDefinition>(
   definition: TDefinition,
 ): AppOperationResult<TDefinition, 'destructive'> {
@@ -235,6 +253,7 @@ function defineDestructiveOperation<const TDefinition extends DestructiveOperati
 export const operation = {
   query: defineQueryOperation,
   mutation: defineMutationOperation,
+  publicMutation: definePublicMutationOperation,
   destructive: defineDestructiveOperation,
 }
 

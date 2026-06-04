@@ -10,6 +10,8 @@ import { todoCreate } from './permissions'
 export const processTodoSyncWebhookOp = operation.mutation({
   id: 'todos.process-sync-webhook',
   args: processTodoSyncWebhookContract.args,
+  identityForwardingFunctionRef: 'features/todos/webhooks:processTodoSyncWebhookMutation',
+  identityForwardingTransport: 'webhook',
   guard: todoCreate,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
@@ -20,7 +22,7 @@ export const processTodoSyncWebhookOp = operation.mutation({
       throw deny('Not available.')
     }
 
-    await ensureNotProcessed(ctx.db, 'webhook', args.eventId)
+    await ensureNotProcessed(ctx.db, 'webhook', args.eventId, args.workspaceId)
 
     const todoId = await ctx.db.insert('todos', {
       title: args.title,
@@ -32,7 +34,7 @@ export const processTodoSyncWebhookOp = operation.mutation({
       createdAt: Date.now(),
     })
 
-    await markProcessed(ctx.db, args.eventId, 'webhook')
+    await markProcessed(ctx.db, args.eventId, 'webhook', args.workspaceId)
 
     return todoId
   },

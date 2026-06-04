@@ -645,6 +645,9 @@ importers:
       '@lupinum/trellis':
         specifier: workspace:*
         version: link:../..
+      '@lupinum/trellis-bridge':
+        specifier: workspace:*
+        version: link:../../packages/trellis-bridge
       '@nuxt/ui':
         specifier: ^4.7.1
         version: 4.8.1(@internationalized/date@3.12.2)(@internationalized/number@3.6.7)(@nuxt/content@3.14.0(better-sqlite3@12.10.0)(magicast@0.5.3)(valibot@1.4.1(typescript@6.0.3)))(@tiptap/extensions@3.24.0(@tiptap/core@3.24.0(@tiptap/pm@3.24.0))(@tiptap/pm@3.24.0))(@tiptap/y-tiptap@3.0.4(prosemirror-model@1.25.7)(prosemirror-state@1.4.4)(prosemirror-view@1.41.8)(y-protocols@1.0.7(yjs@13.6.31))(yjs@13.6.31))(change-case@5.4.4)(db0@0.3.4(better-sqlite3@12.10.0))(embla-carousel@8.6.0)(focus-trap@8.2.1)(ioredis@5.11.0)(magicast@0.5.3)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.0)(typescript@6.0.3)(valibot@1.4.1(typescript@6.0.3))(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-router@5.0.7(@vue/compiler-sfc@3.5.35)(vue@3.5.35(typescript@6.0.3)))(vue@3.5.35(typescript@6.0.3))(yjs@13.6.31)(zod@4.4.3)

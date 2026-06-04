@@ -45,8 +45,12 @@ type RuntimeContext<TCaller, TActingFor, TActor> = {
 type AnyBuilder = (definition: {
   args: PropertyValidators
   returns?: GenericValidator
+  trellisBackendLane?: 'public' | 'protected'
   identityForwardingFunctionRef?: string
-  identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  crossTenant?: unknown
+  publicWrite?: unknown
+  [trellisOperationMetadataKey]?: TrellisOperationMetadata
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
@@ -69,6 +73,8 @@ type AppIdentityForGuard<TActor, TGuard> = TGuard extends OpenGuard
   ? TActor | null
   : NonNullable<TActor>
 
+type CrossTenantDb<_TCtx> = any
+
 type NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard> = Omit<
   TCtx,
   'appIdentity' | 'caller' | 'actingFor'
@@ -76,6 +82,27 @@ type NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard> = Omit<
   caller: () => Promise<CallerForGuard<TCaller, TGuard>>
   actingFor: () => Promise<TActingFor | null>
   appIdentity: () => Promise<AppIdentityForGuard<TActor, TGuard>>
+}
+
+type CtxWithCrossTenant<TCtx, TCrossTenant> = [TCrossTenant] extends [undefined]
+  ? TCtx
+  : TCtx & { crossTenant: TCrossTenant }
+
+type CtxWithCapabilities<TCtx, TCrossTenant, TPublicWrite> = [TPublicWrite] extends [undefined]
+  ? CtxWithCrossTenant<TCtx, TCrossTenant>
+  : CtxWithCrossTenant<TCtx, TCrossTenant> & { publicWrite: TPublicWrite }
+
+export type StructuredCrossTenantCapability<TCtx, TArgs, TCrossTenant> = {
+  reason: string
+  tables: readonly string[]
+  mode?: 'read' | 'write'
+  access: (input: { ctx: TCtx; args: TArgs; db: CrossTenantDb<TCtx> }) => MaybePromise<TCrossTenant>
+}
+
+export type StructuredPublicWriteCapability<TCtx, TArgs, TPublicWrite> = {
+  reason: string
+  tables: readonly string[]
+  access: (input: { ctx: TCtx; args: TArgs; db: CrossTenantDb<TCtx> }) => MaybePromise<TPublicWrite>
 }
 
 type LoadFn<
@@ -86,8 +113,17 @@ type LoadFn<
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
+  TCrossTenant,
+  TPublicWrite,
 > = Callback<
-  [NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>, HandlerArgs<TArgsValidator>],
+  [
+    CtxWithCapabilities<
+      NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+      TCrossTenant,
+      TPublicWrite
+    >,
+    HandlerArgs<TArgsValidator>,
+  ],
   MaybePromise<TLoaded>
 >
 
@@ -99,6 +135,8 @@ type AuthorizeConfig<
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
+  TCrossTenant,
+  TPublicWrite,
 > = {
   label?: string
   /**
@@ -113,7 +151,11 @@ type AuthorizeConfig<
     appIdentity: AppIdentityForGuard<TActor, TGuard>,
     loaded: TLoaded,
     args: HandlerArgs<TArgsValidator>,
-    ctx: NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+    ctx: CtxWithCapabilities<
+      NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+      TCrossTenant,
+      TPublicWrite
+    >,
   ) => MaybePromise<AnyCheck<AppIdentityForGuard<TActor, TGuard>>>
 }
 
@@ -125,10 +167,22 @@ type AuthorizeShorthand<
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
+  TCrossTenant,
+  TPublicWrite,
 > =
   | Guard<AppIdentityForGuard<TActor, TGuard>>
   | boolean
-  | AuthorizeConfig<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>['check']
+  | AuthorizeConfig<
+      TCtx,
+      TCaller,
+      TActingFor,
+      TActor,
+      TGuard,
+      TArgsValidator,
+      TLoaded,
+      TCrossTenant,
+      TPublicWrite
+    >['check']
 
 type HandlerDefinition<
   TCtx,
@@ -139,16 +193,66 @@ type HandlerDefinition<
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
 > = {
   args: TArgsValidator
   returns?: GenericValidator
   guard: TGuard
-  load?: LoadFn<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>
+  crossTenant?: StructuredCrossTenantCapability<
+    NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+    HandlerArgs<TArgsValidator>,
+    TCrossTenant
+  >
+  publicWrite?: StructuredPublicWriteCapability<
+    NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+    HandlerArgs<TArgsValidator>,
+    TPublicWrite
+  >
+  load?: LoadFn<
+    TCtx,
+    TCaller,
+    TActingFor,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TCrossTenant,
+    TPublicWrite
+  >
   authorize?:
-    | AuthorizeConfig<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>
-    | AuthorizeShorthand<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>
+    | AuthorizeConfig<
+        TCtx,
+        TCaller,
+        TActingFor,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded,
+        TCrossTenant,
+        TPublicWrite
+      >
+    | AuthorizeShorthand<
+        TCtx,
+        TCaller,
+        TActingFor,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded,
+        TCrossTenant,
+        TPublicWrite
+      >
   handler: Callback<
-    [NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>, HandlerArgs<TArgsValidator>, TLoaded],
+    [
+      CtxWithCapabilities<
+        NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+        TCrossTenant,
+        TPublicWrite
+      >,
+      HandlerArgs<TArgsValidator>,
+      TLoaded,
+    ],
     MaybePromise<TResult>
   >
   /**
@@ -156,7 +260,8 @@ type HandlerDefinition<
    * signed identity-forwarding envelopes against this exact Convex function ref.
    */
   identityForwardingFunctionRef?: string
-  identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  trellisBackendLane?: 'public' | 'protected'
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
@@ -173,7 +278,20 @@ export type StructuredHandlerDefinition<
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
-> = HandlerDefinition<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded, TResult>
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
+> = HandlerDefinition<
+  TCtx,
+  TCaller,
+  TActingFor,
+  TActor,
+  TGuard,
+  TArgsValidator,
+  TLoaded,
+  TResult,
+  TCrossTenant,
+  TPublicWrite
+>
 
 function resolveCallerAccessor<TCtx extends object, TCaller>(ctx: TCtx): () => Promise<TCaller> {
   if ('caller' in ctx && typeof ctx.caller === 'function') {
@@ -267,6 +385,8 @@ function normalizeAuthorize<
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
+  TCrossTenant,
+  TPublicWrite,
 >(
   authorize:
     | HandlerDefinition<
@@ -277,10 +397,22 @@ function normalizeAuthorize<
         TGuard extends StructuredGuard<TCaller, TActor> ? TGuard : never,
         TArgsValidator,
         TLoaded,
-        unknown
+        unknown,
+        TCrossTenant,
+        TPublicWrite
       >['authorize']
     | undefined,
-): AuthorizeConfig<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded> | undefined {
+): AuthorizeConfig<
+  TCtx,
+  TCaller,
+  TActingFor,
+  TActor,
+  TGuard,
+  TArgsValidator,
+  TLoaded,
+  TCrossTenant,
+  TPublicWrite
+> | undefined {
   if (!authorize) return undefined
 
   if (typeof authorize === 'boolean' || isGuard(authorize)) {
@@ -298,7 +430,9 @@ function normalizeAuthorize<
         TActor,
         TGuard,
         TArgsValidator,
-        TLoaded
+        TLoaded,
+        TCrossTenant,
+        TPublicWrite
       >['check'],
     }
   }
@@ -330,6 +464,8 @@ function createStructuredBuilder<
     TGuard extends StructuredGuard<TCaller, TActor>,
     TArgsValidator extends PropertyValidators,
     TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
     TResult = unknown,
   >(
     definition: HandlerDefinition<
@@ -340,7 +476,9 @@ function createStructuredBuilder<
       TGuard,
       TArgsValidator,
       TLoaded,
-      TResult
+      TResult,
+      TCrossTenant,
+      TPublicWrite
     >,
   ): ReturnType<TBuilder> {
     const functionRef =
@@ -349,9 +487,15 @@ function createStructuredBuilder<
     const built = builder({
       args: definition.args,
       returns: definition.returns,
+      ...(definition.trellisBackendLane ? { trellisBackendLane: definition.trellisBackendLane } : {}),
       ...(functionRef ? { identityForwardingFunctionRef: functionRef } : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
+        : {}),
+      ...(definition.crossTenant ? { crossTenant: definition.crossTenant } : {}),
+      ...(definition.publicWrite ? { publicWrite: definition.publicWrite } : {}),
+      ...(definition[trellisOperationMetadataKey]
+        ? { [trellisOperationMetadataKey]: definition[trellisOperationMetadataKey] }
         : {}),
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
@@ -446,7 +590,11 @@ function createStructuredBuilder<
           caller as CallerForGuard<TCaller, TGuard>,
           delegationAccessor,
           actorAccessor as () => Promise<AppIdentityForGuard<TActor, TGuard>>,
-        )
+        ) as CtxWithCapabilities<
+          NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+          TCrossTenant,
+          TPublicWrite
+        >
 
         const loaded = (
           definition.load ? await definition.load(handlerCtx, args) : undefined

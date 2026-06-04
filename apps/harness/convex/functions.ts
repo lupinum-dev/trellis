@@ -59,6 +59,9 @@ export const { mutation, query, unsafe } = defineTrellis<
           String((await requirePreviewIdentity(ctx)).workspaceId ?? 'global'),
       },
     },
+    trustedReplay: {
+      table: 'trustedReplay' as never,
+    },
     observability: trellisObservability,
   },
 )

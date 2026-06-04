@@ -14,7 +14,7 @@
       <p class="text-sm">No assigned clients yet.</p>
       <p class="text-xs">
         Join another workspace with the <strong>agency_admin</strong> or
-        <strong>agency_manager</strong> role, or seed the portfolio from the workspace switcher.
+        <strong>agency_manager</strong> role.
       </p>
     </div>
 
