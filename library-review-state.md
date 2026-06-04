@@ -25,8 +25,8 @@ markdown, and verify fixes/regression coverage before calling the review done.
 | S2 | Permissions and protected handler pipeline | guards, permissions, access projection, `guard -> load -> authorize -> handler`, direct Convex calls | Initial detailed review done | Findings F-AUTH-10 through F-AUTH-14 recorded; fix RFC updated |
 | S3 | Tenant isolation and escape hatches | `workspaceScope`, RLS wrappers, service scopes, `escapeIsolation`, static lint/doctor coverage | Initial detailed review done | Findings F-AUTH-05, F-AUTH-08, F-AUTH-09, F-AUTH-15 recorded; fix RFC updated |
 | S4 | Trusted identity forwarding | signed envelopes, replay, `auth: 'trusted'`, `actingFor`, server/MCP/bridge forwarding | Initial detailed review done | Findings F-AUTH-04, F-AUTH-16, and F-AUTH-17 recorded; fix RFC updated |
-| S5 | MCP runtime and tools | bearer auth, tool visibility vs backend denial, operation projection, rate limits, result leaks | Not started | Needs independent MCP-focused review |
-| S6 | Destructive operation safety | preview-confirm-execute, token binding, replay, audit, transport/backend modes | Not started | Needs concurrency/replay review |
+| S5 | MCP runtime and tools | bearer auth, tool visibility vs backend denial, operation projection, rate limits, result leaks | Initial detailed review done | Findings F-AUTH-06, F-AUTH-14, and F-AUTH-18 through F-AUTH-23 recorded; fix RFC updated |
+| S6 | Destructive operation safety | preview-confirm-execute, token binding, replay, audit, transport/backend modes | Initial detailed review done | Findings F-AUTH-24 through F-AUTH-27 recorded; subagent completed |
 | S7 | Server routes and webhooks | H3 routes, webhook helpers, trusted route boundaries, body/signature/idempotency | Not started | Initial auth review found replayable examples |
 | S8 | Examples, starters, and docs | generated fixtures, examples, docs, copied production patterns | Not started | High priority because examples become templates |
 | S9 | Static guardrails | ESLint plugin, doctor, inventory, codegen/preflight checks | Not started | Must prove unsafe patterns fail before runtime |
@@ -54,6 +54,16 @@ markdown, and verify fixes/regression coverage before calling the review done.
 | F-AUTH-15: Shared users table enables cross-tenant enrollment by email | Medium | S3/S8 | Open | `examples/05-visibility-access` marks `users` shared and `enrollKnowledgeBaseUserByEmailOp` inserts enrollment for globally looked-up email without `user.workspaceId` check | Deny cross-workspace users after lookup or query through workspace-bounded membership; add Alpha/Beta negative test |
 | F-AUTH-16: Runtime identity forwarding does not enforce envelope purpose | Medium | S4 | Open | `verifyIdentityForwardingEnvelope()` supports `expectedPurpose`, but `createContextWithRuntime()` does not pass it; probe accepted a `purpose: 'query'` envelope for a mutation function ref | Pass expected purpose from the actual Convex operation/projection and reject per-call purpose overrides that do not match the helper operation |
 | F-AUTH-17: Example 07 trusted webhook create is non-idempotent | Medium | S4/S8 | Open | `server/api/runbook-webhook.post.ts` forwards a trusted create without event/delivery id; `createRunbookOp` inserts unconditionally; no `processedEvents` table exists in example 07 | Require delivery/event id and reject duplicates before inserting, following the example 03 processed-events pattern |
+| F-AUTH-18: Direct MCP mutation tools can omit explicit permissions | Medium | S5/S9 | Open | `accessAllows()` returns true when `permission` is undefined; `createDirectTool()` sets low-level `defineTool({ auth: 'none' })`; direct mutation safety validation checks bounded-write metadata but not authorization intent | Require `permission` for direct `tool.mutation(...)` unless an explicit reviewed public-write permit is supplied; add doctor/static checks and tests |
+| F-AUTH-19: Doctor misses imported server write helpers inside advanced MCP tools | Medium | S5/S9 | Open | `findCustomMcpToolsWithAppWrites()` only matches `ctx.mutation(...)`/`ctx.action(...)` in `defineTool(...)` files, not `serverConvexMutation(...)` or `serverConvexAction(...)` imports | Extend inventory to detect server write helper imports/calls in standalone advanced MCP tools; keep app writes on `defineMcpApp(...).tool.*` lanes |
+| F-AUTH-20: MCP toolkit sessions are not bound to bearer identity | Medium | S5/S8 | Open | `useMcpSession()` scopes storage by caller and `mcp-session-id`, but the toolkit server session itself can resume by session id before Trellis verifies that the bearer matches the original session owner; dynamic session tools only check current `mcpAuth` | Bind MCP session ids to `keyId`/`userId`/`workspaceId` before resume; dynamic tool callbacks should verify the registering caller key |
+| F-AUTH-21: Direct MCP mutation safety can be forged in MCP-layer files | Medium | S5/S9 | Open | `stampMcpToolSafety()` is exported from `@lupinum/trellis/mcp`; examples and starter stamp generated refs inside `server/mcp/tools`, so tool-local code can classify any mutation as `bounded-write` | Move write safety metadata to backend/codegen-owned descriptors or make all writes operation-backed; fail if `stampMcpToolSafety()` appears under MCP tool files |
+| F-AUTH-22: Unexpected backend exception messages are returned to MCP clients | Low/Medium | S5/S11 | Open | `toConvexError()` cleans stack framing but preserves raw error message; `wrapError()` puts the message in both model-visible text and structured content | Redact unexpected server/unknown errors to a generic message plus correlation id; preserve explicit auth/validation/denial messages |
+| F-AUTH-23: Invalid MCP bearer throttling is process-local in examples/starters | Low/Medium | S5/S8/S9 | Open | `mcp-invalid-bearer-throttle.ts` stores attempts in a process-local `Map`; reference/starter middleware runs this before each Convex key validation query | Use a distributed invalid-bearer budget for production MCP bearer auth or make doctor warn/fail when only process-local throttling is present |
+| F-AUTH-24: Transport-confirmed operation-execute replay is not durably redeemed at the backend | High | S6/S5 | Open | `defineMcpApp` redeems transport confirmation tokens in the MCP confirmation store before execute; backend `transportMutation` only requires an `operation-execute` envelope with a non-empty JTI; `assertNoOperationExecuteEnvelopeReplay()` only checks backend confirmation rows, but transport-mode JTIs are not recorded there | Make backend execution redeem or record transport operation-execute JTIs durably before handler execution, or use backend confirmation for all destructive writes |
+| F-AUTH-25: Transport-confirmed destructive executions skip durable audit rows | Medium | S6/S11 | Open | Backend-confirmed destructive mutations insert `destructiveAuditLog`; `transportMutation(...)` only emits `operation.execute.completed` observation after handler success and never inserts the configured audit table | Record durable destructive audit rows for transport executions, including action-backed executions, or make transport mode require an explicit durable audit callback/store |
+| F-AUTH-26: Starter delete examples bypass destructive operation primitives | Medium | S6/S8 | Open | `examples/01-public-todo`, `examples/02-auth-todo`, and `src/cli/starter-fixtures/public` define todo delete as plain `operation.mutation` and export direct mutation deletes | Convert copied starter delete patterns to `operation.destructive` with preview/confirmation, or remove deletes from tiny starters |
+| F-AUTH-27: Some UI examples call destructive execute without preview tokens | Low | S6/S8 | Open | Team workspace and MCP reference UIs call `removeTodo({ id })` / `deleteRunbookMutation({ id })` directly even though backend exposes `previewRemove` and destructive `remove` | Update example UI flows to preview first, display effects/summary, then execute with returned confirmation token |
 
 ## Current Section Notes
 
@@ -189,6 +199,141 @@ Open review questions:
 - What durable store should any mandatory mutation/action JTI redemption use
   without creating an unnecessary second source of truth?
 
+### S5: MCP Runtime and Tools
+
+Files inspected locally:
+
+- `src/runtime/mcp/define-mcp-app.ts`
+- `src/runtime/mcp/define-convex-tool.ts`
+- `src/runtime/mcp/operation-binding.ts`
+- `src/runtime/mcp/create-mcp-convex-caller.ts`
+- `src/runtime/mcp/result-envelope.ts`
+- `src/runtime/mcp/error-normalization.ts`
+- `src/runtime/mcp/rate-limiter.ts`
+- `src/runtime/mcp/use-mcp-session.ts`
+- `src/cli/lib/project.ts`
+- `src/cli/lib/inventory-findings.ts`
+- `examples/07-mcp-reference/server/middleware/mcp-auth.ts`
+- `examples/07-mcp-reference/server/mcp/runtime.ts`
+- `examples/07-mcp-reference/server/mcp/tools/**`
+- `examples/08-component-mini-cms/server/lib/mcp-auth.ts`
+- `examples/08-component-mini-cms/server/mcp/tools/**`
+- `src/cli/starter-fixtures/workspace-mcp/server/**`
+
+Confirmed evidence:
+
+- Canonical `defineMcpApp` tools check recordAccess in both `enabled` and
+  `handler`, then still call backend Convex refs through the same trusted or
+  anonymous caller path. Backend denial is observed as access/backend drift.
+- Operation-backed MCP tools bind execute/preview refs to operation metadata,
+  require preview refs for destructive operations, bind confirmation to caller,
+  scope, operation, execute path, preview path, args hash, and redeem
+  confirmation tokens.
+- Direct mutation tools require bounded-write safety metadata, and backend
+  safety must match the declared safety kind. However, `permission` is optional
+  and `accessAllows(recordAccess, undefined)` returns true, so a direct MCP
+  write can be exposed without an explicit permission unless the backend guard
+  later denies it.
+- The current public MCP surface exports `stampMcpToolSafety()`, and examples
+  stamp refs directly from MCP tool files. That makes the safety declaration
+  author-owned at the transport layer, not backend-owned.
+- Low-level `defineTool` is intentionally under `mcp/advanced` and exposes only
+  `ctx.query`; doctor has a guardrail for `ctx.mutation(...)`/`ctx.action(...)`
+  in standalone advanced tools. The guardrail does not detect imported
+  `serverConvexMutation(...)` or `serverConvexAction(...)` helpers.
+- Example 07's canonical bearer path hashes `mcp_...` tokens before Convex
+  validation, checks revocation/bound user/workspace, delegates permission
+  checks to the bound user, and uses a Redis-backed tool rate-limit store.
+- Example 08 Mini CMS still uses one configured bearer token and grants all
+  write permissions to that agent, which remains F-AUTH-06.
+- `useMcpSession()` scopes session storage by caller hash plus session id, but
+  the underlying toolkit session id is not bound to the bearer identity before
+  dynamic tools can be listed or called.
+- MCP error wrapping avoids mirroring successful object results into the
+  model-visible text channel by default. Unexpected backend errors still return
+  the cleaned raw message to MCP clients.
+- Reference/starter invalid-bearer throttles use a process-local `Map`, while
+  per-tool rate limits have a first-party Redis store and production checks.
+
+Open review questions:
+
+- Should direct `tool.mutation(...)` require a permission always, or allow
+  reviewed public writes behind an explicit unsafe permit?
+- Should `stampMcpToolSafety()` remain public for non-generated refs, or should
+  direct MCP writes only accept backend/codegen-projected descriptors?
+- Can MCP session binding happen before toolkit session resume, or does Trellis
+  need a wrapper middleware around session-bearing MCP requests?
+- Which error categories/codes are safe to expose verbatim to MCP clients, and
+  should unexpected errors include only correlation/request ids?
+- Should invalid-bearer throttling become a Trellis MCP runtime primitive
+  rather than example-owned middleware?
+
+### S6: Destructive Operation Safety
+
+Files inspected locally:
+
+- `src/runtime/mcp/destructive-confirmation.ts`
+- `src/runtime/mcp/define-mcp-app.ts`
+- `src/runtime/functions/confirmation-token.ts`
+- `src/runtime/functions/define-operation.ts`
+- `src/runtime/functions/index.ts`
+- `tests/unit/destructive-confirmation.test.ts`
+- `tests/unit/define-convex-tool.test.ts`
+- `tests/unit/functions-defineTrellis.test.ts`
+- `examples/04-saas-platform/convex/functions.ts`
+- `examples/07-mcp-reference/convex/functions.ts`
+- `examples/08-component-mini-cms/convex/components/miniCms/functions.ts`
+- `examples/08-component-mini-cms/server/mcp/tools/publish-page.ts`
+
+Confirmed evidence:
+
+- Destructive MCP operation tools require preview refs and scope binding.
+- Transport confirmation tokens bind operation id, execute path, preview path,
+  caller key, scope key, full args hash, preview hash, and optional version
+  hash.
+- Transport confirmation validates the stored token, re-runs preview, compares
+  confirm payload and version hashes, then redeems the token before calling the
+  execute ref.
+- Backend-confirmed destructive mutations require a stored confirmation token,
+  strip `_confirmationToken` from business args, re-run load and authorize after
+  confirmation, re-run preview, compare args/preview/version state, patch
+  `redeemedAt`, execute the handler, and insert `destructiveAuditLog`.
+- Backend confirmation rejects operation-execute envelopes whose JTI does not
+  match the stored confirmation JTI.
+- `assertNoOperationExecuteEnvelopeReplay()` rejects operation-execute envelopes
+  only when the backend confirmation table already has a redeemed row with the
+  envelope JTI.
+- Transport-confirmed MCP execution uses the transport confirmation store. The
+  operation-execute JTI sent to the backend is not inserted into the backend
+  confirmation table, so backend replay checks have no durable row to find.
+- Backend `transportMutation(...)` requires an operation-execute envelope with a
+  non-empty JTI, but it does not independently redeem that JTI, re-run preview,
+  or write the configured audit table. Those checks are performed in the MCP
+  transport layer before the backend call.
+- Tests cover replaying a transport confirmation token through MCP, and cover
+  backend rejection when a JTI is already marked redeemed in the backend table.
+  They do not cover replaying the captured backend operation-execute request
+  for a transport-confirmed operation.
+- Early examples and the public starter still teach direct delete mutations
+  rather than the destructive operation primitive.
+- Some later UIs expose destructive backends but call execute without preview
+  tokens, which backend rejects but still teaches the wrong workflow.
+
+Open review questions:
+
+- Should transport confirmation mode be deleted in favor of backend
+  confirmation for destructive writes, or should it get its own backend durable
+  JTI/audit store?
+- For action-backed destructive operations, should the framework record an
+  audit attempt before execute and a completion after execute, since action
+  side effects cannot be transactionally rolled back?
+- Should `transportMutation(...)` re-run preview at the backend, or is a
+  durable operation-execute JTI redemption record enough to make replay safe?
+- Can operation-execute replay protection share the existing destructive
+  confirmation table without adding another source of truth?
+- Should the first two examples avoid delete entirely until destructive
+  operations are introduced, or introduce a tiny preview/confirm UX earlier?
+
 ## Verification Log
 
 | Date | Command | Result | Notes |
@@ -209,13 +354,21 @@ Open review questions:
 | 2026-06-04 | `pnpm exec vitest run --project=unit tests/unit/identity-forwarding-envelope.test.ts tests/unit/identity-forwarding.test.ts tests/unit/server-convex-utils.test.ts tests/unit/server-index-exports.test.ts tests/unit/mcp-convex-caller.test.ts tests/unit/functions-defineTrellis.test.ts` | Passed: 6 files, 104 tests | Baseline covers many envelope checks but not runtime purpose enforcement |
 | 2026-06-04 | `pnpm --dir examples/07-mcp-reference exec vitest run test/mcpReference.test.ts server/api/runbook-webhook.post.test.ts` | Passed: 2 files, 16 tests | Does not cover duplicate webhook delivery/idempotency |
 | 2026-06-04 | S4 forwarding subagent | Completed | Reported targeted forwarding/MCP tests passed: 5 files, 96 tests; component Mini CMS test passed: 1 file, 10 tests |
+| 2026-06-04 | S5 MCP subagent | Completed | Reported MCP session/bearer binding, tool-local safety stamping, backend error leakage, and process-local invalid-bearer throttle findings |
+| 2026-06-04 | `pnpm exec vitest run --project=unit tests/unit/define-convex-tool.test.ts tests/unit/mcp-convex-caller.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/mcp-confirmation-token.test.ts tests/unit/destructive-confirmation.test.ts tests/unit/mcp-invalid-bearer-throttle.test.ts tests/unit/use-mcp-session.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/cli-doctor.test.ts` | Passed: 9 files, 127 tests | MCP runtime/doctor baseline; current tests do not cover F-AUTH-18 through F-AUTH-23 |
+| 2026-06-04 | `pnpm --dir examples/07-mcp-reference exec vitest run test/mcpReference.test.ts server/api/runbook-webhook.post.test.ts` | Passed: 2 files, 16 tests | MCP reference baseline; does not cover session hijack or duplicate webhook delivery |
+| 2026-06-04 | `pnpm --dir examples/08-component-mini-cms exec vitest run test/componentMiniCms.test.ts` | Passed: 1 file, 10 tests | Mini CMS baseline; still accepts static bearer model |
+| 2026-06-04 | `git diff --check` | Passed | Markdown edits have no whitespace errors |
 
 ## Next Actions
 
-1. Review S5 MCP runtime/tool execution, because S2 found operation
-   permission projection drift.
-2. Review S6 destructive operation safety after S5, because S4 depends on
+1. Review S6 destructive operation safety, because S4 and S5 depend on
    operation-execute replay/confirmation semantics.
+2. Review S7 server routes and webhooks, because F-AUTH-02 and F-AUTH-17 are
+   trusted route/template issues.
 3. Add attacker tests during the fix phase for raw DB symbol discovery, async
    guard denial, protected+open rejection, duplicate permission keys, and
    cross-workspace email enrollment denial.
+4. Add MCP attacker tests for session/bearer mismatch, direct mutation without
+   permission, tool-local safety stamping, advanced server write helper bypass,
+   unexpected backend error redaction, and distributed invalid-bearer budgets.

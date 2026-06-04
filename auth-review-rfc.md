@@ -39,6 +39,18 @@ Fix all reviewed issues with hard cutovers:
 15. Block cross-workspace shared-user enrollment by email.
 16. Enforce identity-forwarding envelope purpose at the runtime boundary.
 17. Make the example 07 trusted webhook create idempotent.
+18. Require explicit authorization intent for direct MCP mutation tools.
+19. Extend doctor/static checks for standalone advanced MCP write helpers.
+20. Bind MCP toolkit sessions to the bearer identity.
+21. Move direct MCP write safety metadata out of MCP-layer tool files.
+22. Redact unexpected backend exception messages in MCP responses.
+23. Replace or flag process-local invalid-bearer throttling in MCP examples and
+    starters.
+24. Durably redeem or record transport operation-execute JTIs at the backend.
+25. Write durable audit rows for transport-confirmed destructive executions.
+26. Replace starter direct-delete examples with destructive operations or remove
+    delete from the tiny starters.
+27. Fix example UIs to preview destructive operations before execute.
 
 ## Non-Goals
 
@@ -592,6 +604,303 @@ Acceptance criteria:
 - Static/inventory checks flag trusted webhook routes that perform writes
   without passing an idempotency key.
 
+### F18: Direct MCP Mutation Tools Can Omit Explicit Permissions
+
+Current issue:
+
+- `defineMcpApp().tool.mutation(...)` accepts no `permission`.
+- `accessAllows(recordAccess, undefined)` returns true.
+- Direct mutation safety validation proves bounded-write classification, but it
+  does not prove who may call the write.
+
+Risk:
+
+A public or permissive backend mutation can be exposed as an MCP write without a
+clear permission decision. Backend guards still run when present, but the MCP
+surface no longer proves its own authorization intent.
+
+Decision:
+
+Require explicit authorization intent for direct MCP writes.
+
+Preferred implementation:
+
+- Direct `tool.mutation(...)` requires a permission by default.
+- Reviewed public writes use an explicit unsafe/public-write permit with a
+  reason.
+- Sensitive/destructive/external writes remain operation-backed.
+
+Acceptance criteria:
+
+- A direct MCP mutation without `permission` fails definition-time validation
+  unless it carries the reviewed public-write permit.
+- The reference and starter MCP examples still compile with explicit
+  permissions.
+- Static inventory reports direct MCP writes without permission.
+
+### F19: Advanced MCP Write Guardrail Misses Server Write Helpers
+
+Current issue:
+
+- Doctor detects standalone `defineTool(...)` handlers that call
+  `ctx.mutation(...)` or `ctx.action(...)`.
+- It does not detect imported `serverConvexMutation(...)` or
+  `serverConvexAction(...)` calls from advanced MCP tool files.
+
+Risk:
+
+An advanced MCP tool can perform app writes outside the canonical
+`defineMcpApp(...).tool.mutation(...)` or `tool.operation(...)` lanes while
+passing the current static guardrail.
+
+Decision:
+
+Extend MCP inventory to detect server write helpers in standalone advanced tool
+files.
+
+Acceptance criteria:
+
+- Doctor fails on advanced MCP tools that call `serverConvexMutation(...)` or
+  `serverConvexAction(...)`.
+- Existing allowed standalone advanced tools remain read/session-only unless
+  they move writes to canonical MCP lanes.
+
+### F20: MCP Sessions Are Not Bound To Bearer Identity
+
+Current issue:
+
+- Example 07 enables MCP sessions and dynamic per-session tools.
+- `useMcpSession()` scopes storage by current caller and `mcp-session-id`.
+- The underlying toolkit server session can still resume by session id; Trellis
+  does not bind that session id to the bearer key/user/workspace before dynamic
+  tools are listed or called.
+
+Risk:
+
+If an attacker obtains a victim `mcp-session-id` and has any valid MCP bearer,
+the toolkit can resume the session identity while Trellis authenticates the
+attacker's bearer. Dynamic session-local tools can leak previously registered
+messages or behavior.
+
+Decision:
+
+Bind MCP session ids to the authenticated bearer identity.
+
+Acceptance criteria:
+
+- The first authenticated request for a session id records
+  `keyId`/`userId`/`workspaceId` or a stable caller key.
+- Later requests with the same session id and a different bearer identity fail
+  before dynamic tools are listed or called.
+- Dynamic tool callbacks verify the registering caller key when they expose
+  captured session data.
+
+### F21: Direct MCP Mutation Safety Can Be Forged In Tool Files
+
+Current issue:
+
+- `stampMcpToolSafety()` is exported from the main MCP surface.
+- Reference/starter examples stamp generated refs directly inside
+  `server/mcp/tools`.
+- A tool author can classify any backend mutation as `bounded-write` in the MCP
+  layer.
+
+Risk:
+
+The intended backend-owned safety invariant becomes review-advisory. A
+sensitive write can be down-classified at the transport layer and avoid the
+operation-backed preview/confirm path.
+
+Decision:
+
+Move direct write safety metadata to backend/codegen-owned descriptors, or make
+all MCP writes operation-backed.
+
+Acceptance criteria:
+
+- `stampMcpToolSafety()` is not used in `server/mcp/**` examples/starters.
+- Tool-local stamping cannot satisfy direct mutation safety validation.
+- Doctor fails if MCP tool files stamp write safety locally.
+
+### F22: Unexpected Backend Exception Messages Reach MCP Clients
+
+Current issue:
+
+- `toConvexError()` strips stack framing but preserves raw error messages.
+- `wrapError()` returns that message in both MCP text content and structured
+  error content.
+
+Risk:
+
+Unexpected backend errors can disclose internal details, identifiers, or secret
+fragments to the MCP client/model.
+
+Decision:
+
+Expose raw messages only for safe, explicit categories/codes. Unexpected
+`server`/`unknown` errors should return a generic message plus correlation or
+request id while preserving raw details in observability/logs.
+
+Acceptance criteria:
+
+- A backend `Error("secret=...")` becomes a generic MCP error response.
+- Explicit auth denial, validation, rate-limit, confirmation, and not-found
+  messages remain useful.
+- Observability still contains enough correlation data for debugging.
+
+### F23: Invalid MCP Bearer Throttling Is Process-Local
+
+Current issue:
+
+- Reference and starter invalid-bearer throttles use a process-local `Map`.
+- The throttle runs before Convex key validation, but each process has its own
+  budget.
+
+Risk:
+
+Distributed invalid bearer attempts can still force Convex validation work up
+to the per-process budget on every instance.
+
+Decision:
+
+For production MCP bearer auth, use a distributed invalid-bearer budget or make
+doctor fail/warn when only process-local throttling is present.
+
+Acceptance criteria:
+
+- Two app instances sharing a store enforce one invalid-bearer budget.
+- Production starter/reference configuration warns or fails without a
+  distributed invalid-bearer store.
+- High-entropy token generation remains the primary defense against guessing.
+
+### F24: Transport Operation-Execute JTI Is Not Backend-Redeemed
+
+Current issue:
+
+- Transport-confirmed MCP destructive operations redeem the confirmation token
+  in the MCP confirmation store before calling the backend execute ref.
+- The backend receives a trusted `operation-execute` forwarding envelope with a
+  JTI.
+- Backend replay protection only checks the destructive confirmation table for
+  a redeemed row with that JTI.
+- Transport-mode JTIs are not inserted into that backend table, so the backend
+  has no durable replay state for a captured execute request.
+
+Risk:
+
+If the trusted Convex operation-execute request body is captured, it can be
+replayed within the identity-forwarding TTL without going back through the MCP
+confirmation store. That bypasses the transport-layer redeemed-token check,
+the preview re-run, and preview/version drift checks.
+
+Decision:
+
+Make destructive execute replay protection backend-owned.
+
+Preferred implementation:
+
+- Simplest hard cut: route destructive writes through backend confirmation
+  whenever the backend can own the confirmation row.
+- If transport confirmation remains, `transportMutation(...)` must durably
+  redeem or insert the operation-execute JTI before handler execution, using
+  the same destructive confirmation table or a clearly equivalent single source
+  of truth.
+
+Acceptance criteria:
+
+- Replaying the same trusted `operation-execute` Convex request is denied even
+  when it bypasses MCP transport code.
+- The backend denies operation-execute envelopes whose JTI was already
+  executed.
+- Tests cover direct backend replay of a transport-confirmed execute request.
+- The fix does not create separate, conflicting replay stores for the same
+  operation.
+
+### F25: Transport Destructive Executions Skip Durable Audit Rows
+
+Current issue:
+
+- Backend-confirmed destructive mutations insert rows into
+  `destructiveAuditLog` after successful execution.
+- `transportMutation(...)` executes the handler and emits
+  `operation.execute.completed`, but it does not insert the configured audit
+  table.
+- Action-backed transport executions therefore rely on transient observability
+  instead of durable destructive audit state.
+
+Risk:
+
+The most sensitive transport-confirmed destructive paths can execute without
+the durable audit trail that backend-confirmed destructive mutations provide.
+
+Decision:
+
+Make durable audit a destructive-operation invariant, not a backend-mode-only
+feature.
+
+Acceptance criteria:
+
+- Successful transport-confirmed destructive execution writes an audit row with
+  operation id, JTI, caller key, scope key, args hash, preview hash, executedAt,
+  and execute path.
+- Action-backed transport executions either record a durable attempt and
+  completion or require an explicit durable audit callback/store.
+- Tests prove transport execution creates audit state and replay does not create
+  a second audit row.
+
+### F26: Starter Delete Examples Bypass Destructive Operation Primitives
+
+Current issue:
+
+- The public todo, auth todo, and public starter delete paths are plain
+  `operation.mutation` handlers.
+- They delete records directly without preview, confirmation, token binding,
+  replay protection, or audit.
+
+Risk:
+
+These are small examples, but they are the first patterns users copy. They teach
+that delete is a normal mutation even though later Trellis primitives treat
+destructive work as preview-confirm-execute.
+
+Decision:
+
+Do not teach direct destructive deletes in maintained starter paths.
+
+Acceptance criteria:
+
+- Starter/example delete either uses `operation.destructive` plus `previewOf`
+  and confirmation, or delete is removed from the tiny starter.
+- Direct delete execution without `_confirmationToken` is rejected wherever the
+  delete remains.
+- Preview plus returned confirmation token succeeds.
+
+### F27: Example UIs Execute Destructive Operations Without Preview Tokens
+
+Current issue:
+
+- Some example UIs call destructive execute mutations directly.
+- The backend exposes preview functions and requires confirmation tokens, so the
+  click path is broken and teaches the wrong workflow.
+
+Risk:
+
+This is not a backend bypass because missing tokens are rejected. The risk is
+example drift: users copy a UI flow that cannot safely execute destructive
+operations.
+
+Decision:
+
+Make example UIs follow the same preview-confirm-execute contract as the
+backend.
+
+Acceptance criteria:
+
+- UI delete/publish/archive flows call preview first.
+- The UI displays or otherwise handles preview summary/effects/blockers.
+- Execute calls include the returned confirmation token.
+- Component or integration tests cover the click path.
+
 ## Implementation Plan
 
 ### Phase 1: Remove Concrete Bypasses
@@ -605,6 +914,9 @@ Acceptance criteria:
    example read-only.
 6. Fix cross-workspace enrollment by email.
 7. Add idempotency to the example 07 trusted webhook create path.
+8. Replace direct-delete starter/example mutations with destructive
+   preview-confirm-execute flows, or remove delete from the tiny starters.
+9. Fix example UI delete/archive/publish flows to preview before execute.
 
 Verification:
 
@@ -613,6 +925,9 @@ pnpm --dir examples/06-multi-workspace test
 pnpm --dir examples/05-visibility-access test
 pnpm --dir examples/07-mcp-reference test
 pnpm --dir examples/08-component-mini-cms test
+pnpm --dir examples/01-public-todo test
+pnpm --dir examples/02-auth-todo test
+pnpm --dir examples/03-team-workspace test
 pnpm exec vitest run --project=unit tests/unit/functions-isolation.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/server-boundaries.test.ts tests/unit/example-webhook-security.test.ts tests/unit/mcp-auth-middleware.test.ts
 ```
 
@@ -626,12 +941,24 @@ pnpm exec vitest run --project=unit tests/unit/functions-isolation.test.ts tests
 6. Add duplicate permission key validation and MCP operation permission
    alignment.
 7. Enforce identity-forwarding expected purpose at the runtime boundary.
-8. Add or update doctor/inventory findings for unsafe escape sites.
+8. Require explicit permission or reviewed public-write intent for direct MCP
+   mutations.
+9. Move direct MCP write safety metadata to backend/codegen-owned refs or make
+   the affected writes operation-backed.
+10. Bind MCP sessions to bearer identity before dynamic tools are listed or
+    called.
+11. Durably redeem or record transport operation-execute JTIs at the backend
+    before destructive handler execution.
+12. Write durable audit rows for transport-confirmed destructive executions.
+13. Redact unexpected backend exception messages in MCP responses.
+14. Add or update doctor/inventory findings for unsafe escape sites, advanced
+    MCP write helpers, tool-local safety stamping, direct MCP writes without
+    permission, and process-local invalid-bearer throttling.
 
 Verification:
 
 ```bash
-pnpm exec vitest run --project=unit tests/unit/auth-primitives.test.ts tests/unit/auth-access-context.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/identity-forwarding.test.ts tests/unit/server-convex-utils.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/define-convex-tool.test.ts tests/unit/cli-doctor.test.ts
+pnpm exec vitest run --project=unit tests/unit/auth-primitives.test.ts tests/unit/auth-access-context.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/identity-forwarding.test.ts tests/unit/server-convex-utils.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/define-convex-tool.test.ts tests/unit/destructive-confirmation.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/use-mcp-session.test.ts tests/unit/mcp-invalid-bearer-throttle.test.ts tests/unit/cli-doctor.test.ts
 pnpm run lint:src:runtime:functions-mcp
 pnpm run lint:src:runtime:rest
 ```
@@ -682,6 +1009,27 @@ Every fix needs at least one test that fails against the vulnerable behavior:
 - `authRequired`: using it outside handler guard denies or fails definition.
 - Duplicate permission keys: access projection/codegen/doctor fail hard.
 - MCP operation drift: permission-valued guards project permission metadata.
+- Direct MCP mutation permission: write tools without permission or explicit
+  public-write permit fail.
+- Advanced MCP write guardrail: standalone advanced tools importing server
+  mutation/action helpers fail doctor.
+- MCP session binding: a second bearer cannot use the first bearer/session id
+  pair to list/call dynamic session tools.
+- MCP write safety: tool-local `stampMcpToolSafety()` cannot satisfy direct
+  mutation safety.
+- MCP backend errors: unexpected `Error("secret=...")` text is not returned to
+  the MCP client.
+- Invalid MCP bearer throttling: two runtime instances sharing a store enforce
+  one invalid-attempt budget, and process-local-only production setup is
+  flagged.
+- Transport operation-execute replay: a captured backend execute request cannot
+  run twice even when it bypasses the MCP confirmation store.
+- Transport destructive audit: successful transport-confirmed execution writes
+  durable audit state, and replay does not create a second audit row.
+- Starter destructive deletes: direct delete without confirmation is rejected or
+  no direct delete route exists.
+- Example UI destructive flows: click path obtains preview confirmation before
+  calling execute.
 - Shared users: cross-workspace email enrollment is denied without row writes.
 - Identity forwarding purpose: mutation/action runtimes reject envelopes signed
   with the wrong purpose.
