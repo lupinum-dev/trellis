@@ -172,7 +172,7 @@ function readOperationDefinitionObject(
   if (callee && Node.isPropertyAccessExpression(callee)) {
     const operationKind = callee.getName()
     if (
-      ['query', 'mutation', 'destructive'].includes(operationKind) &&
+      ['query', 'mutation', 'publicMutation', 'destructive'].includes(operationKind) &&
       callee.getExpression().getText() === 'operation'
     ) {
       const [arg] = initializer.getArguments()

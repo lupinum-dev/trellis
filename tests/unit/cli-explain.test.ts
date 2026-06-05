@@ -170,20 +170,21 @@ export const taskPermissionMatrix = buildPermissionMatrix(taskPermissions)
     'convex/features/tasks/operations.ts',
     `
 import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
-import { mutation, query } from '../../functions'
+import { mutation } from '../../functions'
+import { taskArchivePermission } from './permissions'
 
 export const archiveTaskOp = defineOperation({
   id: 'tasks.archive',
   name: 'archiveTask',
   kind: 'destructive',
   args: {},
-  guard: true,
+  permission: taskArchivePermission,
   preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
   handler: async () => null,
 })
 
-export const archiveTask = mutation.protected(archiveTaskOp)
-export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
+export const archiveTask = mutation.workspace(archiveTaskOp)
+export const previewArchiveTask = mutation.workspace(previewOf(archiveTaskOp))
 `.trimStart(),
   )
   writeAppFile(

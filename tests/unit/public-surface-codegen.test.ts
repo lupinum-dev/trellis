@@ -40,15 +40,34 @@ describe('public surface codegen', () => {
           handler: async () => null,
         })
 
+        export const createTodoOp = operation.publicMutation({
+          id: 'todos.create',
+          args: {},
+          publicWrite: {
+            reason: 'Public todo starter allows anonymous todo creation.',
+            tables: ['todos'],
+            access: () => ({}),
+          },
+          handler: async () => null,
+        })
+
         export const listTodos = query.public(listTodosOp)
-        export const removeTodo = mutation.protected(removeTodoOp)
-        export const previewRemoveTodo = mutation.protected(previewOf(removeTodoOp))
+        export const createTodo = mutation.public(createTodoOp)
+        export const removeTodo = mutation.authenticated(removeTodoOp)
+        export const previewRemoveTodo = mutation.authenticated(previewOf(removeTodoOp))
       `,
     })
 
     const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
 
     expect(metadata.operations).toEqual([
+      {
+        exportName: 'createTodoOp',
+        file: 'convex/features/todos/domain.ts',
+        id: 'todos.create',
+        kind: 'safe',
+        line: expect.any(Number),
+      },
       {
         exportName: 'listTodosOp',
         file: 'convex/features/todos/domain.ts',
@@ -66,6 +85,14 @@ describe('public surface codegen', () => {
     ])
 
     expect(metadata.projections).toEqual([
+      {
+        exportName: 'createTodo',
+        file: 'convex/features/todos/domain.ts',
+        line: expect.any(Number),
+        operationExportName: 'createTodoOp',
+        operationId: 'todos.create',
+        projection: 'execute',
+      },
       {
         exportName: 'listTodos',
         file: 'convex/features/todos/domain.ts',
@@ -97,20 +124,21 @@ describe('public surface codegen', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
         import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
-        import { mutation, query } from '../../functions'
+        import { mutation } from '../../functions'
+        import { taskArchivePermission } from './permissions'
 
         export const archiveTaskOp = defineOperation({
           id: 'tasks.archive',
           name: 'archiveTask',
           kind: 'destructive',
           args: {},
-          guard: true,
+          permission: taskArchivePermission,
           preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
           handler: async () => null,
         })
 
-        export const archiveTask = mutation.protected(archiveTaskOp)
-        export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+        export const previewArchiveTask = mutation.workspace(previewOf(archiveTaskOp))
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '~/convex/features/tasks/operations'
@@ -174,19 +202,20 @@ describe('public surface codegen', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
         import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
-        import { mutation, query } from '../../functions'
+        import { mutation } from '../../functions'
+        import { taskArchivePermission } from './permissions'
 
         export const archiveTaskOp = defineOperation({
           id: 'tasks.archive',
           kind: 'destructive',
           args: {},
-          guard: true,
+          permission: taskArchivePermission,
           preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
           handler: async () => null,
         })
 
-        export const archiveTask = mutation.protected(archiveTaskOp)
-        export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+        export const previewArchiveTask = mutation.workspace(previewOf(archiveTaskOp))
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '~/convex/features/tasks/operations'
