@@ -1989,3 +1989,821 @@ server/api/webhook.post.test.ts` in `examples/03-team-workspace` passed:
     permission source as execute handlers.
   - Example 03 todo destructive preview/execute no longer keep protected-lane
     and workspace-lane authority paths side by side.
+
+### 2026-06-04 Example 04 Project Workspace Lane Cutover
+
+- Converted the example 04 project feature from protected-lane registrations
+  to workspace-lane registrations:
+  - `query.workspace(...)` for project list, get, and export.
+  - `mutation.workspace(...)` for project create, archive preview, and archive
+    execute.
+- Replaced project operation `guard` metadata with concrete `permission`
+  metadata for list, get, create, and export.
+- Removed the duplicate `guard: projectArchive` from the destructive archive
+  operation; `permission: projectArchive` is now the single authority source
+  for preview and execute.
+- Added explicit `requireAuth(...)` narrowing before touched handlers read
+  `appIdentity.userId`.
+- Regenerated `security-contract.generated.json`; the contract now records the
+  project operations as guardless and no longer lists project-domain protected
+  backend lane entries.
+- Verification:
+  - `pnpm --dir examples/04-saas-platform typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/projectBoard.test.ts`
+    in `examples/04-saas-platform` passed: 1 file / 12 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/security-contract.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched project domain and operation files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched project domain and
+    operation files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 04 project authority is no longer split between operation guards and
+    workspace-lane permissions.
+  - The project feature no longer has `query.protected(...)`,
+    `mutation.protected(...)`, or `guard: project*` registrations.
+
+### 2026-06-04 Example 04 Task Workspace Lane Cutover
+
+- Converted the example 04 task feature from protected-lane registrations to
+  workspace-lane registrations:
+  - `query.workspace(...)` for task list, get, and export reads.
+  - `mutation.workspace(...)` for task create, move, assign, bulk update,
+    remove preview, and remove execute.
+- Replaced task operation `guard` metadata with concrete `permission` metadata.
+- Added `task.update` as the named outer permission for task movement and bulk
+  status updates, replacing the inline
+  `hasWorkspace.and(hasRole('owner', 'admin', 'member'))` guard.
+- Removed the duplicate `guard: taskRead` from the destructive remove operation;
+  `permission: taskRead` is now the lane source for preview and execute.
+- Added explicit `requireAuth(...)` narrowing before touched handlers read
+  `appIdentity.userId`.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  task-domain protected backend lane entries and records task operations as
+  guardless.
+- Verification:
+  - `pnpm --dir examples/04-saas-platform typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/projectBoard.test.ts`
+    in `examples/04-saas-platform` passed: 1 file / 12 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/permissions-codegen.test.ts tests/unit/permission-metadata.test.ts tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 4 files / 61 tests.
+  - ESLint passed for the touched task domain, operation, permission, and index
+    files.
+  - `node_modules/.bin/oxfmt --check` passed for the same touched task files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 04 task authority is no longer split between operation guards and
+    workspace-lane permissions.
+  - The task feature no longer has `query.protected(...)`,
+    `mutation.protected(...)`, or task inline guard registrations.
+
+### 2026-06-04 Example 04 Comment Workspace Lane Cutover
+
+- Converted the example 04 comment feature from protected-lane registrations to
+  workspace-lane registrations:
+  - `query.workspace(...)` for comment list-by-task.
+  - `mutation.workspace(...)` for comment create.
+- Replaced comment operation `guard` metadata with concrete `permission`
+  metadata.
+- Used the existing task read permission as the authority source for comment
+  listing, since comments are task-child reads.
+- Kept `commentCreate` as the authority source for comment creation.
+- Added explicit `requireAuth(...)` narrowing before the create handler reads
+  `appIdentity.userId`.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  comment-domain protected backend lane entries and records comment operations
+  as guardless.
+- Verification:
+  - `pnpm --dir examples/04-saas-platform typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/projectBoard.test.ts`
+    in `examples/04-saas-platform` passed: 1 file / 12 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/permissions-codegen.test.ts tests/unit/permission-metadata.test.ts`
+    passed: 4 files / 61 tests.
+  - ESLint passed for the touched comment domain file.
+  - `node_modules/.bin/oxfmt --check` passed for the touched comment domain
+    file.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 04 comment authority is no longer split between operation guards and
+    workspace-lane permissions.
+  - The comment feature no longer has `query.protected(...)`,
+    `mutation.protected(...)`, or `guard:` registrations.
+
+### 2026-06-04 Example 04 Member Workspace Lane Cutover
+
+- Converted the example 04 member listing feature from `query.protected(...)`
+  to `query.workspace(...)`.
+- Replaced `guard: projectRead` with `permission: projectRead`; member listing
+  now shares the project-read workspace permission source instead of keeping a
+  protected-lane guard path.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  the member-domain protected backend lane entry and records the member list
+  operation as guardless.
+- Verification:
+  - `pnpm --dir examples/04-saas-platform typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/projectBoard.test.ts`
+    in `examples/04-saas-platform` passed: 1 file / 12 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched member domain file.
+  - `node_modules/.bin/oxfmt --check` passed for the touched member domain
+    file.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 04 member authority is no longer split between operation guards and
+    workspace-lane permissions.
+  - The member feature no longer has `query.protected(...)` or `guard:`
+    registrations.
+
+### 2026-06-04 Example 06 Membership Workspace Lane Cutover
+
+- Converted the example 06 membership listing feature from
+  `query.protected(...)` to `query.workspace(...)`.
+- Replaced `guard: membershipRead` with `permission: membershipRead`; member
+  listing now uses the workspace-lane permission source directly.
+- While verifying the slice, the example 06 runtime test exposed workspace
+  bootstrap and workspace-switch mutations still registered on the public lane
+  while writing through `ctx.db`.
+- Moved `createWorkspaceMutation` and `switchWorkspace` from
+  `mutation.public(...)` to `mutation.authenticated(...)`, matching the
+  existing workspace bootstrap pattern in examples 03/04 and starter fixtures.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  the membership-domain protected backend lane entry or public lane entries for
+  the workspace bootstrap/switch writes, and records the membership list
+  operation as guardless.
+- Verification:
+  - `pnpm --dir examples/06-multi-workspace typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/agency.test.ts` in
+    `examples/06-multi-workspace` passed: 1 file / 5 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched membership and workspace domain files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched membership and
+    workspace domain files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 06 membership listing authority is no longer split between
+    operation guards and workspace-lane permissions.
+  - Example 06 workspace bootstrap/switch writes no longer use the public lane.
+  - The membership feature no longer has `query.protected(...)` or `guard:`
+    registrations.
+
+### 2026-06-04 Example 06 Project Workspace Lane Cutover
+
+- Converted the example 06 project feature from protected-lane registrations
+  to workspace-lane registrations:
+  - `query.workspace(...)` for project listing.
+  - `mutation.workspace(...)` for project create and status toggle.
+- Replaced project operation `guard` metadata with concrete `permission`
+  metadata:
+  - `projectRead` for listing.
+  - `projectCreate` for create and status toggle.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  the example 06 project-domain protected backend lane entries and records
+  project operations as guardless.
+- Verification:
+  - `pnpm --dir examples/06-multi-workspace typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/agency.test.ts` in
+    `examples/06-multi-workspace` passed: 1 file / 5 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched project domain file.
+  - `node_modules/.bin/oxfmt --check` passed for the touched project domain
+    file.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 06 project authority is no longer split between operation guards and
+    workspace-lane permissions.
+  - The project feature no longer has `query.protected(...)`,
+    `mutation.protected(...)`, or `guard:` registrations.
+
+### 2026-06-04 Example 05 Article Workspace Lane Cutover
+
+- Converted the example 05 article feature from protected-lane registrations to
+  workspace-lane registrations:
+  - `query.workspace(...)` for article list and authenticated article view.
+  - `mutation.workspace(...)` for article create, publish, completion marking,
+    share-token create, share-token revoke preview/execute, and demo seeding.
+- Replaced article operation `guard` metadata with concrete `permission`
+  metadata:
+  - `articleRead` for listing, authenticated view, and completion marking.
+  - `articleCreate` for create, publish, and demo seeding.
+  - `shareCreate` for share-token creation.
+- Removed the duplicate `guard: shareCreate` from the destructive share-token
+  revoke operation; `permission: shareCreate` is now the single authority
+  source for preview and execute.
+- Split the old mixed public article view into two explicit lanes:
+  - `view` is now the authenticated workspace article read.
+  - `viewShared` is the public share-token read and only uses the narrow
+    cross-tenant share-token resolver.
+- Kept example 05 `public.readTables` unchanged instead of adding private
+  knowledge-base, enrollment, progress, or article-share tables to public
+  reads.
+- Updated the article page and runtime tests so token links call `viewShared`
+  and normal app navigation calls `view`.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  article-domain protected backend lane entries and records the article
+  operations as guardless.
+- Verification:
+  - `pnpm --dir examples/05-visibility-access typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/knowledgeBase.test.ts`
+    in `examples/05-visibility-access` passed: 1 file / 20 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched article domain, operation, contract, page, and
+    runtime test files.
+  - `node_modules/.bin/oxfmt --check` passed for the same touched files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 05 article authority is no longer split between operation guards and
+    workspace-lane permissions.
+  - The article feature no longer has `query.protected(...)`,
+    `mutation.protected(...)`, or `guard:` registrations.
+  - Public article access no longer carries authenticated knowledge-base access
+    through the public DB facade.
+
+### 2026-06-04 Example 05 Knowledge Base Workspace Lane Cutover
+
+- Converted the example 05 knowledge-base feature from protected-lane
+  registrations to workspace-lane registrations:
+  - `query.workspace(...)` for knowledge-base list and get.
+  - `mutation.workspace(...)` for create, publish, enroll, and enroll-by-email.
+- Replaced knowledge-base operation `guard` metadata with concrete
+  `permission` metadata:
+  - `kbRead` for list and get.
+  - `kbCreate` for create and publish.
+  - `enrollmentManage` for enrollment writes.
+- Added explicit `requireAuth(...)` narrowing before the create handler reads
+  `appIdentity.userId`.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  knowledge-base-domain protected backend lane entries and records the
+  knowledge-base operations as guardless.
+- Verification:
+  - `pnpm --dir examples/05-visibility-access typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/knowledgeBase.test.ts`
+    in `examples/05-visibility-access` passed: 1 file / 20 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched knowledge-base domain file.
+  - `node_modules/.bin/oxfmt --check` passed for the touched knowledge-base
+    domain file.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 05 knowledge-base authority is no longer split between operation
+    guards and workspace-lane permissions.
+  - The knowledge-base feature no longer has `query.protected(...)`,
+    `mutation.protected(...)`, or `guard:` registrations.
+
+### 2026-06-04 Example 07 MCP Management Workspace Lane Cutover
+
+- Converted the example 07 MCP key management and MCP-bound user listing paths
+  from protected-lane registrations to workspace-lane registrations:
+  - `query.workspace(...)` for MCP key list and MCP-bound user list.
+  - `mutation.workspace(...)` for MCP key create and revoke.
+- Replaced MCP management operation `guard` metadata with concrete
+  `permission: mcpManage` metadata.
+- Added explicit `requireAuth(...)` narrowing before touched handlers read the
+  caller role or user id.
+- Kept MCP bearer-key validation and touch on their existing public lanes; they
+  remain the explicit bearer-key boundary and do not use workspace UI
+  permissions.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  the MCP key/user management protected backend lane entries and records those
+  operations as guardless.
+- Verification:
+  - `pnpm --dir examples/07-mcp-reference typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts test/mcpReference.test.ts`
+    in `examples/07-mcp-reference` passed: 1 file / 11 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched MCP key and user domain files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched MCP key and user
+    domain files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 07 MCP key management authority is no longer split between
+    operation guards and workspace-lane permissions.
+  - The MCP key and MCP-bound user listing features no longer have
+    `query.protected(...)`, `mutation.protected(...)`, or `guard:`
+    registrations.
+
+### 2026-06-04 Example 07 Runbook Workspace Lane Cutover
+
+- Converted the example 07 runbook workspace UI feature from protected-lane
+  registrations to workspace-lane registrations:
+  - `query.workspace(...)` for workspace runbook list, get, and overview.
+  - `mutation.workspace(...)` for runbook create, update, remove
+    preview/execute, and bulk-remove preview/execute.
+- Replaced runbook operation `guard` metadata with concrete `permission`
+  metadata:
+  - `runbookRead` for workspace list, get, update lane entry, and overview.
+  - `runbookCreate` for create.
+  - Existing record-level update authorization still uses `canUpdateRunbook`.
+  - Existing destructive record-level authorization still uses
+    `canDeleteRunbook`.
+- Removed duplicate destructive operation guards from runbook remove and bulk
+  remove operations; `permission: runbookDelete` and
+  `permission: runbookBulkDelete` are now the lane authority sources for their
+  preview and execute handlers.
+- Added explicit `requireAuth(...)` narrowing before touched handlers read user
+  id or publish permissions.
+- Kept the runbook webhook creation mutation on the protected lane for a
+  separate webhook transport cutover; it uses `identityForwardingTransport:
+  'webhook'` and validates `args.workspaceId` inside the handler.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  runbook workspace UI/destructive protected backend lane entries and records
+  those operations as guardless.
+- Verification:
+  - `pnpm --dir examples/07-mcp-reference typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts test/mcpReference.test.ts`
+    in `examples/07-mcp-reference` passed: 1 file / 11 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - ESLint passed for the touched runbook domain and operation files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched runbook domain and
+    operation files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Example 07 runbook workspace UI/destructive authority is no longer split
+    between operation guards and workspace-lane permissions.
+  - The remaining example 07 runbook protected registration is the webhook
+    transport mutation.
+
+### 2026-06-04 Auth-Only Todo Authenticated Lane Cutover
+
+- Converted example 02 auth-only todo operations from protected-lane
+  `guard: isAuthenticated` registrations to authenticated-lane registrations:
+  - `query.authenticated(...)` for todo list.
+  - `mutation.authenticated(...)` for create, toggle, and remove.
+- Converted the personal starter fixture todo operations from protected-lane
+  `guard: isAuthenticated` registrations to authenticated-lane registrations:
+  - `query.authenticated(...)` for todo list.
+  - `mutation.authenticated(...)` for create and toggle.
+- Removed redundant `isAuthenticated` operation guards from those auth-only
+  operations; the authenticated lane is now the single sign-in authority source.
+- Added explicit `requireAuth(...)` narrowing before handlers/loaders read
+  `appIdentity.userId`.
+- Taught public-surface metadata extraction to recognize
+  `operation.publicMutation(...)` as a safe operation builder, so public starter
+  mutations remain visible in doctor inventory and generated operation maps.
+- Fixed the composed `trellis add mcp` path to add `mcpKeys` to
+  `convex/functions.ts` public read tables, matching the workspace-MCP preset
+  output.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  example 02 or personal starter todo protected backend lane entries and records
+  the touched todo operations as guardless.
+- Verification:
+  - `pnpm --dir examples/02-auth-todo typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/todos.test.ts` in
+    `examples/02-auth-todo` passed: 1 file / 1 test.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/public-surface-codegen.test.ts`
+    passed: 1 file / 3 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-doctor.test.ts`
+    passed: 2 files / 67 tests.
+  - ESLint passed for the touched auth-only todo, CLI init, public-surface
+    codegen, and test files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched auth-only todo,
+    CLI init, public-surface codegen, and test files.
+  - `pnpm run check:starter-fixtures:build` passed for public, personal,
+    workspace, and workspace-MCP generated fixtures.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+  - `git diff --check` passed.
+- Current state:
+  - Example 02 and the personal starter no longer keep
+    `guard: isAuthenticated` beside authenticated-lane registration.
+  - No `query.protected(...)`, `mutation.protected(...)`, or `guard:`
+    registrations remain in the touched auth-only todo domains.
+  - Public starter `operation.publicMutation(...)` operations are included in
+    public-surface inventory.
+  - Composed workspace-to-MCP initialization and the workspace-MCP preset produce
+    the same public read table configuration.
+
+### 2026-06-04 Webhook Transport Authenticated Lane Cutover
+
+- Converted the remaining maintained example webhook transport mutations from
+  protected-lane operation guards to authenticated-lane registrations:
+  - Example 03 todo sync webhook:
+    `mutation.authenticated(processTodoSyncWebhookOp)`.
+  - Example 07 runbook webhook:
+    `mutation.authenticated(createRunbookFromWebhookOp)`.
+- Removed webhook operation `guard` metadata:
+  - `guard: todoCreate` from the example 03 todo sync webhook operation.
+  - `guard: runbookCreate` from the example 07 runbook webhook operation.
+- Kept webhook authorization semantics by moving delegated-user create
+  permission decisions into the handlers after backend delegation binding
+  validation:
+  - `can(appIdentity, todoCreate.check)` before synced todo writes.
+  - `can(appIdentity, runbookCreate.check)` before runbook writes.
+- Added explicit `requireAuth(...)` narrowing in the example 03 webhook handler
+  before reading delegated `appIdentity` fields.
+- Kept domain idempotency in the webhook handlers; replay protection remains
+  owned by the backend mutation, not route orchestration.
+- Regenerated `security-contract.generated.json`; the contract no longer lists
+  example 03 or example 07 webhook mutations as protected backend lane entries,
+  and records their operations as guardless.
+- Verification:
+  - `pnpm --dir examples/03-team-workspace typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts convex/todos.test.ts server/api/webhook.post.test.ts`
+    in `examples/03-team-workspace` passed: 2 files / 17 tests.
+  - `pnpm --dir examples/07-mcp-reference typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts test/mcpReference.test.ts server/api/runbook-webhook.post.test.ts`
+    in `examples/07-mcp-reference` passed: 2 files / 16 tests.
+  - ESLint passed for the touched webhook files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched webhook files.
+  - `rg "query\\.protected|mutation\\.protected|guard:" examples/03-team-workspace/convex/features/todos examples/07-mcp-reference/convex/features/runbooks`
+    found no remaining protected/guard registrations in those touched feature
+    folders.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/example-webhook-security.test.ts`
+    passed: 3 files / 58 tests.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+- Current state:
+  - Maintained example webhook transport mutations no longer use the protected
+    lane or operation guards.
+  - Webhook authority is now split by responsibility, not duplicated:
+    authenticated lane admits non-anonymous service/user callers; backend
+    delegation binding validates acting-for/workspace evidence; handler domain
+    checks enforce delegated-user create permissions; handler idempotency owns
+    duplicate delivery rejection.
+
+### 2026-06-04 Component Mini CMS Authenticated Lane Cutover
+
+- Converted the component mini CMS studio read/write handlers to the
+  authenticated backend lane:
+  - `query.authenticated(listStudioPagesOp)`.
+  - `query.authenticated(listDraftPagesOp)`.
+  - `mutation.authenticated(createPageOp)`.
+  - `mutation.authenticated(saveDraftOp)`.
+- Removed `guard: canManagePages` from those four operation definitions so
+  signed-in access is no longer represented twice.
+- Updated the anonymous studio-read proof to expect the signed-in lane denial
+  (`Forbidden: authRequired`) instead of the removed component guard label.
+- Kept `canManagePages` only on `publishPageOp` because
+  `transportMutation(publishPageOp)` consumes the operation guard directly and
+  Trellis does not currently expose an authenticated transport lane. Adding a
+  transport-lane API for this example would add surface area without a current
+  requirement.
+- Regenerated `security-contract.generated.json`; the component operations
+  inventory now records the studio list/draft/create/save operations as
+  guardless while keeping the destructive publish operation guarded.
+- Verification:
+  - `pnpm --dir examples/08-component-mini-cms typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts test/componentMiniCms.test.ts`
+    in `examples/08-component-mini-cms` passed: 1 file / 10 tests.
+  - ESLint passed for the touched component files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched component files.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 57 tests.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+  - `pnpm run build:cli` passed after `test:security`.
+- Current state:
+  - Component mini CMS studio reads/writes use the direct authenticated lane.
+  - Component destructive publish still uses the operation guard as the single
+    authority source for preview and transport execution.
+
+### 2026-06-04 Security Contract Lane Inventory Coverage
+
+- Fixed the security contract backend function extractor so it records every
+  backend lane:
+  - `public`;
+  - `authenticated`;
+  - `workspace`;
+  - `protected`;
+  - `unsafe`.
+- Before this fix, `security-contract.generated.json` only saw
+  `public`/`protected`/`unsafe` handlers, so the 0.3.0 authenticated/workspace
+  lane cutovers were visible indirectly through operation inventory but missing
+  from backend function inventory.
+- Added a unit proof that maintained examples appear in the contract with their
+  actual lanes:
+  - example 02 todo `list` as `query.authenticated`;
+  - example 03 todo `list` as `query.workspace`;
+  - example 03 webhook dispatch as `mutation.authenticated`;
+  - example 08 component studio `listStudio` as `query.authenticated`.
+- Regenerated `security-contract.generated.json`; backend function inventory now
+  records:
+  - 49 public handlers;
+  - 21 authenticated handlers;
+  - 60 workspace handlers;
+  - 18 protected handlers;
+  - 11 unsafe handlers.
+- Verification:
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - ESLint passed for `scripts/lib/security-contract.mjs` and
+    `tests/unit/security-contract.test.ts`.
+  - `node_modules/.bin/oxfmt --check tests/unit/security-contract.test.ts`
+    passed.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/security-contract.test.ts`
+    passed: 2 files / 57 tests.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 256 tests.
+  - `pnpm run build:cli` passed after `test:security`.
+- Current state:
+  - The security contract can now prove the lane cutover state directly from
+    backend function exports, instead of treating authenticated/workspace lanes
+    as absent from inventory.
+
+### 2026-06-04 Transport Mutation Authenticated Lane Cutover
+
+- Added `transportMutation.authenticated(...)` as the signed-in lane for trusted
+  destructive transport execute mutations.
+- Reused the existing authenticated lane builder instead of adding a separate
+  transport authorization path:
+  - definitions with `guard` are rejected before registration;
+  - the lane injects `authRequired`;
+  - transport execution still requires a trusted `operation-execute` forwarding
+    envelope before the handler runs.
+- Converted example 08 component publish to the authenticated transport lane:
+  - removed `guard: canManagePages` from `publishPageOp`;
+  - changed `previewPublish` from `query.protected(...)` to
+    `query.authenticated(...)`;
+  - changed component publish execute from `transportMutation(publishPageOp)` to
+    `transportMutation.authenticated(publishPageOp)`;
+  - deleted the now-unused `canManagePages` guard from the component runtime.
+- Extended the security contract backend function extractor to inventory
+  `transportMutation.<lane>(...)` exports and pinned example 08 component
+  publish as `functionType: "transportMutation"` / `lane: "authenticated"`.
+- Updated docs to mention `transportMutation.authenticated(...)` in the backend
+  builder/API reference.
+- Regenerated `security-contract.generated.json`; maintained examples and
+  starter fixtures now have:
+  - no `query.protected(...)`;
+  - no `mutation.protected(...)`;
+  - no `action.protected(...)`;
+  - no operation `guard:` registrations;
+  - no `canManagePages` guard.
+- Verification:
+  - `pnpm run build:module` passed before example typecheck so local
+    `@lupinum/trellis` declarations included `transportMutation.authenticated`.
+  - `pnpm --dir examples/08-component-mini-cms typecheck` passed.
+  - `pnpm exec vitest run --config vitest.config.ts test/componentMiniCms.test.ts`
+    in `examples/08-component-mini-cms` passed: 1 file / 10 tests.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/security-contract.test.ts`
+    passed: 2 files / 58 tests.
+  - ESLint passed for the touched runtime, component, contract, and unit test
+    files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched TypeScript files.
+  - `rg "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|canManagePages" examples src/cli/starter-fixtures`
+    found no remaining matches.
+  - Contract inspection found no protected backend functions and no guarded
+    operations under `examples/` or `src/cli/starter-fixtures/`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 257 tests.
+  - `pnpm run build:cli` passed after `test:security`.
+  - `pnpm run check:docs:api-surface` passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm --dir apps/docs build` was attempted but could not run in the current
+    checkout because Nuxt content could not load the missing
+    `better-sqlite3` native binding and `@nuxtjs/og-image` reported missing
+    `@resvg/resvg-js`.
+- Current state:
+  - Maintained examples and starter fixtures no longer carry protected-lane or
+    operation-guard compatibility paths.
+  - Trusted transport execute keeps one authority source: authenticated lane
+    admission plus operation-execute forwarding proof.
+
+### 2026-06-04 CLI Resource Generator Lane Cutover
+
+- Cut over `trellis add entity` resource generation from the old protected lane
+  output to explicit backend lanes:
+  - personal and author-owned resources now emit `query.authenticated(...)` and
+    `mutation.authenticated(...)`;
+  - workspace resources now emit `query.workspace(...)` and
+    `mutation.workspace(...)`.
+- Removed generated operation `guard:` metadata so new resources do not
+  reintroduce the deprecated guard path.
+- Kept MCP operation `permission` metadata as the descriptive tool policy source
+  for generated MCP bindings.
+- Added generated `requireAuth(appIdentity)` narrowing before generated handlers
+  read user or workspace identity fields.
+- Generated destructive remove operations now authorize against the loaded
+  resource:
+  - personal/author-owned resources compare the record owner field to
+    `appIdentity.userId`;
+  - workspace resources compare the tenant field to `appIdentity.workspaceId`.
+- Updated the doctor preview finding hint so destructive previews are exported on
+  the same trust lane as the execute handler, such as
+  `mutation.workspace(previewOf(operation))` or
+  `mutation.authenticated(previewOf(operation))`.
+- Verification:
+  - `node_modules/.bin/vitest run --project=unit tests/unit/cli-add-resource.test.ts`
+    passed: 1 file / 9 tests.
+  - `node_modules/.bin/vitest run --project=unit tests/unit/cli-doctor.test.ts -t "adds entity resources"`
+    passed: 1 selected test.
+  - ESLint passed for the touched CLI generator, inventory, and unit test files.
+  - `node_modules/.bin/oxfmt --check` passed for the touched TypeScript files.
+  - `rg -n "query\\.protected|mutation\\.protected|guard:\\s*|protected preview|protected\\(previewOf" src/cli/lib/resource.ts src/cli/lib/inventory-findings.ts tests/unit/cli-add-resource.test.ts tests/unit/cli-doctor.test.ts`
+    found no stale generator or hint output.
+  - `CI=true pnpm run test:security` passed:
+    - source-policy check;
+    - security contract drift check;
+    - module build;
+    - packed-export policy;
+    - 25 focused runtime/security test files / 257 tests.
+  - `pnpm run build:cli` passed after `test:security`.
+- Current state:
+  - New generated resources now follow the 0.3.0 explicit-lane model instead of
+    generating protected/guard compatibility paths.
+
+### 2026-06-04 First-Reader Docs Lane Cutover
+
+- Cut over the first-reader docs that still taught protected/guard as the normal
+  app path:
+  - getting-started signed-in todo app now uses
+    `query.authenticated(...)`/`mutation.authenticated(...)` and `requireAuth`
+    instead of a copied `isAuthenticated` guard;
+  - call-pattern examples now use public/authenticated lanes and same-lane
+    destructive previews;
+  - destructive-operation docs now describe operation `permission`, same-lane
+    preview/execute projections, and lane admission instead of operation guards;
+  - permission setup now registers access context with `query.public(...)`, as
+    the starter fixtures do;
+  - authorization/rate-limit examples now use workspace lane permissions rather
+    than `mutation.protected({ guard: ... })`;
+  - bridge package-author guidance now points app-owned code at explicit root
+    lanes;
+  - glossary language now frames guards as custom protected-lane or migration
+    machinery, not the default operation authority.
+- Left the explicit custom-guard/protected references in the backend-builder,
+  cross-scope, guards, and API reference docs because those pages intentionally
+  document the custom/migration lane.
+- Verification:
+  - Broad docs scan for protected/guard examples now only finds intentional
+    custom-guard/protected-lane reference material.
+  - `node scripts/check-doc-links.mjs` passed.
+  - `node scripts/generate-api-surface.mjs --check` passed.
+  - `git diff --check` passed.
+  - `pnpm run check:docs:links` and `pnpm run check:docs:api-surface` both
+    exited immediately with lifecycle code `-35` in this shell, while their
+    underlying scripts passed directly.
+- Current state:
+  - Beginner and first-reader docs no longer teach protected/guard as the normal
+    signed-in, workspace, destructive-operation, or access-context path.
+
+### 2026-06-04 Upgrade Hint Lane Cutover
+
+- Updated the `trellis upgrade --check` backend root-builder finding so it no
+  longer suggests `.protected(...)` as a normal migration target.
+- The hint now points legacy `query(...)`, `mutation(...)`, and `action(...)`
+  calls at explicit 0.3 lanes:
+  - `.public(...)`;
+  - `.authenticated(...)`;
+  - `.workspace(...)`;
+  - `.unsafe(...)`.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-upgrade.test.ts`
+    passed: 1 file / 24 tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/commands/upgrade.ts` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check src/cli/commands/upgrade.ts`
+    passed.
+- Current state:
+  - Upgrade guidance now matches the explicit-lane model instead of nudging
+    migration users back to protected-lane defaults.
+
+### 2026-06-04 Public-Surface Fixture Lane Cutover
+
+- Cut over public-surface codegen and CLI explain test fixtures that still
+  modeled operation projection with `mutation.protected(...)`,
+  `query.protected(...)`, and `guard: true`.
+- The fixtures now use:
+  - `mutation.authenticated(...)` for personal destructive projection examples;
+  - `mutation.workspace(...)` for workspace operation execute and preview
+    projections;
+  - operation `permission` metadata instead of operation `guard` metadata.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/public-surface-codegen.test.ts`
+    passed: 1 file / 3 tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-explain.test.ts -t "explains an operation as versioned JSON"`
+    passed: 1 selected test.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-explain.test.ts`
+    passed: 1 file / 9 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/public-surface-codegen.test.ts tests/unit/cli-explain.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/public-surface-codegen.test.ts tests/unit/cli-explain.test.ts`
+    passed.
+  - A combined first run of both test files passed
+    `tests/unit/public-surface-codegen.test.ts` but failed
+    `tests/unit/cli-explain.test.ts` before assertions because every helper CLI
+    subprocess returned `status: null` under transient OS process-limit
+    pressure; the file passed when rerun after process creation recovered.
+- Current state:
+  - Public-surface and explain fixtures no longer normalize protected/guard as
+    the default operation projection model.
