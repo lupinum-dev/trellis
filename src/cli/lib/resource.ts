@@ -207,11 +207,23 @@ function resourceCreateFields(ctx: ResourceGeneratorContext): string {
   ].join(',\n      ')
 }
 
+function resourceBackendLane(ctx: ResourceGeneratorContext): 'authenticated' | 'workspace' {
+  return ctx.kind === 'workspace' ? 'workspace' : 'authenticated'
+}
+
+function resourcePermissionProperty(ctx: ResourceGeneratorContext, permission: string): string {
+  return ctx.kind === 'workspace' ? `  permission: ${permission},\n` : ''
+}
+
 function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
   const createFields = resourceCreateFields(ctx)
+  const lane = resourceBackendLane(ctx)
+  const operationOwnerCheck = ctx.tenantField
+    ? `${ctx.singularCamel}.${ctx.tenantField} === appIdentity.workspaceId`
+    : `${ctx.singularCamel}.${ctx.ownerField} === appIdentity.userId`
 
   return `
-import { requireRecord } from '@lupinum/trellis/auth'
+import { requireAuth, requireRecord } from '@lupinum/trellis/auth'
 import { operation, operationEffect, operationIssue, operationPreview, previewOf } from '@lupinum/trellis/app'
 
 import {
@@ -228,10 +240,10 @@ export const create${ctx.singularPascal}Op = operation.mutation({
   id: '${ctx.tableName}.create',
   name: 'create${ctx.singularPascal}',
   args: create${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}CreatePermission,
   permission: ${ctx.singularCamel}CreatePermission,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     const now = Date.now()
     return await ctx.db.insert('${ctx.tableName}', {
       ${createFields}
@@ -243,7 +255,6 @@ export const remove${ctx.singularPascal}Op = operation.destructive({
   id: '${ctx.tableName}.remove',
   name: 'remove${ctx.singularPascal}',
   args: delete${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}DeletePermission,
   permission: ${ctx.singularCamel}DeletePermission,
   safety: 'destructive-write',
   identityForwardingFunctionRef: 'features/${ctx.tableName}/domain:remove',
@@ -251,6 +262,9 @@ export const remove${ctx.singularPascal}Op = operation.destructive({
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')
     return { ${ctx.singularCamel} }
+  },
+  authorize: {
+    check: async (appIdentity, { ${ctx.singularCamel} }) => ${operationOwnerCheck},
   },
   preview: async (_ctx, _args, { ${ctx.singularCamel} }) => operationPreview({
     summary: \`Will permanently delete "\${${ctx.singularCamel}.name}"\`,
@@ -268,12 +282,13 @@ export const remove${ctx.singularPascal}Op = operation.destructive({
   },
 })
 
-export const previewRemove${ctx.singularPascal} = mutation.protected(previewOf(remove${ctx.singularPascal}Op))
+export const previewRemove${ctx.singularPascal} = mutation.${lane}(previewOf(remove${ctx.singularPascal}Op))
 `.trimStart()
 }
 
 function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   const contractImport = `../../../shared/features/${ctx.tableName}/contract`
+  const lane = resourceBackendLane(ctx)
   const updateOwnerCheck =
     ctx.kind === 'workspace'
       ? "appIdentity.role === 'owner' || appIdentity.role === 'admin' || appIdentity.userId === loaded.ownerId"
@@ -287,11 +302,10 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
     ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : []),
   ].join(',\n      ')
   const removeExport = ctx.hasMcp
-    ? `export const remove = mutation.protected(remove${ctx.singularPascal}Op)\n`
-    : `export const remove = mutation.protected({
+    ? `export const remove = mutation.${lane}(remove${ctx.singularPascal}Op)\n`
+    : `export const remove = mutation.${lane}({
   args: delete${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}DeletePermission,
-  load: async (ctx, args) => {
+${resourcePermissionProperty(ctx, `${ctx.singularCamel}DeletePermission`)}  load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')
     return ${ctx.singularCamel}
@@ -305,12 +319,12 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
 })
 `
   const createExport = ctx.hasMcp
-    ? `export const create = mutation.protected(create${ctx.singularPascal}Op)\n`
-    : `export const create = mutation.protected({
+    ? `export const create = mutation.${lane}(create${ctx.singularPascal}Op)\n`
+    : `export const create = mutation.${lane}({
   args: create${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}CreatePermission,
-  handler: async (ctx, args) => {
+${resourcePermissionProperty(ctx, `${ctx.singularCamel}CreatePermission`)}  handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     const now = Date.now()
     return await ctx.db.insert('${ctx.tableName}', {
       ${createFields}
@@ -320,7 +334,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
 `
 
   return `
-import { requireRecord } from '@lupinum/trellis/auth'
+import { requireAuth, requireRecord } from '@lupinum/trellis/auth'
 import {
   create${ctx.singularPascal},
   delete${ctx.singularPascal},
@@ -336,11 +350,11 @@ import {
 import { mutation, query } from '../../functions'
 ${ctx.hasMcp ? `import { create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op } from './operations'\n` : ''}
 
-export const list = query.protected({
+export const list = query.${lane}({
   args: list${ctx.pluralPascal}.args,
-  guard: ${ctx.singularCamel}ReadPermission,
-  handler: async (ctx) => {
+${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  handler: async (ctx) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     return await ctx.db
       .query('${ctx.tableName}')
       ${listQuery}
@@ -349,10 +363,9 @@ export const list = query.protected({
   },
 })
 
-export const get = query.protected({
+export const get = query.${lane}({
   args: get${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}ReadPermission,
-  load: async (ctx, args) => {
+${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  load: async (ctx, args) => {
     const loaded = await ctx.db.get(args.id)
     requireRecord(loaded, '${ctx.singularPascal}')
     return loaded
@@ -365,10 +378,9 @@ export const get = query.protected({
 
 ${createExport}
 
-export const update = mutation.protected({
+export const update = mutation.${lane}({
   args: update${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}ReadPermission,
-  load: async (ctx, args) => {
+${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  load: async (ctx, args) => {
     const loaded = await ctx.db.get(args.id)
     requireRecord(loaded, '${ctx.singularPascal}')
     return loaded

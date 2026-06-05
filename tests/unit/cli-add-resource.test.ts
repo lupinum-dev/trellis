@@ -157,7 +157,10 @@ describe('trellis add entity', () => {
     ).resolves.toContain('export const createProject = defineArgs')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
-    ).resolves.toContain('export const update = mutation.protected({')
+    ).resolves.toContain('export const update = mutation.authenticated({')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.not.toContain('guard:')
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       "import { projectsTables } from './features/projects'",
     )
@@ -225,7 +228,10 @@ describe('trellis add entity', () => {
     ).resolves.toContain('createProjectOp')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
-    ).resolves.toContain('mutation.protected(createProjectOp)')
+    ).resolves.toContain('mutation.workspace(createProjectOp)')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.not.toContain('guard:')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
     ).resolves.toContain('tool.operation(createProjectOp')

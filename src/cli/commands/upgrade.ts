@@ -448,7 +448,7 @@ function createUpgradeFindings(
         `Found deleted Trellis backend root builder calls at ${formatLocations(locations)}.`,
       cleanMessage: 'No Trellis backend root builder calls were found.',
       fixHint:
-        'Replace `query(...)`, `mutation(...)`, and `action(...)` Trellis backend calls with explicit lanes such as `.public(...)`, `.protected(...)`, or `.unsafe(...)`.',
+        'Replace `query(...)`, `mutation(...)`, and `action(...)` Trellis backend calls with explicit lanes such as `.public(...)`, `.authenticated(...)`, `.workspace(...)`, or `.unsafe(...)`.',
     }),
     createLocationFinding({
       id: 'upgrade-mcp-destructive-binding',
