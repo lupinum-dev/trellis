@@ -1,9 +1,5 @@
 import type { Customization } from 'convex-helpers/server/customFunctions'
-import {
-  type Rules,
-  wrapDatabaseReader,
-  wrapDatabaseWriter,
-} from 'convex-helpers/server/rowLevelSecurity'
+import { wrapDatabaseReader, wrapDatabaseWriter } from 'convex-helpers/server/rowLevelSecurity'
 import type { Triggers } from 'convex-helpers/server/triggers'
 import { addFieldsToValidator } from 'convex-helpers/validators'
 import type {
@@ -24,9 +20,9 @@ import type { GenericValidator, Infer, ObjectType, PropertyValidators } from 'co
 import { v } from 'convex/values'
 
 import { defineAppIdentity, type DefaultAppIdentity } from '../auth/define-app-identity.js'
-import { authRequired } from '../auth/define-guard.js'
+import type { authRequired } from '../auth/define-guard.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
-import { can, deny, isOpenGuard, isPermissionDefinition, open } from '../auth/index.js'
+import { can, deny, type open } from '../auth/index.js'
 import {
   getIdentityForwarding,
   setIdentityForwardingContext,
@@ -50,6 +46,11 @@ import {
   toObservationContext,
 } from '../observability/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
+import {
+  attachBackendQueryLanes,
+  createAuthenticatedLaneBuilder,
+  type TrellisBackendLane,
+} from './backend-lanes.js'
 import {
   createConfirmationToken,
   hashConfirmationValue,
@@ -80,6 +81,15 @@ import {
   type TrellisOperationProjectionMetadata,
   type OperationPreviewEnvelope,
 } from './define-operation.js'
+import { createPublicSafeDb, getTableFromId, type PublicAccessOptions } from './public-db.js'
+import {
+  assertServiceTargetAllowed,
+  getWorkspaceId,
+  resolveRules,
+  wrapServiceDb,
+  type IsolationOptions,
+} from './service-access.js'
+import { decorateDb, getInternalUnsafeDb } from './unsafe-db.js'
 import { assertUnsafePermit, type TrellisUnsafePermit } from './unsafe-permit.js'
 
 export type {
@@ -159,9 +169,8 @@ type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidator
     ? Infer<TArgsValidator>
     : Record<string, never>
 
-export const trellisBackendLaneMetadataKey = Symbol.for('trellis.backendLane')
-
-export type TrellisBackendLane = 'public' | 'authenticated' | 'workspace' | 'protected' | 'unsafe'
+export { trellisBackendLaneMetadataKey } from './backend-lanes.js'
+export type { TrellisBackendLane } from './backend-lanes.js'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
 export interface OperationsById {}
@@ -199,8 +208,6 @@ export type ValidateOperationProjection<
   TId extends RegisteredOperationId,
   TProjection extends 'execute' | 'preview' = 'execute' | 'preview',
 > = TProjection extends NoInfer<AvailableOperationProjection<TId>> ? TProjection : never
-
-const internalUnsafeDbByDecoratedDb = new WeakMap<object, object>()
 
 function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn>[0]): void {
   try {
@@ -280,27 +287,10 @@ type ActionCtxWithRuntime<
   TActor,
 > = GenericActionCtx<DataModel> & FunctionsCtxExtension<TCaller, TActingFor, TActor>
 
-type RuleCtx<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
-> = DataCtx<DataModel> & FunctionsCtxExtension<TCaller, TActingFor, TActor>
-
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
   args: Record<string, unknown>
   result: unknown
-}
-
-type IsolationOptions<DataModel extends GenericDataModel> = {
-  tables: Array<TableNamesInDataModel<DataModel>>
-  sharedTables?: Array<TableNamesInDataModel<DataModel>>
-  field?: string
-}
-
-type PublicAccessOptions = {
-  readTables?: string[]
 }
 
 type ServiceAccessDefinition<DataModel extends GenericDataModel, TCaller> = ServiceDefinitions<
@@ -540,10 +530,6 @@ function requireNonEmptyReason(value: unknown, context: string): string {
     throw new Error(`${context} requires a non-empty reason.`)
   }
   return value.trim()
-}
-
-function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb | undefined {
-  return internalUnsafeDbByDecoratedDb.get(db) as TDb | undefined
 }
 
 function destructiveOperationsMisconfiguredError(
@@ -972,818 +958,21 @@ function wrapUnsafeBuilder<TBuilder extends (...args: never[]) => unknown>(
   }) as unknown as UnsafeBuilder<TBuilder>
 }
 
-function stampBackendLane<TResult>(value: TResult, lane: TrellisBackendLane): TResult {
-  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
-    return value
-  }
-
-  Object.defineProperty(value, trellisBackendLaneMetadataKey, {
-    value: lane,
-    enumerable: false,
-    configurable: false,
-    writable: false,
-  })
-  return value
-}
-
-function cloneDefinitionWithExtras(
-  definition: object,
-  extras: Record<string | symbol, unknown>,
-): object {
-  const clone = {}
-  Object.defineProperties(clone, Object.getOwnPropertyDescriptors(definition))
-  return Object.assign(clone, extras)
-}
-
-function hasOwn(value: object, key: PropertyKey): boolean {
-  return Object.prototype.hasOwnProperty.call(value, key)
-}
-
-function getOwnGuard(definition: object): unknown {
-  return hasOwn(definition, 'guard') ? (definition as { guard?: unknown }).guard : undefined
-}
-
-function getOwnPermission(definition: object): unknown {
-  return hasOwn(definition, 'permission')
-    ? (definition as { permission?: unknown }).permission
-    : undefined
-}
-
-function assertSignedInLaneGuard(definition: unknown, lane: 'authenticated' | 'workspace'): void {
-  if (!definition || typeof definition !== 'object') return
-
-  const guard = getOwnGuard(definition)
-  if (guard === undefined) return
-
-  throw new Error(
-    `${lane} backend handlers must not provide \`guard\`; use protected(...) for custom guard predicates.`,
-  )
-}
-
-function resolveWorkspaceLaneGuard(definition: object): unknown {
-  const permission = getOwnPermission(definition)
-  if (permission === undefined) {
-    throw new Error(
-      'workspace backend handlers require `permission` with a definePermission(...) object so the lane can enforce workspace authority.',
-    )
-  }
-  if (isPermissionDefinition(permission)) return permission
-
-  throw new Error(
-    'workspace backend handlers with `permission` must provide a definePermission(...) object so the lane can enforce it.',
-  )
-}
-
-function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown>(
-  protectedBuilder: TBuilder,
-): TBuilder {
-  return ((definition: unknown) => {
-    if (
-      definition &&
-      typeof definition === 'object' &&
-      Object.prototype.hasOwnProperty.call(definition, 'guard')
-    ) {
-      throw new Error(
-        'public backend handlers must not provide `guard`; use protected(...) instead.',
-      )
-    }
-
-    return stampBackendLane(
-      protectedBuilder(
-        cloneDefinitionWithExtras(definition as object, {
-          guard: open,
-          trellisBackendLane: 'public',
-        }) as never,
-      ),
-      'public',
-    )
-  }) as unknown as TBuilder
-}
-
-function createProtectedLaneBuilder<TBuilder extends (definition: never) => unknown>(
-  protectedBuilder: TBuilder,
-): TBuilder {
-  return ((definition: unknown) => {
-    if (
-      !definition ||
-      typeof definition !== 'object' ||
-      !Object.prototype.hasOwnProperty.call(definition, 'guard')
-    ) {
-      throw new Error(
-        'protected backend handlers require `guard`; use public(...) for unauthenticated access.',
-      )
-    }
-    if (isOpenGuard(getOwnGuard(definition))) {
-      throw new Error('protected backend handlers must not use `guard: open`; use public(...).')
-    }
-
-    return stampBackendLane(
-      protectedBuilder(
-        cloneDefinitionWithExtras(definition, {
-          trellisBackendLane: 'protected',
-        }) as never,
-      ),
-      'protected',
-    )
-  }) as unknown as TBuilder
-}
-
-function createAuthenticatedLaneBuilder<TBuilder extends (definition: never) => unknown>(
-  protectedBuilder: TBuilder,
-): TBuilder {
-  return ((definition: unknown) => {
-    assertSignedInLaneGuard(definition, 'authenticated')
-
-    return stampBackendLane(
-      protectedBuilder(
-        cloneDefinitionWithExtras(definition as object, {
-          guard: authRequired,
-          trellisBackendLane: 'authenticated',
-        }) as never,
-      ),
-      'authenticated',
-    )
-  }) as unknown as TBuilder
-}
-
-function createWorkspaceLaneBuilder<TBuilder extends (definition: never) => unknown>(
-  protectedBuilder: TBuilder,
-): TBuilder {
-  return ((definition: unknown) => {
-    assertSignedInLaneGuard(definition, 'workspace')
-
-    return stampBackendLane(
-      protectedBuilder(
-        cloneDefinitionWithExtras(definition as object, {
-          guard: resolveWorkspaceLaneGuard(definition as object),
-          trellisBackendLane: 'workspace',
-        }) as never,
-      ),
-      'workspace',
-    )
-  }) as unknown as TBuilder
-}
-
-function createUnsafeLaneBuilder<TBuilder extends (definition: never) => unknown>(
-  unsafeBuilder: TBuilder,
-): TBuilder {
-  return ((definition: never) => stampBackendLane(unsafeBuilder(definition), 'unsafe')) as TBuilder
-}
-
-function attachBackendQueryLanes<
-  TProtectedBuilder extends (definition: never) => unknown,
-  TUnsafeBuilder extends ((definition: never) => unknown) | undefined,
->(
-  protectedBuilder: TProtectedBuilder,
-  unsafeBuilder?: TUnsafeBuilder,
-): {
-  public: (definition: never) => unknown
-  authenticated: (definition: never) => unknown
-  workspace: (definition: never) => unknown
-  protected: TProtectedBuilder
-  unsafe?: TUnsafeBuilder
-} {
-  const lanes: {
-    public: (definition: never) => unknown
-    authenticated: (definition: never) => unknown
-    workspace: (definition: never) => unknown
-    protected: TProtectedBuilder
-    unsafe?: TUnsafeBuilder
-  } = {
-    public: createPublicLaneBuilder(protectedBuilder),
-    authenticated: createAuthenticatedLaneBuilder(protectedBuilder),
-    workspace: createWorkspaceLaneBuilder(protectedBuilder),
-    protected: createProtectedLaneBuilder(protectedBuilder),
-  }
-  if (unsafeBuilder) {
-    lanes.unsafe = createUnsafeLaneBuilder(unsafeBuilder as never) as TUnsafeBuilder
-  }
-  return lanes
-}
-
-function hasWorkspaceId(value: unknown): value is { workspaceId?: unknown } {
-  return typeof value === 'object' && value !== null && 'workspaceId' in value
-}
-
-function getWorkspaceId(appIdentity: unknown): unknown {
-  if (!hasWorkspaceId(appIdentity)) return undefined
-  return appIdentity.workspaceId
-}
-
 function describePrincipalKind(caller: unknown): string {
-  if (typeof caller === 'object' && caller !== null && 'kind' in caller) {
+  if (caller && typeof caller === 'object') {
     const kind = (caller as { kind?: unknown }).kind
     if (typeof kind === 'string') return kind
-  }
-  if (caller == null) return 'anonymous'
-  return typeof caller
-}
-
-function describeActorKind(appIdentity: unknown): string {
-  if (appIdentity == null) return 'missing'
-  if (typeof appIdentity === 'object' && appIdentity !== null && 'role' in appIdentity) {
-    const role = (appIdentity as { role?: unknown }).role
-    if (typeof role === 'string') return role
   }
   return 'resolved'
 }
 
-function hasTenantScope(value: unknown): boolean {
-  return value !== undefined && value !== null
-}
-
-function isServicePrincipal(value: unknown): value is { kind: 'service'; serviceId: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'kind' in value &&
-    (value as { kind?: unknown }).kind === 'service' &&
-    typeof (value as { serviceId?: unknown }).serviceId === 'string'
-  )
-}
-
-const serviceReplayModes = new Set([
-  'none',
-  'domain-idempotency',
-  'jti-redemption',
-  'operation-confirmation',
-])
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function isNonBlankString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
-}
-
-function isNonBlankStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every(isNonBlankString)
-}
-
-function assertServiceContractConfigured(serviceId: string, service: unknown): void {
-  if (!isRecord(service) || !isRecord(service.metadata)) {
-    throw deny(`Service "${serviceId}" must declare service contract metadata.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
+function describeActorKind(appIdentity: unknown): string {
+  if (appIdentity && typeof appIdentity === 'object') {
+    const role = (appIdentity as { role?: unknown }).role
+    if (typeof role === 'string') return role
+    if (getWorkspaceId(appIdentity) !== undefined) return 'workspace'
   }
-
-  const metadata = service.metadata
-  const missing = [
-    ['source', metadata.source],
-    ['purpose', metadata.purpose],
-    ['auditEvent', metadata.auditEvent],
-    ['auditTable', metadata.auditTable],
-    ['auditCorrelationId', metadata.auditCorrelationId],
-  ]
-    .filter(([, value]) => !isNonBlankString(value))
-    .map(([field]) => field)
-
-  if (missing.length > 0) {
-    throw deny(
-      `Service "${serviceId}" must declare non-empty service metadata: ${missing.join(', ')}.`,
-      {
-        source: 'service-access',
-        category: 'auth',
-      },
-    )
-  }
-
-  if (!isNonBlankString(metadata.replayMode) || !serviceReplayModes.has(metadata.replayMode)) {
-    throw deny(`Service "${serviceId}" must declare a valid replay mode.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-
-  if (typeof metadata.actingFor !== 'boolean') {
-    throw deny(`Service "${serviceId}" must declare whether actingFor evidence is allowed.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-
-  if (
-    (metadata.allowedOperations !== undefined &&
-      !isNonBlankStringArray(metadata.allowedOperations)) ||
-    (metadata.allowedFunctionRefs !== undefined &&
-      !isNonBlankStringArray(metadata.allowedFunctionRefs))
-  ) {
-    throw deny(
-      `Service "${serviceId}" allowed operation ids and function refs must be non-empty strings.`,
-      {
-        source: 'service-access',
-        category: 'auth',
-      },
-    )
-  }
-
-  const allowedOperations = metadata.allowedOperations ?? []
-  const allowedFunctionRefs = metadata.allowedFunctionRefs ?? []
-  if (allowedOperations.length === 0 && allowedFunctionRefs.length === 0) {
-    throw deny(
-      `Service "${serviceId}" must declare at least one allowed operation id or function ref in service metadata.`,
-      {
-        source: 'service-access',
-        category: 'auth',
-      },
-    )
-  }
-}
-
-type ResolvedServiceAccess<DataModel extends GenericDataModel> = null | {
-  serviceId: string
-  access: 'restricted'
-  tables: ReadonlySet<TableNamesInDataModel<DataModel>>
-  tenant: 'global' | 'derived'
-  workspaceId: unknown
-}
-
-function getServiceError(serviceId: string, table: string): Error {
-  return new Error(`Service "${serviceId}" has no access to table "${table}".`)
-}
-
-function getServiceTableFromId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const separator = value.lastIndexOf(';')
-  if (separator !== -1) return value.slice(separator + 1)
-
-  const convexTestId = value.match(/^\d+([a-z_]\w*)$/i)
-  return convexTestId?.[1] ?? null
-}
-
-function assertServiceTableAccess<DataModel extends GenericDataModel>(
-  access: ResolvedServiceAccess<DataModel>,
-  table: string,
-  observe?: ObserveFn,
-): void {
-  if (!access) return
-  if (!access.tables.has(table as TableNamesInDataModel<DataModel>)) {
-    safeObserve(observe, {
-      name: 'service.access.denied',
-      status: 'deny',
-      serviceId: access.serviceId,
-      reasonCode: 'service.access.denied',
-      details: {
-        table,
-        explanation: createDenialExplanation({
-          reasonCode: 'service.access.denied',
-          decision: 'service',
-          message: `Service "${access.serviceId}" cannot access table "${table}".`,
-          policy: table,
-          suggestedAction: 'contact_admin',
-        }),
-      },
-    })
-    throw getServiceError(access.serviceId, table)
-  }
-  safeObserve(observe, {
-    name: 'service.access.checked',
-    status: 'success',
-    serviceId: access.serviceId,
-    details: { table },
-  })
-}
-
-function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
-  db: TDb,
-  access: ResolvedServiceAccess<DataModel>,
-  observe?: ObserveFn,
-): TDb {
-  if (!access) return db
-
-  return new Proxy(db, {
-    get(target, prop, receiver) {
-      const original = Reflect.get(target, prop, receiver)
-      if (typeof original !== 'function') return original
-
-      if (prop === 'query') {
-        return (table: TableNamesInDataModel<DataModel>) => {
-          assertServiceTableAccess(access, String(table), observe)
-          return original.call(target, table)
-        }
-      }
-
-      if (prop === 'insert') {
-        return (table: TableNamesInDataModel<DataModel>, value: unknown) => {
-          assertServiceTableAccess(access, String(table), observe)
-          return original.call(target, table, value)
-        }
-      }
-
-      if (prop === 'get' || prop === 'patch' || prop === 'replace' || prop === 'delete') {
-        return (id: unknown, ...args: unknown[]) => {
-          const table = getServiceTableFromId(id)
-          if (!table) {
-            throw new Error(`Could not determine table from Convex id "${String(id)}".`)
-          }
-          assertServiceTableAccess(access, table, observe)
-          return original.call(target, id, ...args)
-        }
-      }
-
-      return original.bind(target)
-    },
-  }) as TDb
-}
-
-function createPublicDbError(table?: string): Error {
-  return new Error(
-    table
-      ? `Public handlers cannot access table "${table}". Add an explicit public.readTables entry or move this handler behind authentication.`
-      : 'Public handlers cannot write through ctx.db. Use an operation-backed public write contract.',
-  )
-}
-
-function assertPublicReadTableAccess(tables: ReadonlySet<string>, table: string): void {
-  if (!tables.has(table)) throw createPublicDbError(table)
-}
-
-function createPublicSafeDb<TDb extends object, DataModel extends GenericDataModel>(
-  db: TDb,
-  options: PublicAccessOptions | undefined,
-): TDb {
-  const readTables = new Set<string>((options?.readTables ?? []).map(String))
-
-  return new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (prop === 'query') {
-          return (table: TableNamesInDataModel<DataModel>) => {
-            assertPublicReadTableAccess(readTables, String(table))
-            return (db as { query: (table: TableNamesInDataModel<DataModel>) => unknown }).query(
-              table,
-            )
-          }
-        }
-
-        if (prop === 'get') {
-          return (id: unknown, ...args: unknown[]) => {
-            const table = getServiceTableFromId(id)
-            if (!table) {
-              throw new Error(`Could not determine table from Convex id "${String(id)}".`)
-            }
-            assertPublicReadTableAccess(readTables, table)
-            return (db as { get: (id: unknown, ...args: unknown[]) => unknown }).get(id, ...args)
-          }
-        }
-
-        if (prop === 'normalizeId') {
-          return (table: TableNamesInDataModel<DataModel>, id: unknown) => {
-            assertPublicReadTableAccess(readTables, String(table))
-            return (
-              db as {
-                normalizeId?: (table: TableNamesInDataModel<DataModel>, id: unknown) => unknown
-              }
-            ).normalizeId?.(table, id)
-          }
-        }
-
-        if (prop === 'insert' || prop === 'patch' || prop === 'replace' || prop === 'delete') {
-          return () => {
-            throw createPublicDbError()
-          }
-        }
-
-        return undefined
-      },
-      has(_target, prop) {
-        return (
-          prop === 'query' ||
-          prop === 'get' ||
-          prop === 'normalizeId' ||
-          prop === 'insert' ||
-          prop === 'patch' ||
-          prop === 'replace' ||
-          prop === 'delete'
-        )
-      },
-    },
-  ) as TDb
-}
-
-function createServiceScopeRule<TDoc extends Record<string, unknown>>(
-  field: string,
-  workspaceId: unknown,
-) {
-  return async (ctx: unknown, doc: TDoc) => {
-    const documentWorkspaceId = doc[field as keyof TDoc]
-
-    if (
-      hasTenantScope(workspaceId) &&
-      hasTenantScope(documentWorkspaceId) &&
-      documentWorkspaceId === workspaceId
-    ) {
-      return true
-    }
-
-    if (process.env.NODE_ENV === 'production') {
-      safeObserve((ctx as { observe?: ObserveFn }).observe, {
-        name: 'rls.denied',
-        status: 'deny',
-        reasonCode: 'service.access.denied',
-        details: {
-          field,
-          expectedWorkspaceId: workspaceId,
-          actualWorkspaceId: documentWorkspaceId,
-          explanation: createDenialExplanation({
-            reasonCode: 'service.access.denied',
-            decision: 'service',
-            message: 'Service tenant scope denied access to this document.',
-            policy: field,
-            workspaceId: typeof workspaceId === 'string' ? workspaceId : undefined,
-            suggestedAction: 'contact_admin',
-          }),
-        },
-      })
-      return false
-    }
-
-    throw new Error(
-      `Service scope denied access.\nExpected: ${String(workspaceId)}\nReason: ${field} ${String(documentWorkspaceId)}`,
-    )
-  }
-}
-
-function createIsolationRule<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
-  TDoc extends Record<string, unknown>,
->(field: string) {
-  return async (ctx: AnyCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, doc: TDoc) => {
-    const appIdentityWorkspaceId = getWorkspaceId(await ctx.appIdentity())
-    const documentWorkspaceId = doc[field as keyof TDoc]
-
-    if (
-      hasTenantScope(appIdentityWorkspaceId) &&
-      hasTenantScope(documentWorkspaceId) &&
-      documentWorkspaceId === appIdentityWorkspaceId
-    ) {
-      return true
-    }
-
-    if (process.env.NODE_ENV === 'production') {
-      await ctx.observe({
-        name: 'rls.denied',
-        status: 'deny',
-        reasonCode: 'rls.denied',
-        details: {
-          field,
-          appIdentityWorkspaceId,
-          documentWorkspaceId,
-          explanation: createDenialExplanation({
-            reasonCode: 'rls.denied',
-            decision: 'rls',
-            message: 'Isolation denied access to this document.',
-            policy: field,
-            workspaceId:
-              typeof appIdentityWorkspaceId === 'string' ? appIdentityWorkspaceId : undefined,
-            suggestedAction: 'switch_tenant',
-          }),
-        },
-      })
-      return false
-    }
-
-    throw new Error(
-      `Document belongs to a different isolation scope.\nAppIdentity: ${String(appIdentityWorkspaceId)}\nReason: ${field} ${String(documentWorkspaceId)}`,
-    )
-  }
-}
-
-function buildIsolationRules<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
->(
-  options: IsolationOptions<DataModel> | undefined,
-): Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel> {
-  const rules = {} as Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel>
-  if (!options) return rules
-
-  const field = options.field ?? 'workspaceId'
-
-  for (const table of options.tables) {
-    const tenantRule = createIsolationRule<
-      DataModel,
-      TCaller,
-      TActingFor,
-      TActor,
-      Record<string, unknown>
-    >(field)
-    rules[table] = {
-      read: tenantRule,
-      modify: tenantRule,
-      insert: tenantRule,
-    }
-  }
-
-  return rules
-}
-
-async function resolveServiceAccess<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
->(
-  ctx: RuleCtx<DataModel, TCaller, TActingFor, TActor>,
-  args: Record<string, unknown>,
-  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
-): Promise<ResolvedServiceAccess<DataModel>> {
-  const caller = await ctx.caller()
-  if (!isServicePrincipal(caller)) return null
-
-  const service = options.services?.[caller.serviceId]
-  if (!service) {
-    throw new Error(
-      `Service "${caller.serviceId}" is not configured in defineTrellis({ services }).`,
-    )
-  }
-
-  if (typeof service.access !== 'object' || service.access === null) {
-    throw new Error(
-      `Service "${caller.serviceId}" must declare restricted access with explicit tables and tenant scope.`,
-    )
-  }
-  assertServiceContractConfigured(caller.serviceId, service)
-
-  if (!isNonBlankStringArray(service.access.tables) || service.access.tables.length === 0) {
-    throw deny(`Service "${caller.serviceId}" must declare at least one allowed table.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-
-  if (service.access.tenant !== 'global' && service.access.tenant !== 'derived') {
-    throw deny(`Service "${caller.serviceId}" must declare a valid tenant scope.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-  if (service.access.tenant === 'derived' && typeof service.access.deriveTenant !== 'function') {
-    throw deny(`Service "${caller.serviceId}" must declare deriveTenant for derived access.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-
-  const workspaceId =
-    service.access.tenant === 'derived'
-      ? await service.access.deriveTenant({
-          caller,
-          args: stripTransportReservedArgs(args),
-        })
-      : null
-
-  if (service.access.tenant === 'derived' && !isNonBlankString(workspaceId)) {
-    throw deny(`Service "${caller.serviceId}" could not resolve a derived tenant scope.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-
-  return {
-    serviceId: caller.serviceId,
-    access: 'restricted',
-    tables: new Set(service.access.tables),
-    tenant: service.access.tenant,
-    workspaceId,
-  }
-}
-
-async function assertServiceTargetAllowed<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
->(
-  ctx: Pick<RuleCtx<DataModel, TCaller, TActingFor, TActor>, 'caller'>,
-  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
-  extra: IdentityForwardingCustomizationExtra | undefined,
-): Promise<void> {
-  const caller = await ctx.caller()
-  if (!isServicePrincipal(caller)) return
-
-  const service = options.services?.[caller.serviceId]
-  if (!service) {
-    throw new Error(
-      `Service "${caller.serviceId}" is not configured in defineTrellis({ services }).`,
-    )
-  }
-  assertServiceContractConfigured(caller.serviceId, service)
-
-  const targetFunctionRef = extra?.identityForwardingFunctionRef
-  const targetOperationId = extra?.[trellisOperationMetadataKey]?.id
-  const allowedFunctionRefs = service.metadata.allowedFunctionRefs ?? []
-  const allowedOperations = service.metadata.allowedOperations ?? []
-  const envelope = getIdentityForwardingEnvelopeState(ctx)
-  const identityForwarding = getIdentityForwarding(ctx)
-
-  if (identityForwarding?.delegationSubject && service.metadata.actingFor === false) {
-    throw deny(`Service "${caller.serviceId}" is not allowed to carry actingFor evidence.`, {
-      source: 'service-access',
-      category: 'auth',
-    })
-  }
-
-  if (envelope) {
-    const actualReplayMode = envelope.replayMode ?? 'none'
-    if (service.metadata.replayMode !== actualReplayMode) {
-      throw deny(
-        `Service "${caller.serviceId}" requires replay mode "${service.metadata.replayMode}", not "${actualReplayMode}".`,
-        {
-          source: 'service-access',
-          category: 'auth',
-        },
-      )
-    }
-  }
-
-  if (targetFunctionRef && allowedFunctionRefs.includes(targetFunctionRef)) return
-  if (targetOperationId && allowedOperations.includes(targetOperationId)) return
-
-  const targetDescription = targetOperationId
-    ? `operation "${targetOperationId}"`
-    : targetFunctionRef
-      ? `function "${targetFunctionRef}"`
-      : 'a handler without identityForwardingFunctionRef or operation metadata'
-
-  throw deny(`Service "${caller.serviceId}" is not allowed to call ${targetDescription}.`, {
-    source: 'service-access',
-    category: 'auth',
-  })
-}
-
-function buildServiceRules<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
->(
-  access: ResolvedServiceAccess<DataModel>,
-  options: IsolationOptions<DataModel> | undefined,
-): Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel> {
-  const rules = {} as Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel>
-  if (!access) return rules
-  if (access.tenant !== 'derived') return rules
-
-  const field = options?.field ?? 'workspaceId'
-
-  for (const table of access.tables) {
-    const scopeRule = createServiceScopeRule<Record<string, unknown>>(field, access.workspaceId)
-    rules[table] = {
-      read: scopeRule,
-      modify: scopeRule,
-      insert: scopeRule,
-    }
-  }
-
-  return rules
-}
-
-type ResolvedRules<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
-> = {
-  dbRules: Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel> | null
-  crossTenantRules: Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel> | null
-  serviceAccess: ResolvedServiceAccess<DataModel>
-}
-
-async function resolveRules<
-  DataModel extends GenericDataModel,
-  TCaller,
-  TActingFor extends ActingFor,
-  TActor,
->(
-  ctx: RuleCtx<DataModel, TCaller, TActingFor, TActor>,
-  args: Record<string, unknown>,
-  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
-): Promise<ResolvedRules<DataModel, TCaller, TActingFor, TActor>> {
-  const tenantRules = buildIsolationRules<DataModel, TCaller, TActingFor, TActor>(options.isolation)
-  const serviceAccess = await resolveServiceAccess(ctx, stripTransportReservedArgs(args), options)
-  const serviceRules = buildServiceRules<DataModel, TCaller, TActingFor, TActor>(
-    serviceAccess,
-    options.isolation,
-  )
-
-  const isService = serviceAccess !== null
-  const dbRules = isService ? serviceRules : tenantRules
-  const crossTenantRules = serviceRules
-
-  return {
-    dbRules: Object.keys(dbRules).length > 0 ? dbRules : null,
-    crossTenantRules: Object.keys(crossTenantRules).length > 0 ? crossTenantRules : null,
-    serviceAccess,
-  }
+  return appIdentity == null ? 'missing' : 'resolved'
 }
 
 type StructuredQueryBuilder<
@@ -2377,13 +1566,6 @@ function createReplayAwareOnError<
   }
 }
 
-function decorateDb<TDb extends object>(db: TDb, unsafeDb: TDb): TDb {
-  const decoratedDb = new Proxy(db, {}) as TDb
-
-  internalUnsafeDbByDecoratedDb.set(decoratedDb, unsafeDb)
-  return decoratedDb
-}
-
 function requireCapabilityTables(value: unknown, label: string): ReadonlySet<string> {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${label} must include at least one table.`)
@@ -2440,7 +1622,7 @@ function createCrossTenantDb<TDb extends object>(input: {
 
   const reader = {
     get: async (id: unknown, ...args: unknown[]) => {
-      const table = getServiceTableFromId(id)
+      const table = getTableFromId(id)
       if (!table) {
         throw new Error(`Could not determine table from Convex id "${String(id)}".`)
       }
@@ -2499,7 +1681,7 @@ function createCrossTenantDb<TDb extends object>(input: {
     },
     patch: async (id: unknown, value: unknown) => {
       if (input.mode !== 'write') throw readOnlyWriteError()
-      const table = getServiceTableFromId(id)
+      const table = getTableFromId(id)
       if (!table) {
         throw new Error(`Could not determine table from Convex id "${String(id)}".`)
       }
@@ -2518,7 +1700,7 @@ function createCrossTenantDb<TDb extends object>(input: {
     },
     replace: async (id: unknown, value: unknown) => {
       if (input.mode !== 'write') throw readOnlyWriteError()
-      const table = getServiceTableFromId(id)
+      const table = getTableFromId(id)
       if (!table) {
         throw new Error(`Could not determine table from Convex id "${String(id)}".`)
       }
@@ -2537,7 +1719,7 @@ function createCrossTenantDb<TDb extends object>(input: {
     },
     delete: async (id: unknown) => {
       if (input.mode !== 'write') throw readOnlyWriteError()
-      const table = getServiceTableFromId(id)
+      const table = getTableFromId(id)
       if (!table) {
         throw new Error(`Could not determine table from Convex id "${String(id)}".`)
       }
