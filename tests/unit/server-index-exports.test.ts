@@ -65,6 +65,9 @@ describe('server entrypoint exports', () => {
     expect(serverApi).not.toHaveProperty('fetchAction')
     expect(serverApi).not.toHaveProperty('defineConvexMcpTool')
     expect(serverApi).not.toHaveProperty('delegateToUser')
+    expect(serverApi).not.toHaveProperty('isSharedSecretWebhookSignatureValid')
+    expect(serverApi).not.toHaveProperty('readHmacVerifiedWebhookBody')
+    expect(serverApi).not.toHaveProperty('readSharedSecretWebhookBody')
   })
 
   it('creates a caller that defaults to auth:auto', async () => {

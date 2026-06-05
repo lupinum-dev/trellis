@@ -10,6 +10,7 @@ type WorkspaceQueryCtx = QueryCtx & {
   workspaceId: Id<'workspaces'>
   appIdentity: () => Promise<AppIdentity>
 }
+type ReadDb = Pick<QueryCtx['db'], 'get'>
 
 export const getCurrentUserOp = operation.query({
   id: 'users.current',
@@ -17,9 +18,12 @@ export const getCurrentUserOp = operation.query({
   crossTenant: {
     reason: 'Load the signed-in user row for current-user UI bootstrap.',
     tables: ['users'],
-    access: ({ db }) => ({
-      getUser: async (id: Id<'users'>) => await db.get(id),
-    }),
+    access: ({ db }) => {
+      const reader = db as ReadDb
+      return {
+        getUser: async (id: Id<'users'>) => await reader.get(id),
+      }
+    },
   },
   handler: async (ctx) => {
     const appIdentity = await ctx.appIdentity()

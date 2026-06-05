@@ -1,4 +1,5 @@
-import { authRequired, defineGuard, open } from '../../src/runtime/auth'
+import { defineGuard, open } from '../../src/runtime/auth'
+import { authRequired } from '../../src/runtime/auth/define-guard'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
 type Assert<T extends true> = T

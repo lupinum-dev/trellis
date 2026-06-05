@@ -4,9 +4,9 @@ import { getAccessIdentity } from '../auth/appIdentity'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getAccessContext = query.protected(
+export const getAccessContext = query.public(
   defineAccessContext({
-    resolve: getAccessIdentity,
+    resolve: async (ctx) => await getAccessIdentity(ctx as Parameters<typeof getAccessIdentity>[0]),
     permissions,
   }),
 )

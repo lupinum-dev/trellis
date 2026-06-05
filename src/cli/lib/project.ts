@@ -757,6 +757,21 @@ function objectIsMcpConvexCallerOptions(
   return Node.isIdentifier(expression) && expression.getText() === 'createMcpConvexCaller'
 }
 
+function objectIsTransportProofOptions(
+  node: import('ts-morph').ObjectLiteralExpression,
+  parent: import('ts-morph').CallExpression,
+): boolean {
+  if (parent.getArguments()[0] !== node) return false
+
+  const expression = parent.getExpression()
+  if (!Node.isPropertyAccessExpression(expression)) return false
+
+  const receiver = expression.getExpression()
+  if (!Node.isIdentifier(receiver) || receiver.getText() !== 'transportProof') return false
+
+  return ['mcp', 'server', 'webhook'].includes(expression.getName())
+}
+
 export function findForwardedCallerWithoutTrustedAuth(
   project: ProjectInspection,
 ): ProjectSourceLocation[] {
@@ -766,6 +781,7 @@ export function findForwardedCallerWithoutTrustedAuth(
   for (const sourceFile of analysis.getSourceFiles()) {
     const filePath = sourceFile.getFilePath()
     if (!/[/\\]server[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(filePath)) continue
+    if (/\.(?:test|spec)\.(?:[cm]?[jt]s|tsx?)$/.test(filePath)) continue
     if (/[/\\]tests?[/\\]/.test(filePath)) continue
 
     for (const objectLiteral of sourceFile.getDescendantsOfKind(
@@ -779,6 +795,7 @@ export function findForwardedCallerWithoutTrustedAuth(
         .some((property) => getPropertyName(property) === 'caller')
       if (!hasCaller || objectHasTrustedAuth(objectLiteral)) continue
       if (objectIsMcpConvexCallerOptions(objectLiteral, parent)) continue
+      if (objectIsTransportProofOptions(objectLiteral, parent)) continue
 
       findings.push({
         path: filePath,

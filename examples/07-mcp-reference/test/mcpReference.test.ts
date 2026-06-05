@@ -106,6 +106,24 @@ function runbookWebhookDelegation(input: {
   })
 }
 
+function expiredRunbookWebhookDelegation(input: {
+  userId: string
+  workspaceId: string
+  deliveryId: string
+}) {
+  return {
+    subject: `user:${input.userId}`,
+    grantSource: 'workspace-service-policy',
+    issuer: 'trellis://server',
+    serviceId: 'runbook-webhook',
+    targetUserId: input.userId,
+    workspaceId: input.workspaceId,
+    purpose: 'runbook-webhook:create',
+    grantId: `delivery:${input.deliveryId}`,
+    expiresAt: Date.now() - 1,
+  }
+}
+
 describe('mcp reference example', () => {
   it('keeps anonymous MCP tools read-only and gates session writes', () => {
     const readServerFile = (relativePath: string) =>
@@ -455,6 +473,113 @@ describe('mcp reference example', () => {
         ),
       ),
     ).rejects.toThrow(/Duplicate webhook delivery/)
+  })
+
+  it('rejects delegated service principals with forged binding fields', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        member: { role: 'member' },
+      },
+    })
+    const baseArgs = {
+      workspaceId: team.id,
+      title: 'Forged binding',
+      summary: 'Should fail',
+      content: '# Forged',
+      visibility: 'workspace',
+      tags: ['webhook'],
+    }
+    const validDelegation = runbookWebhookDelegation({
+      userId: team.users.member.id,
+      workspaceId: team.id,
+      deliveryId: 'delivery_valid_shape',
+    })
+
+    await expect(
+      ctx.raw.mutation(
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+        withSignedForwarding(
+          {
+            ...baseArgs,
+            deliveryId: 'delivery_wrong_service',
+          },
+          {
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+            operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            actingFor: {
+              ...validDelegation,
+              serviceId: 'other-service',
+              grantId: 'delivery:delivery_wrong_service',
+            },
+          },
+        ),
+      ),
+    ).rejects.toThrow(/serviceId does not match/i)
+
+    await expect(
+      ctx.raw.mutation(
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+        withSignedForwarding(
+          {
+            ...baseArgs,
+            deliveryId: 'delivery_wrong_purpose',
+          },
+          {
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+            operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            actingFor: {
+              ...validDelegation,
+              purpose: 'runbook-webhook:delete',
+              grantId: 'delivery:delivery_wrong_purpose',
+            },
+          },
+        ),
+      ),
+    ).rejects.toThrow(/purpose does not match/i)
+
+    await expect(
+      ctx.raw.mutation(
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+        withSignedForwarding(
+          {
+            ...baseArgs,
+            deliveryId: 'delivery_expired',
+          },
+          {
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+            operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            actingFor: expiredRunbookWebhookDelegation({
+              userId: team.users.member.id,
+              workspaceId: team.id,
+              deliveryId: 'delivery_expired',
+            }),
+          },
+        ),
+      ),
+    ).rejects.toThrow(/expiresAt must be in the future/i)
   })
 
   it('stores only hashes for MCP keys and debounces last-used writes', async () => {

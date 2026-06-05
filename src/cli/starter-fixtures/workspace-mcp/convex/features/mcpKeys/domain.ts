@@ -1,6 +1,7 @@
 import { operation } from '@lupinum/trellis/app'
 import { v } from 'convex/values'
 
+import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../functions'
 
@@ -11,14 +12,15 @@ export const validateMcpKeyOp = operation.query({
   args: {
     hash: v.string(),
   },
-  handler: async (ctx: QueryCtx, args) => {
-    const key = await ctx.db
+  handler: async (ctx, args) => {
+    const reader = ctx.db as QueryCtx['db']
+    const key = await reader
       .query('mcpKeys')
       .withIndex('by_hash', (q) => q.eq('hash', args.hash))
       .first()
 
     if (!key || key.status !== 'active') return null
-    const boundUser = await ctx.db.get(key.boundUserId)
+    const boundUser = await reader.get(key.boundUserId)
 
     if (!boundUser?.workspaceId || boundUser.workspaceId !== key.boundWorkspaceId) return null
     if (!boundUser.role) return null
@@ -35,13 +37,26 @@ export const validateMcpKeyOp = operation.query({
 
 export const validate = query.public(validateMcpKeyOp)
 
-export const touchMcpKeyOp = operation.mutation({
+export const touchMcpKeyOp = operation.publicMutation({
   id: 'mcpKeys.touch',
   args: {
     hash: v.string(),
   },
-  handler: async (ctx: MutationCtx, args) => {
-    const key = await ctx.db
+  publicWrite: {
+    reason: 'The MCP bearer middleware records debounced key usage after validation.',
+    tables: ['mcpKeys'],
+    access: ({ db }) => {
+      const writer = db as MutationCtx['db']
+      return {
+        touch: async (id: Id<'mcpKeys'>, lastUsedAt: number) => {
+          await writer.patch(id, { lastUsedAt })
+        },
+      }
+    },
+  },
+  handler: async (ctx, args) => {
+    const reader = ctx.db as QueryCtx['db']
+    const key = await reader
       .query('mcpKeys')
       .withIndex('by_hash', (q) => q.eq('hash', args.hash))
       .first()
@@ -51,9 +66,7 @@ export const touchMcpKeyOp = operation.mutation({
     const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
     if (now - lastUsedAt < TOUCH_DEBOUNCE_MS) return
 
-    await ctx.db.patch(key._id, {
-      lastUsedAt: now,
-    })
+    await ctx.publicWrite.touch(key._id, now)
   },
 })
 

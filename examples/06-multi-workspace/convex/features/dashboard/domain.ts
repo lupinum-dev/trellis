@@ -11,38 +11,41 @@ export const portfolio = query.public({
   crossTenant: {
     reason: 'Show the agency portfolio across assigned workspaces.',
     tables: ['memberships', 'workspaces', 'projects'],
-    access: ({ db }: { db: DatabaseReader }) => ({
-      listPortfolio: async (userId: string) => {
-        await requireAnyAgencyRole(db, userId as never, 'agency_admin', 'agency_manager')
+    access: ({ db }) => {
+      const reader = db as DatabaseReader
+      return {
+        listPortfolio: async (userId: string) => {
+          await requireAnyAgencyRole(reader, userId as never, 'agency_admin', 'agency_manager')
 
-        const memberships = await getMemberships(db, userId as never)
-        const agencyMemberships = memberships.filter((membership) =>
-          ['agency_admin', 'agency_manager'].includes(membership.role),
-        )
+          const memberships = await getMemberships(reader, userId as never)
+          const agencyMemberships = memberships.filter((membership) =>
+            ['agency_admin', 'agency_manager'].includes(membership.role),
+          )
 
-        return Promise.all(
-          agencyMemberships.map(async (membership) => {
-            const workspace = await db.get(membership.workspaceId)
-            const projects = await db
-              .query('projects')
-              .withIndex('by_workspace', (q: any) => q.eq('workspaceId', membership.workspaceId))
-              .collect()
+          return Promise.all(
+            agencyMemberships.map(async (membership) => {
+              const workspace = await reader.get(membership.workspaceId)
+              const projects = await reader
+                .query('projects')
+                .withIndex('by_workspace', (q: any) => q.eq('workspaceId', membership.workspaceId))
+                .collect()
 
-            return {
-              workspace: {
-                id: membership.workspaceId,
-                name: workspace?.name ?? String(membership.workspaceId),
-              },
-              role: membership.role,
-              activeProjects: projects.filter(
-                (project: Doc<'projects'>) => project.status === 'active',
-              ).length,
-              totalProjects: projects.length,
-            }
-          }),
-        )
-      },
-    }),
+              return {
+                workspace: {
+                  id: membership.workspaceId,
+                  name: workspace?.name ?? String(membership.workspaceId),
+                },
+                role: membership.role,
+                activeProjects: projects.filter(
+                  (project: Doc<'projects'>) => project.status === 'active',
+                ).length,
+                totalProjects: projects.length,
+              }
+            }),
+          )
+        },
+      }
+    },
   },
   handler: async (ctx) => {
     const appIdentity = await getAgencyActor(ctx)

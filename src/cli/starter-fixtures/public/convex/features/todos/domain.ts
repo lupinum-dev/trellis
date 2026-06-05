@@ -4,7 +4,7 @@ import { v } from 'convex/values'
 
 import { createTodo, listTodos } from '../../../shared/features/todos/contract'
 import type { Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { MutationCtx } from '../../_generated/server'
 import { mutation, query } from '../../functions'
 
 type TodoIdArgs = { id: Id<'todos'> }
@@ -12,49 +12,82 @@ type TodoIdArgs = { id: Id<'todos'> }
 export const listTodosOp = operation.query({
   id: 'todos.list',
   args: listTodos.args,
-  handler: async (ctx: QueryCtx) => {
+  handler: async (ctx) => {
     return await ctx.db.query('todos').order('desc').collect()
   },
 })
 
 export const list = query.public(listTodosOp)
 
-export const createTodoOp = operation.mutation({
+export const createTodoOp = operation.publicMutation({
   id: 'todos.create',
   args: createTodo.args,
-  handler: async (ctx: MutationCtx, args) => {
-    return await ctx.db.insert('todos', {
-      title: args.title,
-      completed: false,
-      createdAt: Date.now(),
-    })
+  publicWrite: {
+    reason: 'The public starter intentionally lets anyone create demo todos.',
+    tables: ['todos'],
+    access: ({ db }) => {
+      const writer = db as MutationCtx['db']
+      return {
+        create: async (title: string) =>
+          await writer.insert('todos', {
+            title,
+            completed: false,
+            createdAt: Date.now(),
+          }),
+      }
+    },
+  },
+  handler: async (ctx, args) => {
+    return await ctx.publicWrite.create(args.title)
   },
 })
 
 export const create = mutation.public(createTodoOp)
 
-export const toggleTodoOp = operation.mutation({
+export const toggleTodoOp = operation.publicMutation({
   id: 'todos.toggle',
   args: { id: v.id('todos') },
-  load: async (ctx: MutationCtx, args: TodoIdArgs) => {
+  publicWrite: {
+    reason: 'The public starter intentionally lets anyone update demo todos.',
+    tables: ['todos'],
+    access: ({ db }) => {
+      const writer = db as MutationCtx['db']
+      return {
+        toggle: async (id: Id<'todos'>, completed: boolean) => {
+          await writer.patch(id, { completed })
+        },
+      }
+    },
+  },
+  load: async (ctx, args: TodoIdArgs) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
     return { todo }
   },
-  handler: async (ctx: MutationCtx, args: TodoIdArgs, { todo }) => {
-    await ctx.db.patch(args.id, {
-      completed: !todo.completed,
-    })
+  handler: async (ctx, args: TodoIdArgs, { todo }) => {
+    await ctx.publicWrite.toggle(args.id, !todo.completed)
   },
 })
 
 export const toggle = mutation.public(toggleTodoOp)
 
-export const removeTodoOp = operation.mutation({
+export const removeTodoOp = operation.publicMutation({
   id: 'todos.remove',
   args: { id: v.id('todos') },
-  handler: async (ctx: MutationCtx, args: TodoIdArgs) => {
-    await ctx.db.delete(args.id)
+  publicWrite: {
+    reason: 'The public starter intentionally lets anyone delete demo todos.',
+    tables: ['todos'],
+    access: ({ db }) => {
+      const writer = db as MutationCtx['db']
+      return {
+        remove: async (id: Id<'todos'>) => {
+          await writer.delete(id)
+        },
+      }
+    },
+  },
+  handler: async (ctx, args: TodoIdArgs) => {
+    await ctx.publicWrite.remove(args.id)
   },
 })
 

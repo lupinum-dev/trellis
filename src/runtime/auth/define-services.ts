@@ -6,6 +6,32 @@ type MaybePromise<T> = T | Promise<T>
  * from the call arguments.
  */
 export type ServiceTenantMode = 'global' | 'derived'
+export type ServiceReplayMode =
+  | 'none'
+  | 'domain-idempotency'
+  | 'jti-redemption'
+  | 'operation-confirmation'
+
+export type ServiceContractMetadata<TTableName extends string = string> = {
+  /** Issuer/source for this service, for example `verifiedWebhook` or `scheduledTask`. */
+  source: string
+  /** Narrow purpose this service is allowed to perform. */
+  purpose: string
+  /** Backend operation ids this service is allowed to invoke. */
+  allowedOperations?: string[]
+  /** Backend function refs this service is allowed to invoke. */
+  allowedFunctionRefs?: string[]
+  /** Replay behavior required for service writes. */
+  replayMode: ServiceReplayMode
+  /** Whether this service may carry backend-revalidated acting-for evidence. */
+  actingFor: boolean
+  /** Audit event emitted or represented by this service workflow. */
+  auditEvent: string
+  /** Durable table that stores service audit/idempotency evidence, when applicable. */
+  auditTable?: TTableName
+  /** Field/path used as the audit correlation id. */
+  auditCorrelationId: string
+}
 
 export type RestrictedServiceAccess<TTableName extends string = string, TCaller = unknown> = {
   /** Explicit table allow-list for this service caller. */
@@ -31,9 +57,11 @@ export type RestrictedServiceAccess<TTableName extends string = string, TCaller 
 export type ServiceDefinition<TTableName extends string = string, TCaller = unknown> =
   | {
       access: 'unrestricted'
+      metadata: ServiceContractMetadata<TTableName>
     }
   | {
       access: RestrictedServiceAccess<TTableName, TCaller>
+      metadata: ServiceContractMetadata<TTableName>
     }
 
 export type ServiceDefinitions<TTableName extends string = string, TCaller = unknown> = Record<

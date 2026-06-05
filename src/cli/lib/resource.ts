@@ -197,14 +197,47 @@ export const ${ctx.singularCamel}Permissions = [
 `.trimStart()
 }
 
+function resourceCreateFields(ctx: ResourceGeneratorContext): string {
+  return [
+    `${ctx.ownerField}: appIdentity.userId`,
+    `name: args.name`,
+    ...(ctx.tenantField ? [`${ctx.tenantField}: appIdentity.workspaceId!`] : []),
+    'createdAt: now',
+    ...(ctx.hasUpdatedAt ? ['updatedAt: now'] : []),
+  ].join(',\n      ')
+}
+
 function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
+  const createFields = resourceCreateFields(ctx)
+
   return `
 import { requireRecord } from '@lupinum/trellis/auth'
 import { operation, operationEffect, operationIssue, operationPreview, previewOf } from '@lupinum/trellis/app'
 
-import { delete${ctx.singularPascal} } from '../../../shared/features/${ctx.tableName}/contract'
-import { ${ctx.singularCamel}DeletePermission } from './permissions'
+import {
+  create${ctx.singularPascal},
+  delete${ctx.singularPascal},
+} from '../../../shared/features/${ctx.tableName}/contract'
+import {
+  ${ctx.singularCamel}CreatePermission,
+  ${ctx.singularCamel}DeletePermission,
+} from './permissions'
 import { mutation } from '../../functions'
+
+export const create${ctx.singularPascal}Op = operation.mutation({
+  id: '${ctx.tableName}.create',
+  name: 'create${ctx.singularPascal}',
+  args: create${ctx.singularPascal}.args,
+  guard: ${ctx.singularCamel}CreatePermission,
+  permission: ${ctx.singularCamel}CreatePermission,
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    const now = Date.now()
+    return await ctx.db.insert('${ctx.tableName}', {
+      ${createFields}
+    })
+  },
+})
 
 export const remove${ctx.singularPascal}Op = operation.destructive({
   id: '${ctx.tableName}.remove',
@@ -248,13 +281,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   const listQuery = ctx.tenantField
     ? `.withIndex('by_workspace', (q) => q.eq('${ctx.tenantField}', appIdentity.workspaceId!))`
     : `.withIndex('by_${ctx.ownerField === 'authorId' ? 'author' : 'owner'}', (q) => q.eq('${ctx.ownerField}', appIdentity.userId))`
-  const createFields = [
-    `${ctx.ownerField}: appIdentity.userId`,
-    `name: args.name`,
-    ...(ctx.tenantField ? [`${ctx.tenantField}: appIdentity.workspaceId!`] : []),
-    'createdAt: now',
-    ...(ctx.hasUpdatedAt ? ['updatedAt: now'] : []),
-  ].join(',\n      ')
+  const createFields = resourceCreateFields(ctx)
   const patchFields = [
     `name: args.name`,
     ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : []),
@@ -277,6 +304,20 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   },
 })
 `
+  const createExport = ctx.hasMcp
+    ? `export const create = mutation.protected(create${ctx.singularPascal}Op)\n`
+    : `export const create = mutation.protected({
+  args: create${ctx.singularPascal}.args,
+  guard: ${ctx.singularCamel}CreatePermission,
+  handler: async (ctx, args) => {
+    const appIdentity = await ctx.appIdentity()
+    const now = Date.now()
+    return await ctx.db.insert('${ctx.tableName}', {
+      ${createFields}
+    })
+  },
+})
+`
 
   return `
 import { requireRecord } from '@lupinum/trellis/auth'
@@ -293,7 +334,7 @@ import {
   ${ctx.singularCamel}ReadPermission,
 } from './permissions'
 import { mutation, query } from '../../functions'
-${ctx.hasMcp ? `import { remove${ctx.singularPascal}Op } from './operations'\n` : ''}
+${ctx.hasMcp ? `import { create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op } from './operations'\n` : ''}
 
 export const list = query.protected({
   args: list${ctx.pluralPascal}.args,
@@ -322,17 +363,7 @@ export const get = query.protected({
   handler: async (_ctx, _args, loaded) => loaded,
 })
 
-export const create = mutation.protected({
-  args: create${ctx.singularPascal}.args,
-  guard: ${ctx.singularCamel}CreatePermission,
-  handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
-    const now = Date.now()
-    return await ctx.db.insert('${ctx.tableName}', {
-      ${createFields}
-    })
-  },
-})
+${createExport}
 
 export const update = mutation.protected({
   args: update${ctx.singularPascal}.args,
@@ -482,23 +513,21 @@ export default tool.query({
 
 function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
+import { executeOperationRef } from '@lupinum/trellis/backend'
 import { api } from '#trellis/api'
-import { stampMcpToolSafety } from '@lupinum/trellis/mcp'
+import { create${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
 import { ${ctx.singularCamel}CreatePermission } from '~~/convex/features/${ctx.tableName}'
 import { create${ctx.singularPascal} } from '~~/shared/features/${ctx.tableName}/contract'
 
 import { tool } from '../runtime'
 
-const create${ctx.singularPascal}Safety = {
-  kind: 'bounded-write',
-  reason: 'Creates one ${ctx.singularCamel} named by args.',
-} as const
-
-export default tool.mutation({
+export default tool.operation(create${ctx.singularPascal}Op, {
   schema: create${ctx.singularPascal},
-  call: stampMcpToolSafety(api.features.${ctx.tableName}.domain.create, create${ctx.singularPascal}Safety),
+  execute: executeOperationRef(
+    create${ctx.singularPascal}Op,
+    api.features.${ctx.tableName}.domain.create,
+  ),
   permission: ${ctx.singularCamel}CreatePermission,
-  safety: create${ctx.singularPascal}Safety,
   meta: {
     name: 'create-${ctx.fileStem}',
   },
@@ -561,9 +590,11 @@ ${schemaTableBlock(ctx).trimEnd()}
 function resourceFeatureTemplate(ctx: ResourceGeneratorContext): string {
   const permissionsLine = `  permissions: ${ctx.singularCamel}Permissions,\n`
   const operationsImport = ctx.hasMcp
-    ? `import { remove${ctx.singularPascal}Op } from './operations'\n`
+    ? `import { create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op } from './operations'\n`
     : ''
-  const operationsLine = ctx.hasMcp ? `  operations: [remove${ctx.singularPascal}Op],\n` : ''
+  const operationsLine = ctx.hasMcp
+    ? `  operations: [create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op],\n`
+    : ''
 
   return `
 import { defineFeature } from '@lupinum/trellis/workspace'
@@ -589,7 +620,7 @@ export {
   ${ctx.singularCamel}ReadPermission,
 } from './permissions'
 export { ${ctx.tableName}Tables } from './schema'
-${ctx.hasMcp ? `export { previewRemove${ctx.singularPascal}, remove${ctx.singularPascal}Op } from './operations'\n` : ''}`.trimStart()
+${ctx.hasMcp ? `export { create${ctx.singularPascal}Op, previewRemove${ctx.singularPascal}, remove${ctx.singularPascal}Op } from './operations'\n` : ''}`.trimStart()
 }
 
 async function patchSchema(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {

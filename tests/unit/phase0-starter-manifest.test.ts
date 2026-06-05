@@ -123,7 +123,9 @@ describe('fixture-backed beginner starter manifests', () => {
     const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
     expect(todosDomain).toContain("import { operation } from '@lupinum/trellis/app'")
     expect(todosDomain).toContain('operation.query({')
-    expect(todosDomain).toContain('operation.mutation({')
+    expect(todosDomain).toContain('operation.publicMutation({')
+    expect(todosDomain).toContain('publicWrite:')
+    expect(todosDomain).toContain('ctx.publicWrite')
     const starterPage = readFileSync(
       join(root, 'app/features/public/components/PublicStarterPage.vue'),
       'utf8',
@@ -247,12 +249,14 @@ describe('fixture-backed beginner starter manifests', () => {
     const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
     const todosOperations = readFileSync(join(root, 'convex/features/todos/operations.ts'), 'utf8')
     const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
-    expect(todosDomain).toContain('query.protected(listTodosOp)')
-    expect(todosDomain).toContain('mutation.protected(createTodoOp)')
+    expect(todosDomain).toContain('query.workspace(listTodosOp)')
+    expect(todosDomain).toContain('mutation.workspace(createTodoOp)')
     expect(todosOperations).toContain(
       "import { operation, workspaceScope } from '@lupinum/trellis/app'",
     )
     expect(todosOperations).toContain('scope: workspaceScope()')
+    expect(todosOperations).toContain('permission: workspaceRead')
+    expect(todosOperations).toContain('permission: todoCreate')
     expect(todosOperations).toContain("q.eq('workspaceId', ctx.workspaceId)")
     expect(todosOperations).toContain('workspaceId: ctx.workspaceId')
     expect(todosOperations).not.toContain('appIdentity.workspaceId')
@@ -332,8 +336,8 @@ describe('fixture-backed beginner starter manifests', () => {
     const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
     const todosOperations = readFileSync(join(root, 'convex/features/todos/operations.ts'), 'utf8')
     const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
-    expect(todosDomain).toContain('query.protected(listTodosOp)')
-    expect(todosDomain).toContain('mutation.protected(createTodoOp)')
+    expect(todosDomain).toContain('query.workspace(listTodosOp)')
+    expect(todosDomain).toContain('mutation.workspace(createTodoOp)')
     expect(todosOperations).toContain(
       "import { operation, workspaceScope } from '@lupinum/trellis/app'",
     )

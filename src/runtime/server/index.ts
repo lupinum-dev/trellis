@@ -35,13 +35,10 @@ export {
 } from './acting-for.js'
 export {
   createWebhookHmacSignature,
-  isSharedSecretWebhookSignatureValid,
   isWebhookHmacSignatureValid,
-  readHmacVerifiedWebhookBody,
   verifyHmacWebhookDelivery,
 } from './webhooks.js'
 export type {
-  ReadHmacVerifiedWebhookBodyOptions,
   VerifiedHmacWebhookDelivery,
   VerifyHmacWebhookDeliveryOptions,
   WebhookHmacVerificationOptions,

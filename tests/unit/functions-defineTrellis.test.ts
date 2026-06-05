@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { operation as appOperation } from '../../src/runtime/app'
-import { definePermission, open } from '../../src/runtime/auth'
+import { defineGuard, definePermission, open } from '../../src/runtime/auth'
 import {
   defineCaller,
   defineTrellis,
@@ -153,6 +153,8 @@ async function confirmationToken(args: {
 
 describe('defineTrellis', () => {
   const originalIdentityForwardingKey = process.env.CONVEX_IDENTITY_FORWARDING_KEY
+  const allowAll = defineGuard('test.allowAll', true)
+  const testAppIdentity = async () => ({ kind: 'test' as const })
 
   afterEach(() => {
     if (originalIdentityForwardingKey === undefined) {
@@ -175,15 +177,20 @@ describe('defineTrellis', () => {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
+        appIdentity: testAppIdentity,
       },
     )
 
     expect(runtime.query).toBeTypeOf('object')
     expect(runtime.mutation).toBeTypeOf('object')
     expect(runtime.query.public).toBeTypeOf('function')
+    expect(runtime.query.authenticated).toBeTypeOf('function')
+    expect(runtime.query.workspace).toBeTypeOf('function')
     expect(runtime.query.protected).toBeTypeOf('function')
     expect(runtime.query.unsafe).toBeTypeOf('function')
     expect(runtime.mutation.public).toBeTypeOf('function')
+    expect(runtime.mutation.authenticated).toBeTypeOf('function')
+    expect(runtime.mutation.workspace).toBeTypeOf('function')
     expect(runtime.mutation.protected).toBeTypeOf('function')
     expect(runtime.mutation.unsafe).toBeTypeOf('function')
     expect(runtime.unsafe.query).toBeTypeOf('function')
@@ -603,7 +610,7 @@ describe('defineTrellis', () => {
       appOperation.publicMutation({
         id: 'todos.protectedPublicWrite',
         args: {},
-        guard: open,
+        guard: allowAll,
         publicWrite: {
           reason: 'Invalid protected write capability.',
           tables: ['todos'],
@@ -874,6 +881,7 @@ describe('defineTrellis', () => {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -889,6 +897,10 @@ describe('defineTrellis', () => {
 
   it('stamps explicit backend lane metadata', () => {
     const builder = ((definition: unknown) => definition) as never
+    const workspacePermission = definePermission({
+      key: 'workspace.read',
+      check: true,
+    })
 
     const runtime = defineTrellis({
       query: builder,
@@ -901,7 +913,16 @@ describe('defineTrellis', () => {
     } as never) as Record<PropertyKey, unknown>
     const protectedMutation = runtime.mutation.protected({
       args: {},
-      guard: open,
+      guard: allowAll,
+      handler: async () => ({ ok: true }),
+    } as never) as Record<PropertyKey, unknown>
+    const authenticatedQuery = runtime.query.authenticated({
+      args: {},
+      handler: async () => ({ ok: true }),
+    } as never) as Record<PropertyKey, unknown>
+    const workspaceQuery = runtime.query.workspace({
+      args: {},
+      permission: workspacePermission,
       handler: async () => ({ ok: true }),
     } as never) as Record<PropertyKey, unknown>
     const unsafeMutation = runtime.mutation.unsafe({
@@ -915,6 +936,8 @@ describe('defineTrellis', () => {
     } as never) as Record<PropertyKey, unknown>
 
     expect(publicQuery[trellisBackendLaneMetadataKey]).toBe('public')
+    expect(authenticatedQuery[trellisBackendLaneMetadataKey]).toBe('authenticated')
+    expect(workspaceQuery[trellisBackendLaneMetadataKey]).toBe('workspace')
     expect(protectedMutation[trellisBackendLaneMetadataKey]).toBe('protected')
     expect(unsafeMutation[trellisBackendLaneMetadataKey]).toBe('unsafe')
   })
@@ -978,6 +1001,7 @@ describe('defineTrellis', () => {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
+        appIdentity: testAppIdentity,
       },
     )
     const removeTodoPermission = definePermission({
@@ -1017,6 +1041,61 @@ describe('defineTrellis', () => {
     expect(getOperationMetadata(executeDefinition)).toEqual(getOperationMetadata(previewDefinition))
   })
 
+  it('registers guardless app destructive previews through workspace lanes', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+        appIdentity: testAppIdentity,
+      },
+    )
+    const removeTodoPermission = definePermission({
+      key: 'todos.remove',
+      check: true,
+    })
+    const args = { id: v.string() }
+    const removeTodoOp = appOperation.destructive({
+      id: 'todos.remove',
+      args,
+      permission: removeTodoPermission,
+      safety: 'destructive-write',
+      preview: async (_ctx, input: { id: string }) =>
+        operationPreview({
+          summary: `Remove ${input.id}`,
+          confirm: { id: input.id },
+        }),
+      handler: async () => null,
+    })
+    const previewHandler = previewOf(removeTodoOp)
+
+    expect(previewHandler).not.toHaveProperty('guard')
+    expect(previewHandler.permission).toBe(removeTodoPermission)
+
+    const previewDefinition = runtime.mutation.workspace(previewHandler as never) as {
+      args: { fields: { id: typeof args.id } }
+    }
+    const executeDefinition = runtime.mutation.workspace(removeTodoOp as never) as {
+      args: { fields: { id: typeof args.id } }
+    }
+
+    expect(previewDefinition.args.fields.id).toBe(args.id)
+    expect(executeDefinition.args.fields.id).toBe(args.id)
+    expect(getOperationMetadata(previewDefinition)).toMatchObject({
+      id: 'todos.remove',
+      kind: 'destructive',
+      permissionKey: 'todos.remove',
+      safety: 'destructive-write',
+    })
+    expect(getOperationMetadata(executeDefinition)).toEqual(getOperationMetadata(previewDefinition))
+  })
+
   it('rejects guard on public backend lane', () => {
     const builder = ((definition: unknown) => definition) as never
 
@@ -1028,7 +1107,7 @@ describe('defineTrellis', () => {
     expect(() =>
       runtime.query.public({
         args: {},
-        guard: open,
+        guard: allowAll,
         handler: async () => ({ ok: true }),
       } as never),
     ).toThrow(/must not provide `guard`/)
@@ -1048,6 +1127,281 @@ describe('defineTrellis', () => {
         handler: async () => ({ ok: true }),
       } as never),
     ).toThrow(/protected backend handlers require `guard`/)
+  })
+
+  it('rejects open guards on protected backend handlers', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.protected({
+        args: {},
+        guard: open,
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/must not use `guard: open`/)
+  })
+
+  it('rejects custom guards on authenticated and workspace lanes', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.authenticated({
+        args: {},
+        guard: allowAll,
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/authenticated backend handlers must not provide `guard`/)
+
+    expect(() =>
+      runtime.query.workspace({
+        args: {},
+        guard: allowAll,
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/workspace backend handlers must not provide `guard`/)
+  })
+
+  it('accepts guardless app operation definitions on signed-in lanes', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const operation = appOperation.mutation({
+      id: 'workspaces.create',
+      args: {},
+      handler: async () => ({ ok: true }),
+    })
+
+    const registered = runtime.mutation.authenticated(operation as never) as typeof operation & {
+      [trellisBackendLaneMetadataKey]?: unknown
+    }
+
+    expect(getOperationMetadata(registered)).toMatchObject({ id: 'workspaces.create' })
+    expect(registered[trellisBackendLaneMetadataKey]).toBe('authenticated')
+  })
+
+  it('uses concrete operation permission metadata as the workspace lane guard', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const workspaceRead = definePermission({
+      key: 'workspace.read',
+      check: (appIdentity: { workspaceId?: string }) => appIdentity.workspaceId === 'workspace-1',
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: defineCaller({
+          resolve: async () => ({
+            kind: 'user' as const,
+            subject: 'auth:alice' as const,
+            authKey: 'alice',
+          }),
+        }),
+        appIdentity: async (_ctx, args) => ({
+          userId: 'alice',
+          workspaceId: typeof args.workspaceId === 'string' ? args.workspaceId : undefined,
+        }),
+      },
+    )
+
+    const operation = appOperation.query({
+      id: 'todos.list',
+      args: { workspaceId: v.string() },
+      permission: workspaceRead,
+      handler: async (ctx) => await ctx.appIdentity(),
+    })
+
+    const definition = runtime.query.workspace(operation as never) as {
+      handler: (ctx: { db: ReturnType<typeof createMemoryDb>['db'] }, args: unknown) => unknown
+      [trellisBackendLaneMetadataKey]?: unknown
+    }
+
+    expect(definition[trellisBackendLaneMetadataKey]).toBe('workspace')
+    await expect(
+      definition.handler({ db: createMemoryDb().db }, { workspaceId: 'workspace-1' }),
+    ).resolves.toEqual({
+      userId: 'alice',
+      workspaceId: 'workspace-1',
+    })
+    await expect(
+      definition.handler({ db: createMemoryDb().db }, { workspaceId: 'workspace-2' }),
+    ).rejects.toThrow(/Forbidden: workspace.read/)
+  })
+
+  it('rejects metadata-only permission keys on workspace lanes', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const operation = appOperation.query({
+      id: 'todos.list',
+      args: {},
+      permission: 'workspace.read',
+      handler: async () => ({ ok: true }),
+    })
+
+    expect(() => runtime.query.workspace(operation as never)).toThrow(
+      /must provide a definePermission\(\.\.\.\) object/,
+    )
+  })
+
+  it('rejects workspace lanes without concrete permission metadata', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.workspace({
+        args: {},
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/workspace backend handlers require `permission`/)
+
+    const operation = appOperation.mutation({
+      id: 'todos.create',
+      args: {},
+      handler: async () => ({ ok: true }),
+    })
+
+    expect(() => runtime.mutation.workspace(operation as never)).toThrow(
+      /workspace backend handlers require `permission`/,
+    )
+  })
+
+  it('rejects custom-guard operation definitions on signed-in lanes', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const operation = defineOperation({
+      id: 'workspaces.create',
+      kind: 'safe',
+      args: {},
+      guard: allowAll,
+      handler: async () => ({ ok: true }),
+    })
+
+    expect(() => runtime.mutation.authenticated(operation as never)).toThrow(
+      /authenticated backend handlers must not provide `guard`/,
+    )
+    expect(() => runtime.mutation.workspace(operation as never)).toThrow(
+      /workspace backend handlers must not provide `guard`/,
+    )
+  })
+
+  it('requires an authenticated caller on the authenticated lane', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: defineCaller({
+          resolve: async (_ctx, args) =>
+            args.userId
+              ? {
+                  kind: 'user' as const,
+                  subject: `auth:${args.userId}` as const,
+                  authKey: String(args.userId),
+                }
+              : { kind: 'anonymous' as const, subject: 'system:anonymous' as const },
+        }),
+        appIdentity: async (_ctx, _args, caller) =>
+          caller.kind === 'user' ? { userId: caller.authKey } : null,
+      },
+    )
+
+    const definition = runtime.query.authenticated({
+      args: { userId: v.optional(v.string()) },
+      handler: async (ctx) => await ctx.caller(),
+    } as never) as {
+      handler: (ctx: { db: ReturnType<typeof createMemoryDb>['db'] }, args: unknown) => unknown
+    }
+
+    await expect(definition.handler({ db: createMemoryDb().db }, {})).rejects.toThrow(
+      /Forbidden: authRequired/,
+    )
+    await expect(
+      definition.handler({ db: createMemoryDb().db }, { userId: 'alice' }),
+    ).resolves.toMatchObject({
+      kind: 'user',
+      authKey: 'alice',
+    })
+  })
+
+  it('requires a resolved workspace identity on the workspace lane before load runs', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const workspaceRead = definePermission({
+      key: 'workspace.read',
+      check: true,
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: defineCaller({
+          resolve: async () => ({
+            kind: 'user' as const,
+            subject: 'auth:alice' as const,
+            authKey: 'alice',
+          }),
+        }),
+        appIdentity: async (_ctx, args) =>
+          args.workspaceId
+            ? { userId: 'alice', workspaceId: args.workspaceId }
+            : { userId: 'alice' },
+      },
+    )
+    let loadCalls = 0
+    const load = async () => {
+      loadCalls += 1
+      return { ok: true }
+    }
+
+    const definition = runtime.query.workspace({
+      args: { workspaceId: v.optional(v.string()) },
+      permission: workspaceRead,
+      load,
+      handler: async (ctx) => await ctx.appIdentity(),
+    } as never) as {
+      handler: (ctx: { db: ReturnType<typeof createMemoryDb>['db'] }, args: unknown) => unknown
+    }
+
+    await expect(definition.handler({ db: createMemoryDb().db }, {})).rejects.toThrow(
+      /workspace required/,
+    )
+    expect(loadCalls).toBe(0)
+    await expect(
+      definition.handler({ db: createMemoryDb().db }, { workspaceId: 'workspace-1' }),
+    ).resolves.toEqual({
+      userId: 'alice',
+      workspaceId: 'workspace-1',
+    })
+    expect(loadCalls).toBe(1)
   })
 
   it('rejects signed forwarding envelopes for the wrong function ref on real protected handlers', async () => {
@@ -1154,6 +1508,7 @@ describe('defineTrellis', () => {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -1163,7 +1518,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({ summary: `Delete ${args.id}`, confirm: { id: args.id } }),
       handler: async () => ({ deleted: true }),
@@ -1215,6 +1570,7 @@ describe('defineTrellis', () => {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -1225,7 +1581,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({ summary: `Delete ${args.id}`, confirm: { id: args.id } }),
       handler: async () => {
@@ -1749,7 +2105,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async () =>
         operationPreview({
           summary: 'Destroy test record',
@@ -1773,6 +2129,7 @@ describe('defineTrellis', () => {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -1782,7 +2139,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async () =>
         operationPreview({
           summary: 'Destroy test record',
@@ -1840,6 +2197,7 @@ describe('defineTrellis', () => {
             scopeKey: () => 'tenant:test',
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -1850,7 +2208,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({
           summary: `Destroy ${args.id}`,
@@ -1916,6 +2274,7 @@ describe('defineTrellis', () => {
             ttlSeconds: 60,
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -1926,7 +2285,7 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       identityForwardingFunctionRef: 'tasks:delete',
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({
           summary: `Destroy ${args.id}`,
@@ -2005,6 +2364,7 @@ describe('defineTrellis', () => {
             scopeKey: () => 'tenant:test',
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -2015,7 +2375,7 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       identityForwardingFunctionRef: 'tasks:delete',
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({
           summary: `Destroy ${args.id}`,
@@ -2049,6 +2409,7 @@ describe('defineTrellis', () => {
             scopeKey: () => 'tenant:test',
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -2060,7 +2421,7 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       identityForwardingFunctionRef: 'tasks:delete',
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({ summary: `Destroy ${args.id}`, confirm: { id: args.id } }),
       handler: async () => {
@@ -2130,6 +2491,7 @@ describe('defineTrellis', () => {
             scopeKey: () => 'tenant:test',
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -2140,7 +2502,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({ summary: `Destroy ${args.id}`, confirm: { id: args.id } }),
       handler: async () => {
@@ -2194,6 +2556,7 @@ describe('defineTrellis', () => {
             scopeKey: () => 'tenant:test',
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -2205,7 +2568,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       authorize: {
         label: 'tests.destroy',
         check: async () => authorized,
@@ -2272,6 +2635,7 @@ describe('defineTrellis', () => {
             scopeKey: () => 'tenant:test',
           },
         },
+        appIdentity: testAppIdentity,
       },
     )
 
@@ -2283,7 +2647,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      guard: open,
+      guard: allowAll,
       preview: async (_ctx, args) =>
         operationPreview({
           summary: `Destroy ${args.id}`,
@@ -2360,6 +2724,17 @@ describe('defineTrellis', () => {
         },
         services: {
           sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedOperations: ['sync.test'],
+              allowedFunctionRefs: ['tasks:list'],
+              replayMode: 'domain-idempotency',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.tenantWorkspaceId',
+            },
             access: {
               tables: ['tasks'] as never[],
               tenant: 'derived',
@@ -2374,6 +2749,7 @@ describe('defineTrellis', () => {
         rowWorkspaceId: v.string(),
         tenantWorkspaceId: v.string(),
       },
+      identityForwardingFunctionRef: 'tasks:list',
       handler: async (ctx, args) => {
         return await ctx.db
           .query('tasks' as never)
@@ -2421,6 +2797,80 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/Service scope denied access/)
   })
 
+  it('rejects unconfigured service principals before handler execution', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async () => ({
+        kind: 'service' as const,
+        serviceId: 'unknown-sync',
+        subject: 'service:unknown-sync' as const,
+      }),
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        public: {
+          readTables: ['tasks'] as never[],
+        },
+        services: {
+          sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedOperations: ['sync.test'],
+              allowedFunctionRefs: ['tasks:list'],
+              replayMode: 'domain-idempotency',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.id',
+            },
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'global',
+            },
+          },
+        },
+      },
+    )
+    let reachedHandler = false
+    const definition = runtime.query.public({
+      args: {},
+      identityForwardingFunctionRef: 'tasks:list',
+      handler: async (ctx) => {
+        reachedHandler = true
+        return await ctx.db.query('tasks' as never).collect()
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<Array<{ title: string }>>
+    }
+    const memory = createMemoryDb()
+    await memory.db.insert('tasks', { title: 'one' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/Service "unknown-sync" is not configured in defineTrellis\(\{ services \}\)/)
+    expect(reachedHandler).toBe(false)
+  })
+
   it('keeps global service access table-restricted but row-unscoped', async () => {
     const builder = ((definition: unknown) => definition) as never
     const serviceCaller = defineCaller({
@@ -2446,6 +2896,17 @@ describe('defineTrellis', () => {
         },
         services: {
           sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedOperations: ['sync.test'],
+              allowedFunctionRefs: ['tasks:list'],
+              replayMode: 'domain-idempotency',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.id',
+            },
             access: {
               tables: ['tasks'] as never[],
               tenant: 'global',
@@ -2454,8 +2915,10 @@ describe('defineTrellis', () => {
         },
       },
     )
+    const capture = createObservationCapture()
     const definition = runtime.query.public({
       args: {},
+      identityForwardingFunctionRef: 'tasks:list',
       handler: async (ctx) => {
         const tasks = await ctx.db.query('tasks' as never).collect()
         let denied = false
@@ -2493,5 +2956,85 @@ describe('defineTrellis', () => {
       denied: true,
       titles: ['one', 'two'],
     })
+    expect(capture.find('service.access.denied')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'service.access.denied',
+          serviceId: 'sync',
+          status: 'deny',
+          details: expect.objectContaining({ table: 'comments' }),
+        }),
+      ]),
+    )
+    capture.stop()
+  })
+
+  it('rejects service principals before handler execution when the target function ref is not allowed', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async () => ({
+        kind: 'service' as const,
+        serviceId: 'sync',
+        subject: 'service:sync' as const,
+      }),
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        services: {
+          sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedOperations: ['sync.test'],
+              allowedFunctionRefs: ['tasks:create'],
+              replayMode: 'domain-idempotency',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.id',
+            },
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'global',
+            },
+          },
+        },
+      },
+    )
+    let reachedHandler = false
+    const definition = runtime.query.public({
+      args: {},
+      identityForwardingFunctionRef: 'tasks:delete',
+      handler: async () => {
+        reachedHandler = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<{ ok: true }>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).rejects.toThrow(/not allowed to call function.*tasks:delete/)
+    expect(reachedHandler).toBe(false)
   })
 })

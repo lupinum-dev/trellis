@@ -45,7 +45,7 @@ type RuntimeContext<TCaller, TActingFor, TActor> = {
 type AnyBuilder = (definition: {
   args: PropertyValidators
   returns?: GenericValidator
-  trellisBackendLane?: 'public' | 'protected'
+  trellisBackendLane?: 'public' | 'authenticated' | 'workspace' | 'protected'
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   crossTenant?: unknown
@@ -73,7 +73,7 @@ type AppIdentityForGuard<TActor, TGuard> = TGuard extends OpenGuard
   ? TActor | null
   : NonNullable<TActor>
 
-type CrossTenantDb<_TCtx> = any
+type CrossTenantDb<_TCtx> = unknown
 
 type NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard> = Omit<
   TCtx,
@@ -261,7 +261,7 @@ type HandlerDefinition<
    */
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
-  trellisBackendLane?: 'public' | 'protected'
+  trellisBackendLane?: 'public' | 'authenticated' | 'workspace' | 'protected'
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
@@ -377,6 +377,16 @@ function getObserve(ctx: object): RuntimeContext<unknown, unknown, unknown>['obs
     : undefined
 }
 
+function hasWorkspaceId(value: unknown): value is { workspaceId: unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'workspaceId' in value &&
+    (value as { workspaceId?: unknown }).workspaceId !== undefined &&
+    (value as { workspaceId?: unknown }).workspaceId !== null
+  )
+}
+
 function normalizeAuthorize<
   TCtx,
   TCaller,
@@ -402,17 +412,19 @@ function normalizeAuthorize<
         TPublicWrite
       >['authorize']
     | undefined,
-): AuthorizeConfig<
-  TCtx,
-  TCaller,
-  TActingFor,
-  TActor,
-  TGuard,
-  TArgsValidator,
-  TLoaded,
-  TCrossTenant,
-  TPublicWrite
-> | undefined {
+):
+  | AuthorizeConfig<
+      TCtx,
+      TCaller,
+      TActingFor,
+      TActor,
+      TGuard,
+      TArgsValidator,
+      TLoaded,
+      TCrossTenant,
+      TPublicWrite
+    >
+  | undefined {
   if (!authorize) return undefined
 
   if (typeof authorize === 'boolean' || isGuard(authorize)) {
@@ -487,7 +499,9 @@ function createStructuredBuilder<
     const built = builder({
       args: definition.args,
       returns: definition.returns,
-      ...(definition.trellisBackendLane ? { trellisBackendLane: definition.trellisBackendLane } : {}),
+      ...(definition.trellisBackendLane
+        ? { trellisBackendLane: definition.trellisBackendLane }
+        : {}),
       ...(functionRef ? { identityForwardingFunctionRef: functionRef } : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
@@ -563,6 +577,26 @@ function createStructuredBuilder<
             formatGuardFailure(guardLabel, caller, appIdentity),
             guardCheck as AnyCheck<NonNullable<TActor | null>>,
           )
+        }
+
+        if (definition.trellisBackendLane === 'workspace') {
+          const appIdentity = await actorAccessor()
+          if (!hasWorkspaceId(appIdentity)) {
+            await observe?.({
+              name: 'guard.denied',
+              status: 'deny',
+              reasonCode: 'guard.workspace_required',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'guard.workspace_required',
+                  decision: 'guard',
+                  message: 'Workspace handlers require a resolved appIdentity.workspaceId.',
+                  suggestedAction: 'switch_tenant',
+                }),
+              },
+            })
+            deny('Forbidden: workspace required')
+          }
         }
 
         const handlerCtx = createHandlerContext<TCtx, TCaller, TActingFor, TActor, TGuard>(

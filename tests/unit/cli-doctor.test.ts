@@ -184,6 +184,15 @@ type DoctorInventoryJsonReport = {
       crossTenantEscapes: Array<{ path: string; line: number }>
       destructiveOperations: Array<{ path: string; line: number }>
     }
+    serviceSubjects: Array<{
+      serviceId: string
+      file: string
+      source: { path: string; line: number }
+      access: 'restricted' | 'unrestricted' | 'unknown'
+      tables: string[]
+      tenant: string | null
+      hasDeriveTenant: boolean
+    }>
     appInventory: {
       file: string | null
       detected: boolean
@@ -338,8 +347,11 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
     expect(functions).toContain('@lupinum/trellis/backend')
+    expect(functions).toContain("readTables: ['todos']")
     expect(todos).toContain('operation.query({')
-    expect(todos).toContain('operation.mutation({')
+    expect(todos).toContain('operation.publicMutation({')
+    expect(todos).toContain('publicWrite:')
+    expect(todos).toContain('ctx.publicWrite')
     expect(todos).toContain('query.public(listTodosOp)')
     expect(todos).toContain('mutation.public(createTodoOp)')
     expectNoOldBackendSurface(functions, 'public convex/functions.ts')
@@ -369,7 +381,7 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expectCanonicalLayout(appRoot, { auth: true, permissions: true })
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('permissions:')
     expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain(
-      'query.protected(listTodosOp)',
+      'query.workspace(listTodosOp)',
     )
     expect(read(resolve(appRoot, 'convex/features/todos/operations.ts'))).toContain(
       'workspaceScope',
@@ -478,7 +490,7 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(read(resolve(appRoot, 'convex/functions.ts'))).toContain('isolation:')
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('workspaceTables')
     expect(read(resolve(appRoot, 'convex/features/todos/domain.ts'))).toContain(
-      'query.protected(listTodosOp)',
+      'query.workspace(listTodosOp)',
     )
     expect(read(resolve(appRoot, 'convex/features/todos/operations.ts'))).toContain(
       'workspaceScope()',
@@ -624,8 +636,8 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(functions).toContain('@lupinum/trellis/backend')
     expect(todos).toContain('operation.query({')
     expect(todos).toContain('operation.mutation({')
-    expect(todos).toContain('query.protected(listTodosOp)')
-    expect(todos).toContain('mutation.protected(createTodoOp)')
+    expect(todos).toContain('query.workspace(listTodosOp)')
+    expect(todos).toContain('mutation.workspace(createTodoOp)')
     expectNoOldBackendSurface(functions, 'personal convex/functions.ts')
     expectNoOldBackendSurface(todos, 'personal todos domain')
   })
@@ -673,13 +685,15 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(functions).toContain('@lupinum/trellis/backend')
     expect(todoOperations).toContain('operation.query({')
     expect(todoOperations).toContain('operation.mutation({')
-    expect(todos).toContain('query.protected(listTodosOp)')
-    expect(todos).toContain('mutation.protected(createTodoOp)')
+    expect(todos).toContain('query.workspace(listTodosOp)')
+    expect(todos).toContain('mutation.workspace(createTodoOp)')
     expect(mcpKeys).toContain('ctx.db.get(key.boundUserId)')
     expect(mcpKeys).not.toContain('boundRole')
     expect(mcpKeys).not.toContain('seenAt')
     expect(mcpKeys).toContain('operation.query({')
-    expect(mcpKeys).toContain('operation.mutation({')
+    expect(mcpKeys).toContain('operation.publicMutation({')
+    expect(mcpKeys).toContain('publicWrite:')
+    expect(mcpKeys).toContain('ctx.publicWrite.touch')
     expect(mcpKeys).toContain('query.public(validateMcpKeyOp)')
     expect(mcpKeys).toContain('mutation.public(touchMcpKeyOp)')
     expectNoOldBackendSurface(functions, 'workspace convex/functions.ts')
@@ -722,8 +736,8 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     const todoOperations = read(resolve(appRoot, 'convex/features/todos/operations.ts'))
     expect(todoOperations).toContain('operation.query({')
     expect(todoOperations).toContain('operation.mutation({')
-    expect(todos).toContain('query.protected(listTodosOp)')
-    expect(todos).toContain('mutation.protected(createTodoOp)')
+    expect(todos).toContain('query.workspace(listTodosOp)')
+    expect(todos).toContain('mutation.workspace(createTodoOp)')
     expectNoOldBackendSurface(todos, 'workspace-mcp todos domain')
   })
 
@@ -872,6 +886,9 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     const operation = read(resolve(appRoot, 'convex/operations/publish-entry.ts'))
     expect(operation).toContain('operation.destructive({')
     expect(operation).toContain("safety: 'destructive-write'")
+    expect(operation).toContain('mutation.authenticated(previewOf(PublishEntryOp))')
+    expect(operation).toContain('mutation.authenticated(PublishEntryOp)')
+    expect(operation).not.toContain('authRequired')
     expect(operation).toContain('previewPublishEntry')
     expect(operation).toContain('executePublishEntry')
   })
@@ -2326,6 +2343,70 @@ export default defineEventHandler(async (event) => {
     ).toBe('fail')
   })
 
+  it('passes doctor when forwarded callers are inside transport proof objects', () => {
+    const cwd = createTempDir('trellis-doctor-transport-proof-caller-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
+    ])
+
+    writeFileSync(
+      resolve(appRoot, 'server/api/good-forwarded-caller.post.ts'),
+      `
+import { serverConvexMutation, transportProof } from '#trellis/server'
+import { api } from '~/convex/_generated/api'
+
+export default defineEventHandler(async (event) => {
+  return await serverConvexMutation(
+    event,
+    api.features.todos.domain.create,
+    { title: 'Good' },
+    {
+      auth: transportProof.webhook({
+        caller: {
+          kind: 'service',
+          serviceId: 'todo-sync-webhook',
+          subject: 'service:todo-sync-webhook',
+        },
+      }),
+    },
+  )
+})
+`.trimStart(),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/api/good-forwarded-caller.post.test.ts'),
+      `
+export const assertionFixture = {
+  auth: {
+    caller: {
+      kind: 'service',
+      serviceId: 'todo-sync-webhook',
+      subject: 'service:todo-sync-webhook',
+    },
+  },
+}
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(
+      report.findings.find((entry) => entry.id === 'forwarded-caller-trusted-path')?.status,
+    ).toBe('pass')
+    expect(report.inventory.forwarding.forwardedCallerMisuses).toEqual([])
+  })
+
   it('surfaces unsafe and cross-scope escape inventories without turning them into failures', () => {
     const cwd = createTempDir('trellis-doctor-inventory-')
     const initResult = runCli(
@@ -2467,6 +2548,127 @@ export const uploadUrl = mutation.unsafe({
     ])
   })
 
+  it('surfaces service subject inventory and fails unrestricted service access', () => {
+    const cwd = createTempDir('trellis-doctor-service-subject-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    mkdirSync(resolve(appRoot, 'convex/auth'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, 'convex/auth/services.ts'),
+      `
+import { defineServices } from '@lupinum/trellis/auth'
+
+export const services = defineServices({
+  'todo-sync-webhook': {
+    metadata: {
+      source: 'verifiedWebhook',
+      purpose: 'todo-sync-webhook',
+      allowedOperations: ['todos.process-sync-webhook'],
+      allowedFunctionRefs: ['features/todos/webhooks:processTodoSyncWebhookMutation'],
+      replayMode: 'domain-idempotency',
+      actingFor: true,
+      auditEvent: 'todo.sync.webhook.processed',
+      auditTable: 'processedEvents',
+      auditCorrelationId: 'args.eventId',
+    },
+    access: {
+      tables: ['processedEvents', 'todos', 'users'],
+      tenant: 'derived',
+      deriveTenant: ({ args }) => (typeof args.workspaceId === 'string' ? args.workspaceId : null),
+    },
+  },
+  'admin-sync': {
+    access: 'unrestricted',
+  },
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{
+        id: string
+        status: string
+        message: string
+        sources?: FindingSourceJson[]
+      }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.inventory.serviceSubjects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          serviceId: 'todo-sync-webhook',
+          file: 'convex/auth/services.ts',
+          access: 'restricted',
+          tables: ['processedEvents', 'todos', 'users'],
+          tenant: 'derived',
+          hasDeriveTenant: true,
+          metadata: {
+            source: 'verifiedWebhook',
+            purpose: 'todo-sync-webhook',
+            allowedOperations: ['todos.process-sync-webhook'],
+            allowedFunctionRefs: ['features/todos/webhooks:processTodoSyncWebhookMutation'],
+            replayMode: 'domain-idempotency',
+            actingFor: true,
+            auditEvent: 'todo.sync.webhook.processed',
+            auditTable: 'processedEvents',
+            auditCorrelationId: 'args.eventId',
+          },
+          source: expect.objectContaining({
+            path: 'convex/auth/services.ts',
+            line: expect.any(Number),
+          }),
+        }),
+        expect.objectContaining({
+          serviceId: 'admin-sync',
+          file: 'convex/auth/services.ts',
+          access: 'unrestricted',
+          tables: [],
+          tenant: null,
+          hasDeriveTenant: false,
+          metadata: {
+            source: null,
+            purpose: null,
+            allowedOperations: [],
+            allowedFunctionRefs: [],
+            replayMode: null,
+            actingFor: null,
+            auditEvent: null,
+            auditTable: null,
+            auditCorrelationId: null,
+          },
+          source: expect.objectContaining({
+            path: 'convex/auth/services.ts',
+            line: expect.any(Number),
+          }),
+        }),
+      ]),
+    )
+    expect(report.findings.find((entry) => entry.id === 'service-subject-access')).toMatchObject({
+      status: 'fail',
+      message: expect.stringContaining('convex/auth/services.ts'),
+      sources: [
+        expect.objectContaining({
+          kind: 'inventory',
+          inventoryPath: 'serviceSubjects',
+          locations: [
+            expect.objectContaining({
+              path: 'convex/auth/services.ts',
+              line: expect.any(Number),
+            }),
+          ],
+        }),
+      ],
+    })
+  })
+
   it('surfaces destructive operation inventory without turning it into a failure', () => {
     const cwd = createTempDir('trellis-doctor-destructive-inventory-')
     const initResult = runCli(
@@ -2594,7 +2796,7 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     expect(report.summary.fail).toBe(0)
     expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')).toMatchObject({
       status: 'warn',
-      message: expect.stringContaining('no operation-backed MCP tools'),
+      message: expect.stringContaining('without exact MCP tool bindings'),
       sources: expect.arrayContaining([
         expect.objectContaining({
           kind: 'inventory',

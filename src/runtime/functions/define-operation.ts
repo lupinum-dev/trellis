@@ -371,6 +371,39 @@ export function implementOperation<
  * preceded by a read-only preview step.
  */
 export function previewOf<
+  const TDefinition extends {
+    args: PropertyValidators
+    preview: (...args: any[]) => unknown
+    handler: (...args: any[]) => unknown
+    guard?: undefined
+    permission?: PermissionKeyHandle<string>
+    previewReturns?: GenericValidator
+    returns?: GenericValidator
+    load?: (...args: any[]) => unknown
+    authorize?: unknown
+    identityForwardingFunctionRef?: string
+    [trellisOperationMetadataKey]?: TrellisOperationMetadata
+    [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
+  },
+>(
+  operation: TDefinition,
+): Omit<
+  StructuredHandlerDefinition<
+    any,
+    any,
+    any,
+    any,
+    StructuredGuard<any, any>,
+    TDefinition['args'],
+    StructuredLoadedValue,
+    AwaitedValue<ReturnType<TDefinition['preview']>>
+  >,
+  'guard'
+> & {
+  guard?: never
+  permission?: TDefinition['permission']
+}
+export function previewOf<
   TCtx,
   TCaller,
   TActingFor,
@@ -391,7 +424,7 @@ export function previewOf<
     TLoaded,
     TResult,
     TPreview
-  >,
+  > & { permission?: PermissionKeyHandle<string> },
 ): StructuredHandlerDefinition<
   TCtx,
   TCaller,
@@ -401,7 +434,10 @@ export function previewOf<
   TArgsValidator,
   TLoaded,
   TPreview
-> {
+> & {
+  permission?: PermissionKeyHandle<string>
+}
+export function previewOf(operation: any): any {
   if (!operation.preview) {
     throw new Error('previewOf() requires an operation with a preview handler.')
   }
@@ -411,10 +447,11 @@ export function previewOf<
   return {
     args: operation.args,
     returns: operation.previewReturns,
-    guard: operation.guard,
+    ...(operation.guard !== undefined ? { guard: operation.guard } : {}),
+    ...(operation.permission !== undefined ? { permission: operation.permission } : {}),
     load: operation.load,
     authorize: operation.authorize,
-    handler: async (ctx, args, loaded) => await operation.preview!(ctx as TCtx, args, loaded),
+    handler: async (ctx, args, loaded) => await operation.preview!(ctx, args, loaded),
     [trellisOperationMetadataKey]: metadata,
     ...(metadata.id
       ? {
@@ -428,13 +465,13 @@ export function previewOf<
         }
       : {}),
   } as StructuredHandlerDefinition<
-    TCtx,
-    TCaller,
-    TActingFor,
-    TActor,
-    TGuard,
-    TArgsValidator,
-    TLoaded,
-    TPreview
-  >
+    any,
+    any,
+    any,
+    any,
+    StructuredGuard<any, any>,
+    PropertyValidators,
+    StructuredLoadedValue,
+    unknown
+  > & { permission?: PermissionKeyHandle<string> }
 }

@@ -30,7 +30,8 @@ function assertNoWorkspaceRanges() {
     const tempDir = mkdtempSync(join(tmpdir(), 'trellis-release-pack-'))
     try {
       execFileSync('tar', ['-xzf', resolve(packDir, tarball)], { cwd: tempDir, stdio: 'pipe' })
-      const manifestPath = resolve(tempDir, 'package/package.json')
+      const packageDir = resolve(tempDir, 'package')
+      const manifestPath = resolve(packageDir, 'package.json')
       if (!existsSync(manifestPath)) {
         offenders.push(`${tarball}: missing package/package.json after extract`)
         continue
@@ -47,6 +48,12 @@ function assertNoWorkspaceRanges() {
             offenders.push(`${tarball}: ${field}.${name} ships ${range}`)
           }
         }
+      }
+      if (manifest.name === '@lupinum/trellis') {
+        execFileSync('node', [resolve(repoRoot, 'scripts/check-security-packed-exports.mjs')], {
+          cwd: packageDir,
+          stdio: 'inherit',
+        })
       }
     } finally {
       rmSync(tempDir, { recursive: true, force: true })

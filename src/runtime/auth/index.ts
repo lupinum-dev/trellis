@@ -11,18 +11,9 @@ export type {
 } from './define-better-auth.js'
 export { getAuth } from './auth-identity.js'
 export type { AuthIdentity } from './auth-identity.js'
-export {
-  authRequired,
-  defineGuard,
-  explainCheck,
-  isAuthRequiredGuard,
-  isGuard,
-  isOpenGuard,
-  open,
-} from './define-guard.js'
+export { defineGuard, explainCheck, isGuard, isOpenGuard, open } from './define-guard.js'
 export type {
   AnyCheck,
-  AuthRequiredGuard,
   Check,
   GuardDecision,
   GuardExplain,
@@ -78,8 +69,10 @@ export type {
 export { defineServices } from './define-services.js'
 export type {
   RestrictedServiceAccess,
+  ServiceContractMetadata,
   ServiceDefinition,
   ServiceDefinitions,
+  ServiceReplayMode,
   ServiceTenantMode,
 } from './define-services.js'
 

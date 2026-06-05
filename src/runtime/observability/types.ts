@@ -19,6 +19,7 @@ export type TrellisObservationFamily =
 export type TrellisObservationReasonCode =
   | 'guard.auth_required'
   | 'guard.denied'
+  | 'guard.workspace_required'
   | 'authorize.denied'
   | 'rls.denied'
   | 'service.access.denied'
@@ -86,7 +87,10 @@ type ObservationDefinitionMap = {
   'appIdentity.resolved': { status: 'success'; reasonCode?: never }
   'appIdentity.missing': { status: 'skip'; reasonCode?: never }
   'guard.allowed': { status: 'success'; reasonCode?: never }
-  'guard.denied': { status: 'deny'; reasonCode: 'guard.auth_required' | 'guard.denied' }
+  'guard.denied': {
+    status: 'deny'
+    reasonCode: 'guard.auth_required' | 'guard.denied' | 'guard.workspace_required'
+  }
   'authorize.allowed': { status: 'success'; reasonCode?: never }
   'authorize.denied': { status: 'deny'; reasonCode: 'authorize.denied' }
   'rls.denied': { status: 'deny'; reasonCode: 'rls.denied' | 'service.access.denied' }

@@ -17,6 +17,14 @@ const publicEntryGroups = [
         symbol: 'readSharedSecretWebhookBody',
         policy: 'server packed entry must not export shared-secret body readers',
       },
+      {
+        symbol: 'isSharedSecretWebhookSignatureValid',
+        policy: 'server packed entry must not export shared-secret webhook helpers',
+      },
+      {
+        symbol: 'readHmacVerifiedWebhookBody',
+        policy: 'server packed entry must not export route-side webhook idempotency helpers',
+      },
     ],
   },
   {
@@ -43,6 +51,25 @@ const publicEntryGroups = [
       {
         symbol: 'withIdentityForwarding',
         policy: 'backend packed entry must not export ambient forwarding wrappers',
+      },
+    ],
+  },
+  {
+    name: '@lupinum/trellis/auth',
+    requiredFiles: ['dist/runtime/auth/index.mjs', 'dist/runtime/auth/index.d.ts'],
+    optionalFiles: [],
+    banned: [
+      {
+        symbol: 'authRequired',
+        policy: 'auth packed entry must not export internal signed-in lane sentinel',
+      },
+      {
+        symbol: 'isAuthRequiredGuard',
+        policy: 'auth packed entry must not export internal signed-in lane sentinel helpers',
+      },
+      {
+        symbol: 'AuthRequiredGuard',
+        policy: 'auth packed entry must not export internal signed-in lane sentinel types',
       },
     ],
   },

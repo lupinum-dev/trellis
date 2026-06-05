@@ -518,7 +518,6 @@ function operationTemplate(name: string, kind: 'safe' | 'destructive') {
 
   if (kind === 'destructive') {
     return `
-import { authRequired } from '@lupinum/trellis/auth'
 import { operation, operationPreview, previewOf } from '@lupinum/trellis/app'
 import { v } from 'convex/values'
 
@@ -530,7 +529,6 @@ export const ${exportName}Op = operation.destructive({
   args: {
     id: v.string(),
   },
-  guard: authRequired,
   safety: 'destructive-write',
   preview: async (_ctx, args) =>
     operationPreview({
@@ -544,13 +542,12 @@ export const ${exportName}Op = operation.destructive({
   },
 })
 
-export const preview${exportName} = mutation.protected(previewOf(${exportName}Op))
-export const execute${exportName} = mutation.protected(${exportName}Op)
+export const preview${exportName} = mutation.authenticated(previewOf(${exportName}Op))
+export const execute${exportName} = mutation.authenticated(${exportName}Op)
 `.trimStart()
   }
 
   return `
-import { authRequired } from '@lupinum/trellis/auth'
 import { operation } from '@lupinum/trellis/app'
 import { v } from 'convex/values'
 
@@ -560,7 +557,6 @@ export const ${exportName}Op = operation.mutation({
   args: {
     id: v.string(),
   },
-  guard: authRequired,
   handler: async (_ctx, args) => {
     throw new Error(\`Implement ${opId} for \${args.id}.\`)
   },

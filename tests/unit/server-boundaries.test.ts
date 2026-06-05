@@ -7,8 +7,6 @@ import {
 import {
   createWebhookHmacSignature,
   isWebhookHmacSignatureValid,
-  readHmacVerifiedWebhookBody,
-  readSharedSecretWebhookBody,
   verifyHmacWebhookDelivery,
 } from '../../src/runtime/server/webhooks'
 
@@ -87,50 +85,6 @@ describe('server delegation binding helper', () => {
   })
 })
 
-describe('verified webhook helper', () => {
-  it('accepts verified webhook bodies and runs the parser', async () => {
-    await expect(
-      readSharedSecretWebhookBody({
-        signature: 'shared-secret',
-        secret: 'shared-secret',
-        readBody: async () => ({ title: 'Deploy' }),
-        parse: (body) => ({ ...body, title: body.title.toUpperCase() }),
-      }),
-    ).resolves.toEqual({ title: 'DEPLOY' })
-  })
-
-  it('rejects invalid webhook signatures', async () => {
-    await expect(
-      readSharedSecretWebhookBody({
-        signature: 'wrong-secret',
-        secret: 'shared-secret',
-        readBody: async () => ({ title: 'Deploy' }),
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 401,
-      message: 'Invalid signature',
-    })
-  })
-
-  it('rejects replayed webhook deliveries when idempotency is configured', async () => {
-    await expect(
-      readSharedSecretWebhookBody({
-        signature: 'shared-secret',
-        secret: 'shared-secret',
-        readBody: async () => ({ eventId: 'evt_123' }),
-        idempotency: {
-          key: 'evt_123',
-          consume: async () => false,
-          conflictMessage: 'Webhook event already processed.',
-        },
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Webhook event already processed.',
-    })
-  })
-})
-
 describe('HMAC webhook helper', () => {
   it('binds signatures to raw body, timestamp, and delivery id', async () => {
     const timestamp = '1700000000'
@@ -165,7 +119,7 @@ describe('HMAC webhook helper', () => {
     ).toBe(false)
   })
 
-  it('rejects stale HMAC webhooks and replayed deliveries', async () => {
+  it('rejects stale HMAC webhooks', async () => {
     const timestamp = '1700000000'
     const deliveryId = 'evt_123'
     const rawBody = '{}'
@@ -176,71 +130,16 @@ describe('HMAC webhook helper', () => {
       rawBody,
     })
 
-    await expect(
-      readHmacVerifiedWebhookBody({
+    expect(
+      isWebhookHmacSignatureValid({
         signature,
         timestamp,
         deliveryId,
         rawBody,
         secret: 'webhook-secret',
         nowMs: 1_700_000_600_000,
-        parse: () => ({}),
       }),
-    ).rejects.toMatchObject({ statusCode: 401 })
-
-    await expect(
-      readHmacVerifiedWebhookBody({
-        signature,
-        timestamp,
-        deliveryId,
-        rawBody,
-        secret: 'webhook-secret',
-        nowMs: 1_700_000_000_000,
-        parse: () => ({}),
-        idempotency: {
-          consume: async () => false,
-          conflictMessage: 'Webhook event already processed.',
-        },
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      message: 'Webhook event already processed.',
-    })
-  })
-
-  it('parses HMAC webhook bodies before invoking optional idempotency', async () => {
-    const timestamp = '1700000000'
-    const deliveryId = 'evt_parse_failed'
-    const rawBody = '{'
-    const signature = createWebhookHmacSignature({
-      secret: 'webhook-secret',
-      timestamp,
-      deliveryId,
-      rawBody,
-    })
-    let consumed = false
-
-    await expect(
-      readHmacVerifiedWebhookBody({
-        signature,
-        timestamp,
-        deliveryId,
-        rawBody,
-        secret: 'webhook-secret',
-        nowMs: 1_700_000_000_000,
-        parse: () => {
-          throw Object.assign(new Error('Invalid payload'), { statusCode: 400 })
-        },
-        idempotency: {
-          consume: async () => {
-            consumed = true
-            return true
-          },
-        },
-      }),
-    ).rejects.toMatchObject({ statusCode: 400 })
-
-    expect(consumed).toBe(false)
+    ).toBe(false)
   })
 
   it('fails closed when HMAC webhook secret is blank', async () => {

@@ -225,6 +225,50 @@ describe('auth proxy handler hardening', () => {
     expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
   })
 
+  it('forwards DELETE request bodies instead of silently dropping them', async () => {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue(
+      createResponseWithCookies(200, [], '{"ok":true}'),
+    )
+    readRequestBodyWithLimitMock.mockResolvedValue('{"token":"delete-me"}')
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/delete-session', {
+      method: 'DELETE',
+      origin: 'https://app.example.com',
+      contentLength: '21',
+    })
+
+    await expect(handler(event)).resolves.toBe('{"ok":true}')
+
+    expect(readRequestBodyWithLimitMock).toHaveBeenCalledTimes(1)
+    expect(fetchWithCanonicalRedirectsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'DELETE',
+        body: '{"token":"delete-me"}',
+      }),
+    )
+  })
+
+  it('rejects declared request bodies on non-body auth proxy methods', async () => {
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/sign-in', {
+      method: 'GET',
+      origin: 'https://app.example.com',
+      contentLength: '2',
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 400,
+      data: {
+        code: 'BCN_AUTH_PROXY_BODY_NOT_ALLOWED',
+        method: 'GET',
+      },
+    })
+
+    expect(readRequestBodyWithLimitMock).not.toHaveBeenCalled()
+    expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+  })
+
   it('returns 502 before forwarding oversized upstream response bodies', async () => {
     fetchWithCanonicalRedirectsMock.mockResolvedValue(
       createResponseWithCookies(200, [], '{"ok":true}'),

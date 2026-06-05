@@ -28,22 +28,25 @@ export const listAccessibleWorkspacesOp = operation.query({
   crossTenant: {
     reason: 'Agency membership lookup spans multiple workspaces.',
     tables: ['memberships', 'workspaces'],
-    access: ({ db }: { db: DatabaseReader }) => ({
-      listAccessible: async (userId: Id<'users'>) => {
-        const memberships = await getMemberships(db, userId)
+    access: ({ db }) => {
+      const reader = db as DatabaseReader
+      return {
+        listAccessible: async (userId: Id<'users'>) => {
+          const memberships = await getMemberships(reader, userId)
 
-        return Promise.all(
-          memberships.map(async (membership) => {
-            const workspace = await db.get(membership.workspaceId)
-            return {
-              workspaceId: membership.workspaceId,
-              role: membership.role,
-              name: workspace?.name ?? String(membership.workspaceId),
-            }
-          }),
-        )
-      },
-    }),
+          return Promise.all(
+            memberships.map(async (membership) => {
+              const workspace = await reader.get(membership.workspaceId)
+              return {
+                workspaceId: membership.workspaceId,
+                role: membership.role,
+                name: workspace?.name ?? String(membership.workspaceId),
+              }
+            }),
+          )
+        },
+      }
+    },
   },
   handler: async (ctx) => {
     const appIdentity = await getAppIdentity(ctx)
@@ -63,32 +66,35 @@ export const createWorkspaceOp = operation.mutation({
     mode: 'write',
     reason: 'Workspace bootstrap writes before the caller has a current tenant scope.',
     tables: ['workspaces', 'memberships'],
-    access: ({ db }: { db: DatabaseWriter }) => ({
-      findWorkspaceBySlug: async (slug: string) =>
-        await db
-          .query('workspaces')
-          .withIndex('by_slug', (q) => q.eq('slug', slug))
-          .first(),
-      createWorkspace: async (args: CreateWorkspaceArgs & { userId: Id<'users'> }) => {
-        const now = Date.now()
-        const workspaceId = await db.insert('workspaces', {
-          name: args.name,
-          slug: args.slug,
-          ownerId: args.userId,
-          createdAt: now,
-          updatedAt: now,
-        })
+    access: ({ db }) => {
+      const writer = db as DatabaseWriter
+      return {
+        findWorkspaceBySlug: async (slug: string) =>
+          await writer
+            .query('workspaces')
+            .withIndex('by_slug', (q) => q.eq('slug', slug))
+            .first(),
+        createWorkspace: async (args: CreateWorkspaceArgs & { userId: Id<'users'> }) => {
+          const now = Date.now()
+          const workspaceId = await writer.insert('workspaces', {
+            name: args.name,
+            slug: args.slug,
+            ownerId: args.userId,
+            createdAt: now,
+            updatedAt: now,
+          })
 
-        await db.insert('memberships', {
-          userId: args.userId,
-          workspaceId,
-          role: 'owner',
-          createdAt: now,
-        })
+          await writer.insert('memberships', {
+            userId: args.userId,
+            workspaceId,
+            role: 'owner',
+            createdAt: now,
+          })
 
-        return { workspaceId, now }
-      },
-    }),
+          return { workspaceId, now }
+        },
+      }
+    },
   },
   handler: async (ctx, args: CreateWorkspaceArgs) => {
     const authKey = await getIdentityAuthKey(ctx)
@@ -127,10 +133,13 @@ export const switchWorkspaceOp = operation.mutation({
   crossTenant: {
     reason: 'Workspace switching validates membership in another tenant.',
     tables: ['memberships'],
-    access: ({ db }: { db: DatabaseReader }) => ({
-      requireMembership: async (userId: Id<'users'>, workspaceId: Id<'workspaces'>) =>
-        await requireWorkspaceMembership(db, userId, workspaceId),
-    }),
+    access: ({ db }) => {
+      const reader = db as DatabaseReader
+      return {
+        requireMembership: async (userId: Id<'users'>, workspaceId: Id<'workspaces'>) =>
+          await requireWorkspaceMembership(reader, userId, workspaceId),
+      }
+    },
   },
   handler: async (ctx, args: SwitchWorkspaceArgs) => {
     const authKey = await getIdentityAuthKey(ctx)

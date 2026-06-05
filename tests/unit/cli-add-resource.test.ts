@@ -221,6 +221,21 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('removeProjectOp')
     await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('createProjectOp')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain('mutation.protected(createProjectOp)')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
+    ).resolves.toContain('tool.operation(createProjectOp')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
+    ).resolves.toContain('executeOperationRef(')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
+    ).not.resolves.toContain('stampMcpToolSafety')
+    await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).resolves.toContain('removeProjectOp')
     await expect(
@@ -228,7 +243,7 @@ describe('trellis add entity', () => {
     ).resolves.toContain('api.features.projects.domain.remove')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/feature.ts'), 'utf8'),
-    ).resolves.toContain('operations: [removeProjectOp]')
+    ).resolves.toContain('operations: [createProjectOp, removeProjectOp]')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('permission: projectDeletePermission')

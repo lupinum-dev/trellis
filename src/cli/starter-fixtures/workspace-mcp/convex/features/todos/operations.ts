@@ -12,7 +12,7 @@ export const listTodosOp = operation.query({
   id: 'todos.list',
   args: listTodos.args,
   scope: workspaceScope(),
-  guard: workspaceRead,
+  permission: workspaceRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     return await ctx.db
       .query('todos')
@@ -26,7 +26,7 @@ export const createTodoOp = operation.mutation({
   id: 'todos.create',
   args: createTodo.args,
   scope: workspaceScope(),
-  guard: todoCreate,
+  permission: todoCreate,
   handler: async (ctx: WorkspaceMutationCtx, args) => {
     return await ctx.db.insert('todos', {
       workspaceId: ctx.workspaceId,

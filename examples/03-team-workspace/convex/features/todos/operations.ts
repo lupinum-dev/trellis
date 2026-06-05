@@ -27,7 +27,6 @@ export const removeTodoOp = operation.destructive({
   args: deleteTodo.args,
   returns: v.null(),
   scope: workspaceScope(),
-  guard: todoRead,
   permission: todoRead,
   safety: 'destructive-write',
   previewReturns: operationPreviewValidator({

@@ -3,18 +3,8 @@
   "phase": "0.3.0-phase-a",
   "generatedBy": "scripts/generate-security-contract.mjs",
   "scope": {
-    "includedRoots": [
-      "apps/harness",
-      "examples",
-      "src/cli/starter-fixtures"
-    ],
-    "omittedUntilPhaseB": [
-      "verified route proof kind",
-      "trusted route idempotency source",
-      "delegation binding source",
-      "webhook verifier canonicalization metadata",
-      "service-subject contract metadata"
-    ]
+    "includedRoots": ["apps/harness", "examples", "src/cli/starter-fixtures"],
+    "omittedUntilPhaseB": []
   },
   "publicPackageExports": [
     ".",
@@ -35,7 +25,9 @@
       "entry": "@lupinum/trellis/server",
       "symbols": [
         "delegateToUser",
-        "readSharedSecretWebhookBody"
+        "readSharedSecretWebhookBody",
+        "isSharedSecretWebhookSignatureValid",
+        "readHmacVerifiedWebhookBody"
       ]
     },
     {
@@ -49,17 +41,16 @@
       ]
     },
     {
+      "entry": "@lupinum/trellis/auth",
+      "symbols": ["authRequired", "isAuthRequiredGuard", "AuthRequiredGuard"]
+    },
+    {
       "entry": "@lupinum/trellis/mcp",
-      "symbols": [
-        "stampMcpToolSafety",
-        "trellisMcpToolSafetyKey"
-      ]
+      "symbols": ["stampMcpToolSafety", "trellisMcpToolSafetyKey"]
     },
     {
       "entry": "@lupinum/trellis/mcp/advanced",
-      "symbols": [
-        "defineTool"
-      ]
+      "symbols": ["defineTool"]
     }
   ],
   "sourcePolicy": {
@@ -130,8 +121,8 @@
       {
         "id": "no-shared-secret-webhook-helper",
         "kind": "line",
-        "policy": "shared-secret webhook helpers are banned from production-copyable surfaces",
-        "pattern": "/\\breadSharedSecretWebhookBody\\b/"
+        "policy": "shared-secret and route-side webhook idempotency helpers are banned from production-copyable surfaces",
+        "pattern": "/\\b(readSharedSecretWebhookBody|isSharedSecretWebhookSignatureValid|readHmacVerifiedWebhookBody)\\b/"
       },
       {
         "id": "no-stringly-trusted-auth",
@@ -156,8 +147,8 @@
         "id": "server-barrel-no-shared-secret-helper",
         "filePath": "src/runtime/server/index.ts",
         "kind": "line",
-        "policy": "server barrel must not export shared-secret webhook helpers",
-        "pattern": "/\\breadSharedSecretWebhookBody\\b/"
+        "policy": "server barrel must not export shared-secret or route-side webhook idempotency helpers",
+        "pattern": "/\\b(readSharedSecretWebhookBody|isSharedSecretWebhookSignatureValid|readHmacVerifiedWebhookBody)\\b/"
       }
     ],
     "violationCount": 0
@@ -165,13 +156,18 @@
   "securityRuntimeProofs": [
     "tests/unit/functions-defineTrellis.test.ts",
     "tests/unit/functions-defineHandler.test.ts",
+    "tests/unit/auth-index.test.ts",
+    "tests/unit/auth-primitives.test.ts",
     "tests/unit/auth-access-context.test.ts",
+    "tests/unit/auth-proxy-handler.server.test.ts",
+    "tests/unit/cli-add-resource.test.ts",
     "tests/unit/define-convex-tool.test.ts",
     "tests/unit/mcp-convex-caller.test.ts",
     "tests/unit/server-index-exports.test.ts",
     "tests/unit/backend-index-exports.test.ts",
     "tests/unit/mcp-index-exports.test.ts",
     "tests/unit/example-webhook-security.test.ts",
+    "tests/unit/server-boundaries.test.ts",
     "tests/unit/identity-forwarding-envelope.test.ts",
     "tests/unit/identity-forwarding.test.ts",
     "tests/unit/destructive-confirmation.test.ts",
@@ -179,27 +175,408 @@
     "tests/unit/mcp-descriptor-boundary.test.ts",
     "tests/unit/mcp-definition-preflight.test.ts",
     "tests/unit/mcp-invalid-bearer-throttle.test.ts",
+    "tests/unit/operation-ref-codegen.test.ts",
+    "tests/unit/phase0-workspace-mcp-fixture.test.ts",
     "tests/unit/use-mcp-session.test.ts",
     "tests/unit/security-contract.test.ts"
   ],
+  "maintainedExampleProofs": [
+    {
+      "id": "example03-webhook-route-retry",
+      "file": "examples/03-team-workspace/server/api/webhook.post.test.ts",
+      "testName": "does not route-consume valid deliveries when backend dispatch fails",
+      "proves": [
+        "route retry after backend dispatch failure",
+        "route does not own delivery consume"
+      ],
+      "line": 180
+    },
+    {
+      "id": "example03-webhook-domain-duplicate",
+      "file": "examples/03-team-workspace/convex/todos.test.ts",
+      "testName": "denies duplicate webhook events",
+      "proves": ["backend-owned delivery idempotency", "duplicate event rejection"],
+      "line": 201
+    },
+    {
+      "id": "example03-webhook-forged-binding",
+      "file": "examples/03-team-workspace/convex/todos.test.ts",
+      "testName": "rejects signed service forwarding when the delegation workspace is forged",
+      "proves": ["backend delegation revalidation", "forged workspace rejection"],
+      "line": 288
+    },
+    {
+      "id": "example03-webhook-expired-binding",
+      "file": "examples/03-team-workspace/convex/todos.test.ts",
+      "testName": "rejects signed service forwarding when delegation evidence is expired",
+      "proves": ["backend delegation revalidation", "expired delegation rejection"],
+      "line": 321
+    },
+    {
+      "id": "example07-webhook-route-retry",
+      "file": "examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts",
+      "testName": "does not route-consume valid deliveries when backend dispatch fails",
+      "proves": [
+        "route retry after backend dispatch failure",
+        "route does not own delivery consume"
+      ],
+      "line": 189
+    },
+    {
+      "id": "example07-webhook-domain-duplicate",
+      "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
+      "testName": "applies the same create permission rules to delegated service principals",
+      "proves": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
+      "line": 368
+    },
+    {
+      "id": "example07-webhook-forged-binding",
+      "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
+      "testName": "rejects delegated service principals with forged binding fields",
+      "proves": [
+        "backend delegation revalidation",
+        "wrong service rejection",
+        "wrong purpose rejection"
+      ],
+      "line": 478
+    }
+  ],
+  "serverRoutes": [
+    {
+      "file": "apps/harness/server/api/test-mcp-bootstrap.post.ts",
+      "method": "POST",
+      "usesHmacWebhookVerifier": false,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": false,
+      "forwardsConvexMutation": true,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": true
+    },
+    {
+      "file": "apps/harness/server/api/test-mcp-state.get.ts",
+      "method": "GET",
+      "usesHmacWebhookVerifier": false,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": true,
+      "forwardsConvexMutation": false,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": true
+    },
+    {
+      "file": "apps/harness/server/api/test-ready.get.ts",
+      "method": "GET",
+      "usesHmacWebhookVerifier": false,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": false,
+      "forwardsConvexMutation": false,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": false
+    },
+    {
+      "file": "apps/harness/server/api/test-server-mutation.post.ts",
+      "method": "POST",
+      "usesHmacWebhookVerifier": false,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": false,
+      "forwardsConvexMutation": true,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": true
+    },
+    {
+      "file": "apps/harness/server/api/test-server-query.get.ts",
+      "method": "GET",
+      "usesHmacWebhookVerifier": false,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": true,
+      "forwardsConvexMutation": false,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": true
+    },
+    {
+      "file": "examples/03-team-workspace/server/api/webhook.post.ts",
+      "method": "POST",
+      "usesHmacWebhookVerifier": true,
+      "usesTransportProof": true,
+      "transportProofKinds": ["webhook"],
+      "replayModes": ["domain-idempotency"],
+      "usesDelegationBinding": true,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": false,
+      "forwardsConvexMutation": true,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": false
+    },
+    {
+      "file": "examples/04-saas-platform/server/api/export.get.ts",
+      "method": "GET",
+      "usesHmacWebhookVerifier": false,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": true,
+      "forwardsConvexMutation": false,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": false
+    },
+    {
+      "file": "examples/04-saas-platform/server/api/webhook.post.ts",
+      "method": "POST",
+      "usesHmacWebhookVerifier": true,
+      "usesTransportProof": false,
+      "transportProofKinds": [],
+      "replayModes": [],
+      "usesDelegationBinding": false,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": false,
+      "forwardsConvexMutation": true,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": true
+    },
+    {
+      "file": "examples/07-mcp-reference/server/api/runbook-webhook.post.ts",
+      "method": "POST",
+      "usesHmacWebhookVerifier": true,
+      "usesTransportProof": true,
+      "transportProofKinds": ["webhook"],
+      "replayModes": ["domain-idempotency"],
+      "usesDelegationBinding": true,
+      "usesRouteSideIdempotency": false,
+      "forwardsConvexQuery": false,
+      "forwardsConvexMutation": true,
+      "forwardsConvexAction": false,
+      "usesRawTrustedAuth": false,
+      "usesNoAuth": false
+    }
+  ],
+  "delegationBindings": [
+    {
+      "file": "examples/03-team-workspace/convex/todos.test.ts",
+      "line": 267,
+      "serviceId": "todo-sync-webhook",
+      "purpose": "todo-sync-webhook",
+      "grantSource": "workspace-service-policy",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": false,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    },
+    {
+      "file": "examples/03-team-workspace/convex/todos.test.ts",
+      "line": 303,
+      "serviceId": "todo-sync-webhook",
+      "purpose": "todo-sync-webhook",
+      "grantSource": "workspace-service-policy",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": false,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    },
+    {
+      "file": "examples/03-team-workspace/server/api/webhook.post.ts",
+      "line": 64,
+      "serviceId": "todo-sync-webhook",
+      "purpose": "todo-sync-webhook",
+      "grantSource": "workspace-service-policy",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": true,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    },
+    {
+      "file": "examples/07-mcp-reference/server/api/runbook-webhook.post.ts",
+      "line": 75,
+      "serviceId": "runbook-webhook",
+      "purpose": "runbook-webhook:create",
+      "grantSource": "workspace-service-policy",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": true,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    },
+    {
+      "file": "examples/07-mcp-reference/server/mcp/runtime.ts",
+      "line": 46,
+      "serviceId": null,
+      "purpose": "mcp-session",
+      "grantSource": "mcp-key-binding",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": true,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    },
+    {
+      "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
+      "line": 82,
+      "serviceId": null,
+      "purpose": "mcp-session",
+      "grantSource": "mcp-key-binding",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": false,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    },
+    {
+      "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
+      "line": 98,
+      "serviceId": "runbook-webhook",
+      "purpose": "runbook-webhook:create",
+      "grantSource": "workspace-service-policy",
+      "hasGrantId": true,
+      "hasExpiresAt": true,
+      "hasReason": false,
+      "hasTargetUserId": true,
+      "hasWorkspaceId": true
+    }
+  ],
+  "webhookVerifier": {
+    "file": "src/runtime/server/webhooks.ts",
+    "helper": "verifyHmacWebhookDelivery",
+    "signatureFactory": "createWebhookHmacSignature",
+    "algorithm": "sha256",
+    "signaturePrefix": "sha256=",
+    "payloadEncoding": "utf8",
+    "payloadSeparator": ".",
+    "binds": {
+      "timestamp": true,
+      "deliveryId": true,
+      "rawBody": true
+    },
+    "defaultToleranceMs": 300000,
+    "timestampAcceptsSecondsAndMilliseconds": true,
+    "rejectsMultiValueHeaders": true,
+    "usesTimingSafeEqual": true,
+    "readsRawBodyOnce": true,
+    "routeSideIdempotencyHook": "absent",
+    "defaultHeaders": {
+      "signature": "x-signature",
+      "timestamp": "x-timestamp",
+      "deliveryId": "x-delivery-id"
+    }
+  },
   "publicReadTables": [
     {
       "file": "examples/01-public-todo/convex/functions.ts",
-      "readTables": [
-        "todos"
-      ]
+      "readTables": ["todos"]
+    },
+    {
+      "file": "examples/03-team-workspace/convex/functions.ts",
+      "readTables": ["users"]
+    },
+    {
+      "file": "examples/04-saas-platform/convex/functions.ts",
+      "readTables": ["users"]
+    },
+    {
+      "file": "examples/05-visibility-access/convex/functions.ts",
+      "readTables": ["articles", "shareTokens", "users"]
+    },
+    {
+      "file": "examples/06-multi-workspace/convex/functions.ts",
+      "readTables": ["memberships", "projects", "users", "workspaces"]
+    },
+    {
+      "file": "examples/07-mcp-reference/convex/functions.ts",
+      "readTables": ["mcpKeys", "runbooks", "users"]
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/functions.ts",
-      "readTables": [
-        "pages"
-      ]
+      "readTables": ["pages"]
     },
     {
       "file": "examples/08-component-mini-cms/convex/functions.ts",
-      "readTables": [
-        "pages"
-      ]
+      "readTables": ["pages"]
+    },
+    {
+      "file": "src/cli/starter-fixtures/public/convex/functions.ts",
+      "readTables": ["todos"]
+    },
+    {
+      "file": "src/cli/starter-fixtures/workspace-mcp/convex/functions.ts",
+      "readTables": ["mcpKeys", "users"]
+    },
+    {
+      "file": "src/cli/starter-fixtures/workspace/convex/functions.ts",
+      "readTables": ["users"]
+    }
+  ],
+  "serviceSubjects": [
+    {
+      "file": "examples/03-team-workspace/convex/auth/services.ts",
+      "line": 6,
+      "exportName": "services",
+      "serviceId": "todo-sync-webhook",
+      "access": "restricted",
+      "tables": ["processedEvents", "todos", "users"],
+      "tenant": "derived",
+      "hasDeriveTenant": true,
+      "metadata": {
+        "source": "verifiedWebhook",
+        "purpose": "todo-sync-webhook",
+        "allowedOperations": ["todos.process-sync-webhook"],
+        "allowedFunctionRefs": ["features/todos/webhooks:processTodoSyncWebhookMutation"],
+        "replayMode": "domain-idempotency",
+        "actingFor": true,
+        "auditEvent": "todo.sync.webhook.processed",
+        "auditTable": "processedEvents",
+        "auditCorrelationId": "args.eventId"
+      }
+    },
+    {
+      "file": "examples/07-mcp-reference/convex/auth/services.ts",
+      "line": 9,
+      "exportName": "services",
+      "serviceId": "runbook-webhook",
+      "access": "restricted",
+      "tables": ["runbooks", "runbookWebhookDeliveries", "users"],
+      "tenant": "derived",
+      "hasDeriveTenant": true,
+      "metadata": {
+        "source": "verifiedWebhook",
+        "purpose": "runbook-webhook:create",
+        "allowedOperations": ["runbooks.create-from-webhook"],
+        "allowedFunctionRefs": ["features/runbooks/webhooks:createRunbookFromWebhookMutation"],
+        "replayMode": "domain-idempotency",
+        "actingFor": true,
+        "auditEvent": "runbook.webhook.created",
+        "auditTable": "runbookWebhookDeliveries",
+        "auditCorrelationId": "args.deliveryId"
+      }
     }
   ],
   "backendFunctions": [
@@ -768,93 +1145,9 @@
       "crossTenant": false
     },
     {
-      "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 118,
-      "exportName": "setCompleted",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 120,
-      "exportName": "previewRemove",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 121,
-      "exportName": "remove",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 59,
-      "exportName": "list",
-      "functionType": "query",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 76,
-      "exportName": "get",
-      "functionType": "query",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 96,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
       "file": "examples/03-team-workspace/convex/features/todos/webhooks.ts",
       "line": 43,
       "exportName": "processTodoSyncWebhookMutation",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/03-team-workspace/convex/features/workspaces/domain.ts",
-      "line": 60,
-      "exportName": "createWorkspaceMutation",
       "functionType": "mutation",
       "lane": "protected",
       "operationBacked": "referenced",
@@ -868,7 +1161,7 @@
       "line": 7,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -1104,23 +1397,11 @@
       "crossTenant": false
     },
     {
-      "file": "examples/04-saas-platform/convex/features/workspaces/domain.ts",
-      "line": 56,
-      "exportName": "createWorkspaceMutation",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
       "file": "examples/04-saas-platform/convex/permissions/context.ts",
       "line": 7,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -1141,7 +1422,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 159,
+      "line": 164,
       "exportName": "view",
       "functionType": "query",
       "lane": "public",
@@ -1153,7 +1434,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 198,
+      "line": 203,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "protected",
@@ -1165,7 +1446,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 218,
+      "line": 223,
       "exportName": "publish",
       "functionType": "mutation",
       "lane": "protected",
@@ -1177,7 +1458,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 262,
+      "line": 267,
       "exportName": "markCompleted",
       "functionType": "mutation",
       "lane": "protected",
@@ -1189,7 +1470,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 294,
+      "line": 299,
       "exportName": "createShareToken",
       "functionType": "mutation",
       "lane": "protected",
@@ -1201,7 +1482,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 296,
+      "line": 301,
       "exportName": "previewRevokeShareToken",
       "functionType": "mutation",
       "lane": "protected",
@@ -1213,7 +1494,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 297,
+      "line": 302,
       "exportName": "revokeShareToken",
       "functionType": "mutation",
       "lane": "protected",
@@ -1225,7 +1506,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 361,
+      "line": 366,
       "exportName": "seed",
       "functionType": "mutation",
       "lane": "protected",
@@ -1308,23 +1589,11 @@
       "crossTenant": false
     },
     {
-      "file": "examples/05-visibility-access/convex/features/workspaces/domain.ts",
-      "line": 55,
-      "exportName": "createWorkspaceMutation",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
       "file": "examples/05-visibility-access/convex/permissions/context.ts",
       "line": 7,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -1393,7 +1662,7 @@
     },
     {
       "file": "examples/06-multi-workspace/convex/features/workspaces/domain.ts",
-      "line": 122,
+      "line": 128,
       "exportName": "createWorkspaceMutation",
       "functionType": "mutation",
       "lane": "public",
@@ -1405,7 +1674,7 @@
     },
     {
       "file": "examples/06-multi-workspace/convex/features/workspaces/domain.ts",
-      "line": 157,
+      "line": 166,
       "exportName": "switchWorkspace",
       "functionType": "mutation",
       "lane": "public",
@@ -1417,7 +1686,7 @@
     },
     {
       "file": "examples/06-multi-workspace/convex/features/workspaces/domain.ts",
-      "line": 57,
+      "line": 60,
       "exportName": "listAccessibleWorkspaces",
       "functionType": "query",
       "lane": "public",
@@ -1432,7 +1701,7 @@
       "line": 9,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -1477,7 +1746,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/mcpKeys/domain.ts",
-      "line": 202,
+      "line": 205,
       "exportName": "validate",
       "functionType": "query",
       "lane": "public",
@@ -1489,7 +1758,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/mcpKeys/domain.ts",
-      "line": 235,
+      "line": 241,
       "exportName": "touch",
       "functionType": "mutation",
       "lane": "public",
@@ -1501,7 +1770,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 108,
+      "line": 118,
       "exportName": "searchPublic",
       "functionType": "query",
       "lane": "public",
@@ -1513,7 +1782,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 150,
+      "line": 163,
       "exportName": "listWorkspace",
       "functionType": "query",
       "lane": "protected",
@@ -1525,7 +1794,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 152,
+      "line": 165,
       "exportName": "get",
       "functionType": "query",
       "lane": "public",
@@ -1537,7 +1806,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 211,
+      "line": 228,
       "exportName": "getWorkspace",
       "functionType": "query",
       "lane": "protected",
@@ -1549,7 +1818,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 243,
+      "line": 260,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "protected",
@@ -1561,7 +1830,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 283,
+      "line": 300,
       "exportName": "update",
       "functionType": "mutation",
       "lane": "protected",
@@ -1573,7 +1842,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 285,
+      "line": 302,
       "exportName": "previewRemove",
       "functionType": "mutation",
       "lane": "protected",
@@ -1585,7 +1854,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 286,
+      "line": 303,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "protected",
@@ -1597,7 +1866,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 287,
+      "line": 304,
       "exportName": "previewBulkRemove",
       "functionType": "mutation",
       "lane": "protected",
@@ -1609,7 +1878,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 288,
+      "line": 305,
       "exportName": "bulkRemove",
       "functionType": "mutation",
       "lane": "protected",
@@ -1621,7 +1890,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 312,
+      "line": 329,
       "exportName": "workspaceOverview",
       "functionType": "query",
       "lane": "protected",
@@ -1633,7 +1902,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 87,
+      "line": 94,
       "exportName": "listPublic",
       "functionType": "query",
       "lane": "public",
@@ -1657,7 +1926,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/users/domain.ts",
-      "line": 32,
+      "line": 36,
       "exportName": "getCurrentUser",
       "functionType": "query",
       "lane": "public",
@@ -1669,21 +1938,9 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/users/domain.ts",
-      "line": 57,
+      "line": 61,
       "exportName": "listWorkspaceUsersForMcpKeys",
       "functionType": "query",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 124,
-      "exportName": "createWorkspaceMutation",
-      "functionType": "mutation",
       "lane": "protected",
       "operationBacked": "referenced",
       "guard": null,
@@ -1696,7 +1953,7 @@
       "line": 7,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -1945,7 +2202,7 @@
     },
     {
       "file": "src/cli/starter-fixtures/public/convex/features/todos/domain.ts",
-      "line": 34,
+      "line": 45,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "public",
@@ -1957,7 +2214,7 @@
     },
     {
       "file": "src/cli/starter-fixtures/public/convex/features/todos/domain.ts",
-      "line": 51,
+      "line": 72,
       "exportName": "toggle",
       "functionType": "mutation",
       "lane": "public",
@@ -1969,7 +2226,7 @@
     },
     {
       "file": "src/cli/starter-fixtures/public/convex/features/todos/domain.ts",
-      "line": 61,
+      "line": 94,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "public",
@@ -1981,7 +2238,7 @@
     },
     {
       "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/mcpKeys/domain.ts",
-      "line": 36,
+      "line": 38,
       "exportName": "validate",
       "functionType": "query",
       "lane": "public",
@@ -1993,46 +2250,10 @@
     },
     {
       "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/mcpKeys/domain.ts",
-      "line": 60,
+      "line": 73,
       "exportName": "touch",
       "functionType": "mutation",
       "lane": "public",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/todos/domain.ts",
-      "line": 4,
-      "exportName": "list",
-      "functionType": "query",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/todos/domain.ts",
-      "line": 5,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/workspaces/domain.ts",
-      "line": 48,
-      "exportName": "createWorkspaceMutation",
-      "functionType": "mutation",
-      "lane": "protected",
       "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
@@ -2044,44 +2265,8 @@
       "line": 7,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace/convex/features/todos/domain.ts",
-      "line": 4,
-      "exportName": "list",
-      "functionType": "query",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace/convex/features/todos/domain.ts",
-      "line": 5,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace/convex/features/workspaces/domain.ts",
-      "line": 48,
-      "exportName": "createWorkspaceMutation",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -2092,7 +2277,7 @@
       "line": 7,
       "exportName": "getAccessContext",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -2275,7 +2460,7 @@
       "exportName": "listTodosOp",
       "type": "query",
       "id": "todos.list",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2289,7 +2474,7 @@
       "exportName": "getTodoOp",
       "type": "query",
       "id": "todos.get",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2303,7 +2488,7 @@
       "exportName": "createTodoOp",
       "type": "mutation",
       "id": "todos.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2317,7 +2502,7 @@
       "exportName": "setTodoCompletedOp",
       "type": "mutation",
       "id": "todos.set-completed",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": true,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2331,7 +2516,7 @@
       "exportName": "removeTodoOp",
       "type": "destructive",
       "id": "todos.remove",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": true,
       "hasPublicWrite": false,
       "hasPreview": true,
@@ -2369,11 +2554,11 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/workspaces/domain.ts",
-      "line": 14,
+      "line": 13,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2607,11 +2792,11 @@
     },
     {
       "file": "examples/04-saas-platform/convex/features/workspaces/domain.ts",
-      "line": 14,
+      "line": 13,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2635,7 +2820,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 161,
+      "line": 166,
       "exportName": "createArticleOp",
       "type": "mutation",
       "id": "articles.create",
@@ -2649,7 +2834,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 200,
+      "line": 205,
       "exportName": "publishArticleOp",
       "type": "mutation",
       "id": "articles.publish",
@@ -2663,7 +2848,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 220,
+      "line": 225,
       "exportName": "markArticleCompletedOp",
       "type": "mutation",
       "id": "articles.mark-completed",
@@ -2677,7 +2862,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 264,
+      "line": 269,
       "exportName": "createArticleShareTokenOp",
       "type": "mutation",
       "id": "shareTokens.create",
@@ -2691,7 +2876,7 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/articles/domain.ts",
-      "line": 299,
+      "line": 304,
       "exportName": "seedDemoArticlesOp",
       "type": "mutation",
       "id": "articles.seed-demo",
@@ -2817,11 +3002,11 @@
     },
     {
       "file": "examples/05-visibility-access/convex/features/workspaces/domain.ts",
-      "line": 13,
+      "line": 12,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2887,7 +3072,7 @@
     },
     {
       "file": "examples/06-multi-workspace/convex/features/workspaces/domain.ts",
-      "line": 124,
+      "line": 130,
       "exportName": "switchWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.switch",
@@ -2915,7 +3100,7 @@
     },
     {
       "file": "examples/06-multi-workspace/convex/features/workspaces/domain.ts",
-      "line": 59,
+      "line": 62,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
@@ -2971,7 +3156,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/mcpKeys/domain.ts",
-      "line": 204,
+      "line": 207,
       "exportName": "touchMcpKeyOp",
       "type": "publicMutation",
       "id": "mcpKeys.touch",
@@ -2999,7 +3184,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 133,
+      "line": 146,
       "exportName": "listWorkspaceRunbooksOp",
       "type": "query",
       "id": "runbooks.list-workspace",
@@ -3013,7 +3198,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 194,
+      "line": 211,
       "exportName": "getWorkspaceRunbookOp",
       "type": "query",
       "id": "runbooks.get-workspace",
@@ -3027,7 +3212,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 213,
+      "line": 230,
       "exportName": "createRunbookOp",
       "type": "mutation",
       "id": "runbooks.create",
@@ -3041,7 +3226,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 245,
+      "line": 262,
       "exportName": "updateRunbookOp",
       "type": "mutation",
       "id": "runbooks.update",
@@ -3055,7 +3240,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 290,
+      "line": 307,
       "exportName": "workspaceOverviewOp",
       "type": "query",
       "id": "runbooks.workspace-overview",
@@ -3111,7 +3296,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/users/domain.ts",
-      "line": 14,
+      "line": 15,
       "exportName": "getCurrentUserOp",
       "type": "query",
       "id": "users.current",
@@ -3125,7 +3310,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/users/domain.ts",
-      "line": 34,
+      "line": 38,
       "exportName": "listWorkspaceUsersForMcpKeysOp",
       "type": "query",
       "id": "users.list-for-mcp-keys",
@@ -3139,11 +3324,11 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 17,
+      "line": 16,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -3309,11 +3494,11 @@
       "file": "src/cli/starter-fixtures/public/convex/features/todos/domain.ts",
       "line": 22,
       "exportName": "createTodoOp",
-      "type": "mutation",
+      "type": "publicMutation",
       "id": "todos.create",
       "hasGuard": false,
       "hasAuthorize": false,
-      "hasPublicWrite": false,
+      "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
       "identityForwardingFunctionRef": null,
@@ -3321,13 +3506,13 @@
     },
     {
       "file": "src/cli/starter-fixtures/public/convex/features/todos/domain.ts",
-      "line": 36,
+      "line": 47,
       "exportName": "toggleTodoOp",
-      "type": "mutation",
+      "type": "publicMutation",
       "id": "todos.toggle",
       "hasGuard": false,
       "hasAuthorize": false,
-      "hasPublicWrite": false,
+      "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
       "identityForwardingFunctionRef": null,
@@ -3335,13 +3520,13 @@
     },
     {
       "file": "src/cli/starter-fixtures/public/convex/features/todos/domain.ts",
-      "line": 53,
+      "line": 74,
       "exportName": "removeTodoOp",
-      "type": "mutation",
+      "type": "publicMutation",
       "id": "todos.remove",
       "hasGuard": false,
       "hasAuthorize": false,
-      "hasPublicWrite": false,
+      "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
       "identityForwardingFunctionRef": null,
@@ -3349,21 +3534,7 @@
     },
     {
       "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/mcpKeys/domain.ts",
-      "line": 38,
-      "exportName": "touchMcpKeyOp",
-      "type": "mutation",
-      "id": "mcpKeys.touch",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "identityForwardingFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/mcpKeys/domain.ts",
-      "line": 9,
+      "line": 10,
       "exportName": "validateMcpKeyOp",
       "type": "query",
       "id": "mcpKeys.validate",
@@ -3376,12 +3547,26 @@
       "identityForwardingTransport": null
     },
     {
+      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/mcpKeys/domain.ts",
+      "line": 40,
+      "exportName": "touchMcpKeyOp",
+      "type": "publicMutation",
+      "id": "mcpKeys.touch",
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": true,
+      "hasPreview": false,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": null,
+      "identityForwardingTransport": null
+    },
+    {
       "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/todos/operations.ts",
       "line": 11,
       "exportName": "listTodosOp",
       "type": "query",
       "id": "todos.list",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -3395,7 +3580,7 @@
       "exportName": "createTodoOp",
       "type": "mutation",
       "id": "todos.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -3405,11 +3590,11 @@
     },
     {
       "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/workspaces/domain.ts",
-      "line": 13,
+      "line": 12,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -3423,7 +3608,7 @@
       "exportName": "listTodosOp",
       "type": "query",
       "id": "todos.list",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -3437,7 +3622,7 @@
       "exportName": "createTodoOp",
       "type": "mutation",
       "id": "todos.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -3447,11 +3632,11 @@
     },
     {
       "file": "src/cli/starter-fixtures/workspace/convex/features/workspaces/domain.ts",
-      "line": 13,
+      "line": 12,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,

@@ -2,7 +2,7 @@
 import { ConvexError } from 'convex/values'
 
 import type { NoInfer } from '../types/type-utils.js'
-import { open, runCheck, type AnyCheck } from './define-guard.js'
+import { runCheck, type AnyCheck } from './define-guard.js'
 import type { ErasedPermissionDefinition } from './define-permission.js'
 
 export type AccessContextBase<TCan extends Record<string, boolean>> = {
@@ -86,7 +86,6 @@ export type AccessContextDefinition<
   TContext extends Record<string, unknown>,
 > = {
   args: Record<string, never>
-  guard: typeof open
   permissions: TPermissions
   crossTenant?: any
   handler: (ctx: TCtx) => Promise<AccessContextHandlerResult<TPermissions, TContext> | null>
@@ -124,7 +123,6 @@ export function defineAccessContext<TOptions extends AccessContextOptions>(
 
   return {
     args: {},
-    guard: open,
     permissions: options.permissions,
     ...(options.crossTenant ? { crossTenant: options.crossTenant } : {}),
     handler: async (ctx: MergedCtx<TOptions>) => {

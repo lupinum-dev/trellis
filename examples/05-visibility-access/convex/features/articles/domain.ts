@@ -120,15 +120,20 @@ export const viewArticleOp = operation.query({
   crossTenant: {
     reason: 'Resolve share-token reads across-scope boundaries.',
     tables: ['shareTokens', 'articles'],
-    access: ({ db }: { db: DatabaseReader }) => ({
-      resolveSharedArticle: async (args: Required<Pick<ViewArticleArgs, 'shareToken' | 'id'>>) => {
-        const grant = await resolveShareToken(db, args.shareToken)
-        if (grant.articleId !== args.id) throw deny('Token does not match this article.')
-        const article = await db.get(args.id)
-        requireRecord(article, 'Article')
-        return { article, grant }
-      },
-    }),
+    access: ({ db }) => {
+      const reader = db as DatabaseReader
+      return {
+        resolveSharedArticle: async (
+          args: Required<Pick<ViewArticleArgs, 'shareToken' | 'id'>>,
+        ) => {
+          const grant = await resolveShareToken(reader, args.shareToken)
+          if (grant.articleId !== args.id) throw deny('Token does not match this article.')
+          const article = await reader.get(args.id)
+          requireRecord(article, 'Article')
+          return { article, grant }
+        },
+      }
+    },
   },
   handler: async (ctx, args: ViewArticleArgs) => {
     if (args.shareToken) {

@@ -26,71 +26,6 @@ function safeEqualString(left: string, right: string): boolean {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer)
 }
 
-/**
- * Shared-secret webhook auth compares one header directly to a server secret.
- * It does not bind the request body, timestamp, or delivery id.
- */
-export function isSharedSecretWebhookSignatureValid(
-  providedSignature: string | string[] | undefined,
-  expectedSecret: string,
-): boolean {
-  if (typeof providedSignature !== 'string') {
-    return false
-  }
-
-  return safeEqualString(providedSignature, expectedSecret)
-}
-
-export type ReadSharedSecretWebhookBodyOptions<TBody, TParsed = TBody> = {
-  signature: string | string[] | undefined
-  secret: string
-  readBody: () => Promise<TBody>
-  parse?: (body: TBody) => TParsed | Promise<TParsed>
-  idempotency?: {
-    key: string | (() => string | Promise<string>)
-    consume: (key: string) => boolean | Promise<boolean>
-    conflictMessage?: string
-  }
-}
-
-async function resolveIdempotencyKey(
-  value: string | (() => string | Promise<string>),
-): Promise<string> {
-  return typeof value === 'function' ? await value() : value
-}
-
-export async function readSharedSecretWebhookBody<TBody, TParsed = TBody>(
-  options: ReadSharedSecretWebhookBodyOptions<TBody, TParsed>,
-): Promise<TParsed> {
-  if (!isSharedSecretWebhookSignatureValid(options.signature, options.secret)) {
-    throw createError({ statusCode: 401, message: 'Invalid signature' })
-  }
-
-  const parsedBody = options.parse
-    ? await options.parse(await options.readBody())
-    : ((await options.readBody()) as TParsed)
-
-  if (options.idempotency) {
-    const key = await resolveIdempotencyKey(options.idempotency.key)
-    if (!key.trim()) {
-      throw createError({
-        statusCode: 500,
-        message: 'Webhook idempotency key must resolve to a non-empty string.',
-      })
-    }
-
-    const accepted = await options.idempotency.consume(key)
-    if (!accepted) {
-      throw createError({
-        statusCode: 409,
-        message: options.idempotency.conflictMessage ?? 'Duplicate webhook delivery.',
-      })
-    }
-  }
-
-  return parsedBody
-}
-
 export type WebhookHmacVerificationOptions = {
   signature: string | string[] | undefined
   timestamp: string | string[] | undefined
@@ -162,14 +97,6 @@ export function isWebhookHmacSignatureValid(options: WebhookHmacVerificationOpti
   return safeEqualString(signature, expected)
 }
 
-export type ReadHmacVerifiedWebhookBodyOptions<TParsed> = WebhookHmacVerificationOptions & {
-  parse: (rawBody: string | Uint8Array) => TParsed | Promise<TParsed>
-  idempotency?: {
-    consume: (deliveryId: string) => boolean | Promise<boolean>
-    conflictMessage?: string
-  }
-}
-
 export type VerifiedHmacWebhookDelivery<TBody> = {
   id: string
   body: TBody
@@ -186,28 +113,6 @@ export type VerifyHmacWebhookDeliveryOptions<TBody> = {
   deliveryIdHeader?: string
   nowMs?: number
   toleranceMs?: number
-}
-
-export async function readHmacVerifiedWebhookBody<TParsed>(
-  options: ReadHmacVerifiedWebhookBodyOptions<TParsed>,
-): Promise<TParsed> {
-  if (!isWebhookHmacSignatureValid(options)) {
-    throw createError({ statusCode: 401, message: 'Invalid signature' })
-  }
-
-  const deliveryId = singleHeader(options.deliveryId)!
-  const parsed = await options.parse(options.rawBody)
-  if (options.idempotency) {
-    const accepted = await options.idempotency.consume(deliveryId)
-    if (!accepted) {
-      throw createError({
-        statusCode: 409,
-        message: options.idempotency.conflictMessage ?? 'Duplicate webhook delivery.',
-      })
-    }
-  }
-
-  return parsed
 }
 
 export async function verifyHmacWebhookDelivery<TBody>(

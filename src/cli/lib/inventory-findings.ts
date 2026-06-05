@@ -2,6 +2,7 @@ import type { DoctorFinding } from './findings.js'
 import { findingInventorySource } from './findings.js'
 import type {
   TrellisCliInventory,
+  TrellisCliInventoryServiceSubject,
   TrellisCliInventorySourceLocation,
   TrellisCliInventoryUnsafeEntrypoint,
 } from './inventory.js'
@@ -170,6 +171,51 @@ function createDestructiveOperationFinding(inventory: TrellisCliInventory): Doct
         ? 'No action needed unless the app adds destructive preview/confirm flows later.'
         : 'Review each destructive operation and keep preview, confirmation, and audit expectations explicit.',
     sources: [findingInventorySource('backend.destructiveOperations', locations)],
+  }
+}
+
+function serviceSubjectHasUnsafeAccess(service: TrellisCliInventoryServiceSubject): boolean {
+  const metadata = service.metadata
+  return (
+    service.access !== 'restricted' ||
+    service.tables.length === 0 ||
+    !service.tenant ||
+    (service.tenant === 'derived' && !service.hasDeriveTenant) ||
+    !metadata.source ||
+    !metadata.purpose ||
+    (metadata.allowedOperations.length === 0 && metadata.allowedFunctionRefs.length === 0) ||
+    !metadata.replayMode ||
+    metadata.actingFor === null ||
+    !metadata.auditEvent ||
+    !metadata.auditTable ||
+    !metadata.auditCorrelationId
+  )
+}
+
+function createServiceSubjectAccessFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const services = inventory.serviceSubjects
+  const unsafeServices = services.filter(serviceSubjectHasUnsafeAccess)
+  const locations =
+    unsafeServices.length > 0
+      ? unsafeServices.map((service) => service.source)
+      : services.map((service) => service.source)
+
+  return {
+    id: 'service-subject-access',
+    category: 'advanced',
+    title: 'Service subject access',
+    status: unsafeServices.length > 0 ? 'fail' : 'pass',
+    message:
+      services.length === 0
+        ? 'No `defineServices(...)` service subjects were detected.'
+        : unsafeServices.length > 0
+          ? `Found service subjects without static restricted access, replay, and audit metadata at ${formatInventoryLocations(locations)}.`
+          : `Found ${services.length} service subject${services.length === 1 ? '' : 's'} with static restricted access plus replay and audit metadata.`,
+    fixHint:
+      unsafeServices.length > 0
+        ? 'Configure service subjects with explicit `access: { tables, tenant }` and `metadata` containing source, purpose, allowed operation/function refs, replay mode, acting-for, audit event, audit table, and audit correlation id.'
+        : 'Keep service subjects table-restricted and keep replay/audit metadata colocated with defineServices.',
+    sources: [findingInventorySource('serviceSubjects', locations)],
   }
 }
 
@@ -393,6 +439,7 @@ export function collectInventoryDoctorFindings(inventory: TrellisCliInventory): 
     createUnsafeSurfaceFinding(inventory),
     createCrossTenantEscapeFinding(inventory),
     createDestructiveOperationFinding(inventory),
+    createServiceSubjectAccessFinding(inventory),
     createDestructiveOperationPreviewProjectionFinding(inventory),
     createMcpRateLimitStoreFinding(inventory),
     createMcpDestructiveOperationBindingFinding(inventory),

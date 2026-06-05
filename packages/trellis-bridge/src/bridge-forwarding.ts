@@ -1,3 +1,4 @@
+import type { Subject } from '@lupinum/trellis/auth'
 import {
   createIdentityForwardingEnvelopeArgs,
   extractSubject,
@@ -36,10 +37,10 @@ const bridgeForwardingTtlsMs = {
 type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 export type IdentityForwardingKeyInput = string | ((args?: unknown) => string)
 
-function withResolvedSubject(caller: unknown, subject: string): { subject: string } & Record<
-  string,
-  unknown
-> {
+function withResolvedSubject(
+  caller: unknown,
+  subject: Subject,
+): { subject: Subject } & Record<string, unknown> {
   if (typeof caller === 'object' && caller !== null && !Array.isArray(caller)) {
     return { ...(caller as Record<string, unknown>), subject }
   }
@@ -47,7 +48,7 @@ function withResolvedSubject(caller: unknown, subject: string): { subject: strin
   return { subject }
 }
 
-function resolveBridgeCallerSubject(caller: unknown): string {
+function resolveBridgeCallerSubject(caller: unknown): Subject {
   if (
     typeof caller === 'object' &&
     caller !== null &&
@@ -143,8 +144,8 @@ export function createBridgeForwardingEnvelope(
     keyId:
       (typeof process !== 'undefined' ? process.env?.CONVEX_IDENTITY_FORWARDING_KEY_ID : '') ||
       bridgeForwardingKeyId,
-    iss: bridgeForwardingIssuer,
-    aud: bridgeForwardingAudience,
+    issuer: bridgeForwardingIssuer,
+    audience: bridgeForwardingAudience,
     jti,
     caller: withResolvedSubject(options.caller, subject),
     transport: 'bridge',
@@ -156,7 +157,7 @@ export function createBridgeForwardingEnvelope(
   })
   const envelope = forwardingArgs._trellisForwarding
   if (typeof envelope !== 'string') {
-    throw new Error('createComponentBridge() failed to create a forwarding envelope.')
+    throw new TypeError('createComponentBridge() failed to create a forwarding envelope.')
   }
 
   return envelope

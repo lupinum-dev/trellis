@@ -1,5 +1,4 @@
 import { operation } from '@lupinum/trellis/app'
-import { authRequired, requireAuth } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import type { MutationCtx } from '../../_generated/server'
@@ -17,7 +16,6 @@ type CreateWorkspaceArgs = { name: string; slug: string }
 export const createWorkspaceOp = operation.mutation({
   id: 'workspaces.create',
   args: createWorkspace.args,
-  guard: authRequired,
   crossTenant: {
     mode: 'write',
     reason: 'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
@@ -72,9 +70,6 @@ export const createWorkspaceOp = operation.mutation({
   },
   handler: async (ctx: WorkspaceBootstrapCtx, args: CreateWorkspaceArgs) => {
     const caller = await ctx.caller()
-    // This onboarding path is intentionally caller-gated instead of appIdentity-gated:
-    // a signed-in user may exist before they have any workspace-bound appIdentity row.
-    requireAuth(caller, 'Forbidden: authRequired')
     if (caller.kind !== 'user') {
       throw new Error('Workspace creation requires a signed-in user caller.')
     }
@@ -121,4 +116,4 @@ export const createWorkspaceOp = operation.mutation({
   },
 })
 
-export const createWorkspaceMutation = mutation.protected(createWorkspaceOp)
+export const createWorkspaceMutation = mutation.authenticated(createWorkspaceOp)

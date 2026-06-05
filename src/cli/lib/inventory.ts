@@ -132,6 +132,27 @@ export interface TrellisCliInventoryUnsafeEntrypoint {
   }
 }
 
+export interface TrellisCliInventoryServiceSubject {
+  serviceId: string
+  file: string
+  source: TrellisCliInventorySourceLocation
+  access: 'restricted' | 'unrestricted' | 'unknown'
+  tables: string[]
+  tenant: string | null
+  hasDeriveTenant: boolean
+  metadata: {
+    source: string | null
+    purpose: string | null
+    allowedOperations: string[]
+    allowedFunctionRefs: string[]
+    replayMode: string | null
+    actingFor: boolean | null
+    auditEvent: string | null
+    auditTable: string | null
+    auditCorrelationId: string | null
+  }
+}
+
 export type TrellisCliInventoryBridgePackageSource =
   | 'dependency'
   | 'devDependency'
@@ -206,6 +227,7 @@ export interface TrellisCliInventory {
     crossTenantEscapes: TrellisCliInventorySourceLocation[]
     destructiveOperations: TrellisCliInventorySourceLocation[]
   }
+  serviceSubjects: TrellisCliInventoryServiceSubject[]
   appInventory: {
     file: string | null
     detected: boolean
@@ -317,6 +339,29 @@ function readStringArrayProperty(
     .filter((value): value is string => typeof value === 'string')
 }
 
+function readBooleanProperty(
+  node: import('ts-morph').ObjectLiteralExpression,
+  name: string,
+): boolean | null {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return null
+  const initializer = unwrapExpression(property.getInitializer())
+  if (!initializer) return null
+  if (initializer.getKind() === SyntaxKind.TrueKeyword) return true
+  if (initializer.getKind() === SyntaxKind.FalseKeyword) return false
+  return null
+}
+
+function readObjectProperty(
+  node: import('ts-morph').ObjectLiteralExpression,
+  name: string,
+): import('ts-morph').ObjectLiteralExpression | null {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return null
+  const initializer = unwrapExpression(property.getInitializer())
+  return initializer && Node.isObjectLiteralExpression(initializer) ? initializer : null
+}
+
 function readIdentifierRefsProperty(
   node: import('ts-morph').ObjectLiteralExpression,
   name: string,
@@ -416,6 +461,135 @@ function collectPermissions(project: ProjectInspection): TrellisCliInventory['pe
       unknown: inventory.unknown,
     })),
   }
+}
+
+function readPropertyName(node: Node): string | null {
+  if (Node.isIdentifier(node)) return node.getText()
+  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
+    return node.getLiteralText()
+  }
+  return null
+}
+
+function readDefineServicesObject(
+  call: import('ts-morph').CallExpression,
+): import('ts-morph').ObjectLiteralExpression | null {
+  const callee = unwrapExpression(call.getExpression())
+  if (!Node.isIdentifier(callee) || callee.getText() !== 'defineServices') return null
+
+  const services = unwrapExpression(call.getArguments()[0])
+  return services && Node.isObjectLiteralExpression(services) ? services : null
+}
+
+function readServiceMetadata(
+  definition: import('ts-morph').ObjectLiteralExpression,
+): TrellisCliInventoryServiceSubject['metadata'] {
+  const metadata = readObjectProperty(definition, 'metadata')
+  if (!metadata) {
+    return {
+      source: null,
+      purpose: null,
+      allowedOperations: [],
+      allowedFunctionRefs: [],
+      replayMode: null,
+      actingFor: null,
+      auditEvent: null,
+      auditTable: null,
+      auditCorrelationId: null,
+    }
+  }
+
+  return {
+    source: readStringProperty(metadata, 'source'),
+    purpose: readStringProperty(metadata, 'purpose'),
+    allowedOperations: readStringArrayProperty(metadata, 'allowedOperations'),
+    allowedFunctionRefs: readStringArrayProperty(metadata, 'allowedFunctionRefs'),
+    replayMode: readStringProperty(metadata, 'replayMode'),
+    actingFor: readBooleanProperty(metadata, 'actingFor'),
+    auditEvent: readStringProperty(metadata, 'auditEvent'),
+    auditTable: readStringProperty(metadata, 'auditTable'),
+    auditCorrelationId: readStringProperty(metadata, 'auditCorrelationId'),
+  }
+}
+
+function collectServiceSubjects(project: ProjectInspection): TrellisCliInventoryServiceSubject[] {
+  const parser = new Project({ skipAddingFilesFromTsConfig: true })
+  const services: TrellisCliInventoryServiceSubject[] = []
+
+  for (const source of project.sourceFiles) {
+    if (!/\.(?:ts|js|mts|mjs)$/.test(source.path) || !source.text.includes('defineServices')) {
+      continue
+    }
+
+    const sourceFile = parser.createSourceFile(source.path, source.text, { overwrite: true })
+    const file = toRelative(project, source.path) ?? source.path
+
+    for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const definitions = readDefineServicesObject(call)
+      if (!definitions) continue
+
+      for (const property of definitions.getProperties()) {
+        if (!Node.isPropertyAssignment(property)) continue
+
+        const serviceId = readPropertyName(property.getNameNode())
+        const definition = unwrapExpression(property.getInitializer())
+        if (!serviceId || !definition || !Node.isObjectLiteralExpression(definition)) continue
+
+        const sourceLocation = {
+          path: file,
+          line: property.getNameNode().getStartLineNumber(),
+        }
+        const metadata = readServiceMetadata(definition)
+        const accessProperty = definition.getProperty('access')
+        const accessInitializer =
+          accessProperty && Node.isPropertyAssignment(accessProperty)
+            ? unwrapExpression(accessProperty.getInitializer())
+            : undefined
+
+        if (Node.isStringLiteral(accessInitializer)) {
+          services.push({
+            serviceId,
+            file,
+            source: sourceLocation,
+            access:
+              accessInitializer.getLiteralText() === 'unrestricted' ? 'unrestricted' : 'unknown',
+            tables: [],
+            tenant: null,
+            hasDeriveTenant: false,
+            metadata,
+          })
+          continue
+        }
+
+        if (!accessInitializer || !Node.isObjectLiteralExpression(accessInitializer)) {
+          services.push({
+            serviceId,
+            file,
+            source: sourceLocation,
+            access: 'unknown',
+            tables: [],
+            tenant: null,
+            hasDeriveTenant: false,
+            metadata,
+          })
+          continue
+        }
+
+        services.push({
+          serviceId,
+          file,
+          source: sourceLocation,
+          access: 'restricted',
+          tables: readStringArrayProperty(accessInitializer, 'tables'),
+          tenant: readStringProperty(accessInitializer, 'tenant'),
+          hasDeriveTenant: Boolean(accessInitializer.getProperty('deriveTenant')),
+          metadata,
+        })
+      }
+    }
+  }
+
+  return services.sort((a, b) => a.file.localeCompare(b.file) || a.source.line - b.source.line)
 }
 
 function collectUnsafeEntrypoints(
@@ -791,6 +965,7 @@ export function collectTrellisCliInventory(
       crossTenantEscapes: toInventoryLocations(project, facts.crossTenantEscapeInventory),
       destructiveOperations: toInventoryLocations(project, facts.destructiveOperationInventory),
     },
+    serviceSubjects: collectServiceSubjects(project),
     appInventory: collectAppInventory(project, appInventorySource),
     features: collectFeatures(project),
     permissions: collectPermissions(project),

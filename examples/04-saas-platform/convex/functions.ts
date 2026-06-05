@@ -23,6 +23,9 @@ export const { mutation, query, unsafe } = defineTrellis(
   {
     caller,
     appIdentity: getAppIdentityFromCaller,
+    public: {
+      readTables: ['users'],
+    },
     isolation: {
       tables: isolatedTables,
       sharedTables: explicitlySharedTables,

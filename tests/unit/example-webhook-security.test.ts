@@ -37,5 +37,8 @@ describe('example webhook security posture', () => {
 
     expect(saasPlatform).toContain("{ auth: 'none' }")
     expect(helper).toContain('timingSafeEqual')
+    expect(helper).not.toContain('readSharedSecretWebhookBody')
+    expect(helper).not.toContain('readHmacVerifiedWebhookBody')
+    expect(helper).not.toContain('idempotency?:')
   })
 })

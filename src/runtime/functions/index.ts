@@ -24,8 +24,9 @@ import type { GenericValidator, Infer, ObjectType, PropertyValidators } from 'co
 import { v } from 'convex/values'
 
 import { defineAppIdentity, type DefaultAppIdentity } from '../auth/define-app-identity.js'
+import { authRequired } from '../auth/define-guard.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
-import { can, deny, open } from '../auth/index.js'
+import { can, deny, isOpenGuard, isPermissionDefinition, open } from '../auth/index.js'
 import {
   getIdentityForwarding,
   setIdentityForwardingContext,
@@ -157,7 +158,7 @@ type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidator
 
 export const trellisBackendLaneMetadataKey = Symbol.for('trellis.backendLane')
 
-export type TrellisBackendLane = 'public' | 'protected' | 'unsafe'
+export type TrellisBackendLane = 'public' | 'authenticated' | 'workspace' | 'protected' | 'unsafe'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
 export interface OperationsById {}
@@ -612,11 +613,6 @@ function getTrustedReplayDb<DataModel extends GenericDataModel>(
   return db as TrustedReplayDb<DataModel>
 }
 
-function getTrustedReplayRowId(row: unknown): unknown {
-  if (!row || typeof row !== 'object') return undefined
-  return (row as { _id?: unknown })._id
-}
-
 function describeTrustedReplayState(row: unknown): string | undefined {
   if (!row || typeof row !== 'object') return undefined
   const state = (row as { state?: unknown }).state
@@ -708,10 +704,9 @@ async function patchTrustedReplayClaim<DataModel extends GenericDataModel>(
 ): Promise<void> {
   if (!claim) return
   const db = 'db' in ctx ? (ctx as { db?: unknown }).db : undefined
-  const replayDb = getTrustedReplayDb<DataModel>(
-    getInternalUnsafeDb((db as object) ?? {}) ?? db,
-    { table: claim.table },
-  )
+  const replayDb = getTrustedReplayDb<DataModel>(getInternalUnsafeDb((db as object) ?? {}) ?? db, {
+    table: claim.table,
+  })
   const now = Date.now()
   await replayDb.patch(claim.id, {
     state,
@@ -900,6 +895,45 @@ function cloneDefinitionWithExtras(
   return Object.assign(clone, extras)
 }
 
+function hasOwn(value: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key)
+}
+
+function getOwnGuard(definition: object): unknown {
+  return hasOwn(definition, 'guard') ? (definition as { guard?: unknown }).guard : undefined
+}
+
+function getOwnPermission(definition: object): unknown {
+  return hasOwn(definition, 'permission')
+    ? (definition as { permission?: unknown }).permission
+    : undefined
+}
+
+function assertSignedInLaneGuard(definition: unknown, lane: 'authenticated' | 'workspace'): void {
+  if (!definition || typeof definition !== 'object') return
+
+  const guard = getOwnGuard(definition)
+  if (guard === undefined) return
+
+  throw new Error(
+    `${lane} backend handlers must not provide \`guard\`; use protected(...) for custom guard predicates.`,
+  )
+}
+
+function resolveWorkspaceLaneGuard(definition: object): unknown {
+  const permission = getOwnPermission(definition)
+  if (permission === undefined) {
+    throw new Error(
+      'workspace backend handlers require `permission` with a definePermission(...) object so the lane can enforce workspace authority.',
+    )
+  }
+  if (isPermissionDefinition(permission)) return permission
+
+  throw new Error(
+    'workspace backend handlers with `permission` must provide a definePermission(...) object so the lane can enforce it.',
+  )
+}
+
 function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown>(
   protectedBuilder: TBuilder,
 ): TBuilder {
@@ -939,6 +973,9 @@ function createProtectedLaneBuilder<TBuilder extends (definition: never) => unkn
         'protected backend handlers require `guard`; use public(...) for unauthenticated access.',
       )
     }
+    if (isOpenGuard(getOwnGuard(definition))) {
+      throw new Error('protected backend handlers must not use `guard: open`; use public(...).')
+    }
 
     return stampBackendLane(
       protectedBuilder(
@@ -947,6 +984,42 @@ function createProtectedLaneBuilder<TBuilder extends (definition: never) => unkn
         }) as never,
       ),
       'protected',
+    )
+  }) as unknown as TBuilder
+}
+
+function createAuthenticatedLaneBuilder<TBuilder extends (definition: never) => unknown>(
+  protectedBuilder: TBuilder,
+): TBuilder {
+  return ((definition: unknown) => {
+    assertSignedInLaneGuard(definition, 'authenticated')
+
+    return stampBackendLane(
+      protectedBuilder(
+        cloneDefinitionWithExtras(definition as object, {
+          guard: authRequired,
+          trellisBackendLane: 'authenticated',
+        }) as never,
+      ),
+      'authenticated',
+    )
+  }) as unknown as TBuilder
+}
+
+function createWorkspaceLaneBuilder<TBuilder extends (definition: never) => unknown>(
+  protectedBuilder: TBuilder,
+): TBuilder {
+  return ((definition: unknown) => {
+    assertSignedInLaneGuard(definition, 'workspace')
+
+    return stampBackendLane(
+      protectedBuilder(
+        cloneDefinitionWithExtras(definition as object, {
+          guard: resolveWorkspaceLaneGuard(definition as object),
+          trellisBackendLane: 'workspace',
+        }) as never,
+      ),
+      'workspace',
     )
   }) as unknown as TBuilder
 }
@@ -965,15 +1038,21 @@ function attachBackendQueryLanes<
   unsafeBuilder?: TUnsafeBuilder,
 ): {
   public: (definition: never) => unknown
+  authenticated: (definition: never) => unknown
+  workspace: (definition: never) => unknown
   protected: TProtectedBuilder
   unsafe?: TUnsafeBuilder
 } {
   const lanes: {
     public: (definition: never) => unknown
+    authenticated: (definition: never) => unknown
+    workspace: (definition: never) => unknown
     protected: TProtectedBuilder
     unsafe?: TUnsafeBuilder
   } = {
     public: createPublicLaneBuilder(protectedBuilder),
+    authenticated: createAuthenticatedLaneBuilder(protectedBuilder),
+    workspace: createWorkspaceLaneBuilder(protectedBuilder),
     protected: createProtectedLaneBuilder(protectedBuilder),
   }
   if (unsafeBuilder) {
@@ -1046,7 +1125,7 @@ function getServiceTableFromId(value: unknown): string | null {
   const separator = value.lastIndexOf(';')
   if (separator !== -1) return value.slice(separator + 1)
 
-  const convexTestId = value.match(/^\d+([A-Za-z_][A-Za-z0-9_]*)$/)
+  const convexTestId = value.match(/^\d+([a-z_]\w*)$/i)
   return convexTestId?.[1] ?? null
 }
 
@@ -1367,6 +1446,56 @@ async function resolveServiceAccess<
   }
 }
 
+async function assertServiceTargetAllowed<
+  DataModel extends GenericDataModel,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+>(
+  ctx: Pick<RuleCtx<DataModel, TCaller, TActingFor, TActor>, 'caller'>,
+  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
+  extra: IdentityForwardingCustomizationExtra | undefined,
+): Promise<void> {
+  const caller = await ctx.caller()
+  if (!isServicePrincipal(caller)) return
+
+  const service = options.services?.[caller.serviceId]
+  if (!service) {
+    throw new Error(
+      `Service "${caller.serviceId}" is not configured in defineTrellis({ services }).`,
+    )
+  }
+
+  const targetFunctionRef = extra?.identityForwardingFunctionRef
+  const targetOperationId = extra?.[trellisOperationMetadataKey]?.id
+  const allowedFunctionRefs = service.metadata.allowedFunctionRefs ?? []
+  const allowedOperations = service.metadata.allowedOperations ?? []
+
+  if (allowedFunctionRefs.length === 0 && allowedOperations.length === 0) {
+    throw deny(
+      `Service "${caller.serviceId}" has no allowed operation ids or function refs in defineServices metadata.`,
+      {
+        source: 'service-access',
+        category: 'auth',
+      },
+    )
+  }
+
+  if (targetFunctionRef && allowedFunctionRefs.includes(targetFunctionRef)) return
+  if (targetOperationId && allowedOperations.includes(targetOperationId)) return
+
+  const targetDescription = targetFunctionRef
+    ? `function "${targetFunctionRef}"`
+    : targetOperationId
+      ? `operation "${targetOperationId}"`
+      : 'a handler without identityForwardingFunctionRef or operation metadata'
+
+  throw deny(`Service "${caller.serviceId}" is not allowed to call ${targetDescription}.`, {
+    source: 'service-access',
+    category: 'auth',
+  })
+}
+
 function buildServiceRules<
   DataModel extends GenericDataModel,
   TCaller,
@@ -1493,6 +1622,37 @@ type PublicStructuredQueryBuilder<
   > & { guard?: never },
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
+type AuthenticatedStructuredQueryBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['caller']>>,
+      Awaited<ReturnType<TCtx['actingFor']>>,
+      TActor,
+      typeof authRequired,
+      TArgsValidator,
+      TLoaded,
+      TResult,
+      TCrossTenant,
+      TPublicWrite
+    >,
+    'guard'
+  > & { guard?: never },
+) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+
 type StructuredMutationBuilder<
   TCtx extends {
     caller: () => Promise<unknown>
@@ -1543,6 +1703,37 @@ type PublicStructuredMutationBuilder<
       Awaited<ReturnType<TCtx['actingFor']>>,
       TActor,
       typeof open,
+      TArgsValidator,
+      TLoaded,
+      TResult,
+      TCrossTenant,
+      TPublicWrite
+    >,
+    'guard'
+  > & { guard?: never },
+) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type AuthenticatedStructuredMutationBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['caller']>>,
+      Awaited<ReturnType<TCtx['actingFor']>>,
+      TActor,
+      typeof authRequired,
       TArgsValidator,
       TLoaded,
       TResult,
@@ -1632,6 +1823,37 @@ type PublicStructuredActionBuilder<
       Awaited<ReturnType<TCtx['actingFor']>>,
       TActor,
       typeof open,
+      TArgsValidator,
+      TLoaded,
+      TResult,
+      TCrossTenant,
+      TPublicWrite
+    >,
+    'guard'
+  > & { guard?: never },
+) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type AuthenticatedStructuredActionBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['caller']>>,
+      Awaited<ReturnType<TCtx['actingFor']>>,
+      TActor,
+      typeof authRequired,
       TArgsValidator,
       TLoaded,
       TResult,
@@ -1804,6 +2026,8 @@ async function createContextWithRuntime<
   } as TCtx &
     Pick<FunctionsCtxExtension<TCaller, TActingFor, TActor>, 'caller' | 'actingFor' | 'observe'>
 
+  await assertServiceTargetAllowed(ctxWithCaller, options, extra)
+
   let actorPromise: Promise<TActor | null> | null = null
   const appIdentity: AppIdentityAccessor<TActor> = async () => {
     actorPromise ??= actorResolver(ctxWithCaller, appArgs, await caller(), await actingFor()).then(
@@ -1855,7 +2079,10 @@ function trustedReplayFailureDetails(error: unknown): Record<string, unknown> {
   return error instanceof Error ? { message: error.message } : { message: String(error) }
 }
 
-function createReplayAwareOnSuccess<DataModel extends GenericDataModel, TCtx extends AnyCtx<DataModel>>(
+function createReplayAwareOnSuccess<
+  DataModel extends GenericDataModel,
+  TCtx extends AnyCtx<DataModel>,
+>(
   ctx: TCtx,
   replayClaim: TrustedReplayClaim<DataModel> | null,
   onSuccess:
@@ -1870,7 +2097,10 @@ function createReplayAwareOnSuccess<DataModel extends GenericDataModel, TCtx ext
   }
 }
 
-function createReplayAwareOnError<DataModel extends GenericDataModel, TCtx extends AnyCtx<DataModel>>(
+function createReplayAwareOnError<
+  DataModel extends GenericDataModel,
+  TCtx extends AnyCtx<DataModel>,
+>(
   ctx: TCtx,
   replayClaim: TrustedReplayClaim<DataModel> | null,
 ): ((payload: { args: Record<string, unknown>; error: unknown }) => Promise<void>) | undefined {
@@ -1938,7 +2168,9 @@ function createCrossTenantDb<TDb extends object>(input: {
   eventName: 'db.cross_tenant.used' | 'db.public_write.used'
 }): TDb {
   const readOnlyWriteError = () =>
-    new Error(`${input.capability} capability is read-only. Use an operation-backed write capability.`)
+    new Error(
+      `${input.capability} capability is read-only. Use an operation-backed write capability.`,
+    )
 
   const reader = {
     get: async (id: unknown, ...args: unknown[]) => {
@@ -2558,7 +2790,11 @@ type FullArgsCustomizationResult<
     args: Record<string, unknown>
     result: unknown
   }) => void | Promise<void>
-  onError?: (obj: { ctx: TCtx; args: Record<string, unknown>; error: unknown }) => void | Promise<void>
+  onError?: (obj: {
+    ctx: TCtx
+    args: Record<string, unknown>
+    error: unknown
+  }) => void | Promise<void>
 }
 
 type FullArgsCustomization<
@@ -2708,6 +2944,16 @@ type QueryWithBackendLanes<
     Visibility,
     TActor
   >
+  authenticated: AuthenticatedStructuredQueryBuilder<
+    QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
+  workspace: AuthenticatedStructuredQueryBuilder<
+    QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
   protected: StructuredQueryBuilder<
     QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
@@ -2728,6 +2974,16 @@ type MutationWithBackendLanes<
     Visibility,
     TActor
   >
+  authenticated: AuthenticatedStructuredMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
+  workspace: AuthenticatedStructuredMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
   protected: StructuredMutationBuilder<
     MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
@@ -2744,6 +3000,16 @@ type ActionWithBackendLanes<
   TActor,
 > = {
   public: PublicStructuredActionBuilder<
+    ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
+  authenticated: AuthenticatedStructuredActionBuilder<
+    ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
+  workspace: AuthenticatedStructuredActionBuilder<
     ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor
@@ -3643,6 +3909,16 @@ function buildTrellisRuntime<
       QueryVisibility,
       TActor
     >
+    authenticated: AuthenticatedStructuredQueryBuilder<
+      QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      QueryVisibility,
+      TActor
+    >
+    workspace: AuthenticatedStructuredQueryBuilder<
+      QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      QueryVisibility,
+      TActor
+    >
     protected: typeof structured.query
     unsafe: typeof explicitUnsafe.query
   }
@@ -3652,6 +3928,16 @@ function buildTrellisRuntime<
   ) as unknown as {
     public: PublicStructuredMutationBuilder<
       PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      MutationVisibility,
+      TActor
+    >
+    authenticated: AuthenticatedStructuredMutationBuilder<
+      MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      MutationVisibility,
+      TActor
+    >
+    workspace: AuthenticatedStructuredMutationBuilder<
+      MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
       MutationVisibility,
       TActor
     >
@@ -3665,6 +3951,16 @@ function buildTrellisRuntime<
       ) as unknown as {
         public: PublicStructuredQueryBuilder<
           PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          InternalQueryVisibility,
+          TActor
+        >
+        authenticated: AuthenticatedStructuredQueryBuilder<
+          QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          InternalQueryVisibility,
+          TActor
+        >
+        workspace: AuthenticatedStructuredQueryBuilder<
+          QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
           InternalQueryVisibility,
           TActor
         >
@@ -3682,6 +3978,16 @@ function buildTrellisRuntime<
           InternalMutationVisibility,
           TActor
         >
+        authenticated: AuthenticatedStructuredMutationBuilder<
+          MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          InternalMutationVisibility,
+          TActor
+        >
+        workspace: AuthenticatedStructuredMutationBuilder<
+          MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          InternalMutationVisibility,
+          TActor
+        >
         protected: typeof structuredInternal.mutation
         unsafe: NonNullable<typeof explicitUnsafe.internalMutation>
       })
@@ -3690,6 +3996,16 @@ function buildTrellisRuntime<
     action && explicitUnsafe.action
       ? (attachBackendQueryLanes(action as never, explicitUnsafe.action as never) as unknown as {
           public: PublicStructuredActionBuilder<
+            ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+            ActionVisibility,
+            TActor
+          >
+          authenticated: AuthenticatedStructuredActionBuilder<
+            ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+            ActionVisibility,
+            TActor
+          >
+          workspace: AuthenticatedStructuredActionBuilder<
             ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
             ActionVisibility,
             TActor

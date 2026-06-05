@@ -2,7 +2,7 @@ import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
 import {
-  authRequired,
+  buildPermissionMatrix,
   enforce,
   can,
   deny,
@@ -142,6 +142,28 @@ describe('auth primitives', () => {
     })
   })
 
+  it('rejects duplicate permission keys in projected matrices', () => {
+    const firstRead = definePermission({ key: 'todos.read', check: true })
+    const secondRead = definePermission({ key: 'todos.read', check: true })
+
+    expect(() => buildPermissionMatrix([firstRead, secondRead])).toThrow(
+      /duplicate permission key "todos\.read" at indexes 0 and 1/,
+    )
+  })
+
+  it('rejects duplicate permission keys before projection filtering', () => {
+    const projectedRead = definePermission({ key: 'todos.read', check: true })
+    const internalRead = definePermission({
+      key: 'todos.read',
+      project: false,
+      check: true,
+    })
+
+    expect(() => buildPermissionMatrix([projectedRead, internalRead])).toThrow(
+      /duplicate permission key "todos\.read" at indexes 0 and 1/,
+    )
+  })
+
   it('explains thrown permission guards as denied without rethrowing', () => {
     const permission = definePermission({
       key: 'billing.manage',
@@ -168,12 +190,6 @@ describe('auth primitives', () => {
   it('exports an explicit open guard for public flows', () => {
     expect(open.label).toBe('open')
     expect(can(null, open)).toBe(true)
-  })
-
-  it('treats authRequired as a non-composable sentinel guard', () => {
-    expect(() => authRequired.and(() => true)).toThrow(/cannot be composed with and/)
-    expect(() => authRequired.or(() => true)).toThrow(/cannot be composed with or/)
-    expect(() => authRequired.not()).toThrow(/cannot be negated/)
   })
 
   it('throws forbidden errors from enforce() and narrows the type', () => {
@@ -252,9 +268,9 @@ describe('auth primitives', () => {
   })
 
   it('rejects non-boolean guard results instead of coercing them', () => {
-    expect(() =>
-      can({}, (async () => false) as unknown as () => boolean),
-    ).toThrow(/Authorization checks must return a boolean\. Received Promise\./)
+    expect(() => can({}, (async () => false) as unknown as () => boolean)).toThrow(
+      /Authorization checks must return a boolean\. Received Promise\./,
+    )
 
     expect(() =>
       enforce({}, 'Invalid guard', (async () => false) as unknown as () => boolean),
@@ -289,10 +305,7 @@ describe('auth primitives', () => {
   it('explains non-boolean permission checks as denied errors', () => {
     const permission = definePermission({
       key: 'billing.manage',
-      check: defineGuard(
-        'async-false',
-        (async () => false) as unknown as () => boolean,
-      ),
+      check: defineGuard('async-false', (async () => false) as unknown as () => boolean),
     })
 
     expect(explainPermission({}, permission)).toMatchObject({

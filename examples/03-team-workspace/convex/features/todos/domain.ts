@@ -43,7 +43,7 @@ export const listTodosOp = operation.query({
   id: 'todos.list',
   args: listTodos.args,
   scope: workspaceScope(),
-  guard: todoRead,
+  permission: todoRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     const appIdentity = requireWorkspaceActor(await ctx.appIdentity())
     const todos = await ctx.db
@@ -56,13 +56,13 @@ export const listTodosOp = operation.query({
   },
 })
 
-export const list = query.protected(listTodosOp)
+export const list = query.workspace(listTodosOp)
 
 export const getTodoOp = operation.query({
   id: 'todos.get',
   args: deleteTodo.args,
   scope: workspaceScope(),
-  guard: todoRead,
+  permission: todoRead,
   load: async (ctx: WorkspaceQueryCtx, args) => {
     const todo = await ctx.db.get(args.id as Id<'todos'>)
     requireRecord(todo, 'Todo')
@@ -73,13 +73,13 @@ export const getTodoOp = operation.query({
   },
 })
 
-export const get = query.protected(getTodoOp)
+export const get = query.workspace(getTodoOp)
 
 export const createTodoOp = operation.mutation({
   id: 'todos.create',
   args: createTodo.args,
   scope: workspaceScope(),
-  guard: todoCreate,
+  permission: todoCreate,
   handler: async (ctx: WorkspaceMutationCtx, args) => {
     const appIdentity = requireWorkspaceActor(await ctx.appIdentity())
 
@@ -93,13 +93,13 @@ export const createTodoOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createTodoOp)
+export const create = mutation.workspace(createTodoOp)
 
 export const setTodoCompletedOp = operation.mutation({
   id: 'todos.set-completed',
   args: setTodoCompleted.args,
   scope: workspaceScope(),
-  guard: todoRead,
+  permission: todoRead,
   load: async (ctx: WorkspaceMutationCtx, args) => {
     const todo = await ctx.db.get(args.id as Id<'todos'>)
     requireRecord(todo, 'Todo')
@@ -115,7 +115,7 @@ export const setTodoCompletedOp = operation.mutation({
   },
 })
 
-export const setCompleted = mutation.protected(setTodoCompletedOp)
+export const setCompleted = mutation.workspace(setTodoCompletedOp)
 
-export const previewRemove = mutation.protected(previewOf(removeTodoOp))
-export const remove = mutation.protected(removeTodoOp)
+export const previewRemove = mutation.workspace(previewOf(removeTodoOp))
+export const remove = mutation.workspace(removeTodoOp)

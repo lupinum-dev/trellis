@@ -1,7 +1,7 @@
 import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { defineGuard, definePermission, open } from '../../src/runtime/auth'
+import { defineGuard, definePermission } from '../../src/runtime/auth'
 import { defineAccessContext } from '../../src/runtime/auth/define-access-context'
 
 describe('access context primitives', () => {
@@ -75,10 +75,7 @@ describe('access context primitives', () => {
       permissions: [
         definePermission({
           key: 'async.permission',
-          check: defineGuard(
-            'async.permission',
-            (async () => false) as unknown as () => boolean,
-          ),
+          check: defineGuard('async.permission', (async () => false) as unknown as () => boolean),
         }),
       ],
     })
@@ -105,7 +102,7 @@ describe('access context primitives', () => {
       }),
     })
 
-    expect(query.guard).toBe(open)
+    expect(query).not.toHaveProperty('guard')
     await expect(query.handler({})).resolves.toEqual({
       userId: 'alice',
       workspaceId: 'workspace-1',

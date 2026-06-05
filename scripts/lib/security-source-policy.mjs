@@ -15,13 +15,7 @@ export const securitySourcePolicyRoots = [
   'src/runtime/server/index.ts',
 ]
 
-const ignoredPathFragments = [
-  '/_generated/',
-  '/node_modules/',
-  '/.nuxt/',
-  '/.output/',
-  '/dist/',
-]
+const ignoredPathFragments = ['/_generated/', '/node_modules/', '/.nuxt/', '/.output/', '/dist/']
 
 export const securitySourcePolicies = [
   {
@@ -39,8 +33,10 @@ export const securitySourcePolicies = [
   {
     id: 'no-shared-secret-webhook-helper',
     kind: 'line',
-    policy: 'shared-secret webhook helpers are banned from production-copyable surfaces',
-    pattern: /\breadSharedSecretWebhookBody\b/,
+    policy:
+      'shared-secret and route-side webhook idempotency helpers are banned from production-copyable surfaces',
+    pattern:
+      /\b(readSharedSecretWebhookBody|isSharedSecretWebhookSignatureValid|readHmacVerifiedWebhookBody)\b/,
   },
   {
     id: 'no-tool-local-mcp-safety',
@@ -85,8 +81,10 @@ const fileSpecificPolicies = {
     {
       id: 'server-barrel-no-shared-secret-helper',
       kind: 'line',
-      policy: 'server barrel must not export shared-secret webhook helpers',
-      pattern: /\breadSharedSecretWebhookBody\b/,
+      policy:
+        'server barrel must not export shared-secret or route-side webhook idempotency helpers',
+      pattern:
+        /\b(readSharedSecretWebhookBody|isSharedSecretWebhookSignatureValid|readHmacVerifiedWebhookBody)\b/,
     },
   ],
   'src/runtime/backend/index.ts': [
@@ -127,7 +125,7 @@ export function listTrackedSecuritySourceFiles(repoRoot) {
 
   return trackedFiles.filter((filePath) => {
     if (ignoredPathFragments.some((fragment) => filePath.includes(fragment))) return false
-    if (!/\.(mjs|js|ts|tsx|vue|md)$/.test(filePath)) return false
+    if (!/\.(?:mjs|js|ts|tsx|vue|md)$/.test(filePath)) return false
     return securitySourcePolicyRoots.some((root) => isInRoot(filePath, root))
   })
 }

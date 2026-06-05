@@ -14,6 +14,9 @@ export const { mutation, query } = defineTrellis(
   {
     caller,
     appIdentity: getAppIdentityFromCaller,
+    public: {
+      readTables: ['users'],
+    },
     isolation: {
       tables: isolatedTables,
       sharedTables: explicitlySharedTables,

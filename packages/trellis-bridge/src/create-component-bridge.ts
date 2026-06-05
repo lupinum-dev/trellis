@@ -357,17 +357,17 @@ function createBridgeCallerInput<
     const caller = async () => {
       if (!callerPromise) {
         const ctxWithIdentityForwarding = { ...ctx } as TCtx
-        setIdentityForwardingContext(ctxWithIdentityForwarding, args, {
-          expectedKeyOverride: identityForwardingKeyOverride,
-          expectedPurpose,
-          expectedTransport: 'bridge',
-          expectedFunctionRef,
-        })
-        callerPromise = Promise.resolve(
-          callerDefinition.resolve(ctxWithIdentityForwarding, args),
-        ).finally(() => {
-          clearIdentityForwardingContext(ctxWithIdentityForwarding)
-        })
+        callerPromise = withVerifiedIdentityForwardingContext(
+          ctxWithIdentityForwarding,
+          args,
+          {
+            expectedKeyOverride: identityForwardingKeyOverride,
+            expectedPurpose,
+            expectedTransport: 'bridge',
+            expectedFunctionRef,
+          },
+          async (verifiedCtx) => await callerDefinition.resolve(verifiedCtx, args),
+        )
       }
 
       return await callerPromise
@@ -407,7 +407,9 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
     Record<string, never>
   >
 } {
-  const forwardingArgs: PropertyValidators = withIdentityForwarding({})
+  const forwardingArgs: PropertyValidators = {
+    _trellisForwarding: v.optional(v.string()),
+  }
 
   return {
     query: {

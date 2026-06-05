@@ -1,5 +1,4 @@
 import { operation } from '@lupinum/trellis/app'
-import { authRequired } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import type { MutationCtx } from '../../_generated/server'
@@ -12,7 +11,6 @@ type WorkspaceBootstrapCtx = MutationCtx & {
 
 export const createWorkspaceOp = operation.mutation({
   id: 'workspaces.create',
-  guard: authRequired,
   args: createWorkspace.args,
   handler: async (ctx: WorkspaceBootstrapCtx, args) => {
     const caller = await ctx.caller()
@@ -45,4 +43,4 @@ export const createWorkspaceOp = operation.mutation({
   },
 })
 
-export const createWorkspaceMutation = mutation.protected(createWorkspaceOp)
+export const createWorkspaceMutation = mutation.authenticated(createWorkspaceOp)

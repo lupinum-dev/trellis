@@ -6,7 +6,7 @@ import { getAppIdentity } from '../auth/appIdentity'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getAccessContext = query.protected(
+export const getAccessContext = query.public(
   defineAccessContext({
     resolve: getAppIdentity,
     permissions,

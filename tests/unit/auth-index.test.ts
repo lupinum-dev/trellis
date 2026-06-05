@@ -16,8 +16,6 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('or')
     expect(authApi).toHaveProperty('defineAppIdentity')
     expect(authApi).toHaveProperty('defineGuard')
-    expect(authApi).toHaveProperty('authRequired')
-    expect(authApi).toHaveProperty('isAuthRequiredGuard')
     expect(authApi).toHaveProperty('isGuard')
     expect(authApi).toHaveProperty('open')
     expect(authApi).toHaveProperty('enforce')
@@ -39,6 +37,8 @@ describe('auth entrypoint exports', () => {
     expect(authApi).not.toHaveProperty('defineAppIdentityExtension')
     expect(authApi).not.toHaveProperty('defineAppIdentityFromMembership')
     expect(authApi).not.toHaveProperty('createFunctions')
+    expect(authApi).not.toHaveProperty('authRequired')
+    expect(authApi).not.toHaveProperty('isAuthRequiredGuard')
 
     expect(identityForwardingApi).toHaveProperty('getIdentityForwarding')
     expect(identityForwardingApi).toHaveProperty('createIdentityForwardingEnvelope')
