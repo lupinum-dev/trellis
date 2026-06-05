@@ -60,23 +60,22 @@ Available per-call helpers:
 - `auto`: use session cookie when available, otherwise unauthenticated.
 - `required`: fail when auth cannot be resolved.
 - `none`: never attach auth; public calls only.
-- `trusted`: identity-forwarding path with explicit caller identity.
+- `transportProof.server(...)`, `transportProof.webhook(...)`, or
+  `transportProof.mcp(...)`: identity-forwarding paths with verifier-produced
+  caller, optional acting-for evidence, and replay intent.
 
 Use `createServerConvexCaller(event, options?)` when a request needs several
 Convex calls with the same event/options.
 
 ```ts
-const convex = createServerConvexCaller(event, {
-  auth: 'trusted',
-  caller,
-  actingFor,
-})
+const convex = createServerConvexCaller(event, { auth: 'required' })
 
 const result = await convex.query(api.dashboard.get, { id })
 ```
 
-Forwarded `caller` or `actingFor` requires `auth: 'trusted'`. The helper
-throws when forwarded identity is supplied on any other auth mode.
+Forwarded `caller` or `actingFor` belongs inside a `transportProof.*(...)`
+object. Do not pass forwarded identity as normal public args or route-local
+options.
 
 ## Server Boundaries
 
@@ -86,17 +85,22 @@ throws when forwarded identity is supplied on any other auth mode.
   auto-imports only.
 - `@lupinum/trellis/server` exports `serverConvexQuery`,
   `serverConvexMutation`, `serverConvexAction`, `createServerConvexCaller`,
-  `delegateToUser`, and webhook helpers.
+  `transportProof`, `domainIdempotency`, `jtiRedemption`,
+  `operationConfirmation`, `requireDelegationBinding`, and webhook helpers.
 
 ## Webhooks And Identity-Forwarded Traffic
 
 Pattern:
 
 1. Verify the external request at the Nitro edge.
-2. Call Convex with `auth: 'trusted'`.
-3. Forward an explicit server-owned `caller`.
-4. Add `actingFor` when the request represents a user.
-5. Let the normal Convex guard/load/authorize/handler path decide.
+2. Parse before idempotency or business dispatch.
+3. Call Convex with `auth: transportProof.*(...)`.
+4. Forward an explicit server-owned `caller`.
+5. Add `actingFor: requireDelegationBinding(...)` when the request represents a
+   user.
+6. Declare replay intent with `domainIdempotency(...)`,
+   `jtiRedemption(...)`, or `operationConfirmation(...)`.
+7. Let the normal Convex lane/load/authorize/handler path decide.
 
 Never treat "it is a webhook" or "it has the trusted key" as permission to do
 anything. Identity forwarding verifies identity injection. Business
@@ -109,17 +113,16 @@ projection path. It binds tool invocation to your Convex caller, caller
 resolution, optional actingFor resolution, access visibility, rate limiting,
 sessions, confirmation identity, and observability.
 
-Low-level `defineTool(options)` lives under `@lupinum/trellis/mcp/advanced`.
-Use it only for standalone custom tools where the handler body genuinely lives
-in MCP code.
+Low-level `defineMcpTool(options)` lives under
+`@lupinum/trellis/mcp/advanced`. Use it only for standalone custom tools where
+the handler body genuinely lives in MCP code.
 
 Use the factories returned by `defineMcpApp(...)` when a tool projects a Convex
 ref or operation:
 
 - `mcp.tool.query(...)` for read tools.
-- `mcp.tool.mutation(...)` for bounded write tools.
-- `mcp.tool.operation(operation, options)` for sensitive, destructive, audited,
-  or external-side-effect work.
+- `mcp.tool.operation(operation, options)` for writes, sensitive work,
+  destructive flows, audited work, or external-side-effect work.
 
 That keeps MCP behavior aligned with the same backend authorization model used
 by browser and server calls.
@@ -139,14 +142,13 @@ Common `defineMcpApp(...)` runtime options include:
 - `scopeKey`
 - `observability`
 
-Common `mcp.tool.query(...)` and `mcp.tool.mutation(...)` options include:
+Common `mcp.tool.query(...)` and `mcp.tool.operation(...)` options include:
 
 - `schema`
 - `call`
 - `permission`
 - `enabled`
 - `meta`
-- `safety`
 - `rateLimit`
 - `rateLimitStore`
 - `maxItems`
@@ -167,7 +169,7 @@ projections such as `execute`, optional `preview`, `executeOperation`,
 
 ## Destructive MCP Tools
 
-Do not implement destructive generic tools through `defineTool`. Use
+Do not implement destructive generic tools through `defineMcpTool`. Use
 `mcp.tool.operation(operation, options)` so preview, confirmation, and execute
 stay bound to one operation identity.
 
@@ -231,7 +233,7 @@ consistent success/error/preview shape.
 
 - Do not bypass Convex authorization in Nitro just because the route already did
   auth checks.
-- Do not use `auth: 'none'` to silence a protected handler failure.
+- Do not use `auth: 'none'` to silence a backend authorization failure.
 - Do not duplicate business operations in MCP files. Project operations or root
   handlers whenever possible.
 - Do not let MCP capability visibility drift from backend checks. Visibility

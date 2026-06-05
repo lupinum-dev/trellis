@@ -226,28 +226,21 @@ describe('generated type consumer verification', () => {
           confirm: TConfirm
         }
 
-        const open = true as const
-
         const mutation = <TResult>(_operation: unknown) => ({
           _type: 'mutation' as const,
           _result: null as unknown as TResult,
         })
-        const query = <TResult>(_operation: unknown) => ({
-          _type: 'query' as const,
-          _result: null as unknown as TResult,
-        })
-
         export const archiveTaskOp = defineOperation({
           id: 'tasks.archive',
           kind: 'destructive',
           args: {},
-          guard: open,
+          permission: 'task.archive',
           preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
           handler: async () => ({ archived: true as const }),
         })
 
         export const archiveTask = mutation<{ archived: true }>(archiveTaskOp)
-        export const previewArchiveTask = query<ReturnType<typeof operationPreview<{ id: string }>>>(previewOf(archiveTaskOp))
+        export const previewArchiveTask = mutation<ReturnType<typeof operationPreview<{ id: string }>>>(previewOf(archiveTaskOp))
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '../../../../convex/features/tasks/operations'
@@ -298,7 +291,7 @@ describe('generated type consumer verification', () => {
         const toolNameLiteral: _Tool['name'] = 'archive-task'
         const operationLiteral: _Operation['id'] = 'tasks.archive'
         const executeKind: _Execute['_type'] = 'mutation'
-        const previewKind: _Preview['_type'] = 'query'
+        const previewKind: _Preview['_type'] = 'mutation'
 
         void operationId
         void validatedOperationId

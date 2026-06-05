@@ -1,7 +1,7 @@
 /**
  * Server-side validation helper for H3 routes.
  *
- * Compatible with H3's `readValidatedBody(event, validateConvexArgs(validator))`.
+ * Use with H3's `readValidatedBody(event, validateConvexArgs(validator))`.
  */
 
 import type { GenericValidator, Infer } from 'convex/values'
@@ -11,7 +11,7 @@ import type { StandardSchemaV1Result } from '../../utils/standard-schema.js'
 import { toConvexSchema } from '../shared/convex-schema.js'
 
 /**
- * Create an H3-compatible validation function from a Convex validator.
+ * Create an H3 validation function from a Convex validator.
  *
  * Returns the validated data on success, throws an H3 error (422) on failure
  * with all validation issues in the error data.

@@ -39,7 +39,7 @@ function formatPath(path: string): string {
 
 function unsupported(kind: string | undefined, path: string, detail?: string): never {
   throw new Error(
-    `defineTool: validator kind "${kind ?? 'unknown'}" at ${formatPath(path)} ` +
+    `defineMcpApp.tool: validator kind "${kind ?? 'unknown'}" at ${formatPath(path)} ` +
       `is not supported for MCP input schemas. Supported kinds: ${SUPPORTED_KINDS.join(', ')}.` +
       (detail ? ` ${detail}` : ''),
   )
@@ -73,7 +73,7 @@ function toSupportedLiteral(value: unknown, path: string): SupportedLiteral {
   }
 
   throw new Error(
-    `defineTool: literal value at ${formatPath(path)} must be a string, number, boolean, or null ` +
+    `defineMcpApp.tool: literal value at ${formatPath(path)} must be a string, number, boolean, or null ` +
       `to be projected into an MCP input schema.`,
   )
 }
@@ -115,21 +115,21 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
     case 'id':
       if (!cv.tableName) {
         throw new Error(
-          `defineTool: v.id() at ${formatPath(path)} is missing a table name and cannot be projected.`,
+          `defineMcpApp.tool: v.id() at ${formatPath(path)} is missing a table name and cannot be projected.`,
         )
       }
       return withOptional(z.string().describe(`Convex ID for "${cv.tableName}" table`), cv)
     case 'array':
       if (!cv.element) {
         throw new Error(
-          `defineTool: v.array() at ${formatPath(path)} is missing its element validator.`,
+          `defineMcpApp.tool: v.array() at ${formatPath(path)} is missing its element validator.`,
         )
       }
       return withOptional(z.array(convexToMcpZodValidator(cv.element, `${path}[]`)), cv)
     case 'object':
       if (!cv.fields || typeof cv.fields !== 'object') {
         throw new Error(
-          `defineTool: v.object() at ${formatPath(path)} is missing its field validators.`,
+          `defineMcpApp.tool: v.object() at ${formatPath(path)} is missing its field validators.`,
         )
       }
       return withOptional(
@@ -147,12 +147,12 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
       const key = asValidator(cv.key)
       if (!key || typeof key !== 'object' || key.kind !== 'string') {
         throw new Error(
-          `defineTool: v.record() at ${formatPath(path)} must use v.string() keys to be projected into an MCP input schema.`,
+          `defineMcpApp.tool: v.record() at ${formatPath(path)} must use v.string() keys to be projected into an MCP input schema.`,
         )
       }
       if (!cv.value) {
         throw new Error(
-          `defineTool: v.record() at ${formatPath(path)} is missing its value validator.`,
+          `defineMcpApp.tool: v.record() at ${formatPath(path)} is missing its value validator.`,
         )
       }
       return withOptional(
@@ -164,12 +164,12 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
       const members = cv.members ?? []
       if (members.length === 0) {
         throw new Error(
-          `defineTool: v.union() at ${formatPath(path)} must contain at least one member.`,
+          `defineMcpApp.tool: v.union() at ${formatPath(path)} must contain at least one member.`,
         )
       }
       if (containsConvexId(cv)) {
         throw new Error(
-          `defineTool: v.union() containing v.id() at ${formatPath(path)} cannot be projected to an MCP input schema. ` +
+          `defineMcpApp.tool: v.union() containing v.id() at ${formatPath(path)} cannot be projected to an MCP input schema. ` +
             `Use a plain v.string() instead, or provide the field description via schema metadata.`,
         )
       }

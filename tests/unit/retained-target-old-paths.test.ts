@@ -9,6 +9,9 @@ import {
   formatDeletedTrellisSurfaceHit,
 } from '../../scripts/lib/retained-target-old-paths.mjs'
 
+// Intentional 0.3.0 retained-target scanner coverage: deleted paths appear
+// here only as fixture input for the old-path detector.
+
 function createTempRepo(): string {
   return mkdtempSync(resolve(tmpdir(), 'trellis-retained-targets-'))
 }

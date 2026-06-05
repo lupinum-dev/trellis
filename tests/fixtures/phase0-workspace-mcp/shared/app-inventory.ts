@@ -1,4 +1,5 @@
-import { defineAppInventory } from '../../../../src/runtime/feature/compose-features'
+import { defineAppInventory } from '@lupinum/trellis/workspace'
+
 import { projectsFeature } from './features/projects/feature'
 
 export const appInventory = defineAppInventory({

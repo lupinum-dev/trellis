@@ -1,5 +1,65 @@
 # Changelog
 
+## v0.3.0
+
+Hard-cut security foundation release.
+
+### Breaking Direction
+
+- Replaces first-reader protected/guard authoring with explicit `public`,
+  `authenticated`, `workspace`, `service`, and `unsafe` backend lanes.
+- Removes unsafe public exports for shared-secret trusted webhooks, boolean
+  delegation, raw identity-forwarding primitives, direct MCP safety stamping,
+  raw MCP write helpers, and removed legacy subpaths.
+- Makes MCP writes operation-backed. Tool-local write safety metadata is no
+  longer a production path.
+- Treats trusted route and MCP forwarding as verifier-produced proof, not as an
+  author-supplied trust literal.
+
+### Security
+
+- Removes raw DB and cross-tenant escape access from normal handler-visible
+  contexts.
+- Adds a strict authorization evaluator and duplicate permission-key checks
+  across backend, projection, and MCP visibility paths.
+- Adds backend replay/idempotency enforcement for trusted transport executes and
+  destructive operation executes.
+- Adds HMAC webhook verification with raw-body binding, timestamp validation,
+  delivery-id recovery semantics, and blank-secret rejection.
+- Adds binding-backed delegation evidence that backend handlers revalidate.
+- Keeps Trellis auth derived from Better Auth session state, including
+  out-of-band session changes, failed sign-out handling, protected navigation
+  refresh, and auth proxy body handling.
+
+### Examples And Docs
+
+- Rewrites maintained examples, starter fixtures, generated resources, docs, and
+  skill references against the 0.3.0 explicit-lane model.
+- Removes production-copyable unsafe snippets for shared-secret trusted
+  webhooks, unconditional delegation, public MCP key validation/touch, direct
+  MCP mutation helpers, and starter direct deletes.
+- Adds migration-oriented coverage for Ginko-style MCP project tools and
+  shadcn-style workspace MCP starters.
+
+### Verification
+
+- Adds `test:security` and wires it into both `pnpm run check` and
+  `pnpm run release:verify`.
+- Adds a generated security contract covering public exports, banned export
+  absence, backend lanes, operations, MCP bindings, service metadata, replay and
+  audit metadata, maintained examples, routes, delegation, and webhook verifier
+  metadata.
+- Strengthens packed artifact checks so removed unsafe exports are absent from
+  built tarballs, not only source.
+- Keeps `release:verify` as the full local release gate and `release:pack` as
+  the tarball generation step.
+
+### Release
+
+- Publishes `@lupinum/trellis@0.3.0` and
+  `@lupinum/trellis-bridge@0.3.0`.
+- Keeps `@lupinum/trellis-eslint` private.
+
 ## v0.2.0
 
 Hard-cut Operation Ladder release.

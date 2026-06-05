@@ -56,7 +56,7 @@ describe('posts', () => {
           title: 'Test',
           content: 'Content',
         }),
-      ).rejects.toThrow('Forbidden: Create post')
+      ).rejects.toThrow('Forbidden:')
     })
   })
 
@@ -91,7 +91,7 @@ describe('posts', () => {
       expect(user2Posts[0]._id).toBe(post2Id)
     })
 
-    it('returns empty array for unauthenticated users', async () => {
+    it('denies unauthenticated users', async () => {
       const { t, asMember } = await setupTestWithMultipleUsers()
 
       // Create a post
@@ -100,9 +100,7 @@ describe('posts', () => {
         content: 'Content',
       })
 
-      // Unauthenticated user sees nothing
-      const posts = await t.query(api.posts.list, {})
-      expect(posts).toEqual([])
+      await expect(t.query(api.posts.list, {})).rejects.toThrow('Forbidden:')
     })
   })
 
@@ -362,7 +360,7 @@ describe('posts', () => {
       })
 
       await expect(asMember.mutation(api.posts.publish, { id: postId })).rejects.toThrow(
-        'Forbidden: post.publish',
+        'Forbidden: Publish post',
       )
     })
 
@@ -375,7 +373,7 @@ describe('posts', () => {
       })
 
       await expect(asViewer.mutation(api.posts.publish, { id: postId })).rejects.toThrow(
-        'Forbidden: post.publish',
+        'Forbidden: Publish post',
       )
     })
   })

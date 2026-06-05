@@ -62,7 +62,9 @@ await expect(team.users.bob.mutation(api.posts.publish, { id: postId })).rejects
 ```
 
 Use `asCaller(...)` to exercise identity-forwarding paths in tests. It is
-test-only and deliberately explicit; do not hide it behind app factories.
+test-only and deliberately explicit; do not hide it behind app factories. For
+forwarded writes, pass the replay behavior the backend expects. For MCP-only
+handlers, pass `transport: 'mcp'`. Forwarded reads can omit replay metadata.
 
 Keep `convex/test.setup.ts` in consumer apps when they need the generated server
 mock path.
@@ -73,7 +75,7 @@ before documenting them.
 
 ## What To Test
 
-- Permission and tenant behavior through real protected handlers.
+- Permission and tenant behavior through real backend handlers.
 - Browser/server/MCP parity by calling the same handler through each transport
   where relevant.
 - Public surface drift when adding exports, auto-imports, or aliases.

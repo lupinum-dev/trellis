@@ -26,6 +26,10 @@ import {
   trellisOperationProjectionMetadataKey,
 } from './operation-metadata.js'
 
+// Intentional 0.3.0 internal guard engine: this module evaluates the surviving
+// custom protected lane plus authenticated/workspace sentinels. App-author
+// normal paths should use explicit lanes and permission metadata.
+
 type MaybePromise<T> = T | Promise<T>
 type Callback<TArgs extends unknown[], TResult> = (...args: TArgs) => TResult
 

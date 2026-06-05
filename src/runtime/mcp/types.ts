@@ -163,7 +163,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   description?: string
 
   // ── Effect & annotations ──────────────────────────────────
-  /** Custom tool effect class. App writes must use defineMcpApp(...).tool.mutation/operation. */
+  /** Custom tool effect class. App writes must use operation-backed MCP tools. */
   effect: ConvexToolEffect
   /** Required for external-service custom tools. */
   permit?: TrellisUnsafePermit
@@ -231,7 +231,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   inputExamples?: Partial<InferSchemaData<S>>[]
   /** Custom middleware. Single function — compose internally if needed. */
   middleware?: ConvexToolMiddleware<S, TRole>
-  /** Guard to include/hide this tool per-request. Runs before built-in auth/scoped/check visibility rules. */
+  /** Predicate to include/hide this tool per-request. Runs before built-in auth/scoped/check visibility rules. */
   enabled?: (event: H3Event) => boolean | Promise<boolean>
   /** Cache configuration (passed through to mcp-toolkit). */
   cache?: McpToolCache

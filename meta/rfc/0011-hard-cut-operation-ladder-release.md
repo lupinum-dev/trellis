@@ -36,7 +36,8 @@ The current Trellis core is strong, but the first user experience exposes too ma
 
 - `defineArgs`
 - `defineTrellis`
-- `query.public`, `query.protected`, `mutation.public`, `mutation.protected`, `unsafe`
+- `query.public`, `query.authenticated`, `query.workspace`, `mutation.public`,
+  `mutation.authenticated`, `mutation.workspace`, `unsafe`
 - `defineGuard`
 - `definePermission`
 - `defineFeature`
@@ -106,13 +107,12 @@ export const todoCreate = definePermission({
   check: hasWorkspace.and(hasMinimumRole('member')),
 })
 
-export const create = mutation.protected({
+export const create = mutation.workspace({
   args: createTodo.args,
-  guard: todoCreate,
+  permission: todoCreate,
   handler: async (ctx, args) => {
-    const appIdentity = await ctx.appIdentity()
     return await ctx.db.insert('todos', {
-      workspaceId: appIdentity.workspaceId,
+      workspaceId: ctx.workspaceId,
       title: args.title,
       completed: false,
       createdAt: Date.now(),
@@ -361,8 +361,8 @@ trellis add mcp
 
 Escape hatches are explicit and visibly advanced:
 
-- `@lupinum/trellis/backend/advanced` for low-level builders and descriptors
-- `@lupinum/trellis/mcp/advanced` for raw MCP tools
+- `@lupinum/trellis/backend` for low-level builders and descriptors
+- `@lupinum/trellis/mcp/advanced` for standalone read, diagnostic, or external-service MCP tools
 - `@lupinum/trellis-bridge` for packaged integrations
 - `auth.bootstrap: false` for apps that deliberately do not use Trellis app-user bootstrap
 - integration-owned CLI/docs/doctor for products such as Ginko CMS
@@ -466,10 +466,10 @@ export default createTodo.asMcpTool({
 })
 ```
 
-Raw MCP tool definitions stay available in `@lupinum/trellis/mcp/advanced` or equivalent advanced docs.
-Once `operation.asMcpTool()` exists, raw `tool.query(...)` and `tool.mutation(...)` move out of the
-first-reader path and into advanced docs. `tool.operation(...)` remains the bridge for operation-backed
-MCP until the operation object projection fully covers it.
+Standalone MCP tool definitions stay available in `@lupinum/trellis/mcp/advanced` or equivalent
+advanced docs for read, diagnostic, and external-service tools. App writes stay operation-backed:
+once `operation.asMcpTool()` exists, direct write helpers move out of the first-reader path and
+`tool.operation(...)` remains the bridge until the operation object projection fully covers it.
 
 ### 5. Add Permission Explanation Before Permission Data Models
 
@@ -501,7 +501,7 @@ The matrix should report:
 - label
 - source file
 - projected to frontend
-- used by protected handlers
+- used by custom-guard handlers
 - used by operations
 - grantable or override-enabled metadata, once those features exist
 
@@ -571,7 +571,7 @@ import {
   implementOperation,
   previewOf,
   unsafe,
-} from '@lupinum/trellis/backend/advanced'
+} from '@lupinum/trellis/backend'
 ```
 
 This is intentionally a hard cut for docs and starters. Existing subpaths can remain during `v0.2` only

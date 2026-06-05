@@ -215,8 +215,7 @@ describe('feature composition', () => {
       name: 'ArchiveTask',
       kind: 'destructive',
       args: { id: v.string() },
-      guard: definePermission({ key: 'task.archive', check: true }),
-      permission: 'task.archive',
+      permission: definePermission({ key: 'task.archive', check: true }),
       safety: 'destructive-write',
       preview: async () =>
         operationPreview({
@@ -224,7 +223,7 @@ describe('feature composition', () => {
           confirm: { id: 'task-1' },
         }),
       handler: async () => null,
-    })
+    } as never)
 
     expect(getOperationMetadata(archiveTask)).toMatchObject({
       id: 'tasks.archive',

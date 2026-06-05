@@ -155,8 +155,8 @@ Registered only when `trellis.auth` is enabled:
   runtime context.
 - Do not add a package export just because an alias exists. Public exports are a
   deliberate surface.
-- Do not reintroduce older rejected subpaths as compatibility aliases unless the
-  user explicitly asks for a compatibility layer.
+- Do not reintroduce older rejected subpaths as old-path aliases unless the user
+  explicitly asks for a parallel alias layer.
 - Do not rely on generated `dist` as the first source of truth; verify source
   and tests first.
 - When updating docs, run `pnpm run check:docs:api-surface` if any export,

@@ -1,8 +1,8 @@
 # Backend, Auth, Permissions
 
-Use this for Convex backend code: `defineTrellis`, protected handlers, shared
-args schemas, guards, appIdentity, access context, operations, tenant isolation,
-services, and identity-forwarding validators.
+Use this for Convex backend code: `defineTrellis`, explicit handler lanes,
+shared args schemas, permissions, appIdentity, access context, operations,
+tenant isolation, services, and identity-forwarding validators.
 
 ## Contents
 
@@ -40,9 +40,9 @@ services, and identity-forwarding validators.
 
 ## Protected Backend Runtime
 
-`defineTrellis(builders, options?)` is the canonical backend seam. It returns
-public, protected, internal, transport, and unsafe lanes; keep unsafe lanes as
-explicit escape hatches.
+`defineTrellis(builders, options?)` is the canonical backend entry point. It
+returns public, authenticated, workspace, protected, internal, transport, and
+unsafe lanes; keep unsafe lanes as explicit escape hatches.
 
 Important options include:
 
@@ -62,7 +62,8 @@ Handler context adds:
 - `await ctx.appIdentity()`
 - `ctx.observe(...)`
 - tenant-scoped `ctx.db`
-- `ctx.db.escapeIsolation({ reason })`
+- `ctx.crossTenant.*` only when a handler or operation declares a named
+  cross-tenant capability
 
 Use `unsafe.query`, `unsafe.mutation`, and `unsafe.action` only for deliberate
 escape hatches with a justification. Do not normalize unsafe access into app
@@ -73,9 +74,9 @@ patterns.
 Keep authorization reviewable in the handler:
 
 ```ts
-export const setCompleted = mutation.protected({
+export const setCompleted = mutation.workspace({
   args: setTodoCompleted.args,
-  guard: todoRead,
+  permission: todoUpdate,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
@@ -90,13 +91,16 @@ export const setCompleted = mutation.protected({
 })
 ```
 
-- `guard`: cheap, coarse entry gate.
+- `permission`: stable workspace-level entry decision.
 - `load`: fetch records needed for the decision.
 - `authorize`: record-specific business decision.
 - `handler`: perform the work.
 
-If the rule needs loaded data or `ctx.db`, it belongs in `load` plus
-`authorize`, not in a giant guard.
+Use `authenticated(...)` for signed-in work with no workspace assumption. Use
+`workspace(...)` when the handler requires a concrete workspace permission.
+Use `protected(...)` only for intentional custom guard predicates that are not
+normal signed-in or workspace-lane work. If the rule needs loaded data or
+`ctx.db`, it belongs in `load` plus `authorize`, not in a giant guard.
 
 ## Shared Args
 
@@ -105,14 +109,15 @@ Convex handlers, Nitro validation, and MCP tools.
 
 Shared args are schema-only. Do not hide identity-forwarding transport fields
 in `defineArgs()` definitions. Trellis server helpers add the signed
-`_trellisForwarding` envelope for `auth: 'trusted'` calls.
+`_trellisForwarding` envelope from verifier-produced `transportProof.*(...)`
+auth.
 
 ## Auth And Permissions
 
 Important auth exports include:
 
 - `defineBetterAuth`
-- `defineGuard`, `authRequired`, `open`
+- `defineGuard`
 - `defineAppIdentity`
 - `definePermission`
 - `defineAccessContext`
@@ -126,13 +131,18 @@ Important auth exports include:
 - `loadTenantResource`
 - subject helpers such as `subject(...)`
 
+Intentional 0.3.0 boundary: `authRequired` and `open` are internal/runtime
+guard sentinels. New app code should pick `public(...)`,
+`authenticated(...)`, `workspace(...)`, or a real custom `protected(...)` guard
+instead of adding `guard: authRequired` or `guard: open`.
+
 The app owns business identity and permission semantics. Trellis provides the
 runtime shape.
 
 Permission context is a backend-owned projection for stable UI decisions:
 
 ```ts
-export const getAccessContext = query.protected(
+export const getAccessContext = query.authenticated(
   defineAccessContext({
     resolve: getAppIdentity,
     permissions: teamWorkspacePermissions,
@@ -158,12 +168,13 @@ Use backend `can(appIdentity, check)` inside Convex code.
 ## Tenant Isolation
 
 Trellis tenant isolation is a runtime guardrail around `ctx.db`; it is not the
-business authorization model. Business policy still lives in `guard`, `load`,
-`authorize`, and `handler`.
+business authorization model. Business policy still lives in the selected lane,
+`permission`, `load`, `authorize`, and `handler`.
 
-Use `ctx.db.escapeIsolation({ reason })` for explicit cross-tenant reads.
-The reason should explain the product case. Do not add convenience wrappers that
-make cross-tenant access feel routine.
+Use a definition-visible `crossTenant` capability for explicit cross-tenant
+reads. The capability should name the reason, allowed tables, and narrow access
+methods. Do not add convenience wrappers that make cross-tenant access feel
+routine.
 
 ## Operations
 
@@ -207,7 +218,8 @@ these backend-owned visibility helpers over browser-side recalculation.
 
 ## Identity Forwarding
 
-Use `auth: 'trusted'` from Nitro server helpers to create a signed
+Use `transportProof.server(...)`, `transportProof.webhook(...)`, or
+`transportProof.mcp(...)` from Nitro/server helpers to create a signed
 `_trellisForwarding` envelope for server-to-server identity forwarding. App
 business args should not include raw forwarded identity fields.
 
@@ -226,7 +238,7 @@ does not grant business authorization by itself.
 - Do not build DB-policy substitutes for app authorization.
 - Do not duplicate backend permission checks in the browser.
 - Do not treat webhooks, MCP sessions, or service keys as authorization bypasses.
-- Do not preserve old actor-wrapper APIs or compatibility shims when the current
+- Do not preserve old actor-wrapper APIs or old-path shims when the current
   foundation uses caller/actingFor/appIdentity accessors.
 - Do not describe custom public `rls` authoring as current Trellis API. Current
   public policy is handler phases plus `isolation`/`services` runtime

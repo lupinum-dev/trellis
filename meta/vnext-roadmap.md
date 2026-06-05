@@ -238,7 +238,7 @@ Run:
 
 ```bash
 rg -n "authId|by_auth_id|defineAuth|useConvexSignIn|useConvexSignUp|useConvexPasswordReset|ConvexUser|useConvexAuth\\(\\).*client" src examples apps tests meta -g '!**/_generated/**'
-rg -n "tool\\.operation|defineOperation|serverConvex|auth: 'trusted'|createComponentBridge|identityForwarding" src examples apps tests packages meta -g '!**/_generated/**'
+rg -n "tool\\.operation|defineOperation|serverConvex|transportProof|createComponentBridge|identityForwarding" src examples apps tests packages meta -g '!**/_generated/**'
 ```
 
 Expected finding:
@@ -675,7 +675,7 @@ Instead, teach the lanes that already exist:
 | anonymous browser read  | public Convex handler                                             |
 | signed-in browser call  | protected handler and app identity                                |
 | Nuxt server call        | `serverConvexQuery`, `serverConvexMutation`, `serverConvexAction` |
-| trusted server call     | `serverConvex*` with `auth: 'trusted'`                            |
+| trusted server call     | `serverConvex*` with `auth: transportProof.*(...)`                |
 | internal Convex call    | Convex internal functions                                         |
 | packaged component call | `@lupinum/trellis-bridge` component bridge                        |
 | agent call              | `defineMcpApp(...).tool.*`                                        |
@@ -725,8 +725,9 @@ Improve `doctor` output so junior developers understand the fix.
 Bad:
 
 ```ts
-tool.mutation('delete-project', {
-  ref: api.projects.deleteProject,
+defineMcpTool({
+  name: 'delete-project',
+  handler: async (_args, { mutation }) => mutation(api.projects.deleteProject, {}),
 })
 ```
 
@@ -744,14 +745,16 @@ Acceptance criteria:
 
 - `doctor` fails destructive-looking MCP tools not using `tool.operation(...)`.
 - `doctor` fails direct writes without bounded-write safety.
-- Error messages explain whether to use `tool.mutation(...)` or `tool.operation(...)`.
+- Error messages point normal app writes to `tool.operation(...)` and reserve
+  direct mutation wording for backend-stamped bounded-write refs.
 
 #### Work Item 2.3: Trusted Forwarding Findings
 
 Keep this rule:
 
 ```text
-Forwarded identity is allowed only on auth: 'trusted' server calls.
+Forwarded identity is allowed only inside verifier-produced
+`transportProof.*(...)` server calls.
 ```
 
 Bad:
@@ -770,7 +773,15 @@ await serverConvexMutation(
   event,
   api.tasks.createFromTrustedSource,
   { title: 'Import' },
-  { auth: 'trusted', caller },
+  {
+    auth: transportProof.server({
+      caller,
+      replay: domainIdempotency({
+        key: importId,
+        target: api.tasks.createFromTrustedSource,
+      }),
+    }),
+  },
 )
 ```
 
@@ -778,7 +789,8 @@ Acceptance criteria:
 
 - `doctor` detects obvious `caller` forwarding outside trusted calls.
 - `doctor` detects public exposure of `CONVEX_IDENTITY_FORWARDING_KEY`.
-- Docs teach `auth: 'trusted'` as a trust boundary, not as a convenience flag.
+- Docs teach `transportProof.*(...)` as verifier-produced transport evidence,
+  not as a convenience flag.
 
 ### Phase 3: Starter Guidance And Local Dev
 
@@ -813,19 +825,19 @@ Auth:
 Convex:
 
 - keep business rules in Convex handlers;
-- use protected handlers for signed-in app work;
+- use `authenticated(...)` for personal signed-in work and `workspace(...)` for
+  tenant-scoped app work;
 - use local `users._id` for domain user references.
 
 Server:
 
 - use `serverConvexQuery`, `serverConvexMutation`, and `serverConvexAction`;
-- use `auth: 'trusted'` only after the server route verified the request.
+- use `transportProof.*(...)` only after the server route verified the request.
 
 MCP:
 
 - use `tool.query(...)` for reads;
-- use `tool.mutation(...)` only for bounded writes;
-- use `tool.operation(...)` for destructive or sensitive actions.
+- use `tool.operation(...)` for writes, destructive actions, and sensitive actions.
 ````
 
 Acceptance criteria:

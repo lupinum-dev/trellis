@@ -1,6 +1,5 @@
+import { defineArgs } from '@lupinum/trellis/args'
 import { v } from 'convex/values'
-
-import { defineArgs } from '../../../../src/runtime/args'
 
 export const createTask = defineArgs({
   description: 'Create a task',

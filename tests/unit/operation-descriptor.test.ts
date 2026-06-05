@@ -11,6 +11,9 @@ import {
   trellisOperationProjectionMetadataKey,
 } from '../../src/runtime/functions'
 
+// Intentional 0.3.0 boundary coverage: descriptor implementations are
+// permission-backed and explicitly reject protected-lane guard metadata.
+
 describe('operation descriptors', () => {
   it('binds a shared descriptor to a Convex operation implementation', () => {
     const projectDeleteKey = definePermissionKey('projects.delete')
@@ -29,12 +32,11 @@ describe('operation descriptors', () => {
     })
 
     const operation = implementOperation(descriptor, {
-      guard: projectDelete,
       permission: projectDelete,
       preview: async () =>
         operationPreview({ summary: 'Delete project', confirm: { id: 'project-1' } }),
       handler: async () => ({ ok: true }),
-    })
+    } as never)
 
     expect(operation.id).toBe('projects.delete')
     expect(operation.kind).toBe('destructive')
@@ -61,7 +63,7 @@ describe('operation descriptors', () => {
     expect(() =>
       implementOperation(descriptor, {
         args: { id: v.string() },
-        guard: definePermission({ key: 'projects.archive', check: true }),
+        permission: definePermission({ key: 'projects.archive', check: true }),
         handler: async () => null,
       } as never),
     ).toThrow('args that does not match the operation descriptor')
@@ -83,7 +85,7 @@ describe('operation descriptors', () => {
     expect(() =>
       implementOperation(descriptor, {
         returns: v.null(),
-        guard: definePermission({ key: 'projects.archive', check: true }),
+        permission: definePermission({ key: 'projects.archive', check: true }),
         preview: async () =>
           operationPreview({ summary: 'Archive project', confirm: { id: 'project-1' } }),
         handler: async () => null,
@@ -93,7 +95,7 @@ describe('operation descriptors', () => {
     expect(() =>
       implementOperation(descriptor, {
         previewReturns: v.null(),
-        guard: definePermission({ key: 'projects.archive', check: true }),
+        permission: definePermission({ key: 'projects.archive', check: true }),
         preview: async () =>
           operationPreview({ summary: 'Archive project', confirm: { id: 'project-1' } }),
         handler: async () => ({ ok: true }),
@@ -113,7 +115,7 @@ describe('operation descriptors', () => {
     expect(() =>
       implementOperation(descriptor, {
         safety: 'sensitive-write',
-        guard: definePermission({ key: 'projects.create', check: true }),
+        permission: definePermission({ key: 'projects.create', check: true }),
         handler: async () => ({ ok: true }),
       } as never),
     ).toThrow('implementOperation(projects.create) received safety')
@@ -130,7 +132,7 @@ describe('operation descriptors', () => {
     expect(() =>
       implementOperation(descriptor, {
         name: 'ChangeProjectName',
-        guard: definePermission({ key: 'projects.rename', check: true }),
+        permission: definePermission({ key: 'projects.rename', check: true }),
         handler: async () => ({ ok: true }),
       } as never),
     ).toThrow('implementOperation(projects.rename) received name')
@@ -145,7 +147,7 @@ describe('operation descriptors', () => {
 
     expect(() =>
       implementOperation(descriptor, {
-        guard: definePermission({ key: 'projects.delete', check: true }),
+        permission: definePermission({ key: 'projects.delete', check: true }),
         handler: async () => ({ ok: true }),
       } as never),
     ).toThrow('implementOperation(projects.delete) requires a preview handler')
@@ -162,10 +164,28 @@ describe('operation descriptors', () => {
     expect(() =>
       implementOperation(descriptor, {
         args: descriptor.args,
-        guard: definePermission({ key: 'projects.write', check: true }),
         permission: definePermission({ key: 'projects.write', check: true }),
         handler: async () => null,
       } as never),
     ).toThrow('uses "projects.archive"')
+  })
+
+  it('rejects protected-lane guard metadata on descriptor implementations', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.archive',
+      kind: 'destructive',
+      args: { id: v.string() },
+      permission: definePermissionKey('projects.archive'),
+    })
+
+    expect(() =>
+      implementOperation(descriptor, {
+        guard: true,
+        permission: definePermission({ key: 'projects.archive', check: true }),
+        preview: async () =>
+          operationPreview({ summary: 'Archive project', confirm: { id: 'project-1' } }),
+        handler: async () => null,
+      } as never),
+    ).toThrow('implementOperation(...) does not accept protected-lane guard metadata')
   })
 })

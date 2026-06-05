@@ -7,7 +7,7 @@ settings:
 overrides:
   fast-uri: 3.1.2
   fast-xml-builder: 1.1.7
-  hono: 4.12.18
+  hono: 4.12.21
   ip-address: 10.1.1
   kysely: 0.28.17
   mermaid: 11.15.0
@@ -28,7 +28,7 @@ importers:
         version: 1.5.0
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
@@ -134,7 +134,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       convex-test:
         specifier: ^0.0.52
         version: 0.0.52(convex@1.38.0(react@19.2.6))
@@ -228,6 +228,9 @@ importers:
       '@nuxtjs/sitemap':
         specifier: 8.0.15
         version: 8.0.15(@nuxt/schema@4.4.6)(magicast@0.5.3)(nuxt@4.4.6(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.4.1(jiti@2.7.0))(ioredis@5.11.0)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.61.0))(rollup@4.61.0)(terser@5.48.0)(typescript@6.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@6.0.3))(yaml@2.9.0))(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue@3.5.35(typescript@6.0.3))(zod@4.4.3)
+      '@resvg/resvg-js':
+        specifier: ^2.6.2
+        version: 2.6.2
       '@vueuse/core':
         specifier: ^14.3.0
         version: 14.3.0(vue@3.5.35(typescript@6.0.3))
@@ -248,7 +251,7 @@ importers:
         version: 0.2.0(magicast@0.5.3)
       nuxt-og-image:
         specifier: ^6.4.9
-        version: 6.5.1(75fcf1623c95d35623190c57b6c9ff85)
+        version: 6.5.1(a973ba134abe01024a85075fe1129c3f)
       satori:
         specifier: ^0.26.0
         version: 0.26.0
@@ -273,7 +276,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@lupinum/trellis':
         specifier: workspace:*
         version: link:../..
@@ -341,7 +344,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -387,7 +390,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -405,7 +408,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       nuxt:
         specifier: ^4.4.6
         version: 4.4.6(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.4.1(jiti@2.7.0))(ioredis@5.11.0)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.61.0))(rollup@4.61.0)(terser@5.48.0)(typescript@6.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@6.0.3))(yaml@2.9.0)
@@ -436,7 +439,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -454,7 +457,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       nuxt:
         specifier: ^4.4.6
         version: 4.4.6(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.4.1(jiti@2.7.0))(ioredis@5.11.0)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.61.0))(rollup@4.61.0)(terser@5.48.0)(typescript@6.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@6.0.3))(yaml@2.9.0)
@@ -488,7 +491,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -506,7 +509,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       nuxt:
         specifier: ^4.4.6
         version: 4.4.6(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.4.1(jiti@2.7.0))(ioredis@5.11.0)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.61.0))(rollup@4.61.0)(terser@5.48.0)(typescript@6.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@6.0.3))(yaml@2.9.0)
@@ -537,7 +540,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -555,7 +558,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       nuxt:
         specifier: ^4.4.6
         version: 4.4.6(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.4.1(jiti@2.7.0))(ioredis@5.11.0)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.61.0))(rollup@4.61.0)(terser@5.48.0)(typescript@6.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@6.0.3))(yaml@2.9.0)
@@ -583,7 +586,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -601,7 +604,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       ioredis:
         specifier: ^5.10.1
         version: 5.11.0
@@ -638,7 +641,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)
       '@iconify-json/lucide':
         specifier: ^1.2.107
         version: 1.2.111
@@ -659,7 +662,7 @@ importers:
         version: 1.38.0(react@19.2.6)
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       nuxt:
         specifier: ^4.4.6
         version: 4.4.6(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.35)(better-sqlite3@12.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.10.0))(eslint@10.4.1(jiti@2.7.0))(ioredis@5.11.0)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.61.0))(rollup@4.61.0)(terser@5.48.0)(typescript@6.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.3(typescript@6.0.3))(yaml@2.9.0)
@@ -696,7 +699,7 @@ importers:
         version: 3.4.2
       convex-helpers:
         specifier: ^0.1.117
-        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+        version: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
     devDependencies:
       '@lupinum/trellis':
         specifier: workspace:^
@@ -1811,7 +1814,7 @@ packages:
     resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
-      hono: 4.12.18
+      hono: 4.12.21
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -3332,6 +3335,86 @@ packages:
 
   '@quansync/fs@1.0.0':
     resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
+
+  '@resvg/resvg-js-android-arm-eabi@2.6.2':
+    resolution: {integrity: sha512-FrJibrAk6v29eabIPgcTUMPXiEz8ssrAk7TXxsiZzww9UTQ1Z5KAbFJs+Z0Ez+VZTYgnE5IQJqBcoSiMebtPHA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [android]
+
+  '@resvg/resvg-js-android-arm64@2.6.2':
+    resolution: {integrity: sha512-VcOKezEhm2VqzXpcIJoITuvUS/fcjIw5NA/w3tjzWyzmvoCdd+QXIqy3FBGulWdClvp4g+IfUemigrkLThSjAQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@resvg/resvg-js-darwin-arm64@2.6.2':
+    resolution: {integrity: sha512-nmok2LnAd6nLUKI16aEB9ydMC6Lidiiq2m1nEBDR1LaaP7FGs4AJ90qDraxX+CWlVuRlvNjyYJTNv8qFjtL9+A==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@resvg/resvg-js-darwin-x64@2.6.2':
+    resolution: {integrity: sha512-GInyZLjgWDfsVT6+SHxQVRwNzV0AuA1uqGsOAW+0th56J7Nh6bHHKXHBWzUrihxMetcFDmQMAX1tZ1fZDYSRsw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@resvg/resvg-js-linux-arm-gnueabihf@2.6.2':
+    resolution: {integrity: sha512-YIV3u/R9zJbpqTTNwTZM5/ocWetDKGsro0SWp70eGEM9eV2MerWyBRZnQIgzU3YBnSBQ1RcxRZvY/UxwESfZIw==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@resvg/resvg-js-linux-arm64-gnu@2.6.2':
+    resolution: {integrity: sha512-zc2BlJSim7YR4FZDQ8OUoJg5holYzdiYMeobb9pJuGDidGL9KZUv7SbiD4E8oZogtYY42UZEap7dqkkYuA91pg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@resvg/resvg-js-linux-arm64-musl@2.6.2':
+    resolution: {integrity: sha512-3h3dLPWNgSsD4lQBJPb4f+kvdOSJHa5PjTYVsWHxLUzH4IFTJUAnmuWpw4KqyQ3NA5QCyhw4TWgxk3jRkQxEKg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@resvg/resvg-js-linux-x64-gnu@2.6.2':
+    resolution: {integrity: sha512-IVUe+ckIerA7xMZ50duAZzwf1U7khQe2E0QpUxu5MBJNao5RqC0zwV/Zm965vw6D3gGFUl7j4m+oJjubBVoftw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@resvg/resvg-js-linux-x64-musl@2.6.2':
+    resolution: {integrity: sha512-UOf83vqTzoYQO9SZ0fPl2ZIFtNIz/Rr/y+7X8XRX1ZnBYsQ/tTb+cj9TE+KHOdmlTFBxhYzVkP2lRByCzqi4jQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@resvg/resvg-js-win32-arm64-msvc@2.6.2':
+    resolution: {integrity: sha512-7C/RSgCa+7vqZ7qAbItfiaAWhyRSoD4l4BQAbVDqRRsRgY+S+hgS3in0Rxr7IorKUpGE69X48q6/nOAuTJQxeQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@resvg/resvg-js-win32-ia32-msvc@2.6.2':
+    resolution: {integrity: sha512-har4aPAlvjnLcil40AC77YDIk6loMawuJwFINEM7n0pZviwMkMvjb2W5ZirsNOZY4aDbo5tLx0wNMREp5Brk+w==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@resvg/resvg-js-win32-x64-msvc@2.6.2':
+    resolution: {integrity: sha512-ZXtYhtUr5SSaBrUDq7DiyjOFJqBVL/dOBN7N/qmi/pO0IgiWW/f/ue3nbvu9joWE5aAKDoIzy/CxsY0suwGosQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@resvg/resvg-js@2.6.2':
+    resolution: {integrity: sha512-xBaJish5OeGmniDj9cW5PRa/PtmuVU3ziqrbr5xJj901ZDN4TosrVaNZpEiLZAxdfnhAe7uQ7QFWfjPe9d9K2Q==}
+    engines: {node: '>= 10'}
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
@@ -5269,7 +5352,7 @@ packages:
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
       convex: ^1.32.0
-      hono: 4.12.18
+      hono: 4.12.21
       react: ^17.0.2 || ^18.0.0 || ^19.0.0
       typescript: ^5.5 || ^6.0.0
       zod: ^3.25.0 || ^4.0.0
@@ -6519,8 +6602,8 @@ packages:
   hey-listen@1.0.8:
     resolution: {integrity: sha512-COpmrF2NOg4TBWUJ5UVyaCU2A88wEMkUPK4hNqyCkqHbxT92BbvfjoSozkAIIm6XhicGlJHhFdullInrdhwU8Q==}
 
-  hono@4.12.18:
-    resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
+  hono@4.12.21:
+    resolution: {integrity: sha512-uV63apnb0kyPtAUwoWgaGh9HyIFcv8lgmzPZSiTBQAFOFGIzka5EZ1dZocmGnn0XdX0+XTqJ6Tqv7selMuGLRQ==}
     engines: {node: '>=16.9.0'}
 
   hookable@5.5.3:
@@ -10005,13 +10088,13 @@ snapshots:
 
   '@colordx/core@5.4.3': {}
 
-  '@convex-dev/better-auth@0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)':
+  '@convex-dev/better-auth@0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3)))(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)':
     dependencies:
       '@better-fetch/fetch': 1.1.21
       better-auth: 1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vitest@4.1.8)(vue@3.5.35(typescript@6.0.3))
       common-tags: 1.8.2
       convex: 1.38.0(react@19.2.6)
-      convex-helpers: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
+      convex-helpers: 0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3)
       jose: 6.2.3
       react: 19.2.6
       remeda: 2.37.0
@@ -10463,9 +10546,9 @@ snapshots:
       - '@vue/composition-api'
       - vue
 
-  '@hono/node-server@1.19.14(hono@4.12.18)':
+  '@hono/node-server@1.19.14(hono@4.12.21)':
     dependencies:
-      hono: 4.12.18
+      hono: 4.12.21
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -10699,7 +10782,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
-      '@hono/node-server': 1.19.14(hono@4.12.18)
+      '@hono/node-server': 1.19.14(hono@4.12.21)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -10709,7 +10792,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
-      hono: 4.12.18
+      hono: 4.12.21
       jose: 6.2.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -12161,6 +12244,57 @@ snapshots:
   '@quansync/fs@1.0.0':
     dependencies:
       quansync: 1.0.0
+
+  '@resvg/resvg-js-android-arm-eabi@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-android-arm64@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-darwin-arm64@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-darwin-x64@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-linux-arm-gnueabihf@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-linux-arm64-gnu@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-linux-arm64-musl@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-linux-x64-gnu@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-linux-x64-musl@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-win32-arm64-msvc@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-win32-ia32-msvc@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js-win32-x64-msvc@2.6.2':
+    optional: true
+
+  '@resvg/resvg-js@2.6.2':
+    optionalDependencies:
+      '@resvg/resvg-js-android-arm-eabi': 2.6.2
+      '@resvg/resvg-js-android-arm64': 2.6.2
+      '@resvg/resvg-js-darwin-arm64': 2.6.2
+      '@resvg/resvg-js-darwin-x64': 2.6.2
+      '@resvg/resvg-js-linux-arm-gnueabihf': 2.6.2
+      '@resvg/resvg-js-linux-arm64-gnu': 2.6.2
+      '@resvg/resvg-js-linux-arm64-musl': 2.6.2
+      '@resvg/resvg-js-linux-x64-gnu': 2.6.2
+      '@resvg/resvg-js-linux-x64-musl': 2.6.2
+      '@resvg/resvg-js-win32-arm64-msvc': 2.6.2
+      '@resvg/resvg-js-win32-ia32-msvc': 2.6.2
+      '@resvg/resvg-js-win32-x64-msvc': 2.6.2
 
   '@rolldown/pluginutils@1.0.1': {}
 
@@ -14145,12 +14279,12 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.18)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3):
+  convex-helpers@0.1.118(@standard-schema/spec@1.1.0)(convex@1.38.0(react@19.2.6))(hono@4.12.21)(react@19.2.6)(typescript@6.0.3)(zod@4.4.3):
     dependencies:
       convex: 1.38.0(react@19.2.6)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
-      hono: 4.12.18
+      hono: 4.12.21
       react: 19.2.6
       typescript: 6.0.3
       zod: 4.4.3
@@ -15671,7 +15805,7 @@ snapshots:
 
   hey-listen@1.0.8: {}
 
-  hono@4.12.18: {}
+  hono@4.12.21: {}
 
   hookable@5.5.3: {}
 
@@ -16938,7 +17072,7 @@ snapshots:
     transitivePeerDependencies:
       - magicast
 
-  nuxt-og-image@6.5.1(75fcf1623c95d35623190c57b6c9ff85):
+  nuxt-og-image@6.5.1(a973ba134abe01024a85075fe1129c3f):
     dependencies:
       '@clack/prompts': 1.5.0
       '@nuxt/kit': 4.4.6(magicast@0.5.3)
@@ -16976,6 +17110,7 @@ snapshots:
       unstorage: 1.17.5(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.11.0)
       zod: 4.4.3
     optionalDependencies:
+      '@resvg/resvg-js': 2.6.2
       fontless: 0.2.1(db0@0.3.4(better-sqlite3@12.10.0))(ioredis@5.11.0)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))
       nitropack: 2.13.4(better-sqlite3@12.10.0)(oxc-parser@0.132.0)
       playwright-core: 1.60.0

@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
+// Intentional 0.3.0 public export boundary coverage: deleted MCP helper names
+// appear here only as negative entrypoint assertions.
+
 vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: vi.fn(),
   serverConvexMutation: vi.fn(),
@@ -34,25 +37,27 @@ describe('mcp entrypoint exports', () => {
   })
 
   it('exports the blessed MCP API surface', () => {
-    expect(Object.keys(mcpApi).sort()).toEqual(
-      expect.arrayContaining([
-        'completable',
-        'createMcpConvexCaller',
-        'defineMcpApp',
-        'defineMcpHandler',
-        'defineMcpPrompt',
-        'defineMcpResource',
-        'deniedMcpAccessSnapshot',
-        'extractToolNames',
-        'imageResult',
-        'useMcpServer',
-        'useMcpSession',
-        'withSummary',
-        'wrapError',
-        'wrapPreview',
-        'wrapSuccess',
-      ]),
-    )
+    expect(Object.keys(mcpApi).sort()).toEqual([
+      'RateLimitInfrastructureError',
+      'completable',
+      'createMcpConvexCaller',
+      'createRedisMcpRateLimitStore',
+      'defineMcpApp',
+      'defineMcpHandler',
+      'defineMcpPrompt',
+      'defineMcpResource',
+      'deniedMcpAccessSnapshot',
+      'extractToolNames',
+      'imageResult',
+      'unsafe',
+      'useMcpServer',
+      'useMcpSession',
+      'withSummary',
+      'withUntrustedText',
+      'wrapError',
+      'wrapPreview',
+      'wrapSuccess',
+    ])
   })
 
   it('does not surface low-level helpers from the top-level entrypoint', () => {
@@ -63,8 +68,7 @@ describe('mcp entrypoint exports', () => {
   })
 
   it('exposes toolkit-level helpers under the advanced subpath', () => {
-    expect(advancedApi).toHaveProperty('defineMcpTool')
-    expect(advancedApi).not.toHaveProperty('defineTool')
+    expect(Object.keys(advancedApi).sort()).toEqual(['defineMcpTool'])
   })
 
   it('exports toolkit primitives and envelope helpers', () => {

@@ -73,6 +73,7 @@ describe('organizations', () => {
         },
         null,
         api.organizations.create,
+        { replayMode: 'jti-redemption', jti: 'organizations-create-service-user' },
       ),
     )
 
@@ -107,11 +108,12 @@ describe('organizations', () => {
           },
           null,
           api.organizations.create,
+          { replayMode: 'jti-redemption', jti: 'organizations-create-missing-user' },
         ),
       ),
-    ).rejects.toThrow('Forbidden: Create organization')
+    ).rejects.toThrow('User not found')
 
-    const organizations = await t.query(api.organizations.list, {})
+    const organizations = await t.run(async (ctx) => await ctx.db.query('organizations').collect())
     expect(organizations).toEqual([])
   })
 })

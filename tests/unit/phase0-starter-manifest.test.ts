@@ -52,14 +52,13 @@ describe('phase0 workspace-mcp starter manifest', () => {
       'convex/_generated/server.js',
       'convex/features/projects/domain.ts',
       'convex/schema.ts',
-      'generated/mcp-tool-refs.ts',
       'generated/operation-refs.ts',
       'nuxt.config.ts',
       'package.json',
       'server/mcp/tools/create-project.ts',
       'server/mcp/tools/delete-project.ts',
       'shared/app-inventory.ts',
-      'shared/features/projects/tools.ts',
+      'shared/features/projects/operations.ts',
     ]
 
     for (const path of selected) {
@@ -76,10 +75,7 @@ describe('phase0 workspace-mcp starter manifest', () => {
     expect(manifest.include).not.toContain('.nuxt/**')
     expect(manifest.include).not.toContain('.output/**')
 
-    expect(manifest.generated?.map((file) => file.path)).toEqual([
-      'generated/operation-refs.ts',
-      'generated/mcp-tool-refs.ts',
-    ])
+    expect(manifest.generated?.map((file) => file.path)).toEqual(['generated/operation-refs.ts'])
     expect(toFixturePath(manifestPath)).toBe('starter.manifest.json')
   })
 })
@@ -152,7 +148,6 @@ describe('fixture-backed beginner starter manifests', () => {
       'convex/auth.config.ts',
       'convex/auth.ts',
       'convex/auth/appIdentity.ts',
-      'convex/auth/guards.ts',
       'convex/convex.config.ts',
       'convex/features/todos/domain.ts',
       'convex/features/todos/index.ts',
@@ -205,7 +200,6 @@ describe('fixture-backed beginner starter manifests', () => {
       'convex/auth.config.ts',
       'convex/auth.ts',
       'convex/auth/appIdentity.ts',
-      'convex/auth/guards.ts',
       'convex/auth/caller.ts',
       'convex/convex.config.ts',
       'convex/features/index.ts',
@@ -284,7 +278,6 @@ describe('fixture-backed beginner starter manifests', () => {
       'convex/auth.config.ts',
       'convex/auth.ts',
       'convex/auth/appIdentity.ts',
-      'convex/auth/guards.ts',
       'convex/auth/caller.ts',
       'convex/convex.config.ts',
       'convex/features/index.ts',

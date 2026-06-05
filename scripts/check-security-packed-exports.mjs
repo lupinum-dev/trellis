@@ -3,6 +3,8 @@ import path from 'node:path'
 
 const repoRoot = process.cwd()
 
+// Intentional 0.3.0 packed-export policy data: banned symbols named here must
+// stay absent from built public entries.
 const publicEntryGroups = [
   {
     name: '@lupinum/trellis/server',

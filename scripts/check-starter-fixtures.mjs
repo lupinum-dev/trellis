@@ -195,9 +195,9 @@ function assertLayerBoundaries(template, appRoot, expectedFiles) {
     expectedFiles.filter((path) => !path.endsWith('.gitkeep')),
   )
 
-  const legacyTemplateExtension = ['.', 'tpl'].join('')
+  const removedTemplateExtension = ['.', 'tpl'].join('')
   assert(
-    !text.includes(legacyTemplateExtension),
+    !text.includes(removedTemplateExtension),
     `${template} output contains old template-file reference.`,
   )
   assert(

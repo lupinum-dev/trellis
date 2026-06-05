@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 
+// Intentional 0.3.0 public-surface inventory data: old subpath and tool names
+// below are stale-reference detectors for docs and generated surfaces.
 const textExtensions = new Set(['.md', '.mdc', '.ts', '.tsx', '.mts', '.vue', '.json'])
 const ignoredDirectories = new Set(['.git', '.nuxt', '.output', 'coverage', 'dist', 'node_modules'])
 

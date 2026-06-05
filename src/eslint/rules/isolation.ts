@@ -9,7 +9,6 @@ import {
   isCtxDbGetCall,
   isCtxDbQueryCall,
   isIdentifier,
-  getObjectProperty,
   statementContainsCallArgument,
   traverse,
   unwindCallChain,
@@ -122,58 +121,6 @@ export const isolationRules = {
             }
           }
         }
-      },
-    }),
-  ),
-  'escape-isolation-requires-reason': createRule(
-    {
-      type: 'problem',
-      schema: [],
-      messages: {
-        reason:
-          '`ctx.db.escapeIsolation(...)` must include a non-empty `reason` so the trust-boundary change is explicit.',
-      },
-    },
-    (context) => ({
-      CallExpression(node: any) {
-        if (
-          node.callee?.type !== 'MemberExpression' ||
-          node.callee.computed ||
-          !isIdentifier(node.callee.property, 'escapeIsolation')
-        ) {
-          return
-        }
-
-        const options = node.arguments?.[0]
-        if (options?.type !== 'ObjectExpression') {
-          context.report({
-            node,
-            messageId: 'reason',
-          })
-          return
-        }
-
-        const reason = getObjectProperty(options, 'reason')?.value
-        if (
-          reason?.type === 'Literal' &&
-          typeof reason.value === 'string' &&
-          reason.value.trim().length > 0
-        ) {
-          return
-        }
-
-        if (
-          isIdentifier(reason) ||
-          reason?.type === 'TemplateLiteral' ||
-          reason?.type === 'BinaryExpression'
-        ) {
-          return
-        }
-
-        context.report({
-          node: reason ?? options,
-          messageId: 'reason',
-        })
       },
     }),
   ),

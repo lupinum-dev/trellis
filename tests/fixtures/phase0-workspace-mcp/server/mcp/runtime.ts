@@ -1,4 +1,5 @@
-import { operationPreview } from '../../../../../src/runtime/functions/define-operation'
+import { operationPreview } from '@lupinum/trellis/backend'
+
 import { defineMcpApp } from '../../../../../src/runtime/mcp/define-mcp-app'
 
 export const convexCalls: Array<{

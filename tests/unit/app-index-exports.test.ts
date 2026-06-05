@@ -8,7 +8,6 @@ import {
   trellisWorkspaceScopeKey,
   workspaceScope,
 } from '../../src/runtime/app'
-import { open } from '../../src/runtime/auth'
 import {
   getOperationMetadata,
   trellisOperationProjectionMetadataKey,
@@ -40,14 +39,12 @@ describe('app entrypoint exports', () => {
     const listTodos = operation.query({
       id: 'todos.list',
       args: {},
-      guard: open,
-      handler: async () => [{ title: 'Ship 0.2' }],
+      handler: async () => [{ title: 'Ship 0.3' }],
     })
 
     const createTodo = operation.mutation({
       id: 'todos.create',
       args: { title: v.string() },
-      guard: open,
       handler: async () => ({ ok: true }),
     })
     const createPublicTodo = operation.publicMutation({
@@ -82,7 +79,6 @@ describe('app entrypoint exports', () => {
     const removeTodo = operation.destructive({
       id: 'todos.remove',
       args,
-      guard: open,
       safety: 'destructive-write',
       preview: async () =>
         operationPreview({
@@ -127,7 +123,6 @@ describe('app entrypoint exports', () => {
       id: 'todos.listScoped',
       args: {},
       scope: workspaceScope(),
-      guard: open,
       load: async (ctx: { workspaceId: string }) => ({ loadedWorkspaceId: ctx.workspaceId }),
       handler: async (
         ctx: { workspaceId: string },
@@ -155,7 +150,6 @@ describe('app entrypoint exports', () => {
       id: 'todos.removeScoped',
       args: { id: v.string() },
       scope: workspaceScope(),
-      guard: open,
       safety: 'destructive-write',
       preview: async (ctx: { workspaceId: string }) =>
         operationPreview({
@@ -184,7 +178,6 @@ describe('app entrypoint exports', () => {
       id: 'todos.listMissingScope',
       args: {},
       scope: workspaceScope(),
-      guard: open,
       handler: async (ctx: { workspaceId: string }) => ctx.workspaceId,
     })
 
@@ -198,7 +191,6 @@ describe('app entrypoint exports', () => {
       id: 'todos.listConflictingScope',
       args: {},
       scope: workspaceScope(),
-      guard: open,
       handler: async (ctx: { workspaceId: string }) => ctx.workspaceId,
     })
 

@@ -40,6 +40,44 @@ type WebhookDeliveryDb = {
   ) => Promise<unknown>
 }
 
+async function createDomainIdempotentRunbook(
+  ctx: WorkspaceMutationCtx,
+  args: CreateRunbookFromWebhookArgs,
+  value: {
+    title: string
+    summary: string
+    content: string
+    visibility: 'public' | 'workspace' | 'draft'
+    tags: string[]
+    ownerId: Id<'users'>
+    workspaceId: Id<'workspaces'>
+    createdAt: number
+    updatedAt: number
+    publishedAt?: number
+  },
+): Promise<Id<'runbooks'>> {
+  const deliveryDb = ctx.db as WebhookDeliveryDb
+  const existing = await deliveryDb
+    .query('runbookWebhookDeliveries')
+    .withIndex('by_delivery_id', (q) => q.eq('deliveryId', args.deliveryId))
+    .unique()
+
+  if (existing) {
+    throw deny('Duplicate webhook delivery.')
+  }
+
+  const runbookId = await ctx.db.insert('runbooks', value)
+
+  await deliveryDb.insert('runbookWebhookDeliveries', {
+    deliveryId: args.deliveryId,
+    workspaceId: args.workspaceId,
+    runbookId,
+    createdAt: value.createdAt,
+  })
+
+  return runbookId
+}
+
 export const createRunbookFromWebhookOp = operation.mutation({
   id: 'runbooks.create-from-webhook',
   args: {
@@ -62,23 +100,13 @@ export const createRunbookFromWebhookOp = operation.mutation({
       throw deny('Forbidden: Create runbook')
     }
 
-    const deliveryDb = ctx.db as WebhookDeliveryDb
-    const existing = await deliveryDb
-      .query('runbookWebhookDeliveries')
-      .withIndex('by_delivery_id', (q) => q.eq('deliveryId', args.deliveryId))
-      .unique()
-
-    if (existing) {
-      throw deny('Duplicate webhook delivery.')
-    }
-
     const visibility = args.visibility ?? 'draft'
     if (visibility === 'public' && !can(appIdentity, runbookPublish.check)) {
       throw deny('Only owners and admins can create public runbooks.')
     }
 
     const now = Date.now()
-    const runbookId = await ctx.db.insert('runbooks', {
+    return await createDomainIdempotentRunbook(ctx, args, {
       title: args.title,
       summary: args.summary,
       content: args.content,
@@ -90,15 +118,6 @@ export const createRunbookFromWebhookOp = operation.mutation({
       updatedAt: now,
       ...(visibility === 'public' ? { publishedAt: now } : {}),
     })
-
-    await deliveryDb.insert('runbookWebhookDeliveries', {
-      deliveryId: args.deliveryId,
-      workspaceId: args.workspaceId,
-      runbookId,
-      createdAt: now,
-    })
-
-    return runbookId
   },
 })
 

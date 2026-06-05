@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createWebhookHmacSignature } from '../../../../src/runtime/server/webhooks'
 
 const { createErrorMock, readRawBodyMock, serverConvexMutationMock } = vi.hoisted(() => ({
-  createErrorMock: vi.fn((input: { statusCode: number; message?: string; statusMessage?: string }) =>
-    Object.assign(new Error(input.message ?? input.statusMessage ?? 'error'), input),
+  createErrorMock: vi.fn(
+    (input: { statusCode: number; message?: string; statusMessage?: string }) =>
+      Object.assign(new Error(input.message ?? input.statusMessage ?? 'error'), input),
   ),
   readRawBodyMock: vi.fn(),
   serverConvexMutationMock: vi.fn(),

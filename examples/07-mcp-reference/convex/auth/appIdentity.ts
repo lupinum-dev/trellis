@@ -133,7 +133,7 @@ export async function getAppIdentityFromCaller(
 }
 
 export async function getAccessIdentity(ctx: McpReferenceCtx): Promise<AccessIdentity | null> {
-  // Protected handlers expose caller/actingFor accessors, so prefer those
+  // Backend handlers may expose caller/actingFor accessors, so prefer those
   // over raw browser auth when they are available.
   if (hasForwardedIdentity(ctx)) {
     const caller = await ctx.caller()
@@ -141,7 +141,7 @@ export async function getAccessIdentity(ctx: McpReferenceCtx): Promise<AccessIde
     return await resolveAccessIdentityFromCaller(ctx, caller, actingFor)
   }
 
-  // Access context queries can still run outside the protected handler
+  // Access context queries can still run outside the backend handler
   // surface, so fall back to the signed-in browser user identity there.
   const auth = await getAuth(ctx)
   if (!auth) return null

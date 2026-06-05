@@ -14,6 +14,9 @@ const NUXT_CONFIG_CANDIDATES = [
 const ENV_FILE_CANDIDATES = ['.env.local', '.env'] as const
 type PackageJson = Record<string, unknown>
 
+// Intentional 0.3.0 inventory detector code: deleted API names in this module
+// are scanner targets for consumer projects, not retained runtime paths.
+
 export interface EnvSource {
   path: string
   text: string
@@ -864,7 +867,7 @@ export function findCustomMcpToolsWithAppWrites(
     if (!/[/\\]server[/\\]mcp[/\\]tools[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(sourceFile.path)) {
       continue
     }
-    if (!/defineTool\s*\(/.test(sourceFile.text)) continue
+    if (!/defineMcpTool\s*\(/.test(sourceFile.text)) continue
     const match = sourceFile.text.match(/ctx\.(?:mutation|action)\s*\(/)
     if (!match) continue
 

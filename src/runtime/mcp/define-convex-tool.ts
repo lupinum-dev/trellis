@@ -39,7 +39,7 @@ function assertProductionRateLimitStore(
   }
 
   throw new Error(
-    `${toolName ?? 'defineTool'}: production MCP rate limiting requires an explicit distributed rate-limit store. Configure createRedisMcpRateLimitStore(...) and pass it as rateLimitStore.`,
+    `${toolName ?? 'defineMcpApp.tool'}: production MCP rate limiting requires an explicit distributed rate-limit store. Configure createRedisMcpRateLimitStore(...) and pass it as rateLimitStore.`,
   )
 }
 
@@ -342,13 +342,13 @@ function createToolCallFns(
   const requireTrustedCaller = (): TrustedToolCaller => {
     if (!caller || typeof caller !== 'object') {
       throw new Error(
-        'defineTool: authenticated Convex calls require resolveCaller() to return an object with a canonical subject.',
+        'defineMcpApp.tool: authenticated Convex calls require resolveCaller() to return an object with a canonical subject.',
       )
     }
 
     if (!extractSubject(caller)) {
       throw new Error(
-        'defineTool: authenticated Convex calls require resolveCaller() to return a caller with a canonical subject.',
+        'defineMcpApp.tool: authenticated Convex calls require resolveCaller() to return a caller with a canonical subject.',
       )
     }
 
@@ -449,17 +449,17 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     resolveActingFor,
   } = options
 
-  const toolLabel = name ? `defineTool:${name}` : 'defineTool'
+  const toolLabel = name ? `defineMcpApp.tool:${name}` : 'defineMcpApp.tool'
 
   // ── Fail-fast definition-time validations ──────────────────────────────
 
   if (check && auth === 'none') {
-    throw new Error(`defineTool: "check" needs auth. Set auth to "required" or "optional".`)
+    throw new Error(`defineMcpApp.tool: "check" needs auth. Set auth to "required" or "optional".`)
   }
 
   if (destructive && !operationBackedDestructive) {
     throw new Error(
-      'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.operation(...).',
+      'defineMcpApp.tool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.operation(...).',
     )
   }
 
@@ -469,19 +469,19 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 
   if (rateLimit && !name) {
     throw new Error(
-      `defineTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
+      `defineMcpApp.tool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
     )
   }
 
   assertProductionRateLimitStore(toolLabel, rateLimit, rateLimitStore)
 
   if (scoped && auth !== 'required') {
-    throw new Error(`defineTool: "scoped: true" requires auth: "required".`)
+    throw new Error(`defineMcpApp.tool: "scoped: true" requires auth: "required".`)
   }
 
   if (maxItems && !(maxItems.field in schema.args)) {
     throw new Error(
-      `defineTool: maxItems.field "${maxItems.field}" not found in schema validators. ` +
+      `defineMcpApp.tool: maxItems.field "${maxItems.field}" not found in schema validators. ` +
         `Available: ${Object.keys(schema.args).join(', ')}`,
     )
   }
@@ -642,44 +642,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
   return definition
 }
 
-// ============================================================================
-// Public API
-// ============================================================================
-
-/**
- * Define an agent-ready MCP tool from a shared Convex schema.
- *
- * Returns structured responses (`ok: true/false`) with typed data and
- * categorized errors. Supports progressive safety features as flat options.
- *
- * @example
- * ```ts
- * // Level 1 — just make it work
- * export default defineTool({
- *   schema: defineArgs({ description: 'List all notes', args: {} }),
- *   effect: 'read',
- *   handler: () => serverConvexQuery(api.notes.list, {}),
- * })
- *
- * // Level 2 — add auth
- * export default defineTool({
- *   schema: createPostSchema,
- *   effect: 'diagnostic',
- *   auth: 'required',
- *   handler: () => ({ ok: true }),
- * })
- *
- * // Level 3 — destructive tools are operation-backed
- * // Use defineMcpApp(...).tool.operation(...) instead of defineTool(...)
- * ```
- */
-export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(
-  options: DefineConvexToolOptions<S, TRole>,
-): McpToolDefinition {
-  return _buildToolDefinition(options) as unknown as McpToolDefinition
-}
-
-export function defineToolInternal<S extends AnyConvexSchema, TRole extends string = string>(
+export function defineConvexToolInternal<S extends AnyConvexSchema, TRole extends string = string>(
   options: DefineConvexToolInternalOptions<S, TRole>,
 ): McpToolDefinition {
   return _buildToolDefinition(options) as unknown as McpToolDefinition

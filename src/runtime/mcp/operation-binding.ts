@@ -6,28 +6,12 @@ import type {
 import {
   getOperationMetadata,
   getOperationProjectionMetadata,
-  type McpWriteSafety,
 } from '../functions/operation-metadata.js'
 
 type AnyQueryRef = AnyQueryFunction
 type AnyMutationRef = AnyMutationFunction
 type AnyActionRef = AnyActionFunction
 export type AnyFunctionRef = AnyQueryRef | AnyMutationRef | AnyActionRef
-
-export type TrellisMcpToolSafety = {
-  kind: McpWriteSafety
-  reason: string
-}
-
-export type McpToolRefDescriptor = {
-  readonly _type: 'mcp-tool-ref-descriptor'
-  readonly name: string
-  readonly safety: TrellisMcpToolSafety
-}
-
-export const trellisMcpToolSafetyKey = Symbol.for('trellis.mcp.toolSafety')
-
-const mcpToolSafetyByRef = new WeakMap<object, TrellisMcpToolSafety>()
 
 export function toKebabCase(input: string): string {
   return input
@@ -84,58 +68,4 @@ export function assertOperationBinding(
       `tool.operation(${metadata.name ?? metadata.id}) received a preview ref that does not match operation id "${metadata.id}".`,
     )
   }
-}
-
-export function stampMcpToolSafety<T>(value: T, safety: TrellisMcpToolSafety): T {
-  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') {
-    return value
-  }
-
-  mcpToolSafetyByRef.set(value, safety)
-
-  try {
-    Object.defineProperty(value, trellisMcpToolSafetyKey, {
-      value: safety,
-      enumerable: false,
-      configurable: true,
-      writable: false,
-    })
-  } catch {
-    // Some generated function refs are proxies that reject extension. The WeakMap remains canonical.
-  }
-
-  return value
-}
-
-export function defineMcpToolRefDescriptor(definition: {
-  name: string
-  safety: TrellisMcpToolSafety
-}): McpToolRefDescriptor {
-  if (definition.name.trim().length === 0) {
-    throw new Error('defineMcpToolRefDescriptor(...) requires a non-empty tool name.')
-  }
-
-  return {
-    _type: 'mcp-tool-ref-descriptor',
-    name: definition.name,
-    safety: definition.safety,
-  }
-}
-
-export function projectMcpToolRef<T>(descriptor: McpToolRefDescriptor, ref: T): T {
-  return stampMcpToolSafety(ref, descriptor.safety)
-}
-
-export function getMcpToolSafety(value: unknown): TrellisMcpToolSafety | null {
-  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return null
-
-  const keyedSafety = (value as { [trellisMcpToolSafetyKey]?: TrellisMcpToolSafety })[
-    trellisMcpToolSafetyKey
-  ]
-  if (keyedSafety) return keyedSafety
-
-  const descriptor = Object.getOwnPropertyDescriptor(value, trellisMcpToolSafetyKey)
-  if (descriptor?.value) return descriptor.value as TrellisMcpToolSafety
-
-  return mcpToolSafetyByRef.get(value) ?? null
 }

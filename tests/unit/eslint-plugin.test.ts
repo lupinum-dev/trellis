@@ -8,6 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import plugin from '../../src/eslint'
 
+// Intentional 0.3.0 legacy-detection fixtures: old protected/guard snippets in
+// this file are lint inputs that prove unsafe legacy shapes are still rejected.
+
 function createProjectFixture(files: Record<string, string>) {
   const rootDir = mkdtempSync(resolve(tmpdir(), 'bcn-eslint-'))
   for (const [relativePath, contents] of Object.entries(files)) {
@@ -68,8 +71,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      import { defineTool } from '#trellis/mcp/advanced'
-      export default defineTool({
+      import { defineMcpTool } from '#trellis/mcp/advanced'
+      export default defineMcpTool({
         schema: schema,
         effect: 'read',
         scoped: true,
@@ -155,8 +158,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [goodResult] = await eslint.lintText(
       `
-      export const listByProject = query.protected({
-        guard: open,
+      export const listByProject = query.workspace({
+        permission: 'tasks.read',
         args: {},
         handler: async (ctx, args) => {
           return await ctx.db.query('tasks').withIndex('by_project', (q) => q.eq('projectId', args.projectId)).collect()
@@ -182,8 +185,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const listPublic = query.protected({
-        guard: open,
+      export const listPublic = query.public({
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('runbooks').withIndex('by_visibility', (q) => q.eq('visibility', 'public')).collect()
@@ -199,17 +201,18 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('does not flag guarded app handlers for missing enforce() or appIdentity narrowing', async () => {
+  it('does not flag explicitly narrowed app handlers for missing enforce() or appIdentity narrowing', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
     const [result] = await eslint.lintText(
       `
-      export const listWorkspace = query.protected({
-        guard: canReadWorkspaceRunbook,
+      export const listWorkspace = query.workspace({
+        permission: canReadWorkspaceRunbook,
         args: {},
         handler: async (ctx) => {
           const appIdentity = await ctx.appIdentity()
+          requireAuth(appIdentity)
           return await ctx.db.query('runbooks').withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId)).collect()
         },
       })
@@ -292,7 +295,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('requires typed permits on unsafe builders and reasons on isolation escapes', async () => {
+  it('requires typed permits on unsafe builders', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -308,28 +311,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
       { filePath: resolve(rootDir, 'convex/runbooks.ts') },
     )
 
-    const [missingEscapeReason] = await eslint.lintText(
-      `
-      export const listPublic = unsafe.query({
-        permit: unsafe.permit({
-          kind: 'fixtureUnsafeQuery',
-          reason: 'Fixture-only unsafe query for lint coverage.',
-          scope: ['tests'],
-        }),
-        args: {},
-        handler: async (ctx) => {
-          return await ctx.db.escapeIsolation({}).query('runbooks').collect()
-        },
-      })
-      `,
-      { filePath: resolve(rootDir, 'convex/public.ts') },
-    )
-
     expect(missingUnsafeBypass!.messages.map((message) => message.ruleId)).toContain(
       '@lupinum/trellis/unsafe-requires-permit',
-    )
-    expect(missingEscapeReason!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/escape-isolation-requires-reason',
     )
   })
 

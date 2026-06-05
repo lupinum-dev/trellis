@@ -4,8 +4,8 @@
 
 The full MCP branch.
 
-This is not an onboarding example. Open it when you already understand the protected app model and
-you want the complete Trellis MCP surface in one place.
+This is not an onboarding example. Open it when you already understand the explicit workspace app
+model and you want the complete Trellis MCP surface in one place.
 
 The runbook domain is intentionally small. If you find yourself reading business logic instead of
 transport, session, confirmation, key-auth behavior, and identity-forwarding flows, you are looking
@@ -14,7 +14,7 @@ at the wrong thing.
 ## What it teaches
 
 - public vs scoped tools
-- browser user, MCP agent, and verified webhook traffic converging on the same protected runbook
+- browser user, MCP agent, and verified webhook traffic converging on the same backend runbook
   layer
 - MCP key auth
 - destructive preview + confirmation
@@ -26,7 +26,7 @@ The business domain stays intentionally small so the MCP layer is the thing you 
 
 ## What this example assumes
 
-You already understand the canonical protected workspace model from
+You already understand the canonical explicit workspace model from
 [`03-team-workspace`](../03-team-workspace/README.md).
 
 ## Files to read first
@@ -53,10 +53,10 @@ You already understand the canonical protected workspace model from
 3. Set `MCP_REFERENCE_WEBHOOK_SECRET` and `MCP_REFERENCE_WEBHOOK_USER_ID` locally.
 4. Issue an MCP key from the UI.
 5. Call the default MCP endpoint and confirm scoped tools appear.
-6. POST to `/api/runbook-webhook` with `x-example-signature` and watch the same protected
+6. POST to `/api/runbook-webhook` with `x-example-signature` and watch the same backend
    `domain.runbooks.create` mutation accept a service caller plus delegated user.
 7. Call the code-mode endpoint and compare the smaller surface.
-8. Use the session tools to store a focus and register a temporary shortcut.
+8. Use the session tools to store a focus and register a session-scoped shortcut.
 
 ## Run
 

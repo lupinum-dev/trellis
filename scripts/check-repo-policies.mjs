@@ -96,6 +96,7 @@ function collectFiles(rootPath) {
   return [...trackedFiles]
     .filter((filePath) => filePath.startsWith(normalizedRoot))
     .map((filePath) => path.resolve(repoRoot, filePath))
+    .filter((filePath) => existsSync(filePath))
 }
 
 function findMatches(check) {
@@ -163,6 +164,6 @@ const deletedSurfaceHits = findDeletedTrellisSurfaceHits(repoRoot)
 if (deletedSurfaceHits.length > 0) {
   const preview = deletedSurfaceHits.slice(0, 20).map(formatDeletedTrellisSurfaceHit).join('\n')
   throw new Error(
-    `[trellis] repo policy violated: retained examples/apps must not use deleted Trellis 1.0 surfaces\n${preview}`,
+    `[trellis] repo policy violated: retained examples/apps must not use deleted Trellis 0.3 surfaces\n${preview}`,
   )
 }

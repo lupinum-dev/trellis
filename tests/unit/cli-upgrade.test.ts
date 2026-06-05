@@ -9,6 +9,10 @@ import { describe, expect, it, vi } from 'vitest'
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
 
+// Intentional 0.3.0 legacy-detection fixtures: protected/guard snippets in
+// this file model pre-0.3 consumer code that `trellis upgrade --check` must
+// detect without rewriting.
+
 vi.setConfig({ testTimeout: 30_000 })
 
 type UpgradeCheckReport = {
@@ -131,7 +135,7 @@ describe('CLI upgrade', () => {
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
 
     expect(result.status, output).toBe(0)
-    expect(output).toContain('Trellis 1.0 upgrade check')
+    expect(output).toContain('Trellis 0.3 upgrade check')
     expect(output).toContain('Summary:')
   })
 

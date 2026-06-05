@@ -20,7 +20,7 @@ export const mcpRules = {
     },
     (context) => ({
       CallExpression(node: any) {
-        if (!isCallNamed(node, 'defineTool')) return
+        if (!isCallNamed(node, 'defineMcpTool')) return
         const options = node.arguments?.[0]
         if (options?.type !== 'ObjectExpression') return
 
@@ -62,7 +62,7 @@ export const mcpRules = {
     },
     (context) => ({
       CallExpression(node: any) {
-        if (!isCallNamed(node, 'defineTool')) return
+        if (!isCallNamed(node, 'defineMcpTool')) return
         const options = node.arguments?.[0]
         if (options?.type !== 'ObjectExpression') return
 

@@ -28,7 +28,6 @@ export const recommendedRuleLevels: Record<string, 'error' | 'warn'> = {
   [`${TENANT_RULE_NAME}/enforce-required-in-handler`]: 'error',
   [`${TENANT_RULE_NAME}/isolation-query-requires-index`]: 'error',
   [`${TENANT_RULE_NAME}/unsafe-get-requires-isolation-check`]: 'error',
-  [`${TENANT_RULE_NAME}/escape-isolation-requires-reason`]: 'error',
   [`${TENANT_RULE_NAME}/unsafe-requires-permit`]: 'error',
   [`${TENANT_RULE_NAME}/unsafe-query-collection-requires-index`]: 'error',
 }

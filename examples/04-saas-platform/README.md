@@ -4,7 +4,7 @@
 
 The last step in the beginner ladder.
 
-This example keeps the protected workspace model from Example 03, then shows how server-side
+This example keeps the explicit workspace model from Example 03, then shows how server-side
 surfaces fit into that model: Nitro routes, uploads, and one realistic external integration
 boundary.
 
@@ -14,16 +14,16 @@ boundary.
 - route verification at the server boundary
 - internal mutations behind a verified webhook route
 - uploads and attachment authorization
-- nested resource guards in a still-familiar workspace app
+- nested resource permissions in a still-familiar workspace app
 
 Canonical server-to-server identity in Trellis is identity forwarding plus optional actingFor. This example keeps one narrow verified-route-to-internal-mutation boundary so the board and upload flows stay readable; see `examples/07-mcp-reference` for the full identity-forwarding + actingFor shape.
 
-It is no longer the “big month-two SaaS showcase.” Its job is to show how protected server surfaces
+It is no longer the “big month-two SaaS showcase.” Its job is to show how server surfaces
 fit into the canonical workspace model.
 
 ## What this example assumes
 
-You already understand the canonical protected app from
+You already understand the canonical explicit workspace app from
 [`03-team-workspace`](../03-team-workspace/README.md).
 
 ## Files to read first
@@ -59,10 +59,10 @@ App-owned env vars:
 
 - The webhook route here is intentionally narrower than the full Trellis identity-forwarding model.
   It verifies one route-owned secret and hands work to an internal mutation instead of forwarding a
-  service caller through the whole protected app.
+  service caller through the whole app lane stack.
 - That keeps the server-integration example readable, but it is not the full production identity
   story for complex integrations. Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you
-  need explicit service principals plus delegated users on the protected root refs themselves.
+  need explicit service principals plus delegated users on the backend refs themselves.
 - If you keep this narrower route-owned pattern in production, add the normal transport hardening
   around it: timestamped HMAC signatures, replay windows, secret rotation, and provider-specific
   event idempotency if the sender retries independently of your Convex writes.

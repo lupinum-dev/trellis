@@ -20,15 +20,8 @@ describe('operation ref codegen', () => {
     const rendered = renderStarterGeneratedFiles(manifest)
 
     const fixture = readFileSync(resolve(fixtureRoot, 'generated/operation-refs.ts'), 'utf8')
-    const mcpToolRefsFixture = readFileSync(
-      resolve(fixtureRoot, 'generated/mcp-tool-refs.ts'),
-      'utf8',
-    )
 
-    expect(rendered).toEqual([
-      { path: 'generated/operation-refs.ts', content: fixture },
-      { path: 'generated/mcp-tool-refs.ts', content: mcpToolRefsFixture },
-    ])
+    expect(rendered).toEqual([{ path: 'generated/operation-refs.ts', content: fixture }])
   })
 
   it('renders a fixture-backed workspace-mcp starter file set from the manifest', () => {
@@ -45,9 +38,7 @@ describe('operation ref codegen', () => {
     expect(byPath.get('generated/operation-refs.ts')).toBe(
       readFileSync(resolve(fixtureRoot, 'generated/operation-refs.ts'), 'utf8'),
     )
-    expect(byPath.get('generated/mcp-tool-refs.ts')).toBe(
-      readFileSync(resolve(fixtureRoot, 'generated/mcp-tool-refs.ts'), 'utf8'),
-    )
+    expect(byPath.has('generated/mcp-tool-refs.ts')).toBe(false)
   })
 
   it('derives Convex function refs from generated api paths', () => {

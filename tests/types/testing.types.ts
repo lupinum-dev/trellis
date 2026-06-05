@@ -61,6 +61,13 @@ const _forwardedClient = defaultCtx.asCaller({ kind: 'user', userId: 'owner-1' }
 type _forwardedClientSurface = Assert<
   IsEqual<keyof typeof _forwardedClient, 'action' | 'mutation' | 'query'>
 >
+const _forwardedWriteClient = defaultCtx.asCaller(
+  { kind: 'user', userId: 'owner-1' },
+  { replayMode: 'domain-idempotency', transport: 'mcp', jti: 'test-jti' },
+)
+type _forwardedWriteClientSurface = Assert<
+  IsEqual<keyof typeof _forwardedWriteClient, 'action' | 'mutation' | 'query'>
+>
 
 const _organizationCtx = createTestContext({
   schema,

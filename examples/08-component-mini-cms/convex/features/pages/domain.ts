@@ -39,6 +39,13 @@ const publishPreviewResultValidator = operationPreviewValidator({
     }),
   }),
 })
+
+function getBridgeReplayMode(operation: 'query' | 'mutation' | 'action' | 'operation-execute') {
+  if (operation === 'query') return undefined
+  if (operation === 'operation-execute') return 'operation-confirmation'
+  return 'jti-redemption'
+}
+
 function getRequiredIdentityForwardingKey(): string {
   const key = process.env.CONVEX_IDENTITY_FORWARDING_KEY?.trim()
   if (!key) {
@@ -65,6 +72,7 @@ async function bridgeForwardingArgs(
     transport: 'bridge',
     operation: operation === 'operation-execute' ? 'mutation' : operation,
     purpose: operation,
+    ...(getBridgeReplayMode(operation) ? { replayMode: getBridgeReplayMode(operation) } : {}),
     functionRef,
   })
 
@@ -142,7 +150,7 @@ export const publish = mutation.public({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       bridgeApi.publish,
-      await bridgeForwardingArgs(ctx, args, 'mutation', 'features/pages/domain:publish'),
+      await bridgeForwardingArgs(ctx, args, 'operation-execute', 'features/pages/domain:publish'),
     ),
 })
 
@@ -154,7 +162,7 @@ export const publishAction = action.public({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       bridgeApi.publish,
-      await bridgeForwardingArgs(ctx, args, 'mutation', 'features/pages/domain:publish'),
+      await bridgeForwardingArgs(ctx, args, 'operation-execute', 'features/pages/domain:publish'),
     ),
 })
 

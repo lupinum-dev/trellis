@@ -1,5 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Intentional 0.3.0 public export boundary coverage: deleted server helper
+// names appear here only as negative entrypoint assertions.
+
 const { serverConvexActionMock, serverConvexMutationMock, serverConvexQueryMock } = vi.hoisted(
   () => ({
     serverConvexQueryMock: vi.fn(),
@@ -59,7 +62,7 @@ describe('server entrypoint exports', () => {
     expect(serverApi).toHaveProperty('assertDelegationBinding')
   })
 
-  it('does not expose legacy or MCP-only helper names', () => {
+  it('does not expose deleted or MCP-only helper names', () => {
     expect(serverApi).not.toHaveProperty('fetchQuery')
     expect(serverApi).not.toHaveProperty('fetchMutation')
     expect(serverApi).not.toHaveProperty('fetchAction')

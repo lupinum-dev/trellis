@@ -76,7 +76,7 @@ export interface TrellisCliInventoryPublicSurfaceProjection {
 
 export interface TrellisCliInventoryPublicSurfaceTool {
   name: string
-  source: 'tool' | 'operation' | 'defineTool'
+  source: 'tool' | 'operation' | 'defineMcpTool'
   sourceLocation: TrellisCliInventorySourceLocation
   operationId?: string
   operationExportName?: string

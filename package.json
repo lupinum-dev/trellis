@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/trellis",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Opinionated app platform for repeated Nuxt + Convex + Better Auth + MCP apps",
   "keywords": [
     "authentication",

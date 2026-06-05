@@ -96,7 +96,7 @@ starter. `--mcp` remains an accepted alias with `--preset workspace`.
 CMS product setup is owned by Ginko, not the Trellis init surface.
 
 Legacy `trellis init app|auth|permissions|mcp` flows are removed. Do not revive
-them as compatibility paths unless explicitly requested.
+them as old-path aliases unless explicitly requested.
 
 ## Add Commands
 

@@ -1,7 +1,7 @@
 /**
  * Plausible Analytics Plugin
  *
- * Uses Nuxt Scripts for proper SSR/prerender compatibility and automatic deduplication.
+ * Uses Nuxt Scripts for SSR/prerender-safe loading and automatic deduplication.
  * Plausible is privacy-friendly analytics that doesn't use cookies.
  */
 

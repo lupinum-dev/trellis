@@ -7,6 +7,9 @@ import type {
   TrellisCliInventoryUnsafeEntrypoint,
 } from './inventory.js'
 
+// Intentional 0.3.0 inventory finding text: deleted API names in this module
+// are report labels for consumer project findings, not retained runtime paths.
+
 function formatInventoryLocations(
   locations: TrellisCliInventorySourceLocation[],
   limit = 3,
@@ -139,17 +142,17 @@ function createCrossTenantEscapeFinding(inventory: TrellisCliInventory): DoctorF
 
   return {
     id: 'cross-scope-escape-inventory',
-    category: 'advanced',
-    title: 'Cross-scope escape inventory',
-    status: 'pass',
+    category: 'core',
+    title: 'Deleted cross-scope escape API',
+    status: locations.length === 0 ? 'pass' : 'fail',
     message:
       locations.length === 0
-        ? 'No `ctx.db.escapeIsolation(...)` sites were detected.'
-        : `Found ${locations.length} isolation escape${locations.length === 1 ? '' : 's'} in ${formatInventoryLocations(locations)}.`,
+        ? 'No deleted `ctx.db.escapeIsolation(...)` sites were detected.'
+        : `Found deleted \`ctx.db.escapeIsolation(...)\` usage at ${formatInventoryLocations(locations)}.`,
     fixHint:
       locations.length === 0
-        ? 'No action needed unless the app adds cross-scope workflows later.'
-        : 'Review each isolation escape and keep the reason, caller boundary, and data scope explicit.',
+        ? 'Use named crossTenant capabilities for future cross-scope workflows.'
+        : 'Replace generic isolation escapes with definition-visible crossTenant capabilities that declare reason, tables, and narrow access methods.',
     sources: [findingInventorySource('backend.crossTenantEscapes', locations)],
   }
 }
@@ -421,12 +424,12 @@ function createMcpCustomAppWriteBypassFinding(inventory: TrellisCliInventory): D
     status: locations.length > 0 ? 'fail' : 'pass',
     message:
       locations.length > 0
-        ? `Found standalone defineTool(...) handlers calling protected Convex writes in ${formatInventoryLocations(locations)}.`
+        ? `Found standalone defineMcpTool(...) handlers calling protected Convex writes in ${formatInventoryLocations(locations)}.`
         : 'No standalone custom MCP tools call Convex mutation/action helpers.',
     fixHint:
       locations.length > 0
-        ? 'Move app writes to `defineMcpApp(...).tool.mutation(...)` for bounded writes or `tool.operation(...)` for sensitive/destructive/external work.'
-        : 'Keep standalone defineTool(...) read/diagnostic/external-service only.',
+        ? 'Move app writes to operation descriptors and expose them with `defineMcpApp(...).tool.operation(...)`; use `safety: "bounded-write"` for bounded write operations.'
+        : 'Keep standalone defineMcpTool(...) read/diagnostic/external-service only.',
     sources: [findingInventorySource('mcp.customAppWriteMisuses', locations)],
   }
 }

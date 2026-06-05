@@ -355,7 +355,7 @@ describe('server integration workspace example', () => {
     expect(ownerCtx?.can[commentCreate.key]).toBe(true)
   })
 
-  it('returns null context and rejects protected mutations for anonymous callers', async () => {
+  it('returns null context and rejects workspace mutations for anonymous callers', async () => {
     const ctx = createCtx()
 
     await expect(ctx.raw.query(api.permissions.context.getAccessContext, {})).resolves.toBeNull()

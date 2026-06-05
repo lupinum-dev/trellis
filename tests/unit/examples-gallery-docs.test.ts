@@ -32,7 +32,7 @@ describe('examples gallery docs', () => {
     expect(gallery).toContain('## Advanced Branches: 05-08')
     expect(gallery).toMatch(/\|\s*Concept\s*\|\s*Canonical example\s*\|\s*Prerequisite\s*\|/)
     expect(gallery).toContain(
-      'If you only read one protected-app example in the repo, read `03-team-workspace`.',
+      'If you only read one workspace-app example in the repo, read `03-team-workspace`.',
     )
   })
 

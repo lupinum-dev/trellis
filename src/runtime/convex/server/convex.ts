@@ -123,7 +123,9 @@ function normalizeReplay(replay: TrustedTransportReplay): TrustedTransportReplay
     return {
       mode: 'domain-idempotency',
       key: requireNonEmptyProofString(replay.key, 'domainIdempotency.key'),
-      ...(replay.target ? { target: requireNonEmptyProofString(replay.target, 'domainIdempotency.target') } : {}),
+      ...(replay.target
+        ? { target: requireNonEmptyProofString(replay.target, 'domainIdempotency.target') }
+        : {}),
     }
   }
   if (replay.mode === 'jti-redemption') {
@@ -277,7 +279,7 @@ function resolveTransportProofPurpose(
   const purpose = proof.purpose ?? operationType
   if (purpose === operationType) return purpose
 
-  if (operationType === 'query' && purpose === 'operation-preview') {
+  if (purpose === 'operation-preview') {
     return purpose
   }
   if (
@@ -298,6 +300,18 @@ function getReplayJti(replay: TrustedTransportReplay | undefined): string | unde
     return replay.jti
   }
   return undefined
+}
+
+function assertReplayMatchesPurpose(
+  replay: TrustedTransportReplay | undefined,
+  purpose: IdentityForwardingPurpose,
+  functionPath: string,
+): void {
+  if (replay?.mode === 'operation-confirmation' && purpose !== 'operation-execute') {
+    throw new Error(
+      `Transport proof operation-confirmation replay is only valid for operation-execute calls to ${functionPath}.`,
+    )
+  }
 }
 
 async function resolveAuthToken(
@@ -422,6 +436,7 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
     if (authProof.actingFor) validateForwardedActingFor(authProof.actingFor)
 
     const purpose = resolveTransportProofPurpose(authProof, operationType, functionPath)
+    assertReplayMatchesPurpose(authProof.replay, purpose, functionPath)
     const identityForwardingKey =
       authProof.identityForwardingKey ?? process.env.CONVEX_IDENTITY_FORWARDING_KEY
     if (!identityForwardingKey) {

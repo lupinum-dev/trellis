@@ -59,5 +59,5 @@ This example includes a small Convex test harness as the personal-auth starter r
 
 Stop here if your app is personal and ownership-based.
 
-Move to [`03-team-workspace`](../03-team-workspace/README.md) when you need the canonical protected
-team app with tenants, roles, and access context.
+Move to [`03-team-workspace`](../03-team-workspace/README.md) when you need the canonical explicit
+workspace app with tenants, roles, and access context.

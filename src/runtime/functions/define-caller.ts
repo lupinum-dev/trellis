@@ -49,7 +49,7 @@ export interface CallerDefinition<TCtx extends object, TCaller> {
  *
  * Principals answer "who is calling according to this transport?" They are not
  * your business appIdentity model. Resolve the caller here, then derive actors and
- * permissions later inside the protected app runtime.
+ * permissions later inside the explicit app runtime.
  */
 export function defineCaller<TCtx extends object, TCaller>(options: {
   validator?: GenericValidator

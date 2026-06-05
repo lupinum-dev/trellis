@@ -67,7 +67,7 @@ describe('decodeUserFromJwt', () => {
   it('does not expose JWT identifiers as app user ids', () => {
     const token = makeJwt({
       sub: 'user_123',
-      userId: 'legacy_user_123',
+      userId: 'token_user_123',
       email: 'user@example.com',
     })
 

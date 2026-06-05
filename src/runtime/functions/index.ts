@@ -61,6 +61,9 @@ import {
 import { defineActingFor, type ActingFor, type ActingForDefinition } from './define-acting-for.js'
 import { defineCaller, type DefaultCaller, type CallerDefinition } from './define-caller.js'
 import { buildStructuredBuilder } from './define-handler.js'
+// Intentional 0.3.0 internal lane machinery: protected/custom guard support and
+// the authRequired sentinel stay here to implement explicit authenticated,
+// workspace, and custom protected lanes. They are not public first-reader API.
 import type {
   StructuredCrossTenantCapability,
   StructuredGuard,
@@ -619,6 +622,61 @@ function describeTrustedReplayState(row: unknown): string | undefined {
   return typeof state === 'string' ? state : undefined
 }
 
+function getTrustedReplayId(row: unknown): string | undefined {
+  if (!row || typeof row !== 'object') return undefined
+  const id = (row as { _id?: unknown })._id
+  return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
+function trustedReplayMatchesEnvelope(
+  row: unknown,
+  envelope: {
+    functionRef: string
+    purpose: string
+    transport: string
+    replayMode?: string
+    argsHash: string
+    subject: string
+    issuer: string
+    audience: string
+  },
+): boolean {
+  if (!row || typeof row !== 'object') return false
+  const replay = row as Record<string, unknown>
+  return (
+    replay.functionRef === envelope.functionRef &&
+    replay.purpose === envelope.purpose &&
+    replay.transport === envelope.transport &&
+    replay.replayMode === envelope.replayMode &&
+    replay.argsHash === envelope.argsHash &&
+    replay.subject === envelope.subject &&
+    replay.issuer === envelope.issuer &&
+    replay.audience === envelope.audience
+  )
+}
+
+function isTrustedWritePurpose(purpose: string): boolean {
+  return purpose === 'mutation' || purpose === 'action'
+}
+
+function assertTrustedReplayModeMatchesPurpose(envelope: {
+  purpose: string
+  replayMode?: string
+}): void {
+  if (
+    envelope.replayMode === 'operation-confirmation' &&
+    envelope.purpose !== 'operation-execute'
+  ) {
+    throw deny(
+      'Trusted identity forwarding operation-confirmation replay mode is only valid for operation-execute envelopes.',
+      {
+        source: 'identity-forwarding',
+        category: 'auth',
+      },
+    )
+  }
+}
+
 async function claimTrustedReplayJti<
   DataModel extends GenericDataModel,
   TCtx extends AnyCtx<DataModel>,
@@ -631,9 +689,23 @@ async function claimTrustedReplayJti<
   options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
 ): Promise<TrustedReplayClaim<DataModel> | null> {
   const envelope = getIdentityForwardingEnvelopeState(ctxWithIdentityForwarding)
+  if (!envelope) return null
+
+  assertTrustedReplayModeMatchesPurpose(envelope)
+
+  if (!envelope.replayMode) {
+    if (isTrustedWritePurpose(envelope.purpose)) {
+      throw deny('Trusted identity forwarding writes require replay behavior.', {
+        source: 'identity-forwarding',
+        category: 'auth',
+      })
+    }
+    return null
+  }
+
   if (
-    !envelope?.replayMode ||
     envelope.replayMode === 'domain-idempotency' ||
+    envelope.replayMode === 'operation-confirmation' ||
     typeof envelope.jti !== 'string'
   ) {
     return null
@@ -664,6 +736,24 @@ async function claimTrustedReplayJti<
 
   if (existing) {
     const state = describeTrustedReplayState(existing)
+    if (state === 'failed') {
+      const id = getTrustedReplayId(existing)
+      if (!id || !trustedReplayMatchesEnvelope(existing, envelope)) {
+        throw deny('Trusted identity forwarding replay JTI does not match the failed claim.', {
+          source: 'identity-forwarding',
+          category: 'auth',
+        })
+      }
+      const now = Date.now()
+      await replayDb.patch(id, {
+        state: 'claimed',
+        updatedAt: now,
+        completedAt: undefined,
+        failedAt: undefined,
+        failure: undefined,
+      })
+      return { table: options.trustedReplay.table, id }
+    }
     throw deny(
       state === 'claimed'
         ? 'Trusted identity forwarding replay JTI is already claimed.'
@@ -730,6 +820,16 @@ async function assertNoOperationExecuteEnvelopeReplay<
   const envelope = getIdentityForwardingEnvelopeState(ctxWithIdentityForwarding)
   if (envelope?.purpose !== 'operation-execute') return
   if (typeof envelope.jti !== 'string') return
+
+  if (envelope.replayMode !== 'operation-confirmation') {
+    throw deny(
+      'Identity forwarding operation-execute envelopes require operation-confirmation replay mode.',
+      {
+        source: 'identity-forwarding',
+        category: 'auth',
+      },
+    )
+  }
 
   if (!options.destructiveOperations) {
     throw deny(
@@ -1102,19 +1202,103 @@ function isServicePrincipal(value: unknown): value is { kind: 'service'; service
   )
 }
 
-type ResolvedServiceAccess<DataModel extends GenericDataModel> =
-  | null
-  | {
-      serviceId: string
-      access: 'unrestricted'
-    }
-  | {
-      serviceId: string
-      access: 'restricted'
-      tables: ReadonlySet<TableNamesInDataModel<DataModel>>
-      tenant: 'global' | 'derived'
-      workspaceId: unknown
-    }
+const serviceReplayModes = new Set([
+  'none',
+  'domain-idempotency',
+  'jti-redemption',
+  'operation-confirmation',
+])
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function isNonBlankStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isNonBlankString)
+}
+
+function assertServiceContractConfigured(serviceId: string, service: unknown): void {
+  if (!isRecord(service) || !isRecord(service.metadata)) {
+    throw deny(`Service "${serviceId}" must declare service contract metadata.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
+
+  const metadata = service.metadata
+  const missing = [
+    ['source', metadata.source],
+    ['purpose', metadata.purpose],
+    ['auditEvent', metadata.auditEvent],
+    ['auditTable', metadata.auditTable],
+    ['auditCorrelationId', metadata.auditCorrelationId],
+  ]
+    .filter(([, value]) => !isNonBlankString(value))
+    .map(([field]) => field)
+
+  if (missing.length > 0) {
+    throw deny(
+      `Service "${serviceId}" must declare non-empty service metadata: ${missing.join(', ')}.`,
+      {
+        source: 'service-access',
+        category: 'auth',
+      },
+    )
+  }
+
+  if (!isNonBlankString(metadata.replayMode) || !serviceReplayModes.has(metadata.replayMode)) {
+    throw deny(`Service "${serviceId}" must declare a valid replay mode.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
+
+  if (typeof metadata.actingFor !== 'boolean') {
+    throw deny(`Service "${serviceId}" must declare whether actingFor evidence is allowed.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
+
+  if (
+    (metadata.allowedOperations !== undefined &&
+      !isNonBlankStringArray(metadata.allowedOperations)) ||
+    (metadata.allowedFunctionRefs !== undefined &&
+      !isNonBlankStringArray(metadata.allowedFunctionRefs))
+  ) {
+    throw deny(
+      `Service "${serviceId}" allowed operation ids and function refs must be non-empty strings.`,
+      {
+        source: 'service-access',
+        category: 'auth',
+      },
+    )
+  }
+
+  const allowedOperations = metadata.allowedOperations ?? []
+  const allowedFunctionRefs = metadata.allowedFunctionRefs ?? []
+  if (allowedOperations.length === 0 && allowedFunctionRefs.length === 0) {
+    throw deny(
+      `Service "${serviceId}" must declare at least one allowed operation id or function ref in service metadata.`,
+      {
+        source: 'service-access',
+        category: 'auth',
+      },
+    )
+  }
+}
+
+type ResolvedServiceAccess<DataModel extends GenericDataModel> = null | {
+  serviceId: string
+  access: 'restricted'
+  tables: ReadonlySet<TableNamesInDataModel<DataModel>>
+  tenant: 'global' | 'derived'
+  workspaceId: unknown
+}
 
 function getServiceError(serviceId: string, table: string): Error {
   return new Error(`Service "${serviceId}" has no access to table "${table}".`)
@@ -1134,7 +1318,7 @@ function assertServiceTableAccess<DataModel extends GenericDataModel>(
   table: string,
   observe?: ObserveFn,
 ): void {
-  if (!access || access.access === 'unrestricted') return
+  if (!access) return
   if (!access.tables.has(table as TableNamesInDataModel<DataModel>)) {
     safeObserve(observe, {
       name: 'service.access.denied',
@@ -1167,7 +1351,7 @@ function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
   access: ResolvedServiceAccess<DataModel>,
   observe?: ObserveFn,
 ): TDb {
-  if (!access || access.access === 'unrestricted') return db
+  if (!access) return db
 
   return new Proxy(db, {
     get(target, prop, receiver) {
@@ -1422,11 +1606,31 @@ async function resolveServiceAccess<
     )
   }
 
-  if (service.access === 'unrestricted') {
-    return {
-      serviceId: caller.serviceId,
-      access: 'unrestricted',
-    }
+  if (typeof service.access !== 'object' || service.access === null) {
+    throw new Error(
+      `Service "${caller.serviceId}" must declare restricted access with explicit tables and tenant scope.`,
+    )
+  }
+  assertServiceContractConfigured(caller.serviceId, service)
+
+  if (!isNonBlankStringArray(service.access.tables) || service.access.tables.length === 0) {
+    throw deny(`Service "${caller.serviceId}" must declare at least one allowed table.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
+
+  if (service.access.tenant !== 'global' && service.access.tenant !== 'derived') {
+    throw deny(`Service "${caller.serviceId}" must declare a valid tenant scope.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
+  if (service.access.tenant === 'derived' && typeof service.access.deriveTenant !== 'function') {
+    throw deny(`Service "${caller.serviceId}" must declare deriveTenant for derived access.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
   }
 
   const workspaceId =
@@ -1436,6 +1640,13 @@ async function resolveServiceAccess<
           args: stripTransportReservedArgs(args),
         })
       : null
+
+  if (service.access.tenant === 'derived' && !isNonBlankString(workspaceId)) {
+    throw deny(`Service "${caller.serviceId}" could not resolve a derived tenant scope.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
 
   return {
     serviceId: caller.serviceId,
@@ -1465,29 +1676,42 @@ async function assertServiceTargetAllowed<
       `Service "${caller.serviceId}" is not configured in defineTrellis({ services }).`,
     )
   }
+  assertServiceContractConfigured(caller.serviceId, service)
 
   const targetFunctionRef = extra?.identityForwardingFunctionRef
   const targetOperationId = extra?.[trellisOperationMetadataKey]?.id
   const allowedFunctionRefs = service.metadata.allowedFunctionRefs ?? []
   const allowedOperations = service.metadata.allowedOperations ?? []
+  const envelope = getIdentityForwardingEnvelopeState(ctx)
+  const identityForwarding = getIdentityForwarding(ctx)
 
-  if (allowedFunctionRefs.length === 0 && allowedOperations.length === 0) {
-    throw deny(
-      `Service "${caller.serviceId}" has no allowed operation ids or function refs in defineServices metadata.`,
-      {
-        source: 'service-access',
-        category: 'auth',
-      },
-    )
+  if (identityForwarding?.delegationSubject && service.metadata.actingFor === false) {
+    throw deny(`Service "${caller.serviceId}" is not allowed to carry actingFor evidence.`, {
+      source: 'service-access',
+      category: 'auth',
+    })
+  }
+
+  if (envelope) {
+    const actualReplayMode = envelope.replayMode ?? 'none'
+    if (service.metadata.replayMode !== actualReplayMode) {
+      throw deny(
+        `Service "${caller.serviceId}" requires replay mode "${service.metadata.replayMode}", not "${actualReplayMode}".`,
+        {
+          source: 'service-access',
+          category: 'auth',
+        },
+      )
+    }
   }
 
   if (targetFunctionRef && allowedFunctionRefs.includes(targetFunctionRef)) return
   if (targetOperationId && allowedOperations.includes(targetOperationId)) return
 
-  const targetDescription = targetFunctionRef
-    ? `function "${targetFunctionRef}"`
-    : targetOperationId
-      ? `operation "${targetOperationId}"`
+  const targetDescription = targetOperationId
+    ? `operation "${targetOperationId}"`
+    : targetFunctionRef
+      ? `function "${targetFunctionRef}"`
       : 'a handler without identityForwardingFunctionRef or operation metadata'
 
   throw deny(`Service "${caller.serviceId}" is not allowed to call ${targetDescription}.`, {
@@ -1506,7 +1730,7 @@ function buildServiceRules<
   options: IsolationOptions<DataModel> | undefined,
 ): Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel> {
   const rules = {} as Rules<RuleCtx<DataModel, TCaller, TActingFor, TActor>, DataModel>
-  if (!access || access.access === 'unrestricted') return rules
+  if (!access) return rules
   if (access.tenant !== 'derived') return rules
 
   const field = options?.field ?? 'workspaceId'
@@ -2534,7 +2758,7 @@ async function attachDestructivePreviewConfirmation<
   try {
     await unsafeDb.insert(input.options.destructiveOperations!.confirmationTable, {
       tokenHash,
-      jti: crypto.randomUUID(),
+      jti: tokenHash,
       operationId,
       executePath,
       previewPath,

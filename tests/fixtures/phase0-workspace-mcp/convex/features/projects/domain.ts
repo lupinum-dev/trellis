@@ -1,8 +1,9 @@
-import { v } from 'convex/values'
+import { operationPreview } from '@lupinum/trellis/backend'
 
-import { operationPreview } from '../../../../../../src/runtime/functions/define-operation'
-import { deleteProjectDescriptor } from '../../../shared/features/projects/operations'
-import { createProjectArgs } from '../../../shared/features/projects/tools'
+import {
+  createProjectDescriptor,
+  deleteProjectDescriptor,
+} from '../../../shared/features/projects/operations'
 import { mutation, query } from '../../_generated/server'
 
 export const previewDeleteProject = query({
@@ -26,11 +27,8 @@ export const deleteProject = mutation({
 })
 
 export const createProject = mutation({
-  args: createProjectArgs.args,
-  returns: v.object({
-    id: v.string(),
-    title: v.string(),
-  }),
+  args: createProjectDescriptor.args,
+  returns: createProjectDescriptor.returns!,
   handler: async (_ctx, args) => ({
     id: `project:${args.title}`,
     title: args.title,

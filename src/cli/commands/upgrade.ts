@@ -21,6 +21,9 @@ import {
 import { renderFindingReport } from '../lib/output.js'
 import { inspectProject, type ProjectInspection } from '../lib/project.js'
 
+// Intentional 0.3.0 migration detector: this command scans pre-0.3 consumer
+// code for deleted paths. Legacy tokens below are detector labels, not retained
+// old-path aliases.
 export interface UpgradeCheckReport extends FindingReport {
   schemaVersion: 1
 }
@@ -420,7 +423,7 @@ function createUpgradeFindings(
       foundMessage: (locations) =>
         `Found old \`@lupinum/trellis/functions\` imports at ${formatLocations(locations)}.`,
       cleanMessage: 'No @lupinum/trellis/functions imports were found.',
-      fixHint: 'Use `@lupinum/trellis/backend` as the canonical 1.0 backend import.',
+      fixHint: 'Use `@lupinum/trellis/backend` as the canonical backend import.',
     }),
     createLocationFinding({
       id: 'upgrade-bridge-import',
@@ -492,7 +495,7 @@ function createUpgradeFindings(
         `Found custom MCP tools calling app writes at ${formatLocations(locations)}.`,
       cleanMessage: 'No custom MCP tools call app write helpers.',
       fixHint:
-        'Use `tool.mutation(...)` for bounded writes or `tool.operation(...)` for sensitive/destructive/external work.',
+        'Move app writes to operation descriptors and expose them with `tool.operation(...)`; use `safety: "bounded-write"` for bounded write operations.',
     }),
     createLocationFinding({
       id: 'upgrade-unsafe-permits',
@@ -564,7 +567,7 @@ export async function buildUpgradeWriteReport(cwd: string): Promise<UpgradeWrite
 export const upgradeCommand = defineCommand({
   meta: {
     name: 'upgrade',
-    description: 'Audit a project for the Trellis 1.0 migration',
+    description: 'Audit a project for the Trellis 0.3 migration',
   },
   args: {
     check: {
@@ -609,7 +612,7 @@ export const upgradeCommand = defineCommand({
       : await buildUpgradeCheckReport(cwd)
     renderFindingReport(report, {
       json: Boolean(args.json),
-      title: args.write ? 'Trellis 1.0 upgrade write' : 'Trellis 1.0 upgrade check',
+      title: args.write ? 'Trellis 0.3 upgrade write' : 'Trellis 0.3 upgrade check',
     })
 
     if (args.write) {

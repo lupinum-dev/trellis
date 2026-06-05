@@ -1,6 +1,6 @@
 # Trellis 0.3.0 Refactor Handover
 
-Status: active refactor, not release-complete
+Status: refactor and release-prep acceptance proven; not published
 Last updated: 2026-06-05
 
 This handover is the short entry point for the next developer. The detailed
@@ -37,6 +37,23 @@ The latest proven state:
   target.
 - Public-surface codegen and CLI explain fixtures no longer normalize
   protected/guard as the default operation projection model.
+- `tests/unit/operation-descriptor.test.ts` has been cut over from normal
+  operation `guard` fixtures to operation `permission` fixtures; its remaining
+  `guard` case is negative protected-lane rejection coverage.
+- The current worktree has passed `pnpm run check`,
+  `pnpm run release:verify`, and `pnpm run release:pack`.
+- The standalone docs production build now passes after making its build
+  dependencies explicit:
+  - `apps/docs` depends on `@resvg/resvg-js`;
+  - `pnpm-workspace.yaml` allows `better-sqlite3` install scripts so Nuxt
+    Content can load its native binding.
+- Package metadata and compatibility metadata are cut over to `0.3.0`.
+- `CHANGELOG.md` contains the curated `v0.3.0` release entry.
+- `release:pack` writes `0.3.0` tarballs, and packed manifest inspection
+  confirms:
+  - `@lupinum/trellis@0.3.0`;
+  - `@lupinum/trellis-bridge@0.3.0`;
+  - the bridge package peer dependency on `@lupinum/trellis` is `^0.3.0`.
 
 ## Completed Slices
 
@@ -88,6 +105,12 @@ Recent successful checks recorded in `progress_0.3.0.md` include:
 - Docs link/API-surface scripts passed directly:
   - `node scripts/check-doc-links.mjs`;
   - `node scripts/generate-api-surface.mjs --check`.
+- Broad gates:
+  - `pnpm run check`;
+  - `pnpm run release:verify`;
+  - `pnpm run release:pack`.
+- Docs production build:
+  - `pnpm --dir apps/docs build`.
 
 Known caveat: at times the local shell hit OS process limits
 (`Resource temporarily unavailable`, `EAGAIN`, lifecycle code `-35`). When that
@@ -100,14 +123,18 @@ node node_modules/oxfmt/bin/oxfmt --check --threads=1 <files>
 
 ## What Is Left
 
-### Final Deslop And Hard-Cut Requirement
+No implementation slice remains for the 0.3.0 hard-cut refactor in this
+checkout. The remaining work is human release ownership: review the diff,
+create/tag the release as appropriate, and publish through the maintainer
+runbook. Do not run live publish commands from an agent session.
+
+### Completed Hard-Cut Audit
 
 This applies to the whole 0.3.0 refactor, not only the protected/guard lane
-cutover. Treat the full 0.3.0 branch as greenfield before release. When the
-implementation appears feature-complete, do a dedicated cleanup pass whose goal
-is deletion, not compatibility.
+cutover. The final cleanup pass has been run with deletion, not compatibility,
+as the goal.
 
-The final state should not keep old code "just in case." Remove:
+The final state should not keep old code "just in case." The audit checked for:
 
 - any intermediate 0.3.0 scaffolding, compatibility paths, transitional helpers,
   temporary tests, or duplicated implementation paths from any slice;
@@ -121,7 +148,7 @@ The final state should not keep old code "just in case." Remove:
 - derived state that lacks a rebuild command and invariant test;
 - public exports that are not part of the deliberate 0.3 surface.
 
-Acceptance criteria for this cleanup pass:
+Acceptance criteria used for this cleanup pass:
 
 - Every 0.3.0 architecture area in `0.3.0.md` has one final implementation path
   and no abandoned interim path:
@@ -165,25 +192,9 @@ boundary.
 
 ### Immediate Next Slice
 
-Cut over `tests/unit/operation-descriptor.test.ts` from operation `guard`
-fixtures to operation `permission` fixtures.
-
-Why this is next:
-
-- The runtime already supports operation `permission` metadata.
-- The remaining guard usage in this file is mostly stale fixture style.
-- This is a low-risk hard cutover that reduces old-path normalization in tests.
-
-Suggested verification:
-
-```bash
-node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-descriptor.test.ts
-node node_modules/eslint/bin/eslint.js tests/unit/operation-descriptor.test.ts
-node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/operation-descriptor.test.ts
-git diff --check
-```
-
-Then add a new entry to `progress_0.3.0.md`.
+There is no next code slice for the 0.3.0 refactor. If another developer picks
+this up before release, start by reviewing `progress_0.3.0.md`, then rerun the
+same release gates from this handover if the worktree has changed.
 
 ### Remaining Protected/Guard Inventory
 
@@ -193,7 +204,7 @@ Run:
 rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|protected\\(previewOf|protected preview|authRequired" tests/unit src/cli src/module-internals src/runtime scripts examples src/cli/starter-fixtures --glob '!dist/**' --glob '!node_modules/**'
 ```
 
-As of the last audit, remaining hits were mostly in these categories:
+As of the last audit, remaining hits were in these categories:
 
 - Runtime support for custom protected lane and internal caller gates:
   - `src/runtime/functions/index.ts`;
@@ -209,45 +220,30 @@ As of the last audit, remaining hits were mostly in these categories:
   - `tests/unit/cli-doctor.test.ts`;
   - `tests/unit/cli-upgrade.test.ts`;
   - `tests/unit/eslint-plugin.test.ts`.
-- Runtime/custom-guard behavior tests that need classification before editing:
+- Runtime/custom-guard behavior tests:
   - `tests/unit/functions-defineTrellis.test.ts`;
-  - `tests/unit/functions-defineHandler.test.ts`;
-  - `tests/unit/define-convex-tool.test.ts`;
-  - `tests/unit/app-index-exports.test.ts`;
-  - `tests/unit/generated-type-consumers.test.ts`;
-  - `tests/unit/feature-compose.test.ts`.
-
-For each hit, classify it as one of:
-
-- intentional custom-guard/protected-lane coverage;
-- intentional legacy-detection fixture;
-- stale normal-path fixture to cut over;
-- runtime API that should be deleted/simplified later.
+  - `tests/unit/functions-defineHandler.test.ts`.
+- Negative public-export, contract, and descriptor guard-rejection coverage:
+  - `tests/unit/auth-index.test.ts`;
+  - `tests/unit/security-contract.test.ts`;
+  - `tests/unit/operation-descriptor.test.ts`.
 
 Do not remove custom protected-lane coverage unless 0.3.0 scope explicitly
 deletes `protected(...)`.
 
 ### Larger 0.3.0 Work Still Open
 
-The bigger architecture items are not proven complete:
+The bigger architecture items now have passing focused and broad-gate evidence
+in `progress_0.3.0.md`, and the release-prep audit is closed for the current
+checkout.
 
-- Service subject contract:
-  - service subjects must not become ambient backend authority;
-  - service writes need scope, replay mode, and audit metadata;
-  - delay the public `service` lane if the contract is not fully enforced.
-- Replay/idempotency recovery:
-  - webhook and trusted write replay cannot remain route-side bookkeeping;
-  - delivery claim/complete/fail needs backend/domain-atomic or recoverable
-    behavior.
-- Consumer/release gates:
-  - full examples/starter verification;
-  - broader `pnpm run check`;
-  - `pnpm run release:verify`;
-  - `pnpm run release:pack` when appropriate.
-- Docs build caveat:
-  - `pnpm --dir apps/docs build` previously failed in this checkout because
-    Nuxt content could not load `better-sqlite3` native bindings and
-    `@nuxtjs/og-image` reported missing `@resvg/resvg-js`.
+Resolved release-audit caveat:
+
+- `pnpm --dir apps/docs build` now passes in this checkout.
+- The prior failure was a missing docs-app `@resvg/resvg-js` dependency plus a
+  workspace build-policy block on `better-sqlite3` native bindings.
+- Package metadata, compatibility metadata, release notes, packed tarballs, and
+  packed manifest checks are all aligned on `0.3.0`.
 
 ## Useful Commands
 

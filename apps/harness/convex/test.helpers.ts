@@ -20,6 +20,11 @@ export function withTrustedCaller<TArgs extends Record<string, unknown> | undefi
   caller: Record<string, unknown>,
   actingFor?: Record<string, unknown> | null,
   functionRef?: FunctionReference<'query' | 'mutation' | 'action', 'public' | 'internal'> | string,
+  options: {
+    operation?: 'query' | 'mutation' | 'action'
+    replayMode?: 'domain-idempotency' | 'jti-redemption' | 'operation-confirmation'
+    jti?: string
+  } = {},
 ) {
   if (!functionRef) {
     throw new Error('withTrustedCaller requires the exact Convex function ref for signing.')
@@ -43,7 +48,9 @@ export function withTrustedCaller<TArgs extends Record<string, unknown> | undefi
     },
     ...(actingFor ? { actingFor: actingFor as { subject: string } & Record<string, unknown> } : {}),
     functionRef: typeof functionRef === 'string' ? functionRef : getFunctionName(functionRef),
-    operation: 'mutation',
+    operation: options.operation ?? 'mutation',
+    ...(options.replayMode ? { replayMode: options.replayMode } : {}),
+    ...(options.jti ? { jti: options.jti } : {}),
     key: INTERNAL_HARNESS_TEST_IDENTITY_FORWARDING_KEY,
   }) as TArgs & { _trellisForwarding: string }
 }

@@ -242,20 +242,18 @@ export function resetPluginClientTestkit() {
 
   createAuthClientMock.mockReturnValue({
     $store: {
-      listen: vi.fn(
-        (signal: string, listener: (value: boolean, oldValue?: boolean) => void) => {
-          if (signal !== '$sessionSignal') {
-            return
-          }
-          clientState.sessionSignalListeners.push(listener)
-          listener(clientState.sessionSignalValue)
-          return () => {
-            clientState.sessionSignalListeners = clientState.sessionSignalListeners.filter(
-              (candidate) => candidate !== listener,
-            )
-          }
-        },
-      ),
+      listen: vi.fn((signal: string, listener: (value: boolean, oldValue?: boolean) => void) => {
+        if (signal !== '$sessionSignal') {
+          return
+        }
+        clientState.sessionSignalListeners.push(listener)
+        listener(clientState.sessionSignalValue)
+        return () => {
+          clientState.sessionSignalListeners = clientState.sessionSignalListeners.filter(
+            (candidate) => candidate !== listener,
+          )
+        }
+      }),
     },
     convex: {
       token: tokenMock,

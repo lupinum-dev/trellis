@@ -4,6 +4,10 @@ import { defineGuard, open } from '../../src/runtime/auth'
 import { authRequired } from '../../src/runtime/auth/define-guard'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
+// Intentional 0.3.0 coverage: buildStructuredFunctions is the internal custom
+// guard engine used by protected-lane runtime and narrowing tests. These
+// fixtures are not app-author guidance for new handlers.
+
 type Caller = { kind: 'anonymous' } | { kind: 'user'; userId: string }
 type AppIdentity = { userId: string; role: string } | null
 

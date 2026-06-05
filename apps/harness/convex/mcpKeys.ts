@@ -1,22 +1,13 @@
-import { defineGuard } from '@lupinum/trellis/auth'
+import { operation } from '@lupinum/trellis/app'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import type { AppIdentity } from './auth/appIdentity'
 import { canInviteMembers } from './auth/checks'
+import { mcpKeyManagePermission } from './auth/permissions'
 import { loadResource } from './auth/scope'
 import { mutation, query } from './functions'
-
-const canListMcpKeys = defineGuard<AppIdentity>(
-  'mcp-key.list',
-  (appIdentity) => appIdentity !== null,
-)
-const canManageMcpKeys = defineGuard<AppIdentity>(
-  'mcp-key.manage',
-  (appIdentity) => !!appIdentity?.workspaceId && canInviteMembers(appIdentity),
-)
 
 function hashKey(key: string): string {
   const bytes = sha256(new TextEncoder().encode(key))
@@ -44,9 +35,8 @@ function resolveIncomingKeyHash(input: { key?: string; keyHash?: string }): stri
   throw new Error('Expected key or keyHash.')
 }
 
-export const list = query.protected({
+export const list = query.authenticated({
   args: {},
-  guard: canListMcpKeys,
   handler: async (ctx) => {
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity?.workspaceId) return []
@@ -61,15 +51,18 @@ export const list = query.protected({
   },
 })
 
-export const create = mutation.protected({
+export const createMcpKeyOp = operation.mutation({
+  id: 'mcp-keys.create',
   args: {
     name: v.string(),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
-  guard: canManageMcpKeys,
+  permission: mcpKeyManagePermission,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    if (!appIdentity.workspaceId) throw new Error('No organization selected')
+    if (!appIdentity.workspaceId || !canInviteMembers(appIdentity)) {
+      throw new Error('Cannot create MCP keys in this workspace.')
+    }
 
     const key = generateKey()
     const keyHash = hashKey(key)
@@ -90,12 +83,17 @@ export const create = mutation.protected({
   },
 })
 
-export const revoke = mutation.protected({
+export const create = mutation.workspace(createMcpKeyOp)
+
+export const revokeMcpKeyOp = operation.mutation({
+  id: 'mcp-keys.revoke',
   args: { id: v.id('mcpKeys') },
-  guard: canManageMcpKeys,
+  permission: mcpKeyManagePermission,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    if (!appIdentity.workspaceId) throw new Error('No organization selected')
+    if (!appIdentity.workspaceId || !canInviteMembers(appIdentity)) {
+      throw new Error('Cannot revoke MCP keys in this workspace.')
+    }
     loadResource(appIdentity, await ctx.db.get(args.id), 'MCP key')
 
     await ctx.db.patch(args.id, {
@@ -104,6 +102,8 @@ export const revoke = mutation.protected({
     })
   },
 })
+
+export const revoke = mutation.workspace(revokeMcpKeyOp)
 
 export const validate = generatedQuery({
   args: {

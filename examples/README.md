@@ -25,17 +25,17 @@ Read these in order.
 | ------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
 | `01-public-todo`    | First contact                           | Public data flow with almost no ceremony                                       |
 | `02-auth-todo`      | Personal app                            | Better Auth, appIdentity resolution, personal ownership                        |
-| `03-team-workspace` | Canonical protected app                 | Single-workspace auth, roles, guards, access context                           |
+| `03-team-workspace` | Canonical explicit-lane app             | Single-workspace auth, roles, permissions, access context                      |
 | `04-saas-platform`  | Server integration branch of the ladder | Nitro routes, uploads, server-owned integrations on top of the workspace model |
 
 The intended ladder is:
 
 1. `01` teaches the Nuxt ↔ Trellis ↔ Convex loop.
 2. `02` adds auth without adding tenant complexity.
-3. `03` becomes the canonical protected app.
-4. `04` shows how server boundaries fit into that protected app model.
+3. `03` becomes the canonical explicit-lane workspace app.
+4. `04` shows how server boundaries fit into that workspace app model.
 
-If you only read one protected-app example in the repo, read `03-team-workspace`.
+If you only read one workspace-app example in the repo, read `03-team-workspace`.
 
 If you are evaluating the framework rather than studying advanced branches, stop at `03` first and
 only open `04+` after that baseline feels obvious.
@@ -44,12 +44,12 @@ only open `04+` after that baseline feels obvious.
 
 These are not first-reader steps. Open them once `03` makes sense to you.
 
-| Example                 | Open this when you need          | Primary lesson                                                              |
-| ----------------------- | -------------------------------- | --------------------------------------------------------------------------- |
-| `05-visibility-access`  | hard authorization rules         | Row visibility, redaction, enrollment, prerequisites, share links           |
-| `06-multi-workspace`    | a memberships-based tenant model | Multi-workspace membership, switching, cross-workspace constraints          |
-| `07-mcp-reference`      | the workspace-MCP branch         | Public/scoped tools, bounded writes, prompts, resources, confirmations      |
-| `08-component-mini-cms` | package-integration architecture | Local components, caller forwarding, bridge inventory, MCP over bridge refs |
+| Example                 | Open this when you need          | Primary lesson                                                                  |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| `05-visibility-access`  | hard authorization rules         | Row visibility, redaction, enrollment, prerequisites, share links               |
+| `06-multi-workspace`    | a memberships-based tenant model | Multi-workspace membership, switching, cross-workspace constraints              |
+| `07-mcp-reference`      | the workspace-MCP branch         | Public/scoped tools, operation-backed writes, prompts, resources, confirmations |
+| `08-component-mini-cms` | package-integration architecture | Local components, caller forwarding, bridge inventory, MCP over bridge refs     |
 
 ## Concept Matrix
 
@@ -58,7 +58,7 @@ These are not first-reader steps. Open them once `03` makes sense to you.
 | Public queries and mutations              | `01-public-todo`        | none                                    |
 | Better Auth + appIdentity resolution      | `02-auth-todo`          | `01-public-todo`                        |
 | Canonical single-workspace model          | `03-team-workspace`     | `02-auth-todo`                          |
-| Guards, access context, `_can`            | `03-team-workspace`     | `02-auth-todo`                          |
+| Permissions, access context, `_can`       | `03-team-workspace`     | `02-auth-todo`                          |
 | Nitro routes and server-side integrations | `04-saas-platform`      | `03-team-workspace`                     |
 | Advanced authorization patterns           | `05-visibility-access`  | `03-team-workspace`                     |
 | Membership-based multi-workspace auth     | `06-multi-workspace`    | `03-team-workspace`                     |
@@ -111,7 +111,7 @@ version or a packed local tarball before installing.
 | ----------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `01-public-todo`        | `CONVEX_URL`, `CONVEX_SITE_URL` | none                                                                                                                                                                                                                                                                                                                                                                                                |
 | `02-auth-todo`          | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing                                                                                                                                                                                                                                                                                                                   |
-| `03-team-workspace`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_IDENTITY_FORWARDING_KEY` for identity-forwarded server-to-Convex calls, `TEAM_TODO_WEBHOOK_SECRET` for the HMAC webhook route boundary                                                                                                                                                                      |
+| `03-team-workspace`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_IDENTITY_FORWARDING_KEY` for identity-forwarded server-to-Convex calls, `TEAM_TODO_WEBHOOK_SECRET` for the HMAC webhook route boundary                                                                                                                                                                   |
 | `04-saas-platform`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_IDENTITY_FORWARDING_KEY` for identity-forwarded server-to-Convex calls, `PROJECT_BOARD_WEBHOOK_SECRET` for the webhook route boundary                                                                                                                                                                    |
 | `05-visibility-access`  | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing                                                                                                                                                                                                                                                                                                                   |
 | `06-multi-workspace`    | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing                                                                                                                                                                                                                                                                                                                   |

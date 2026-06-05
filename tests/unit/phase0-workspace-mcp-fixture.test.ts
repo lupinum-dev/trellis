@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type { H3Event } from 'h3'
@@ -6,7 +6,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { toAppInventoryJson } from '../../src/runtime/feature'
 import { getOperationMetadata } from '../../src/runtime/functions'
-import { deleteProjectOperation } from '../fixtures/phase0-workspace-mcp/convex/features/projects/operations'
+import {
+  createProjectOperation,
+  deleteProjectOperation,
+} from '../fixtures/phase0-workspace-mcp/convex/features/projects/operations'
 import { appInventory } from '../fixtures/phase0-workspace-mcp/shared/app-inventory'
 
 const { useEventMock } = vi.hoisted(() => ({
@@ -45,6 +48,19 @@ function createEvent(): H3Event {
   } as unknown as H3Event
 }
 
+function listSourceFiles(root: string): string[] {
+  const files: string[] = []
+  for (const entry of readdirSync(root)) {
+    const path = resolve(root, entry)
+    if (statSync(path).isDirectory()) {
+      files.push(...listSourceFiles(path))
+      continue
+    }
+    if (/\.(?:ts|tsx)$/.test(path)) files.push(path)
+  }
+  return files
+}
+
 describe('phase0 workspace-mcp fixture', () => {
   it('builds inventory from shared descriptors and binds MCP tools without Convex implementation imports', async () => {
     const { default: deleteProjectTool } =
@@ -57,6 +73,14 @@ describe('phase0 workspace-mcp fixture', () => {
       features: ['projects'],
       operations: [
         {
+          id: 'projects.create',
+          name: 'createProject',
+          kind: 'safe',
+          feature: 'projects',
+          permissionKey: 'projects.create',
+          safety: 'bounded-write',
+        },
+        {
           id: 'projects.delete',
           name: 'deleteProject',
           kind: 'destructive',
@@ -67,6 +91,12 @@ describe('phase0 workspace-mcp fixture', () => {
       ],
     })
 
+    expect(getOperationMetadata(createProjectOperation)).toMatchObject({
+      id: 'projects.create',
+      kind: 'safe',
+      permissionKey: 'projects.create',
+      safety: 'bounded-write',
+    })
     expect(getOperationMetadata(deleteProjectOperation)).toMatchObject({
       id: 'projects.delete',
       kind: 'destructive',
@@ -85,19 +115,39 @@ describe('phase0 workspace-mcp fixture', () => {
       expect(toolSource).not.toContain('convex/features')
     }
 
+    const publicSurfaceFiles = [
+      ...listSourceFiles(resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/server/mcp')),
+      ...listSourceFiles(resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/shared')),
+      ...listSourceFiles(
+        resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/features/projects'),
+      ),
+      resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
+    ]
+
+    const mcpRuntimePath = resolve(
+      process.cwd(),
+      'tests/fixtures/phase0-workspace-mcp/server/mcp/runtime.ts',
+    )
+
+    for (const path of publicSurfaceFiles) {
+      if (path === mcpRuntimePath) continue
+      const source = readFileSync(path, 'utf8')
+      expect(source).not.toContain('src/runtime')
+    }
+
+    const runtimeSource = readFileSync(mcpRuntimePath, 'utf8')
+    expect(runtimeSource).toContain("from '@lupinum/trellis/backend'")
+    expect(runtimeSource).toContain('src/runtime/mcp/define-mcp-app')
+
     const operationRefsSource = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
       'utf8',
     )
+    expect(operationRefsSource).toContain("from '@lupinum/trellis/backend'")
     expect(operationRefsSource).toContain("from '../convex/_generated/api'")
+    expect(operationRefsSource).toContain('createProjectRef')
     expect(operationRefsSource).not.toContain('{} as never')
-
-    const mcpToolRefsSource = readFileSync(
-      resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/mcp-tool-refs.ts'),
-      'utf8',
-    )
-    expect(mcpToolRefsSource).toContain("from '../convex/_generated/api'")
-    expect(mcpToolRefsSource).toContain('projectMcpToolRef')
+    expect(operationRefsSource).not.toContain('src/runtime')
 
     const generatedApiTypes = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),

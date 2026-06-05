@@ -9,8 +9,8 @@
         </p>
         <h1 class="text-3xl font-bold mt-1">Team Workspace</h1>
         <p class="text-sm text-muted mt-2">
-          The canonical protected app: auth, tenant scoping, app-owned permissions, permission
-          context, and one small server-boundary proof.
+          The canonical explicit-lane workspace app: auth, tenant scoping, app-owned permissions,
+          permission context, and one small server-boundary proof.
         </p>
       </template>
 

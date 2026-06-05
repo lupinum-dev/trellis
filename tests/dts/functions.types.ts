@@ -1,8 +1,10 @@
-import { open } from '@lupinum/trellis/auth'
+import { definePermission } from '@lupinum/trellis/auth'
 import {
   defineOperation,
+  defineOperationDescriptor,
   defineOperationMetadata,
   executeOperationRef,
+  implementOperation,
   operationPreview,
   previewOperationRef,
   type InferOperationResult,
@@ -13,6 +15,22 @@ import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import { expectTypeOf } from 'vitest'
 
+// Intentional 0.3.0 backend type boundary coverage: descriptor implementations
+// are permission-backed and reject protected-lane guard metadata.
+
+const archivePermission = definePermission({
+  key: 'entries.archive',
+  check: true,
+})
+const archiveDescriptor = defineOperationDescriptor({
+  id: 'entries.archive',
+  kind: 'destructive',
+  args: {
+    id: v.string(),
+  },
+  permission: archivePermission,
+})
+
 const operation = defineOperation.withContext<{
   caller: () => Promise<{ id: string }>
 }>()({
@@ -22,7 +40,7 @@ const operation = defineOperation.withContext<{
   args: {
     id: v.string(),
   },
-  guard: open,
+  permission: archivePermission,
   preview: async () =>
     operationPreview({
       summary: 'Archive entry',
@@ -34,6 +52,18 @@ const operation = defineOperation.withContext<{
 expectTypeOf<InferOperationResult<typeof operation>>().toEqualTypeOf<{
   archived: true
 }>()
+
+implementOperation(archiveDescriptor, {
+  // @ts-expect-error descriptor implementations carry permission metadata, not protected-lane guards.
+  guard: true,
+  permission: archivePermission,
+  preview: async () =>
+    operationPreview({
+      summary: 'Archive entry',
+      confirm: { operation: 'entries.archive', id: 'entry_1' },
+    }),
+  handler: async () => ({ archived: true as const }),
+})
 
 const executeRef = executeOperationRef(
   operation,

@@ -13,7 +13,7 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { ensureNotProcessed, markProcessed } from './auth/idempotency'
+import { hasProcessedEvent, processDomainIdempotentEvent } from './auth/idempotency'
 import { todoCreate, todoRead } from './features/todos'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -157,7 +157,7 @@ describe('team todo example', () => {
     expect(viewerCtx?.can[todoRead.key]).toBe(true)
   })
 
-  it('returns null context and denies protected todo queries for anonymous callers', async () => {
+  it('returns null context and denies workspace todo queries for anonymous callers', async () => {
     const ctx = createCtx()
 
     await expect(ctx.raw.query(api.permissions.context.getAccessContext, {})).resolves.toBeNull()
@@ -224,13 +224,40 @@ describe('webhook idempotency', () => {
     const ctx = createCtx()
 
     await ctx.raw.run(async (innerCtx) => {
-      await markProcessed(innerCtx.db, 'evt-shared', 'webhook')
-      await expect(
-        ensureNotProcessed(innerCtx.db, 'erp-sync', 'evt-shared'),
-      ).resolves.toBeUndefined()
-      await expect(ensureNotProcessed(innerCtx.db, 'webhook', 'evt-shared')).rejects.toThrow(
-        'Event already processed.',
+      await processDomainIdempotentEvent(
+        innerCtx.db,
+        {
+          source: 'webhook',
+          eventId: 'evt-shared',
+        },
+        async () => null,
       )
+
+      await expect(hasProcessedEvent(innerCtx.db, 'erp-sync', 'evt-shared')).resolves.toBe(false)
+      await expect(hasProcessedEvent(innerCtx.db, 'webhook', 'evt-shared')).resolves.toBe(true)
+    })
+  })
+
+  it('does not record a processed event when the domain write fails', async () => {
+    const ctx = createCtx()
+
+    await ctx.raw.run(async (innerCtx) => {
+      await expect(
+        processDomainIdempotentEvent(
+          innerCtx.db,
+          {
+            source: 'webhook',
+            eventId: 'evt-failed-domain-write',
+          },
+          async () => {
+            throw new Error('domain write failed')
+          },
+        ),
+      ).rejects.toThrow('domain write failed')
+
+      await expect(
+        hasProcessedEvent(innerCtx.db, 'webhook', 'evt-failed-domain-write'),
+      ).resolves.toBe(false)
     })
   })
 

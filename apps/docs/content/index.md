@@ -11,7 +11,7 @@ Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MC
 It is an opinionated framework, not a neutral helper layer. The product surface is the canonical app shape plus the starters, generators, examples, lint rules, `doctor`, and maintained runtime contracts that reinforce it.
 
 ::callout{icon="i-lucide-arrow-right" color="neutral" to="/docs/getting-started/start-here"}
-Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the protected app path.
+Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the signed-in app path.
 ::
 
 :u-input-copy{value="pnpm dlx @lupinum/trellis init my-app"}
@@ -33,7 +33,7 @@ Build the smallest useful Trellis app: one query, one mutation, one visible live
 ::
 
 ::card{title="Build a Signed-In Todo App" icon="i-lucide-lock" to="/docs/getting-started/build-a-signed-in-todo-app"}
-Add auth, one protected query, and one protected mutation without jumping into tenancy or MCP.
+Add auth, one authenticated query, and one authenticated mutation without jumping into tenancy or MCP.
 ::
 
 ::card{title="How it works" icon="i-lucide-waypoints" to="/docs/concepts/how-it-works"}
@@ -180,7 +180,7 @@ Task-first docs for data, auth, permissions, server-side flows, uploads, and MCP
 ::
 
 ::card{title="Concepts" icon="i-lucide-waypoints" to="/docs/concepts"}
-One canonical explanation page for the protected backend model.
+One canonical explanation page for the explicit backend model.
 ::
 
 ::card{title="Reference" icon="i-lucide-book-type" to="/docs/reference"}

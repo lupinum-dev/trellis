@@ -1,3 +1,7 @@
+// Intentional 0.3.0 internal primitive: guards remain the predicate engine for
+// custom protected lanes and backend policy evaluation. New app-author signed-in
+// or workspace paths should use explicit lanes and permission metadata.
+
 export type Check<P = unknown> = (caller: P) => boolean
 export type AnyCheck<P = unknown> = Check<P> | boolean
 

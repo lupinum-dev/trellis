@@ -1113,7 +1113,7 @@ Current issue:
 
 - The server-routes docs include a code block that reads request body and calls
   `serverConvexMutation(..., { auth: 'trusted', actingFor:
-  delegateToUser({ allow: true }) })`.
+delegateToUser({ allow: true }) })`.
 - The snippet does not include a concrete route verification step before the
   trusted handoff.
 - The API reference also shows a trusted automation route shape without an
@@ -1133,7 +1133,7 @@ surrounding prose.
 Acceptance criteria:
 
 - Browser/user-initiated route snippets use `auth: 'required'` or `auth:
-  'auto'`.
+'auto'`.
 - Any snippet using `auth: 'trusted'` shows a concrete verification call before
   reading/forwarding untrusted body data.
 - Server route, webhooks-and-identity-forwarding, API reference, and
@@ -1152,7 +1152,7 @@ Current issue:
 - Example routes validate env secrets before calling the helpers, but library
   consumers can accidentally pass `process.env.SECRET ?? ''`.
 - A second-pass helper probe confirmed `isSharedSecretWebhookSignatureValid('',
-  '') === true`, `readSharedSecretWebhookBody({ signature: '', secret: '' })`
+'') === true`, `readSharedSecretWebhookBody({ signature: '', secret: '' })`
   resolves, and an HMAC signature created with `secret: ''` verifies with the
   same blank secret.
 
@@ -1286,7 +1286,7 @@ Current issue:
 - The workspace and workspace-MCP starters use `authRequired` for
   `createWorkspaceOp`.
 - The handler creates a workspace and patches the current user to `{ role:
-  'owner', workspaceId }`.
+'owner', workspaceId }`.
 - It does not reject users who already have a role or workspace. The UI hides
   onboarding after setup, but the backend mutation remains callable.
 - A second-pass probe in example 07 created a first and second workspace for

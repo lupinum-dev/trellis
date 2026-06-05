@@ -54,11 +54,17 @@ describe('@lupinum/trellis/testing', () => {
       },
     })
 
-    const identityForwarding = ctx.asCaller({
-      kind: 'user',
-      authKey: team.users.viewer.authKey,
-      subject: `auth:${team.users.viewer.authKey}`,
-    })
+    const identityForwarding = ctx.asCaller(
+      {
+        kind: 'user',
+        authKey: team.users.viewer.authKey,
+        subject: `auth:${team.users.viewer.authKey}`,
+      },
+      {
+        replayMode: 'domain-idempotency',
+        transport: 'mcp',
+      },
+    )
 
     await expect(
       identityForwarding.mutation(api.posts.create, {

@@ -290,6 +290,10 @@ type BridgeBatchResult<
 function createPublicBridgeCustomization<DataModel extends GenericDataModel, TCaller>(
   callerDefinition: CallerDefinition<AnyCtx<DataModel>, TCaller>,
   expectedFunctionRef: string,
+  purposes: {
+    mutation?: BridgeForwardingPurpose
+    action?: BridgeForwardingPurpose
+  } = {},
 ): {
   query: Customization<
     GenericQueryCtx<DataModel>,
@@ -327,7 +331,7 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TCa
         TCaller,
         GenericMutationCtx<DataModel>,
         MutationCtxWithCaller<DataModel, TCaller>
-      >(callerDefinition, expectedFunctionRef, 'mutation'),
+      >(callerDefinition, expectedFunctionRef, purposes.mutation ?? 'mutation'),
     },
     action: {
       args: {},
@@ -336,7 +340,7 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TCa
         TCaller,
         GenericActionCtx<DataModel>,
         ActionCtxWithCaller<DataModel, TCaller>
-      >(callerDefinition, expectedFunctionRef, 'action'),
+      >(callerDefinition, expectedFunctionRef, purposes.action ?? 'action'),
     },
   }
 }
@@ -349,7 +353,7 @@ function createBridgeCallerInput<
 >(
   callerDefinition: CallerDefinition<AnyCtx<DataModel>, TCaller>,
   expectedFunctionRef: string,
-  expectedPurpose: 'query' | 'mutation' | 'action',
+  expectedPurpose: BridgeForwardingPurpose,
   identityForwardingKeyOverride?: IdentityForwardingKeyInput,
 ) {
   return async (ctx: TCtx, args: Record<string, unknown>) => {
@@ -387,6 +391,10 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
   callerDefinition: CallerDefinition<AnyCtx<DataModel>, TCaller>,
   expectedFunctionRef: string,
   identityForwardingKeyOverride?: IdentityForwardingKeyInput,
+  purposes: {
+    mutation?: BridgeForwardingPurpose
+    action?: BridgeForwardingPurpose
+  } = {},
 ): {
   query: Customization<
     GenericQueryCtx<DataModel>,
@@ -428,7 +436,12 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         TCaller,
         GenericMutationCtx<DataModel>,
         MutationCtxWithCaller<DataModel, TCaller>
-      >(callerDefinition, expectedFunctionRef, 'mutation', identityForwardingKeyOverride),
+      >(
+        callerDefinition,
+        expectedFunctionRef,
+        purposes.mutation ?? 'mutation',
+        identityForwardingKeyOverride,
+      ),
     },
     action: {
       args: forwardingArgs,
@@ -437,7 +450,12 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         TCaller,
         GenericActionCtx<DataModel>,
         ActionCtxWithCaller<DataModel, TCaller>
-      >(callerDefinition, expectedFunctionRef, 'action', identityForwardingKeyOverride),
+      >(
+        callerDefinition,
+        expectedFunctionRef,
+        purposes.action ?? 'action',
+        identityForwardingKeyOverride,
+      ),
     },
   }
 }
@@ -486,6 +504,7 @@ export function createComponentBridge<
     const customization = createPublicBridgeCustomization<DataModel, TCaller>(
       callerDefinition,
       functionRef,
+      { mutation: definition.forwardingPurpose ?? 'mutation' },
     )
     const query = customQuery(builders.query, customization.query)
     return query({
@@ -518,6 +537,7 @@ export function createComponentBridge<
     const customization = createPublicBridgeCustomization<DataModel, TCaller>(
       callerDefinition,
       functionRef,
+      { mutation: definition.forwardingPurpose ?? 'mutation' },
     )
     const mutation = customMutation(builders.mutation, customization.mutation)
     return mutation({
@@ -553,6 +573,7 @@ export function createComponentBridge<
     const customization = createPublicBridgeCustomization<DataModel, TCaller>(
       callerDefinition,
       functionRef,
+      { action: definition.forwardingPurpose ?? 'action' },
     )
     const action = customAction(builders.action, customization.action)
     return action({
@@ -569,7 +590,7 @@ export function createComponentBridge<
             args as Record<string, unknown>,
             caller,
             (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
-            'action',
+            definition.forwardingPurpose ?? 'action',
             definition.component,
             functionRef,
           ) as never,
@@ -619,6 +640,7 @@ export function createComponentBridge<
       callerDefinition,
       functionRef,
       options.identityForwardingKey,
+      { mutation: definition.forwardingPurpose ?? 'mutation' },
     )
     const internalMutation = customMutation(builders.internalMutation, customization.mutation)
     return internalMutation({
@@ -655,6 +677,7 @@ export function createComponentBridge<
       callerDefinition,
       functionRef,
       options.identityForwardingKey,
+      { action: definition.forwardingPurpose ?? 'action' },
     )
     const internalAction = customAction(builders.internalAction, customization.action)
     return internalAction({
@@ -671,7 +694,7 @@ export function createComponentBridge<
             args as Record<string, unknown>,
             caller,
             (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
-            'action',
+            definition.forwardingPurpose ?? 'action',
             definition.component,
             functionRef,
           ) as never,

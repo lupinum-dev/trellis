@@ -2,7 +2,7 @@ import type { NoInfer } from '../types/type-utils.js'
 
 // Blessed first-reader Trellis MCP surface.
 //
-// `defineMcpApp` returns `{ tool: { query, mutation, operation } }` factories
+// `defineMcpApp` returns `{ tool: { query, operation } }` factories
 // that own auth, preview, confirmation, tenant binding, and result envelopes.
 // First-reader docs and examples should use these only.
 //
@@ -61,7 +61,6 @@ export type ValidateToolName<TName extends string = string> =
 
 export type {
   AnyConvexSchema,
-  DefineConvexToolOptions as DefineToolOptions,
   InferSchemaData,
   ValidateToolArgs,
   SerializableValue,
@@ -87,11 +86,10 @@ export type {
 
 export type {
   DefineMcpAppOptions,
-  McpConfirmationConfirmationInput,
+  McpConfirmationRedeemInput,
   McpConfirmationStore,
   McpConvexCaller,
   ToolOperationOptions,
-  ToolOptions,
   ValidateMcpToolOptions,
 } from './define-mcp-app.js'
 

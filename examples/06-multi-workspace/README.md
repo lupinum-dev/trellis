@@ -20,7 +20,7 @@ cleanly to one workspace, staying on Example 03 is the simpler and better design
 
 ## What this example assumes
 
-You already understand the canonical protected workspace model from
+You already understand the canonical explicit workspace model from
 [`03-team-workspace`](../03-team-workspace/README.md).
 
 ## Files to read first
@@ -85,4 +85,4 @@ workspace and that model is still serving you well.
 Related branches:
 
 - [`05-visibility-access`](../05-visibility-access/README.md) for harder authorization inside one workspace
-- [`07-mcp-reference`](../07-mcp-reference/README.md) for MCP over a protected app
+- [`07-mcp-reference`](../07-mcp-reference/README.md) for MCP over an explicit workspace app

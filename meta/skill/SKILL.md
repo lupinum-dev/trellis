@@ -34,8 +34,7 @@ code-generated Nuxt aliases.
    auto-imports, the relevant `src/runtime/**/index.ts` barrel for exported
    symbols, and tests when older patterns may have been intentionally rejected.
 4. Prefer hard cutovers in this repo. Delete or replace stale Trellis patterns
-   instead of adding compatibility shims, wrapper aliases, or parallel policy
-   paths.
+   instead of adding old-path shims, wrapper aliases, or parallel policy paths.
 5. Keep app authorization in Trellis handler phases (`guard`, `load`,
    `authorize`, `handler`). Do not create browser-side policy engines, DB-policy
    substitutes, or webhook/MCP bypasses.

@@ -19,7 +19,7 @@ const AUTH_USER = {
   email: 'auth@test.com',
 }
 const ENSURE_USER_MUTATION = mockFnRef<'mutation'>('auth:createUserIfNeeded')
-const TODOS_QUERY = mockFnRef<'query'>('todos:list')
+const TASK_LIST_QUERY = mockFnRef<'query'>('todos:list')
 
 function initAuthEngine(options?: Parameters<typeof installMockAuthEngine>[0]) {
   installMockAuthEngine({
@@ -264,7 +264,7 @@ describe('useBetterAuthActions (Nuxt runtime)', () => {
         const todoArgs = computed(() =>
           auth.isAuthenticated.value && bootstrap.value.ensured ? {} : undefined,
         )
-        const todos = createConvexQueryState(TODOS_QUERY, todoArgs, {}, true).resultData
+        const todos = createConvexQueryState(TASK_LIST_QUERY, todoArgs, {}, true).resultData
 
         return { auth, actions, bootstrap, todos }
       },
@@ -273,7 +273,7 @@ describe('useBetterAuthActions (Nuxt runtime)', () => {
 
     expect(result.auth.isAuthenticated.value).toBe(false)
     expect(result.bootstrap.value.ensured).toBe(false)
-    expect(convex.activeListenerCount(TODOS_QUERY, {})).toBe(0)
+    expect(convex.activeListenerCount(TASK_LIST_QUERY, {})).toBe(0)
 
     await expect(
       result.actions.execute(async () => ({ data: { user: { id: 'u-auth' } }, error: null })),
@@ -283,9 +283,9 @@ describe('useBetterAuthActions (Nuxt runtime)', () => {
     await waitFor(() => convex.calls.mutation.length === 1)
     await waitFor(() => result.bootstrap.value.ensured === true)
     await flush()
-    await waitFor(() => convex.calls.onUpdate.some((call) => call.query === TODOS_QUERY))
+    await waitFor(() => convex.calls.onUpdate.some((call) => call.query === TASK_LIST_QUERY))
 
-    convex.emitQueryResult(TODOS_QUERY, {}, [{ _id: 't1', title: 'First todo' }])
+    convex.emitQueryResult(TASK_LIST_QUERY, {}, [{ _id: 't1', title: 'First todo' }])
     await waitFor(() => result.todos.data.value?.length === 1)
 
     expect(result.todos.data.value).toEqual([{ _id: 't1', title: 'First todo' }])

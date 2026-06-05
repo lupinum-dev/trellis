@@ -565,13 +565,39 @@ describe('server Convex fetch helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('transport proof rejects operation-confirmation replay for normal mutations before the request is sent', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
+
+    await expect(
+      serverConvexQuery(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        { title: 'From webhook' } as never,
+        {
+          auth: transportProof.server({
+            caller: {
+              kind: 'agent',
+              agentId: 'assistant',
+              subject: 'agent:assistant',
+            },
+            replay: operationConfirmation({ jti: 'confirmation-jti-1' }),
+          }),
+        },
+      ),
+    ).rejects.toThrow(/operation-confirmation replay is only valid for operation-execute/i)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('transport proof rejects purpose mismatches before the request is sent', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
 
     await expect(
-      serverConvexMutation(
+      serverConvexQuery(
         createEvent(),
         { _path: 'tasks:create' } as never,
         { title: 'From webhook' } as never,
@@ -582,12 +608,12 @@ describe('server Convex fetch helpers', () => {
               userId: 'user_admin',
               subject: 'user:user_admin',
             },
-            purpose: 'operation-preview',
+            purpose: 'operation-execute',
             replay: domainIdempotency({ key: 'webhook-delivery-1', target: 'tasks:create' }),
           }),
         },
       ),
-    ).rejects.toThrow(/purpose "operation-preview" is not valid for mutation/i)
+    ).rejects.toThrow(/purpose "operation-execute" is not valid for query/i)
 
     expect(fetchMock).not.toHaveBeenCalled()
   })

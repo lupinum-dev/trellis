@@ -5,6 +5,9 @@ import {
   stableSecurityContractString,
 } from '../../scripts/lib/security-contract.mjs'
 
+// Intentional 0.3.0 security contract coverage: deleted public symbols appear
+// here only as banned-export assertions.
+
 describe('security contract generator', () => {
   it('collects the Phase A security contract from source-controlled facts', () => {
     const contract = collectSecurityContract(process.cwd())
@@ -33,6 +36,7 @@ describe('security contract generator', () => {
     expect(contract.securityRuntimeProofs).toContain('tests/unit/auth-index.test.ts')
     expect(contract.securityRuntimeProofs).toContain('tests/unit/auth-proxy-handler.server.test.ts')
     expect(contract.securityRuntimeProofs).toContain('tests/unit/cli-add-resource.test.ts')
+    expect(contract.securityRuntimeProofs).toContain('tests/unit/server-convex-utils.test.ts')
     expect(contract.securityRuntimeProofs).toContain('tests/unit/server-boundaries.test.ts')
     expect(contract.securityRuntimeProofs).toContain('tests/unit/operation-ref-codegen.test.ts')
     expect(contract.securityRuntimeProofs).toContain(

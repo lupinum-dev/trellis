@@ -121,7 +121,7 @@ Rule of thumb:
 - `tests/support/nuxt`: composable/runtime capture helpers and mock Convex client utilities
 - `tests/support/e2e`: managed local Convex, managed Nuxt dev server, ports, HTTP helpers, MCP helpers
 - `tests/support/unit`: shared unit-test harnesses and validation helpers
-- `tests/support/browser`: browser shims for Vitest aliases
+- `tests/support/browser`: browser alias helpers for Vitest
 
 ## Managed E2E
 

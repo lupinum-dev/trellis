@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useRouter } from '#imports'
 
-import routeProtectionMiddleware from '../../src/runtime/auth/middleware/route-protection.global'
 import type { ClientAuthStateResult } from '../../src/runtime/auth/client/auth-engine'
+import routeProtectionMiddleware from '../../src/runtime/auth/middleware/route-protection.global'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { createDeferred } from '../support/unit/deferred'
@@ -64,8 +64,6 @@ describe('route protection middleware', () => {
 
     await result.middlewarePromise
     expect(result.pending.value).toBe(false)
-    expect(result.pushSpy).toHaveBeenCalledWith(
-      '/auth/signin?redirect=%2Fdashboard%3Ftab%3Dteam',
-    )
+    expect(result.pushSpy).toHaveBeenCalledWith('/auth/signin?redirect=%2Fdashboard%3Ftab%3Dteam')
   })
 })

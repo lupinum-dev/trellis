@@ -17,8 +17,10 @@ functions, the server may need to forward a trusted identity envelope with:
 - the represented user, when acting for a user
 - the server-only identity forwarding key
 
-Apps currently repeat branching around `createServerConvexCaller(event, { auth: 'trusted', caller,
-actingFor })`. Small mistakes can change who Convex thinks is calling.
+Apps previously repeated branching around raw trusted server calls. In 0.3,
+forwarded identity must flow through verifier-produced `transportProof.*(...)`
+objects. Small mistakes can still change who Convex thinks is calling, so the
+MCP helper stays narrow and owns proof-object construction.
 
 ## Before
 
@@ -27,9 +29,14 @@ Each MCP runtime resolves anonymous versus agent versus acting-for behavior by h
 ```ts
 const convex = caller
   ? createServerConvexCaller(event, {
-      auth: 'trusted',
-      caller,
-      ...(actingFor ? { actingFor } : {}),
+      auth: transportProof.mcp({
+        caller,
+        ...(actingFor ? { actingFor } : {}),
+        replay: domainIdempotency({
+          key: requestId,
+          target,
+        }),
+      }),
     })
   : createServerConvexCaller(event, { auth: 'none' })
 ```
@@ -67,7 +74,7 @@ function createMcpConvexCaller(event: H3Event, options: McpConvexCallerOptions)
 Rules:
 
 - `caller: null` uses `auth: 'none'`
-- caller present uses `auth: 'trusted'`
+- caller present uses `auth: transportProof.mcp(...)`
 - `actingFor` is included only when present
 - forwarded identity requires a caller
 - identity forwarding key is read through the existing server-only path

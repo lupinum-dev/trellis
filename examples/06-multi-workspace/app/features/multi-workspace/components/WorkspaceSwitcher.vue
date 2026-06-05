@@ -22,7 +22,6 @@
         </UBadge>
       </UButton>
     </div>
-
   </UCard>
 </template>
 

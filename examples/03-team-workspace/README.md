@@ -2,7 +2,7 @@
 
 ## What this example is for
 
-The canonical Trellis protected app.
+The canonical Trellis explicit-lane workspace app.
 
 If someone asks, “How do I build a normal team app with Trellis?”, this is the example to open.
 It is the default single-workspace reference for the repo.
@@ -13,8 +13,8 @@ It is the default single-workspace reference for the repo.
 - roles, guards, and access context
 - `_can`-driven frontend recordAccess checks
 - root shell plus `convex/features/*` and `app/features/*`
-- protected handler shape for a normal team app
-- the canonical `guard -> load -> authorize -> handler` split when a decision depends on a record
+- explicit workspace handler shape for a normal team app
+- the canonical `permission/custom record check -> load -> authorize -> handler` split when a decision depends on a record
 - one small server-boundary proof: webhook idempotency with a route-owned signature plus identity forwarding actingFor
 
 ## What this example assumes
@@ -54,13 +54,13 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_IDENTITY_FORWARDING_KEY`: shared secret for identity forwarding from the webhook route into Convex
+- `CONVEX_IDENTITY_FORWARDING_KEY`: signing key for identity forwarding from the webhook route into Convex
 - `TEAM_TODO_WEBHOOK_SECRET`: HMAC webhook route signature secret
 
 ## Production notes
 
 - This example keeps the route boundary intentionally small: timestamped HMAC verification plus a
-  short-lived delegation binding forwarded into the protected mutation.
+  short-lived delegation binding forwarded into the backend mutation.
 - Replay protection is demonstrated in the app layer, not just at the route edge. The webhook
   mutation stores workspace-scoped processed event ids with the business write so external retries
   stay safe.
@@ -77,7 +77,7 @@ schema.
 
 ## When to stop here / move on
 
-Stop here for most protected apps.
+Stop here for most workspace apps.
 
 Move to [`04-saas-platform`](../04-saas-platform/README.md) when you want to see Nitro routes,
 uploads, and other server boundaries on top of the same workspace model.

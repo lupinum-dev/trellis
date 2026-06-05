@@ -73,7 +73,7 @@ const { data, isStale } = await useConvexQuery(
 - `server: false`: skip SSR for non-critical client-only data.
 - `default`: seed placeholder data.
 - `transform`: derive a view of returned data; keep default and result shapes
-  compatible.
+  aligned.
 
 Use `executeConvexQuery()` when there is no need for composable state,
 subscription, or Vue lifecycle integration. It is a Nuxt auto-import, not a

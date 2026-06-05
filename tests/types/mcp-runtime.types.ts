@@ -2,12 +2,11 @@ import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 
+import { operation as appOperation, operationPreview } from '../../src/runtime/app'
 import { defineArgs } from '../../src/runtime/args'
-import { definePermission, open } from '../../src/runtime/auth'
+import { definePermission } from '../../src/runtime/auth'
 import {
-  defineOperation,
   executeOperationRef,
-  operationPreview,
   previewOperationRef,
   type OperationPreviewEnvelope,
 } from '../../src/runtime/functions'
@@ -73,14 +72,14 @@ runtime.tool.query({
 // @ts-expect-error Direct action projection is intentionally unavailable; use tool.operation(...)
 const _actionProjectionUnavailable: never = runtime.tool.action
 
-const archiveEntryOp = defineOperation({
+const archiveEntryOp = appOperation.destructive({
   id: 'entries.archive',
   name: 'archiveEntry',
-  kind: 'destructive',
   args: {
     id: v.string(),
   },
-  guard: open,
+  permission: publishEntryPermission,
+  safety: 'destructive-write',
   preview: async (): Promise<
     OperationPreviewEnvelope<{
       operation: 'entries.archive'

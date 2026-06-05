@@ -62,10 +62,7 @@ export default defineEventHandler(async (event) => {
       }
 
       return parsed as Required<
-        Pick<
-          RunbookWebhookBody,
-          'workspaceId' | 'targetUserId' | 'title' | 'summary' | 'content'
-        >
+        Pick<RunbookWebhookBody, 'workspaceId' | 'targetUserId' | 'title' | 'summary' | 'content'>
       > &
         RunbookWebhookBody
     },

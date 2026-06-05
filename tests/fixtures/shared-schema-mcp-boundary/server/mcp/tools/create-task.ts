@@ -1,9 +1,11 @@
-import { defineTool } from '../../../../../../src/runtime/mcp/advanced'
-import { createTask } from '../../../shared/task'
+import { z } from 'zod'
 
-export default defineTool({
+import { defineMcpTool } from '#trellis/mcp/advanced'
+
+export default defineMcpTool({
   name: 'create-task',
-  schema: createTask,
-  effect: 'read',
-  handler: async (args) => args.title,
+  inputSchema: {
+    title: z.string(),
+  },
+  handler: async ({ title }) => title,
 })

@@ -9,6 +9,8 @@ import {
   securitySourcePolicyRoots,
 } from './security-source-policy.mjs'
 
+// Intentional 0.3.0 security contract data: banned public export names are kept
+// here only as generated-contract assertions.
 const sourceRoots = ['apps/harness', 'examples', 'src/cli/starter-fixtures']
 const sourceExtensions = /\.(?:ts|tsx|vue)$/
 const ignoredPathFragments = ['/_generated/', '/node_modules/', '/.nuxt/', '/.output/', '/dist/']
@@ -54,6 +56,7 @@ function trackedSourceFiles(repoRoot) {
     .filter((filePath) =>
       sourceRoots.some((root) => filePath === root || filePath.startsWith(`${root}/`)),
     )
+    .filter((filePath) => existsSync(path.resolve(repoRoot, filePath)))
     .filter((filePath) => sourceExtensions.test(filePath))
     .filter((filePath) => !ignoredPathFragments.some((fragment) => filePath.includes(fragment)))
     .sort((a, b) => a.localeCompare(b))
@@ -455,6 +458,7 @@ function collectSecurityRuntimeProofs() {
     'tests/unit/cli-add-resource.test.ts',
     'tests/unit/define-convex-tool.test.ts',
     'tests/unit/mcp-convex-caller.test.ts',
+    'tests/unit/server-convex-utils.test.ts',
     'tests/unit/server-index-exports.test.ts',
     'tests/unit/backend-index-exports.test.ts',
     'tests/unit/mcp-index-exports.test.ts',

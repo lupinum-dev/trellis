@@ -3,7 +3,7 @@ import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const deletedLegacyDirs = [
+const removedTemplateDirs = [
   resolve(rootDir, 'dist/templates'),
   resolve(rootDir, 'dist/cli/templates'),
 ]
@@ -21,8 +21,8 @@ const copyPairs = [
   },
 ]
 
-for (const legacyDir of deletedLegacyDirs) {
-  rmSync(legacyDir, { force: true, recursive: true })
+for (const removedDir of removedTemplateDirs) {
+  rmSync(removedDir, { force: true, recursive: true })
 }
 
 function copyDirectoryAtomically(sourceDir, destDir) {

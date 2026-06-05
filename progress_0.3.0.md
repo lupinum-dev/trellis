@@ -1,6 +1,6 @@
 # Trellis 0.3.0 Implementation Progress
 
-Status: Active
+Status: Refactor and release-prep acceptance proven
 Started: 2026-06-04
 Scope source: `0.3.0.md`
 
@@ -17,37 +17,37 @@ Scope source: `0.3.0.md`
 
 ## Phase Status
 
-| Phase                                                 | Status | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase -1: Prove risky mechanics                       | Active | Source-policy, raw DB, cross-tenant, and public DB runtime proofs have passing focused evidence                                                                                                                                                                                                                                                                                                                                                                                  |
-| Phase 0: Freeze unsafe growth                         | Active | Source-policy, packed export gate, focused runtime security proofs, cross-tenant ban, touched example typechecks, maintained examples doctor, starter fixture doctor, and `test:security` wiring pass; broader release gates still pending                                                                                                                                                                                                                                       |
-| Phase 1: Backend authority cutover                    | Active | `authenticated` and `workspace` backend lanes now exist with focused runtime proof; production-copyable workspace bootstrap and direct CLI operation scaffolds now use guardless app operations registered through `mutation.authenticated(...)`; `workspace(...)` now requires concrete permission metadata; `protected(...)` now refuses `guard: open`; duplicate permission matrix keys fail closed; broader protected operation registrations still need lane classification |
-| Phase 2: Operations, replay, trusted proofs           | Active | Opaque transport proof cutover and framework JTI replay claim/complete/fail pass focused tests; domain idempotency remains app-owned and webhook recovery is still pending                                                                                                                                                                                                                                                                                                       |
-| Phase 3: MCP cutover                                  | Active | Operation-backed consumer fixture proof now runs in `test:security`; broader release gates still pending                                                                                                                                                                                                                                                                                                                                                                         |
-| Phase 4: Webhooks, delegation, server routes          | Active | HMAC helper parse-before-idempotency, example 04 backend delivery idempotency, example 03 delegation, and example 07 MCP/webhook delegation pass focused gates                                                                                                                                                                                                                                                                                                                   |
-| Phase 5: Client auth lifecycle                        | Passed | Better Auth session sync, upstream-authoritative sign-out, stale protected navigation, auth proxy body handling, and Nuxt auth smoke have focused proof                                                                                                                                                                                                                                                                                                                          |
-| Phase 6: Examples, docs, public surface, release gate | Active | Phase A security contract exists and is wired into `test:security`; maintained examples doctor, starter fixture doctor, consumer MCP fixture proof, proof inventory, route metadata, delegation metadata, webhook verifier metadata, and service replay/audit metadata pass; broader docs/release gates remain                                                                                                                                                                   |
+| Phase                                                 | Status | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase -1: Prove risky mechanics                       | Passed | Source-policy, raw DB, cross-tenant, and public DB runtime proofs have passing focused evidence                                                                                                                                                                                                                                                                                                                                                   |
+| Phase 0: Freeze unsafe growth                         | Passed | Source-policy, packed export gate, focused runtime security proofs, cross-tenant ban, maintained examples doctor, starter fixture doctor, `test:security` wiring, `pnpm run check`, `pnpm run release:verify`, and `pnpm run release:pack` pass                                                                                                                                                                                                   |
+| Phase 1: Backend authority cutover                    | Passed | `authenticated` and `workspace` backend lanes now exist with focused runtime proof; production-copyable workspace bootstrap and direct CLI operation scaffolds now use guardless app operations registered through `mutation.authenticated(...)`; `workspace(...)` requires concrete permission metadata; `protected(...)` refuses `guard: open`; duplicate permission matrix keys fail closed; remaining protected/guard inventory is classified |
+| Phase 2: Operations, replay, trusted proofs           | Passed | Opaque transport proof cutover, framework JTI replay claim/complete/fail, operation confirmation replay prevention, domain-idempotent webhook writes, and failed-domain-write recovery pass focused tests and broad gates                                                                                                                                                                                                                         |
+| Phase 3: MCP cutover                                  | Passed | Operation-backed maintained tools, generated tools, and consumer fixture proof run through `test:security`; `pnpm run check`, `pnpm run release:verify`, and `pnpm run release:pack` pass                                                                                                                                                                                                                                                         |
+| Phase 4: Webhooks, delegation, server routes          | Passed | HMAC helper parse-before-idempotency, examples 03/04/07 backend delivery idempotency, delegation binding, and maintained route metadata pass focused gates and broad release gates                                                                                                                                                                                                                                                                |
+| Phase 5: Client auth lifecycle                        | Passed | Better Auth session sync, upstream-authoritative sign-out, stale protected navigation, auth proxy body handling, and Nuxt auth smoke have focused proof                                                                                                                                                                                                                                                                                           |
+| Phase 6: Examples, docs, public surface, release gate | Passed | Phase A security contract is wired into `test:security`; maintained examples doctor, starter fixture doctor, consumer MCP fixture proof, proof inventory, route metadata, delegation metadata, webhook verifier metadata, service replay/audit metadata, docs production build, `pnpm run check`, `pnpm run release:verify`, and `pnpm run release:pack` pass; release metadata, compatibility metadata, and release notes are aligned on `0.3.0` |
 
 ## Proof Spike Ledger
 
-| Spike                    | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                     | Next step                                                                                        |
-| ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Raw DB removal           | Passed | Handler-visible `ctx.db` no longer carries raw DB by reference, symbol, or descriptor; destructive internals still pass tests                                                                                                                                                                                                                                                | Remove `escapeIsolation` normal-lane API in cross-tenant capability spike                        |
-| Public-safe DB facade    | Passed | Public `ctx.db` is read-only and table-limited; public writes require operation-backed `publicWrite` narrow methods and emit `db.public_write.used`                                                                                                                                                                                                                          | Keep regression coverage while moving to trusted proof/replay work                               |
-| Strict evaluator         | Passed | Core auth and MCP checks require exact boolean results                                                                                                                                                                                                                                                                                                                       | Covered by expanded `test:security`; keep release gates green                                    |
-| Cross-tenant capability  | Passed | Normal handler `ctx.db` no longer exposes `escapeIsolation`; named `crossTenant` capabilities are table-limited, read-only by default, and write mode requires operation metadata                                                                                                                                                                                            | Keep policy gate banning generic escape hatches and continue with public-safe DB facade proof    |
-| Service subject          | Passed | Examples 03 and 07 configure webhook services as derived, table-restricted access scoped from `workspaceId`; core runtime proves unconfigured services fail before handler execution, unlisted tables deny with an observation event, and service callers cannot enter undeclared function refs; security contract and doctor now require replay/audit metadata              | Keep maintained example service metadata and target-scope proofs green                           |
-| Trusted proof            | Passed | Server/MCP forwarding now uses branded `transportProof.*(...)`; raw `auth: 'trusted'` rejects before fetch; source policy scans the server helper                                                                                                                                                                                                                            | Keep proof-object coverage while finishing webhook/delegation lanes                              |
-| Replay store             | Active | `jti-redemption` and `operation-confirmation` envelopes carry signed replay mode and use `trustedReplay` to claim before handler execution, then mark `completed` or `failed`; duplicate JTI tests execute the handler once; the security contract now inventories maintained example route-retry and backend duplicate-delivery proofs                                      | Decide whether webhook recovery needs framework support before marking complete                  |
-| Webhook idempotency      | Active | `verifyHmacWebhookDelivery(...)` reads raw body once, rejects blank/stale/tampered deliveries, parses before idempotency; examples 03, 04, and 07 store delivery/idempotency rows with the business write; maintained example idempotency/retry proofs and verifier canonicalization metadata are now contract-visible                                                       | Keep maintained example proof inventory in `test:security` while finishing replay/audit metadata |
-| Delegation binding       | Passed | `delegateToUser` is replaced by required binding evidence; examples 03 and 07 create short-lived bindings and Convex revalidates service/user/workspace/purpose/expiry before writing; doctor verifies maintained examples do not forward raw callers outside `transportProof.*(...)`; docs/API reference and maintained-example forged/expired/wrong-binding coverage exist | Keep delegation docs and maintained example tests green                                          |
-| MCP operation migration  | Passed | Production-copyable MCP write tools, generated resource MCP create/delete tools, and consumer-style workspace MCP fixture tools use operation-backed bindings without public tool-local safety stamping                                                                                                                                                                      | Keep scaffold and starter proofs in `test:security`                                              |
-| Better Auth sync         | Passed | Better Auth `$sessionSignal` is observed by the auth transport, routed through `authEngine.refreshAuth({ trigger: 'auth-session-signal' })`, and focused tests prove fresh-token adoption and stale-token clearing                                                                                                                                                           | Keep Nuxt auth smoke green                                                                       |
-| Sign-out ordering        | Passed | Local logout now commits only after upstream Better Auth sign-out succeeds; failed upstream logout keeps the existing session represented with an auth error and skips local invalidation                                                                                                                                                                                    | Keep Nuxt auth smoke green                                                                       |
-| Protected navigation     | Passed | Route middleware waits for session-driven refresh before deciding protected navigation and fails closed if auth remains pending                                                                                                                                                                                                                                              | Keep Nuxt auth smoke in release gates                                                            |
-| Auth proxy body handling | Passed | DELETE bodies are forwarded, non-body methods with declared bodies reject before upstream fetch, and critical auth endpoints keep method-specific 405s                                                                                                                                                                                                                       | Covered by expanded `test:security`                                                              |
-| Packed exports           | Passed | Stale `dist` failed with 25 banned public export violations; rebuilt package entries now pass packed export gate                                                                                                                                                                                                                                                             | Covered by expanded `test:security`; keep release gates green                                    |
-| Security contract        | Passed | Phase A generated contract inventories public exports, banned export absence, source-policy rules, public read tables, service subjects with replay/audit metadata, maintained example proofs, server route metadata, delegation bindings, webhook verifier metadata, backend lanes, operations, MCP tools, and runtime proof files                                          | Keep contract drift check green through release gates                                            |
+| Spike                    | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                     | Next step                                                                                     |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Raw DB removal           | Passed | Handler-visible `ctx.db` no longer carries raw DB by reference, symbol, or descriptor; destructive internals still pass tests                                                                                                                                                                                                                                                | Remove `escapeIsolation` normal-lane API in cross-tenant capability spike                     |
+| Public-safe DB facade    | Passed | Public `ctx.db` is read-only and table-limited; public writes require operation-backed `publicWrite` narrow methods and emit `db.public_write.used`                                                                                                                                                                                                                          | Keep regression coverage while moving to trusted proof/replay work                            |
+| Strict evaluator         | Passed | Core auth and MCP checks require exact boolean results                                                                                                                                                                                                                                                                                                                       | Covered by expanded `test:security`; keep release gates green                                 |
+| Cross-tenant capability  | Passed | Normal handler `ctx.db` no longer exposes `escapeIsolation`; named `crossTenant` capabilities are table-limited, read-only by default, and write mode requires operation metadata                                                                                                                                                                                            | Keep policy gate banning generic escape hatches and continue with public-safe DB facade proof |
+| Service subject          | Passed | Examples 03 and 07 configure webhook services as derived, table-restricted access scoped from `workspaceId`; core runtime proves unconfigured services fail before handler execution, unlisted tables deny with an observation event, and service callers cannot enter undeclared function refs; security contract and doctor now require replay/audit metadata              | Keep maintained example service metadata and target-scope proofs green                        |
+| Trusted proof            | Passed | Server/MCP forwarding now uses branded `transportProof.*(...)`; raw `auth: 'trusted'` rejects before fetch; source policy scans the server helper                                                                                                                                                                                                                            | Keep proof-object coverage while finishing webhook/delegation lanes                           |
+| Replay store             | Passed | `jti-redemption` and `operation-confirmation` envelopes carry signed replay mode and use `trustedReplay` to claim before handler execution, then mark `completed` or `failed`; duplicate JTI tests execute the handler once; maintained example route-retry and backend duplicate-delivery proofs are contract-visible and pass broad gates                                  | Keep replay proof inventory in `test:security` and release gates                              |
+| Webhook idempotency      | Passed | `verifyHmacWebhookDelivery(...)` reads raw body once, rejects blank/stale/tampered deliveries, parses before idempotency; examples 03, 04, and 07 store delivery/idempotency rows with the business write; maintained example idempotency/retry proofs and verifier canonicalization metadata are contract-visible and pass broad gates                                      | Keep maintained example proof inventory in `test:security` and release gates                  |
+| Delegation binding       | Passed | `delegateToUser` is replaced by required binding evidence; examples 03 and 07 create short-lived bindings and Convex revalidates service/user/workspace/purpose/expiry before writing; doctor verifies maintained examples do not forward raw callers outside `transportProof.*(...)`; docs/API reference and maintained-example forged/expired/wrong-binding coverage exist | Keep delegation docs and maintained example tests green                                       |
+| MCP operation migration  | Passed | Production-copyable MCP write tools, generated resource MCP create/delete tools, and consumer-style workspace MCP fixture tools use operation-backed bindings without public tool-local safety stamping                                                                                                                                                                      | Keep scaffold and starter proofs in `test:security`                                           |
+| Better Auth sync         | Passed | Better Auth `$sessionSignal` is observed by the auth transport, routed through `authEngine.refreshAuth({ trigger: 'auth-session-signal' })`, and focused tests prove fresh-token adoption and stale-token clearing                                                                                                                                                           | Keep Nuxt auth smoke green                                                                    |
+| Sign-out ordering        | Passed | Local logout now commits only after upstream Better Auth sign-out succeeds; failed upstream logout keeps the existing session represented with an auth error and skips local invalidation                                                                                                                                                                                    | Keep Nuxt auth smoke green                                                                    |
+| Protected navigation     | Passed | Route middleware waits for session-driven refresh before deciding protected navigation and fails closed if auth remains pending                                                                                                                                                                                                                                              | Keep Nuxt auth smoke in release gates                                                         |
+| Auth proxy body handling | Passed | DELETE bodies are forwarded, non-body methods with declared bodies reject before upstream fetch, and critical auth endpoints keep method-specific 405s                                                                                                                                                                                                                       | Covered by expanded `test:security`                                                           |
+| Packed exports           | Passed | Stale `dist` failed with 25 banned public export violations; rebuilt package entries now pass packed export gate                                                                                                                                                                                                                                                             | Covered by expanded `test:security`; keep release gates green                                 |
+| Security contract        | Passed | Phase A generated contract inventories public exports, banned export absence, source-policy rules, public read tables, service subjects with replay/audit metadata, maintained example proofs, server route metadata, delegation bindings, webhook verifier metadata, backend lanes, operations, MCP tools, and runtime proof files                                          | Keep contract drift check green through release gates                                         |
 
 ## Implementation Log
 
@@ -2380,8 +2380,8 @@ server/api/webhook.post.test.ts` in `examples/03-team-workspace` passed:
 - Added explicit `requireAuth(...)` narrowing before touched handlers read user
   id or publish permissions.
 - Kept the runbook webhook creation mutation on the protected lane for a
-  separate webhook transport cutover; it uses `identityForwardingTransport:
-  'webhook'` and validates `args.workspaceId` inside the handler.
+  separate webhook transport cutover; it still validates `args.workspaceId`
+  inside the handler.
 - Regenerated `security-contract.generated.json`; the contract no longer lists
   runbook workspace UI/destructive protected backend lane entries and records
   those operations as guardless.
@@ -2807,3 +2807,3388 @@ server/api/webhook.post.test.ts` in `examples/03-team-workspace` passed:
 - Current state:
   - Public-surface and explain fixtures no longer normalize protected/guard as
     the default operation projection model.
+
+### 2026-06-05 Operation Descriptor Permission Fixture Cutover
+
+- Cut over `tests/unit/operation-descriptor.test.ts` from operation `guard`
+  fixtures to operation `permission` fixtures.
+- The descriptor tests now exercise operation permission metadata and descriptor
+  drift checks without keeping stale guard-normalized operation fixtures.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-descriptor.test.ts`
+    passed: 1 file / 7 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/operation-descriptor.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/operation-descriptor.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/operation-descriptor.test.ts` no longer contains operation
+    `guard:` fixtures.
+
+### 2026-06-05 Feature Inventory Permission Fixture Cutover
+
+- Cut over the operation-definition inventory fixture in
+  `tests/unit/feature-compose.test.ts` from operation `guard` metadata to
+  operation `permission` metadata.
+- Left custom protected-lane/runtime guard coverage untouched; this slice only
+  removes stale normal-path fixture style from feature inventory tests.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/feature-compose.test.ts`
+    passed: 1 file / 11 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/feature-compose.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/feature-compose.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/feature-compose.test.ts` no longer contains operation
+    `guard:` fixtures.
+
+### 2026-06-05 Generated Type Consumer Permission Fixture Cutover
+
+- Cut over the generated public-surface consumer fixture in
+  `tests/unit/generated-type-consumers.test.ts` from a synthetic `guard: open`
+  operation example to operation `permission` metadata.
+- Removed the fixture-only `open` constant so generated type consumer coverage
+  no longer normalizes old operation guard style.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/generated-type-consumers.test.ts`
+    passed: 1 file / 2 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/generated-type-consumers.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/generated-type-consumers.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/generated-type-consumers.test.ts` no longer contains operation
+    `guard:` fixtures.
+
+### 2026-06-05 App Entrypoint Guardless Operation Fixture Cutover
+
+- Cut over beginner operation-ladder fixtures in
+  `tests/unit/app-index-exports.test.ts` so app operations no longer pass
+  `guard: open` as normal-path metadata.
+- Removed the test-only `open` import from the app entrypoint export fixture.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/app-index-exports.test.ts`
+    passed: 1 file / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/app-index-exports.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/app-index-exports.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/app-index-exports.test.ts` no longer contains operation
+    `guard:` fixtures.
+
+### 2026-06-05 MCP Operation Tool Permission Fixture Cutover
+
+- Cut over operation-first MCP tool fixtures in
+  `tests/unit/define-convex-tool.test.ts` from synthetic `guard: open`
+  operation definitions to operation `permission` metadata.
+- Added one local test access resolver for the fixture permission so these tests
+  continue proving MCP confirmation and forwarding behavior instead of failing
+  at permission visibility.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/define-convex-tool.test.ts`
+    passed: 1 file / 33 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/define-convex-tool.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/define-convex-tool.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/define-convex-tool.test.ts` no longer contains operation
+    `guard:` fixtures.
+
+### 2026-06-05 Doctor Operation Inventory Fixture Cutover
+
+- Cut over destructive-operation inventory/agreement fixtures in
+  `tests/unit/cli-doctor.test.ts` from `guard: open` and
+  `query.protected(previewOf(...))` snippets to permission-backed operation
+  metadata and authenticated preview/execute projections.
+- Kept the snippets on backend `defineOperation({ kind: 'destructive' })`
+  because this doctor inventory test intentionally exercises the backend
+  destructive-operation inventory path.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts -t "destructive operation inventory|operation/tool agreement"`
+    passed: 1 file / 2 selected tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/cli-doctor.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/cli-doctor.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/cli-doctor.test.ts` only retains old-path strings as negative
+    assertions in generator checks.
+
+### 2026-06-05 App Operation Guard Allowance Removal
+
+- Removed the app operation type allowance for `guard` from
+  `src/runtime/app/index.ts`.
+- Updated `tests/dts/app.types.ts` so app operation type examples use
+  guardless or permission-backed operation definitions, and added a negative
+  type assertion proving app operations reject protected-lane guards.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/app-index-exports.test.ts`
+    passed: 1 file / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/app/index.ts tests/dts/app.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/app/index.ts tests/dts/app.types.ts`
+    passed.
+  - A single-file TypeScript program over `tests/dts/app.types.ts` with the
+    `tsconfig.types.public.json` public path mappings passed.
+  - `CI=true pnpm run test:types:public` still fails before this slice's app
+    assertions because `tests/dts/mcp.types.ts` imports removed
+    `@lupinum/trellis/mcp/advanced` symbol `defineTool`; the direct app dts
+    check above passed.
+- Current state:
+  - `@lupinum/trellis/app` operation helpers no longer accept `guard` in their
+    public type shape.
+
+### 2026-06-05 Public DTS Operation Permission Cutover
+
+- Cut over `tests/dts/mcp.types.ts` and
+  `tests/dts/type-primitives.types.ts` from backend operation `guard: open`
+  fixtures to app operation permission fixtures.
+- Replaced the stale `@lupinum/trellis/mcp/advanced` `defineTool` type fixture
+  with the surviving advanced toolkit export `defineMcpTool`.
+- Relaxed `OperationShape.guard` to optional in
+  `src/runtime/functions/define-operation.ts` so metadata-only and app
+  operation definitions can flow through type-primitives without carrying
+  protected-lane guard metadata.
+- Verification:
+  - `CI=true pnpm run test:types:public` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-descriptor.test.ts tests/unit/feature-compose.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/app-index-exports.test.ts tests/unit/define-convex-tool.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
+    passed: 7 files / 133 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/define-operation.ts src/runtime/app/index.ts tests/dts/app.types.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/define-operation.ts src/runtime/app/index.ts tests/dts/app.types.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts`
+    passed.
+- Current state:
+  - Public dts fixtures no longer require operation `guard` fixtures for app,
+    MCP, or type-primitives operation metadata coverage.
+
+### 2026-06-05 DefineTrellis App Destructive Lane Fixture Cutover
+
+- Cut over the app destructive-operation metadata fixture in
+  `tests/unit/functions-defineTrellis.test.ts` from
+  `runtime.mutation.protected(...)` plus operation guard metadata to
+  authenticated preview/execute lanes with operation `permission` metadata.
+- Left protected-lane custom guard and destructive confirmation runtime tests in
+  the same file untouched because those intentionally cover the surviving custom
+  protected lane and confirmation internals.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 56 tests.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/functions-defineTrellis.test.ts`
+    passed.
+- Current state:
+  - App-operation metadata fixtures in `tests/unit/functions-defineTrellis.test.ts`
+    no longer use protected-lane registration for the normal app destructive
+    operation path.
+
+### 2026-06-05 ESLint Fixture Explicit Lane Cutover
+
+- Cut over unrelated "good" eslint rule fixtures in
+  `tests/unit/eslint-plugin.test.ts` from `query.protected({ guard: ... })`
+  to explicit `query.public(...)` and `query.workspace(...)` lanes.
+- Updated the appIdentity narrowing fixture to call `requireAuth(appIdentity)`
+  directly under the workspace lane.
+- Left the `guard-no-db` fixture on `mutation.protected({ guard: async ... })`
+  because that test intentionally proves the custom protected-lane guard purity
+  rule.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/eslint-plugin.test.ts`
+    passed: 1 file / 15 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/eslint-plugin.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/eslint-plugin.test.ts`
+    passed.
+- Current state:
+  - `tests/unit/eslint-plugin.test.ts` only retains protected/guard snippets for
+    the guard-specific negative lint rule.
+
+### 2026-06-05 Focused Security Validation
+
+- Ran the broader security gate after the operation permission fixture cutovers,
+  app operation guard type removal, public dts cutover, and eslint fixture
+  cutover.
+- Verification:
+  - `CI=true pnpm run check:security:contract` passed.
+  - `CI=true pnpm run check:docs:api-surface` passed.
+  - `CI=true pnpm run test:security` passed:
+    - source policy;
+    - security contract drift check;
+    - module build;
+    - packed export policy;
+    - 25 security/runtime unit files / 257 tests.
+- Current state:
+  - Security contract remains up to date after this fixture/type hard-cut pass.
+  - Packed public exports still satisfy the removed unsafe API policy.
+
+### 2026-06-05 Mini CMS Example AuthRequired Expectation Cleanup
+
+- Updated `examples/08-component-mini-cms/test/componentMiniCms.test.ts` so the
+  unauthenticated studio-list denial assertion checks for forbidden behavior
+  without naming the internal `authRequired` sentinel.
+- Verification:
+  - `pnpm exec vitest run test/componentMiniCms.test.ts` from
+    `examples/08-component-mini-cms` passed: 1 file / 10 tests.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 examples/08-component-mini-cms/test/componentMiniCms.test.ts`
+    passed.
+- Current state:
+  - Maintained example tests no longer assert `Forbidden: authRequired` as a
+    user-visible contract.
+
+### 2026-06-05 MCP Advanced DefineMcpTool Cutover
+
+- Replaced stale maintained docs, consumer-smoke fixture, and doctor custom-tool
+  fixture references to standalone `defineTool(...)` with the current
+  `defineMcpTool(...)` advanced helper.
+- Cut the doctor custom-app-write scanner, public-surface source labels,
+  explain test typing, and MCP ESLint rules over to `defineMcpTool(...)` so the
+  static-analysis path has one current custom-tool name.
+- Left the packed/source security bans for `defineTool` in place because those
+  still prove the old advanced export has not reappeared.
+- Verification:
+  - `pnpm run build:cli` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts tests/unit/cli-explain.test.ts tests/unit/eslint-plugin.test.ts`
+    passed: 3 files / 86 tests.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `node node_modules/eslint/bin/eslint.js src/cli/lib/project.ts src/cli/lib/inventory.ts src/cli/lib/inventory-findings.ts src/module-internals/public-surface-codegen.ts src/eslint/rules/mcp.ts tests/unit/cli-doctor.test.ts tests/unit/cli-explain.test.ts tests/unit/eslint-plugin.test.ts tests/fixtures/consumer-smoke/server/api/trellis-smoke.get.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/lib/project.ts src/cli/lib/inventory.ts src/cli/lib/inventory-findings.ts src/module-internals/public-surface-codegen.ts src/eslint/rules/mcp.ts tests/unit/cli-doctor.test.ts tests/unit/cli-explain.test.ts tests/unit/eslint-plugin.test.ts tests/fixtures/consumer-smoke/server/api/trellis-smoke.get.ts apps/docs/content/docs/14.mcp-tools/2.define-tools.md apps/docs/content/docs/13.api-reference/5.mcp.md`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Maintained docs/fixtures and static-analysis surfaces now refer to the
+    current advanced helper name for standalone custom MCP tools.
+
+### 2026-06-05 Phase0 Workspace MCP Fixture Operation Permission Cutover
+
+- Removed the duplicate backend operation `guard: projectDelete` from
+  `tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts`.
+- Kept `permission: projectDelete` as the single operation authorization
+  descriptor because the shared descriptor and fixture tests already assert
+  `permissionKey: 'projects.delete'`.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-ref-codegen.test.ts`
+    passed: 2 files / 5 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts`
+    passed.
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|authRequired|delegateToUser|readSharedSecretWebhookBody|stampMcpToolSafety|escapeIsolation|trellisUnsafeDb" tests/fixtures/phase0-workspace-mcp --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+- Current state:
+  - The phase0 workspace MCP fixture no longer carries old protected/guard
+    normal-path metadata.
+
+### 2026-06-05 Harness Auth-Only Operation Lane Cutover
+
+- Cut auth-only harness app operations from operation `guard` metadata plus
+  `mutation.protected(...)` to explicit lanes:
+  - `apps/harness/convex/tasks.ts` now registers `addTaskOp` through
+    `mutation.authenticated(...)`;
+  - `apps/harness/convex/comments.ts` now uses
+    `permission: commentCreatePermission` plus `mutation.workspace(...)`;
+  - `apps/harness/convex/notes.ts` now models anonymous note creation as
+    `operation.publicMutation(...)` with an explicit `publicWrite` facade and
+    registers through `mutation.public(...)`;
+  - `apps/harness/convex/posts.ts` now registers post creation through
+    `mutation.authenticated(...)` and moves identity-scoped post list/get reads
+    from `query.public(...)` to `query.authenticated(...)`.
+- Added `commentCreatePermission` to the harness permission registry and MCP
+  access snapshot so the new workspace-lane comment operation has concrete
+  permission metadata.
+- Cut `apps/harness/convex/crossTenant.ts` auth-only protected probes to
+  `query.authenticated(...)` while preserving the named `crossTenant`
+  capability proof.
+- Left `apps/harness/convex/functionsProbe.ts`, `mcpKeys.ts`, and
+  `organizations.ts` protected/guard registrations for later classification.
+- Verification:
+  - `CI=true pnpm run test:types:harness-server:prepared` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=convex --pool=threads --maxWorkers=1 --no-file-parallelism apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.test.ts apps/harness/convex/testingPackage.test.ts`
+    passed: 3 files / 30 tests.
+  - `node node_modules/eslint/bin/eslint.js apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/server/mcp/runtime.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/server/mcp/runtime.ts`
+    passed.
+- Current state:
+  - The touched harness auth-only operations and identity-scoped read probes no
+    longer use protected/guard as normal-path authorization.
+
+### 2026-06-05 Harness Post Workspace Lane Completion
+
+- Converted the remaining `apps/harness/convex/posts.ts` update, remove,
+  confirmation remove, preview remove, and publish paths from
+  `mutation.protected(...)` plus `guard: canManagePosts` to app operation
+  definitions registered through `mutation.workspace(...)`.
+- Added explicit harness permission handles for `post.update` and
+  `post.publish`; reused `post.delete` for both direct and confirmation-backed
+  deletes.
+- Replaced the backend `implementOperation(...)` confirmation delete shape with
+  an app `operation.destructive(...)` definition using the shared
+  `removePostDescriptor` id/name/validators.
+- Verification:
+  - `CI=true pnpm run test:types:harness-server:prepared` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=convex --pool=threads --maxWorkers=1 --no-file-parallelism apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.test.ts apps/harness/convex/testingPackage.test.ts`
+    passed: 3 files / 30 tests.
+  - `node node_modules/eslint/bin/eslint.js apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/server/mcp/runtime.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/server/mcp/runtime.ts`
+    passed.
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|authRequired|defineGuard|implementOperation" apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/server/mcp/runtime.ts`
+    returned no hits.
+- Current state:
+  - `apps/harness/convex/posts.ts` no longer uses protected/guard registrations.
+  - Remaining harness protected/guard hits are now limited to
+    `functionsProbe.ts`, `mcpKeys.ts`, and `organizations.ts`.
+
+### 2026-06-05 Harness Organization And MCP Key Lane Cutover
+
+- Converted `apps/harness/convex/organizations.ts` from
+  `mutation.protected(...)` plus an auth-only create guard to
+  `mutation.authenticated(...)`.
+- Moved `organizations.list` from `query.public(...)` to
+  `query.authenticated(...)` because it reads the `organizations` table and is
+  not part of the public-safe read table contract.
+- Converted `apps/harness/convex/mcpKeys.ts` from protected guard
+  registrations to:
+  - `query.authenticated(...)` for list;
+  - `operation.mutation(...)` plus `mutation.workspace(...)` for create and
+    revoke.
+- Added `mcpKeyManagePermission` to the harness permission registry and MCP
+  access snapshot.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=convex --pool=threads --maxWorkers=1 --no-file-parallelism apps/harness/convex/organizations.test.ts apps/harness/convex/mcpKeys.test.ts`
+    passed: 2 files / 6 tests.
+  - `CI=true pnpm run test:types:harness-server:prepared` passed.
+  - `node node_modules/eslint/bin/eslint.js apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/convex/organizations.ts apps/harness/convex/organizations.test.ts apps/harness/convex/mcpKeys.ts apps/harness/server/mcp/runtime.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/harness/convex/tasks.ts apps/harness/convex/comments.ts apps/harness/convex/notes.ts apps/harness/convex/auth/permissions.ts apps/harness/convex/posts.ts apps/harness/convex/posts.test.ts apps/harness/convex/crossTenant.ts apps/harness/convex/organizations.ts apps/harness/convex/organizations.test.ts apps/harness/convex/mcpKeys.ts apps/harness/server/mcp/runtime.ts`
+    passed.
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|authRequired|delegateToUser|readSharedSecretWebhookBody|stampMcpToolSafety|escapeIsolation|trellisUnsafeDb" apps/harness --glob '!node_modules/**' --glob '!dist/**'`
+    now returns only `apps/harness/convex/functionsProbe.ts`.
+- Current state:
+  - The harness app surface no longer has stale protected/guard normal-path
+    handlers outside the intentional `functionsProbe.ts` custom protected-lane
+    runtime probes.
+
+### 2026-06-05 Backend DTS Open Guard Fixture Cleanup
+
+- Replaced the `guard: open` fixture in `tests/dts/functions.types.ts` with a
+  named custom `defineGuard(...)` fixture.
+- Tried cutting this backend `defineOperation(...)` fixture to operation
+  `permission` metadata, but `CI=true pnpm run test:types:public` proved that
+  the backend operation surface still requires a `guard`; app-operation
+  permission metadata is covered in the app/type-primitives DTS fixtures.
+- Verification:
+  - `CI=true pnpm run test:types:public` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/dts/functions.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/dts/functions.types.ts`
+    passed.
+  - `rg -n "guard:\\s*open|authRequired|open" tests/dts/functions.types.ts`
+    returned no hits.
+- Current state:
+  - `tests/dts/functions.types.ts` remains backend custom-guard type coverage
+    without teaching the banned `guard: open` path.
+
+### 2026-06-05 MCP Runtime Type Open Guard Fixture Cleanup
+
+- Replaced the destructive operation `guard: open` fixture in
+  `tests/types/mcp-runtime.types.ts` with a named custom `defineGuard(...)`
+  fixture.
+- Left `tests/types/authenticated-guard.types.ts` untouched because it
+  intentionally proves handler context narrowing for `open`, `authRequired`,
+  and custom guards.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/types/mcp-runtime.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/types/mcp-runtime.types.ts`
+    passed.
+  - `rg -n "guard:\\s*open|authRequired|open" tests/types/mcp-runtime.types.ts`
+    returned no hits.
+- Current state:
+  - `tests/types/mcp-runtime.types.ts` remains backend/MCP custom-guard type
+    coverage without using the banned open guard fixture.
+
+### 2026-06-05 MCP Tool Safety Fixture Descriptor Cutover
+
+- Replaced the remaining direct `stampMcpToolSafety(...)` calls in
+  `tests/unit/define-convex-tool.test.ts` with
+  `defineMcpToolRefDescriptor(...)` plus `projectMcpToolRef(...)`.
+- Kept direct `stampMcpToolSafety(...)` only in
+  `src/runtime/mcp/operation-binding.ts`, where it is the internal projection
+  implementation used by `projectMcpToolRef(...)`, and in security/export
+  guardrail strings that assert the public unsafe helper does not reappear.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/define-convex-tool.test.ts`
+    passed: 1 file / 33 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/define-convex-tool.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/define-convex-tool.test.ts`
+    passed after formatting.
+  - `rg -n "stampMcpToolSafety" tests/unit/define-convex-tool.test.ts`
+    returned no hits.
+- Current state:
+  - MCP tool tests use descriptor projection for direct mutation safety instead
+    of calling the low-level stamper fixture directly.
+
+### 2026-06-05 Internal Skill Reference Hard-Cut Cleanup
+
+- Cut over stale internal skill references in `meta/skill/references` so future
+  local guidance no longer teaches removed 0.2-era normal paths:
+  - replaced raw `auth: 'trusted'` server/MCP guidance with
+    verifier-produced `transportProof.*(...)` auth plus replay intent;
+  - removed `delegateToUser` from the documented server helper surface and
+    pointed acting-for flows at `requireDelegationBinding(...)`;
+  - replaced low-level MCP `defineTool(...)` naming with
+    `defineMcpTool(...)`;
+  - replaced the backend reference's `mutation.protected(...)` plus `guard`
+    canonical handler with `mutation.workspace(...)` plus `permission`;
+  - replaced normal `ctx.db.escapeIsolation(...)` guidance with
+    definition-visible `crossTenant` capabilities;
+  - classified `authRequired` and `open` as internal/runtime sentinels, not
+    public app-author primitives.
+- Verification:
+  - `rg -n "guard:\\s*open|stampMcpToolSafety|defineTool|escapeIsolation|query\\.protected|mutation\\.protected|action\\.protected|authRequired|delegateToUser|auth:\\s*'trusted'|readSharedSecretWebhookBody" meta/skill/references apps/docs tests/types tests/dts --glob '!node_modules/**' --glob '!dist/**'`
+    now returns only intentional custom protected-lane docs, explicit
+    `authRequired` anti-guidance, and the
+    `tests/types/authenticated-guard.types.ts` narrowing fixture.
+- Current state:
+  - `meta/skill/references` no longer contains stale normal-path
+    `auth: 'trusted'`, `delegateToUser`, `escapeIsolation`,
+    `mutation.protected(...)`, or low-level MCP `defineTool(...)` guidance.
+
+### 2026-06-05 Escape Isolation ESLint Rule Removal
+
+- Deleted the obsolete `@lupinum/trellis/escape-isolation-requires-reason`
+  ESLint rule and removed it from the recommended config.
+- Removed the test fixture that treated `ctx.db.escapeIsolation({})` as a
+  repairable lint issue. Normal handler `ctx.db` no longer exposes
+  `escapeIsolation`, and production-copyable source is covered by the stronger
+  source-policy ban, so keeping a "just add a reason" lint rule preserved the
+  wrong path.
+- Verification:
+  - `rg -n "escape-isolation-requires-reason|reasons on isolation escapes|escapeIsolation\\(\\{\\}\\)|escapeIsolation" src/eslint tests/unit/eslint-plugin.test.ts`
+    returned no hits.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/eslint-plugin.test.ts`
+    passed: 1 file / 15 tests.
+  - `node node_modules/eslint/bin/eslint.js src/eslint/rules/isolation.ts src/eslint/rules/index.ts tests/unit/eslint-plugin.test.ts`
+    passed.
+- Current state:
+  - The ESLint plugin no longer offers a weaker compatibility-style
+    `escapeIsolation` reason rule; source policy remains the enforcement path
+    for the removed normal-lane API.
+
+### 2026-06-05 Escape Isolation Doctor Finding Hard-Fail Cutover
+
+- Changed the CLI doctor cross-scope escape finding from an advanced pass-only
+  inventory to a core failure when deleted `ctx.db.escapeIsolation(...)` usage
+  is present.
+- Updated the doctor regression fixture so the unsafe permit inventory still
+  passes as review inventory, while generic `escapeIsolation` usage fails with
+  a `crossTenant` migration hint.
+- Verification:
+  - `pnpm run build:cli` passed after the doctor implementation change.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts -t "unsafe inventory and fails deleted cross-scope escapes"`
+    passed: 1 selected test.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts`
+    passed: 1 file / 62 tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/lib/inventory-findings.ts tests/unit/cli-doctor.test.ts`
+    passed.
+  - `rg -n 'No \`ctx\\.db\\.escapeIsolation|Review each isolation escape|No action needed unless the app adds cross-scope|escape-isolation-requires-reason|reasons on isolation escapes' src tests apps/docs meta/skill/references --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - CLI doctor now treats `ctx.db.escapeIsolation(...)` as a deleted API to
+    remove, not an advanced escape hatch to review with a reason string.
+
+### 2026-06-05 MCP Direct Mutation First-Reader Guidance Cutover
+
+- Removed `tool.mutation(...)` as normal first-reader MCP write guidance from:
+  - concepts call-pattern docs;
+  - MCP getting-started docs;
+  - MCP define-tools docs;
+  - generated starter AGENTS files;
+  - internal server/MCP skill reference.
+- Reframed MCP writes as operation-backed by default so permission, replay,
+  preview, and audit metadata remain backend-owned.
+- Kept the API/reference docs honest that `tool.mutation(...)` still exists as
+  a narrow advanced bounded-write lane for backend-stamped refs, without
+  presenting it as the app-write path.
+- Updated starter AGENTS guidance from generic protected signed-in handlers to
+  explicit `authenticated(...)` and `workspace(...)` lanes.
+- Verification:
+  - `rg -n 'tool\\.mutation|mcp\\.tool\\.mutation|protected handlers for signed-in|bounded writes through|Bounded writes via' apps/docs/content/docs/02.concepts apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/14.mcp-tools src/cli/starter-fixtures meta/skill/references/server-mcp.md`
+    now returns only the API/reference advanced bounded-write mentions.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/docs/content/docs/02.concepts/4.call-patterns.md apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/14.mcp-tools/1.getting-started.md apps/docs/content/docs/14.mcp-tools/2.define-tools.md src/cli/starter-fixtures/public/AGENTS.md src/cli/starter-fixtures/personal/AGENTS.md src/cli/starter-fixtures/workspace/AGENTS.md src/cli/starter-fixtures/workspace-mcp/AGENTS.md meta/skill/references/server-mcp.md`
+    passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `pnpm run check:starter-fixtures:doctor` passed for public, personal,
+    workspace, and workspace-MCP starters.
+- Current state:
+  - First-reader MCP guidance no longer points app authors at direct mutation
+    tools for writes; operation-backed MCP write projection is the default
+    documented path.
+
+### 2026-06-05 Advanced MCP App-Write Type Guard
+
+- Added a public DTS assertion proving standalone
+  `@lupinum/trellis/mcp/advanced` `defineMcpTool(...)` handlers do not expose
+  app-write helpers:
+  - `extra.mutation(...)` is a type error;
+  - `extra.action(...)` is a type error.
+- This pins the current quarantine for the surviving advanced MCP export: it
+  can define custom toolkit tools, but it is not a Trellis app-write path.
+- Verification:
+  - `CI=true pnpm run test:types:public` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/dts/mcp.types.ts` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/dts/mcp.types.ts`
+    passed.
+- Current state:
+  - Public type coverage now proves the advanced MCP subpath cannot directly
+    call Convex mutations/actions through Trellis-provided handler context.
+
+### 2026-06-05 Meta Trusted Transport Guidance Cutover
+
+- Cut stale raw `auth: 'trusted'` guidance from meta planning/RFC documents:
+  - `meta/rfc/0006-narrow-trusted-mcp-convex-caller.md` now describes
+    `transportProof.mcp(...)` instead of raw trusted caller options;
+  - `meta/vnext-roadmap.md` now uses `transportProof.*(...)`, explicit
+    `authenticated(...)` / `workspace(...)` backend lanes, and
+    operation-backed MCP write guidance.
+- Left raw `auth: 'trusted'` only in intentional negative/security tests.
+- Verification:
+  - `rg -n "auth:\\s*['\\\"]trusted['\\\"]" . --glob '!node_modules/**' --glob '!dist/**' --glob '!progress_0.3.0.md' --glob '!0.3.0.md' --glob '!auth-review-rfc.md' --glob '!library-review-state.md' --glob '!summary.md' --glob '!SPEC.md' --glob '!a_target.md' --glob '!handover_0.3.0.md'`
+    now returns only `tests/unit/server-convex-utils.test.ts` rejection
+    coverage and `tests/unit/example-webhook-security.test.ts` negative
+    assertions.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 meta/rfc/0006-narrow-trusted-mcp-convex-caller.md meta/vnext-roadmap.md`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Current meta guidance no longer teaches raw trusted auth, protected
+    signed-in handlers, or direct MCP mutation as normal future/starter paths.
+
+### 2026-06-05 Starter Guard Scaffold Removal
+
+- Removed unused/generated starter guard scaffold files:
+  - `src/cli/starter-fixtures/personal/convex/auth/guards.ts`;
+  - `src/cli/starter-fixtures/workspace/convex/auth/guards.ts`;
+  - `src/cli/starter-fixtures/workspace-mcp/convex/auth/guards.ts`.
+- Replaced workspace and workspace-MCP starter permission composition with
+  direct `definePermission(...)` check predicates in the feature permission
+  modules, so permission files are the single source of truth.
+- Updated backend builder docs and internal backend reference so
+  `protected(...)` is described as the intentional custom-guard lane, not a
+  migration-only spelling.
+- Updated permission setup docs so the generated scaffold list no longer
+  promises `convex/auth/guards.ts`.
+- Verification:
+  - `rg -n "from ['\\\"].*/auth/guards|auth/guards|defineGuard|guard:" src/cli/starter-fixtures/personal src/cli/starter-fixtures/workspace src/cli/starter-fixtures/workspace-mcp --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `pnpm run check:starter-fixtures:doctor` passed for public, personal,
+    workspace, and workspace-MCP starters.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/starter-fixtures/workspace/convex/features/todos/permissions.ts src/cli/starter-fixtures/workspace-mcp/convex/features/todos/permissions.ts apps/docs/content/docs/08.permissions/0.backend-builders.md apps/docs/content/docs/08.permissions/1.setup.md meta/skill/references/backend-auth-permissions.md`
+    passed.
+- Current state:
+  - Generated starters no longer carry guard helper scaffolding as a normal
+    signed-in/workspace authorization path.
+
+### 2026-06-05 Add Resource Guard Import Removal
+
+- Removed stale `auth/guards` assumptions from CLI add-resource generation:
+  - deleted `guardImportPath` from the resource generator context;
+  - generated personal/author-owned resource permissions now use direct
+    `appIdentity !== null` predicates;
+  - generated workspace resource permissions now use local role/workspace
+    predicate helpers in the permission file.
+- Removed deleted starter guard paths from `trellis add auth` /
+  `trellis add workspace` fixture file lists.
+- Updated phase0 starter manifest and CLI add-resource tests so they no longer
+  expect guard scaffold files or generated guard-helper imports.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts`
+    passed: 2 files / 14 tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/lib/resource.ts src/cli/lib/init.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/lib/resource.ts src/cli/lib/init.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts`
+    passed.
+  - `pnpm run check:starter-fixtures:doctor` passed for public, personal,
+    workspace, and workspace-MCP starters.
+  - `rg -n "convex/auth/guards\\.ts|auth/guards|guardImportPath|check: isAuthenticated|hasWorkspace\\.and\\(hasMinimumRole|from ['\\\"].*/auth/guards" src/cli tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts apps/docs meta/skill/references --glob '!dist/**' --glob '!node_modules/**'`
+    now returns only intentional maintained example index and dedicated guard
+    docs references.
+- Current state:
+  - New CLI-generated resource slices no longer depend on or recreate the
+    removed starter guard scaffold.
+
+### 2026-06-05 Maintained Example Auth-Only Guard Cleanup
+
+- Deleted unused `examples/02-auth-todo/convex/auth/guards.ts`; the example now
+  uses authenticated lanes and direct appIdentity checks instead of an
+  auth-only guard helper file.
+- Cut `examples/03-team-workspace/convex/features/todos/permissions.ts` from
+  auth guard composition to direct permission predicates. The example keeps its
+  `convex/auth/guards.ts` file only for record-specific custom guard helpers
+  still used by `checks.ts` and recordAccess.
+- Updated the examples index so the `02-auth-todo` read-first file list no
+  longer points at the deleted guard file.
+- Verification:
+  - `pnpm --dir examples/02-auth-todo exec vue-tsc --noEmit` passed.
+  - `pnpm --dir examples/03-team-workspace exec vue-tsc --noEmit` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 examples/03-team-workspace/convex/features/todos/permissions.ts apps/docs/content/docs/5.examples.md`
+    passed.
+  - `pnpm run check:docs:links` passed.
+- Current state:
+  - Example 02 no longer carries a normal-path auth-only guard scaffold.
+  - Example 03 permissions are direct permission predicates; remaining guard
+    helpers there are intentional custom record checks.
+
+### 2026-06-05 Phase0 MCP Create Tool Operation Cutover
+
+- Cut the phase0 workspace-MCP fixture's `create-project` tool from the
+  MCP-local `tool.mutation(...)` / `defineMcpToolRefDescriptor(...)` path to
+  an operation-backed `tool.operation(...)` binding.
+- Added `createProjectDescriptor` and `projectCreate` permission metadata so
+  create and delete project tools share the operation descriptor path.
+- Deleted obsolete fixture-local generated MCP tool refs:
+  - `tests/fixtures/phase0-workspace-mcp/generated/mcp-tool-refs.ts`;
+  - `tests/fixtures/phase0-workspace-mcp/shared/features/projects/tools.ts`.
+- Updated operation-ref codegen to emit formatter-stable multi-descriptor
+  imports, then updated phase0 fixture/codegen tests to expect operation refs as
+  the single generated binding file.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-starter-manifest.test.ts`
+    passed: 3 files / 10 tests.
+  - `node node_modules/eslint/bin/eslint.js src/module-internals/ref-codegen.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-starter-manifest.test.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/feature.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/domain.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts tests/fixtures/phase0-workspace-mcp/server/mcp/tools/create-project.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/module-internals/ref-codegen.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/feature.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/domain.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts tests/fixtures/phase0-workspace-mcp/server/mcp/tools/create-project.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+    passed.
+  - `rg -n "createProjectToolDescriptor|generated/mcp-tool-refs|shared/features/projects/tools|tool\\.mutation\\(" tests/fixtures/phase0-workspace-mcp tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-starter-manifest.test.ts`
+    now returns only negative assertions.
+  - `rg -n "tool\\.mutation\\(" tests/fixtures/phase0-workspace-mcp src/cli/starter-fixtures examples --glob '!node_modules/**' --glob '!dist/**' --glob '!.nuxt/**'`
+    now returns only the Example 07 negative assertion.
+- Current state:
+  - Maintained starter/example/phase0 fixture paths no longer expose
+    production-template MCP writes through direct `tool.mutation(...)`.
+
+### 2026-06-05 MCP Direct Write Guidance Hint Cleanup
+
+- Removed remaining CLI upgrade/doctor fix hints that pointed custom MCP app
+  writes at direct `tool.mutation(...)` bounded-write helpers.
+- Reworded those hints to send app writes through operation descriptors and
+  `tool.operation(...)`, using `safety: "bounded-write"` for bounded write
+  operations.
+- Updated the roadmap's MCP safety "bad" example so it no longer names
+  `tool.mutation(...)` as the destructive anti-pattern.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts -t "standalone custom MCP tool calls Convex writes"`
+    passed: 1 selected test.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-upgrade.test.ts -t "MCP|mcp|upgrade-mcp|tool.fromOperation"`
+    passed: 3 selected tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/commands/upgrade.ts src/cli/lib/inventory-findings.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/commands/upgrade.ts src/cli/lib/inventory-findings.ts meta/vnext-roadmap.md`
+    passed.
+  - `rg -n 'Use \`tool\\.mutation|defineMcpApp\\(\\.\\.\\.\\)\\.tool\\.mutation|bounded writes or \`tool\\.operation|tool\\.mutation\\(' src/cli meta/vnext-roadmap.md meta/skill/references src/cli/starter-fixtures tests/fixtures/phase0-workspace-mcp examples apps/docs/content/docs/02.concepts apps/docs/content/docs/14.mcp-tools apps/docs/content/docs/13.api-reference/5.mcp.md --glob '!node_modules/**' --glob '!dist/**' --glob '!.nuxt/\*\*'`
+    now returns only deliberate API/reference docs for the surviving advanced
+    bounded-write helper and the Example 07 negative assertion.
+- Current state:
+  - Normal migration and doctor guidance no longer recommends direct MCP
+    mutation helpers for app writes.
+
+### 2026-06-05 MCP Tool Ref Codegen Branch Removal
+
+- Removed the now-unused starter fixture `mcpToolRefs` generated-file branch
+  from `src/module-internals/starter-fixture-codegen.ts`.
+- Deleted `src/module-internals/mcp-tool-ref-codegen.ts`; phase0 and starter
+  generation now use operation refs as the single generated MCP write binding
+  path.
+- Tightened stale advanced MCP wording:
+  - `src/runtime/mcp/types.ts` now says custom app writes use operation-backed
+    MCP tools;
+  - `meta/rfc/0011-hard-cut-operation-ladder-release.md` now describes
+    `mcp/advanced` as standalone read, diagnostic, or external-service tooling
+    and keeps app writes operation-backed.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-starter-manifest.test.ts`
+    passed: 2 files / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js src/module-internals/starter-fixture-codegen.ts src/module-internals/ref-codegen.ts src/runtime/mcp/types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/module-internals/starter-fixture-codegen.ts src/module-internals/ref-codegen.ts src/runtime/mcp/types.ts meta/rfc/0011-hard-cut-operation-ladder-release.md`
+    passed.
+  - `rg -n "mcpToolRefs|renderMcpToolRefsModule|McpToolRefBindingInput|projectMcpToolRefImport|mcp-tool-ref-codegen" src tests scripts --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - Starter fixture generation no longer has a parallel MCP-local ref codegen
+    path beside operation refs.
+
+### 2026-06-05 Operation Ladder RFC Stale Surface Cleanup
+
+- Updated `meta/rfc/0011-hard-cut-operation-ladder-release.md` so its
+  operation-ladder example no longer teaches `mutation.protected({ guard })` as
+  the normal implementation shape.
+- Replaced the example with `mutation.workspace({ permission })` and direct
+  `ctx.workspaceId` usage.
+- Removed the nonexistent `@lupinum/trellis/backend/advanced` subpath from the
+  RFC's advanced import guidance; low-level backend builders now point at the
+  surviving `@lupinum/trellis/backend` surface.
+- Tightened the same RFC's MCP advanced text so standalone advanced tools are
+  read, diagnostic, or external-service tools while app writes remain
+  operation-backed.
+- Verification:
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|authRequired|tool\\.mutation|tool\\.fromOperation|@lupinum/trellis/backend/advanced|used by protected handlers" meta/rfc/0011-hard-cut-operation-ladder-release.md`
+    returned no hits.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 meta/rfc/0011-hard-cut-operation-ladder-release.md`
+    passed.
+- Current state:
+  - The operation-ladder RFC no longer creates a second old-path story for
+    operation authoring, advanced backend imports, or MCP app writes.
+
+### 2026-06-05 Functions API Reference Authorization Wording Cleanup
+
+- Updated `apps/docs/content/docs/13.api-reference/3.functions.md` so the
+  public authorization model no longer centers business authorization on
+  `guard`.
+- Reframed `defineTrellis(...)` as the entrypoint for explicit lane containers,
+  with operation permission metadata, lane choice, `load`, `authorize`, and
+  `handler` as the normal authorization story.
+- Kept `query.protected` / `mutation.protected` in the reference as
+  custom-guard lanes, not migration/default lanes.
+- Verification:
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `rg -n 'public authorization model: keep business authorization in \`guard\`|protected query|migration lanes|guard:\\s\*|authRequired' apps/docs/content/docs/13.api-reference/3.functions.md`
+    returned no hits.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/docs/content/docs/13.api-reference/3.functions.md meta/rfc/0011-hard-cut-operation-ladder-release.md progress_0.3.0.md`
+    passed before this ledger entry.
+- Current state:
+  - The functions API reference no longer describes guard-first authorization
+    as the public model.
+
+### 2026-06-05 MCP Define Tools Guide Direct Mutation Removal
+
+- Removed `tool.mutation(...)` from
+  `apps/docs/content/docs/14.mcp-tools/2.define-tools.md` so the guide presents
+  normal app-backed MCP writes through `tool.operation(...)` only.
+- Deleted the guide's "Advanced bounded writes" section; the narrow surviving
+  direct mutation surface is left to the API reference instead of first-reader
+  tool authoring guidance.
+- Updated the same guide's backend enforcement wording from guard-centered
+  language to permission or custom-guard checks.
+- Verification:
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `rg -n "tool\\.mutation\\(" apps/docs/content/docs src/cli/starter-fixtures tests/fixtures/phase0-workspace-mcp examples meta/skill meta/rfc --glob '!node_modules/**' --glob '!dist/**' --glob '!.nuxt/**'`
+    now returns only the MCP API reference and the Example 07 negative
+    assertion.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/docs/content/docs/14.mcp-tools/2.define-tools.md`
+    passed.
+- Current state:
+  - First-reader MCP tool-definition docs no longer present direct mutation
+    tools as an authoring option.
+
+### 2026-06-05 Direct MCP Mutation Factory Removal
+
+- Removed `defineMcpApp(...).tool.mutation(...)` from the runtime MCP app
+  surface so app-backed MCP writes have one path: operation-backed tools.
+- Deleted the MCP-local write-safety projection helpers from
+  `src/runtime/mcp/operation-binding.ts`:
+  - `defineMcpToolRefDescriptor(...)`;
+  - `projectMcpToolRef(...)`;
+  - `stampMcpToolSafety(...)`;
+  - `trellisMcpToolSafetyKey`;
+  - `getMcpToolSafety(...)`.
+- Removed the direct mutation factory from `ToolFactory` and `ToolOptions`
+  safety metadata in `src/runtime/mcp/define-mcp-app.ts`.
+- Converted remaining middleware/rate-limit tests to direct read tools and
+  deleted direct mutation safety tests that only covered the removed path.
+- Removed `tool.mutation(...)` from the MCP API reference and added a public
+  DTS assertion proving `runtime.tool.mutation(...)` is no longer available.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/define-convex-tool.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+    passed: 5 files / 48 tests.
+  - `CI=true pnpm run test:types:public` passed.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/operation-binding.ts tests/unit/define-convex-tool.test.ts tests/unit/mcp-operation-binding.test.ts tests/dts/mcp.types.ts`
+    passed.
+  - `pnpm run check:security:source-policy` passed.
+  - `pnpm run check:publish-surface` passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `rg -n "tool\\.mutation|mcp\\.tool\\.mutation|defineMcpToolRefDescriptor|projectMcpToolRef|getMcpToolSafety|stampMcpToolSafety|trellisMcpToolSafetyKey|McpToolRefDescriptor|TrellisMcpToolSafety" src tests apps/docs examples meta --glob '!node_modules/**' --glob '!dist/**' --glob '!progress_0.3.0.md'`
+    now returns only negative assertions, legacy-detection fixtures, and the
+    public DTS `@ts-expect-error` assertion for the deleted factory.
+- Current state:
+  - Trellis MCP app writes no longer have a parallel direct mutation path or
+    MCP-local safety-stamping path beside operation-backed tools.
+
+### 2026-06-05 Security Contract Deleted File Hard-Cut Fix
+
+- Fixed `scripts/lib/security-contract.mjs` so tracked source collection uses
+  the current worktree state, not only `git ls-files`; deleted-but-unstaged
+  files from this broad hard cut are no longer read during contract generation.
+- Regenerated `security-contract.generated.json` after the harness lane and
+  direct MCP mutation cutovers. The generated contract now records current
+  explicit lanes such as authenticated/workspace/public instead of stale
+  protected/guard entries for already-cut harness files.
+- Verification:
+  - `pnpm run check:security:contract` passed after regeneration.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `pnpm run check:security:source-policy` passed.
+  - `node node_modules/eslint/bin/eslint.js scripts/lib/security-contract.mjs tests/unit/security-contract.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 scripts/lib/security-contract.mjs tests/unit/security-contract.test.ts progress_0.3.0.md`
+    passed before this ledger entry.
+- Current state:
+  - Security contract generation no longer depends on deleted starter/example
+    files and the generated security inventory matches the current worktree.
+
+### 2026-06-05 Exact MCP Entrypoint Surface Test
+
+- Tightened `tests/unit/mcp-index-exports.test.ts` from
+  `expect.arrayContaining(...)` to exact runtime export lists for both
+  `@lupinum/trellis/mcp` and `@lupinum/trellis/mcp/advanced`.
+- Updated stale MCP comments in `src/runtime/mcp/index.ts` and
+  `src/runtime/mcp/advanced.ts` so `defineMcpApp` is documented as returning
+  `tool.query` and `tool.operation`, with no deleted direct mutation lane.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/mcp-index-exports.test.ts`
+    passed: 1 file / 4 tests.
+  - `pnpm exec eslint tests/unit/mcp-index-exports.test.ts src/runtime/mcp/index.ts src/runtime/mcp/advanced.ts`
+    passed.
+  - `pnpm exec oxfmt --check tests/unit/mcp-index-exports.test.ts src/runtime/mcp/index.ts src/runtime/mcp/advanced.ts`
+    passed.
+  - `pnpm run check:publish-surface` passed.
+  - `git diff --check` passed.
+- Current state:
+  - Extra MCP entrypoint runtime exports now fail a focused unit test instead
+    of being accepted beside the blessed surface.
+
+### 2026-06-05 Advanced MCP Tool Shape Cleanup
+
+- Cut `tests/fixtures/shared-schema-mcp-boundary/server/mcp/tools/create-task.ts`
+  from the deleted advanced `defineTool(...)` symbol and Trellis-only
+  `schema/effect` shape to the surviving raw toolkit `defineMcpTool(...)`
+  helper with `inputSchema`.
+- Updated `apps/docs/content/docs/14.mcp-tools/2.define-tools.md` so standalone
+  advanced tools no longer show Trellis-only `schema`, `effect`, `permit`,
+  `ctx.ok`, or app-call helper semantics. The guide now keeps app-backed reads
+  on `tool.query(...)` and app writes on `tool.operation(...)`.
+- Removed stale `safety` from the server/MCP skill reference's normal tool
+  option list.
+- Updated the CLI doctor standalone-write fixture to use
+  `defineMcpTool(...)`/`inputSchema` while preserving the intentional bad
+  `ctx.mutation(...)` call that doctor detects.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/shared-schema-mcp-boundary-build.test.ts tests/unit/cli-doctor.test.ts -t "standalone custom MCP tool calls Convex writes|shared schema"`
+    passed: 2 files / 2 selected tests.
+  - `pnpm exec eslint tests/fixtures/shared-schema-mcp-boundary/server/mcp/tools/create-task.ts tests/unit/cli-doctor.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `pnpm exec oxfmt --check tests/fixtures/shared-schema-mcp-boundary/server/mcp/tools/create-task.ts tests/unit/cli-doctor.test.ts apps/docs/content/docs/14.mcp-tools/2.define-tools.md meta/skill/references/server-mcp.md`
+    passed.
+  - `rg -n 'import \\{ defineTool \\} from .*runtime/mcp/advanced|export default defineTool\\(|effect:|permit:|ctx\\.ok|Standalone \`defineMcpTool\\(\\.\\.\\.\\)\` also accepts \`rateLimitStore\`|\`safety\`' apps/docs/content/docs/14.mcp-tools/2.define-tools.md meta/skill/references/server-mcp.md tests/fixtures/shared-schema-mcp-boundary/server/mcp/tools/create-task.ts`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - First-reader MCP docs and the shared-schema fixture no longer preserve the
+    deleted Trellis advanced `defineTool(...)` semantics beside raw
+    `defineMcpTool(...)`.
+
+### 2026-06-05 Internal MCP DefineTool Name Removal
+
+- Removed the exported `defineTool(...)` helper from
+  `src/runtime/mcp/define-convex-tool.ts`; `defineMcpApp(...)` now calls the
+  internal `defineConvexToolInternal(...)` builder directly.
+- Renamed the direct unit-test import/calls in
+  `tests/unit/define-convex-tool.test.ts` to `defineConvexToolInternal(...)`
+  so tests no longer normalize the deleted advanced helper name as an internal
+  API.
+- Updated MCP runtime and schema-projection diagnostics from `defineTool` to
+  `defineMcpApp.tool`, keeping user-facing errors aligned with the supported
+  app-tool entrypoint.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/define-convex-tool.test.ts tests/unit/mcp-index-exports.test.ts`
+    passed: 2 files / 33 tests.
+  - `pnpm exec eslint src/runtime/mcp/define-convex-tool.ts src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/convex-to-mcp-zod.ts tests/unit/define-convex-tool.test.ts tests/unit/mcp-index-exports.test.ts`
+    passed.
+  - `pnpm run check:security:source-policy` passed.
+  - `pnpm run check:security:contract` passed and reported the contract up to
+    date.
+  - `pnpm run check:publish-surface` passed.
+  - `pnpm exec oxfmt --check src/runtime/mcp/define-convex-tool.ts src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/convex-to-mcp-zod.ts tests/unit/define-convex-tool.test.ts tests/unit/mcp-index-exports.test.ts`
+    passed.
+  - `rg -n "defineTool" src/runtime/mcp tests/unit/define-convex-tool.test.ts tests/unit/mcp-index-exports.test.ts scripts/lib/security-contract.mjs scripts/lib/security-source-policy.mjs scripts/check-security-packed-exports.mjs --glob '!dist/**'`
+    now returns only security bans and the negative MCP export assertion.
+  - `git diff --check` passed.
+- Current state:
+  - The deleted advanced `defineTool(...)` name is no longer exported from or
+    used by the MCP runtime implementation; retained hits are deliberate
+    anti-regression checks.
+
+### 2026-06-05 Type Fixture Operation Permission Cutover
+
+- Cut stale operation `guard` metadata out of type-only normal-path fixtures:
+  - `tests/types/mcp-runtime.types.ts` now uses `appOperation.destructive(...)`
+    with `permission` and explicit `safety` for the operation-backed MCP write
+    fixture;
+  - `tests/types/dx-typing.types.ts` now uses `appOperation.mutation(...)` with
+    `permission` for its operation typing fixture.
+- Left `tests/types/authenticated-guard.types.ts` untouched because it is
+  explicit structured-guard narrowing coverage for the surviving custom-guard
+  runtime path.
+- Verification:
+  - `pnpm run test:types:contracts` passed.
+  - `pnpm exec eslint tests/types/mcp-runtime.types.ts tests/types/dx-typing.types.ts`
+    passed.
+  - `pnpm exec oxfmt --check tests/types/mcp-runtime.types.ts tests/types/dx-typing.types.ts`
+    passed.
+  - `rg -n "defineOperation|guard:\\s*|authRequired|defineGuard" tests/types/mcp-runtime.types.ts tests/types/dx-typing.types.ts`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - Type fixtures for MCP runtime and DX operation typing no longer preserve
+    backend `defineOperation({ guard })` as the normal app-operation metadata
+    shape.
+
+### 2026-06-05 MCP Docs Protected-Default Wording Cleanup
+
+- Updated MCP first-reader docs so app-backed tools no longer describe backend
+  authorization as a protected-handler default:
+  - `apps/docs/content/docs/14.mcp-tools/1.getting-started.md`;
+  - `apps/docs/content/docs/14.mcp-tools/3.auth-and-permissions.md`;
+  - `apps/docs/content/docs/13.api-reference/5.mcp.md`.
+- Reworded the examples index and Example 03 README to present explicit
+  workspace lanes and operation-backed MCP writes instead of protected-default
+  or bounded-direct-write language:
+  - `apps/docs/content/docs/5.examples.md`;
+  - `examples/03-team-workspace/README.md`.
+- Verification:
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `pnpm exec oxfmt --check apps/docs/content/docs/14.mcp-tools/1.getting-started.md apps/docs/content/docs/14.mcp-tools/3.auth-and-permissions.md apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/5.examples.md examples/03-team-workspace/README.md`
+    passed.
+  - `rg -n "protected workspace app|protected workspace MCP|protected handler|protected Convex handler|protected backend contract|guard -> load|bounded writes|tool\\.mutation|defineTool|stampMcpToolSafety|trellisMcpToolSafetyKey" apps/docs/content/docs/14.mcp-tools apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/5.examples.md examples/03-team-workspace/README.md --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - MCP first-reader docs and example index wording no longer preserve
+    protected-handler or direct bounded-write language as the default
+    app-backed MCP story.
+
+### 2026-06-05 Example Overview MCP And Workspace Wording Cleanup
+
+- Updated `examples/README.md` so the example ladder describes Example 03 as
+  the canonical explicit-lane workspace app and Example 07 as using
+  operation-backed MCP writes instead of bounded writes.
+- Updated `examples/07-mcp-reference/README.md` so the MCP reference example
+  no longer frames the prerequisite model or runbook convergence as
+  protected-default backend handling.
+- Verification:
+  - `pnpm run check:docs:links` passed.
+  - `pnpm exec oxfmt --check examples/README.md examples/07-mcp-reference/README.md`
+    passed after formatting `examples/README.md`.
+  - `rg -n "protected app|protected workspace|protected runbook|same protected|bounded writes|tool\\.mutation|guard -> load|Guards, access context" examples/README.md examples/07-mcp-reference/README.md --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - Maintained example overview docs no longer preserve protected-app or direct
+    bounded-write wording for the normal 0.3 workspace/MCP path.
+
+### 2026-06-05 Maintained Example Protected-App Wording Cleanup
+
+- Updated maintained example README wording so the workspace examples describe
+  explicit workspace/lane models instead of protected-app defaults:
+  - `examples/03-team-workspace/README.md`;
+  - `examples/04-saas-platform/README.md`;
+  - `examples/05-visibility-access/README.md`;
+  - `examples/06-multi-workspace/README.md`;
+  - `examples/08-component-mini-cms/README.md`.
+- Updated Example 03 visible app/config copy to match the explicit-lane
+  workspace model:
+  - `examples/03-team-workspace/nuxt.config.ts`;
+  - `examples/03-team-workspace/app/features/team-workspace/components/TeamWorkspacePage.vue`.
+- Verification:
+  - `rg -n "protected app|protected workspace|protected server|protected root|protected model|protected mutation|nested resource guards|guard -> load|bounded writes|tool\\.mutation" examples/03-team-workspace examples/04-saas-platform/README.md examples/05-visibility-access/README.md examples/06-multi-workspace/README.md examples/08-component-mini-cms/README.md --glob '!node_modules/**' --glob '!dist/**' --glob '!.nuxt/**'`
+    returned no hits.
+  - `pnpm exec oxfmt --check examples/03-team-workspace/README.md examples/04-saas-platform/README.md examples/05-visibility-access/README.md examples/06-multi-workspace/README.md examples/08-component-mini-cms/README.md examples/03-team-workspace/nuxt.config.ts examples/03-team-workspace/app/features/team-workspace/components/TeamWorkspacePage.vue`
+    passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm --dir examples/03-team-workspace exec vue-tsc --noEmit` passed.
+  - `git diff --check` passed.
+- Current state:
+  - Maintained example docs and Example 03 visible copy no longer frame the
+    normal workspace path as a protected app or protected workspace model.
+
+### 2026-06-05 First-Reader Docs Protected-Default Wording Cleanup
+
+- Updated docs metadata, the docs landing page, signed-in getting-started flow,
+  auth/route-protection docs, server-route/webhook docs, advanced caller docs,
+  testing docs, and the testing API reference so they no longer present
+  protected handlers or protected backend models as the default app path:
+  - `apps/docs/nuxt.config.ts`;
+  - `apps/docs/content/index.md`;
+  - `apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md`;
+  - `apps/docs/content/docs/05.auth-security/1.authentication.md`;
+  - `apps/docs/content/docs/05.auth-security/2.route-protection.md`;
+  - `apps/docs/content/docs/07.server-side/2.server-routes.md`;
+  - `apps/docs/content/docs/07.server-side/3.webhooks-and-identity-forwarding.md`;
+  - `apps/docs/content/docs/08.permissions/8.advanced-caller-models.md`;
+  - `apps/docs/content/docs/12.testing/1.getting-started.md`;
+  - `apps/docs/content/docs/12.testing/2.testing-protected-handlers.md`;
+  - `apps/docs/content/docs/12.testing/3.testing-server-and-mcp.md`;
+  - `apps/docs/content/docs/13.api-reference/6.testing.md`.
+- Updated Example 04 visible copy from protected workspace patterns to explicit
+  workspace lanes in
+  `examples/04-saas-platform/app/features/project-board/components/HomePage.vue`.
+- Verification:
+  - `pnpm exec oxfmt --check apps/docs/nuxt.config.ts apps/docs/content/index.md apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md apps/docs/content/docs/05.auth-security/1.authentication.md apps/docs/content/docs/05.auth-security/2.route-protection.md apps/docs/content/docs/07.server-side/2.server-routes.md apps/docs/content/docs/07.server-side/3.webhooks-and-identity-forwarding.md apps/docs/content/docs/08.permissions/8.advanced-caller-models.md apps/docs/content/docs/12.testing/1.getting-started.md apps/docs/content/docs/12.testing/2.testing-protected-handlers.md apps/docs/content/docs/12.testing/3.testing-server-and-mcp.md apps/docs/content/docs/13.api-reference/6.testing.md examples/04-saas-platform/app/features/project-board/components/HomePage.vue`
+    passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `pnpm --dir examples/04-saas-platform exec vue-tsc --noEmit` passed.
+  - `rg -n "protected app|protected backend|protected handler|protected Convex handler|protected query|protected mutation|protected workspace|protected business|same protected|normal guards|server's guards|guard and authorize|guards and all|Testing protected handlers|Protected backend|protected model" apps/docs/nuxt.config.ts apps/docs/content/index.md apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md apps/docs/content/docs/05.auth-security/1.authentication.md apps/docs/content/docs/05.auth-security/2.route-protection.md apps/docs/content/docs/07.server-side/2.server-routes.md apps/docs/content/docs/07.server-side/3.webhooks-and-identity-forwarding.md apps/docs/content/docs/08.permissions/8.advanced-caller-models.md apps/docs/content/docs/12.testing apps/docs/content/docs/13.api-reference/6.testing.md examples/04-saas-platform/app/features/project-board/components/HomePage.vue --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `rg -n "protected handler|protected Convex handler|protected backend|protected app|protected workspace|guard -> load|bounded writes|tool\\.mutation|defineTool|stampMcpToolSafety|trellisMcpToolSafetyKey|normal.*guard|guard.*normal" apps/docs/nuxt.config.ts apps/docs/content/index.md apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md apps/docs/content/docs/05.auth-security/1.authentication.md apps/docs/content/docs/05.auth-security/2.route-protection.md apps/docs/content/docs/07.server-side/2.server-routes.md apps/docs/content/docs/07.server-side/3.webhooks-and-identity-forwarding.md apps/docs/content/docs/08.permissions/8.advanced-caller-models.md apps/docs/content/docs/12.testing apps/docs/content/docs/13.api-reference/6.testing.md examples/04-saas-platform/app/features/project-board/components/HomePage.vue --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - Touched first-reader docs and Example 04 visible copy now describe
+    authenticated, workspace, and operation-backed backend paths instead of a
+    protected-default app model.
+
+### 2026-06-05 Skill And Bridge Reference Protected-Handler Wording Cleanup
+
+- Removed remaining protected-handler-as-default wording from internal skill
+  references and component bridge docs:
+  - `meta/skill/references/server-mcp.md`;
+  - `meta/skill/references/testing-examples-docs.md`;
+  - `apps/docs/content/docs/07.server-side/5.component-bridge.md`.
+- Updated the Example 07 access-identity comment so it refers to backend
+  handlers rather than a protected-handler surface:
+  - `examples/07-mcp-reference/convex/auth/appIdentity.ts`.
+- Verification:
+  - `pnpm exec oxfmt --check meta/skill/references/server-mcp.md meta/skill/references/testing-examples-docs.md apps/docs/content/docs/07.server-side/5.component-bridge.md examples/07-mcp-reference/convex/auth/appIdentity.ts`
+    passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm exec eslint examples/07-mcp-reference/convex/auth/appIdentity.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `rg -n "protected handler|protected Convex handler|protected backend|protected app|protected workspace|guard -> load|normal.*guard|guard.*normal" meta/skill/references/server-mcp.md meta/skill/references/testing-examples-docs.md apps/docs/content/docs/07.server-side/5.component-bridge.md examples/07-mcp-reference/convex/auth/appIdentity.ts --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Remaining broad stale-path hits are classified as:
+  - operation `safety: 'bounded-write'` fixtures/tests and CLI hints for the
+    surviving operation safety model;
+  - custom protected-lane docs/tests;
+  - deleted MCP API negative assertions;
+  - legacy-detection fixtures.
+- Current state:
+  - Maintained skill references, bridge docs, and Example 07 comments no longer
+    describe protected handlers as the normal backend path.
+
+### 2026-06-05 Custom Protected-Lane Docs Wording Cleanup
+
+- Tightened custom protected-lane docs so remaining `query.protected(...)` and
+  `mutation.protected(...)` examples are framed as custom-guard lanes, not the
+  normal backend model:
+  - `apps/docs/content/docs/08.permissions/0.backend-builders.md`;
+  - `apps/docs/content/docs/08.permissions/3.guards.md`;
+  - `apps/docs/content/docs/13.api-reference/3.functions.md`.
+- Kept the protected-lane API examples because `protected(...)` remains the
+  intentional custom-guard lane.
+- Verification:
+  - `pnpm exec oxfmt --check apps/docs/content/docs/13.api-reference/3.functions.md apps/docs/content/docs/08.permissions/3.guards.md apps/docs/content/docs/08.permissions/0.backend-builders.md`
+    passed.
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `rg -n "protected handler|protected backend|protected app|protected workspace|normal.*guard|guard.*normal" apps/docs/content/docs/13.api-reference/3.functions.md apps/docs/content/docs/08.permissions/3.guards.md apps/docs/content/docs/08.permissions/0.backend-builders.md --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Remaining broad stale-path hits are now limited to:
+  - operation `safety: 'bounded-write'` fixtures/tests and CLI hints for the
+    surviving operation safety model;
+  - custom protected-lane runtime tests and runtime error assertions;
+  - deleted MCP API negative assertions;
+  - legacy-detection fixtures.
+- Current state:
+  - Maintained docs no longer contain protected-default wording in the audited
+    first-reader, API reference, backend-builder, bridge, MCP, testing, or
+    example surfaces.
+
+### 2026-06-05 Maintained Webhook Example Protected-Wording Cleanup
+
+- Removed stale protected-default wording from maintained webhook/example
+  labels:
+  - `examples/04-saas-platform/server/api/webhook.post.ts` now points readers
+    at the backend operation path instead of protected root refs;
+  - `examples/03-team-workspace/convex/todos.test.ts` now names anonymous
+    denial coverage as workspace todo query coverage;
+  - `examples/04-saas-platform/convex/projectBoard.test.ts` now names
+    anonymous denial coverage as workspace mutation coverage.
+- Verification:
+  - `pnpm exec oxfmt --check examples/04-saas-platform/server/api/webhook.post.ts examples/03-team-workspace/convex/todos.test.ts examples/04-saas-platform/convex/projectBoard.test.ts`
+    passed.
+  - `pnpm --dir examples/03-team-workspace exec vitest run convex/todos.test.ts`
+    passed: 1 file / 12 tests.
+  - `pnpm --dir examples/04-saas-platform exec vitest run convex/projectBoard.test.ts`
+    passed: 1 file / 12 tests.
+  - `rg -n "protected root refs|protected mutations|protected todo queries|protected handler|protected app|protected workspace" examples/03-team-workspace examples/04-saas-platform examples/07-mcp-reference --glob '!node_modules/**' --glob '!dist/**' --glob '!_generated/**'`
+    returned no hits.
+- Current state:
+  - Maintained webhook examples and denial test labels no longer describe the
+    normal example path with protected-default wording.
+
+### 2026-06-05 Starter Script Stale Legacy Naming Cleanup
+
+- Renamed stale internal script variables from legacy-template terminology to
+  removed-template terminology:
+  - `scripts/copy-cli-templates.mjs`;
+  - `scripts/check-starter-fixtures.mjs`.
+- This did not add compatibility behavior; the scripts still delete obsolete
+  build output directories and assert starter output does not contain `.tpl`
+  template references.
+- Verification:
+  - `pnpm exec eslint scripts/copy-cli-templates.mjs scripts/check-starter-fixtures.mjs`
+    passed.
+  - `pnpm exec oxfmt --check scripts/copy-cli-templates.mjs scripts/check-starter-fixtures.mjs`
+    passed.
+  - `node scripts/copy-cli-templates.mjs` passed.
+  - `node scripts/check-starter-fixtures.mjs` passed:
+    - public: 18 files, doctor 32 pass / 0 warn / 0 fail;
+    - personal: 26 files, doctor 32 pass / 0 warn / 0 fail;
+    - workspace: 38 files, doctor 32 pass / 0 warn / 0 fail;
+    - workspace-mcp: 44 files, doctor 32 pass / 0 warn / 0 fail.
+  - `rg -n "deletedLegacyDirs|legacyTemplateExtension|legacyDir" scripts/copy-cli-templates.mjs scripts/check-starter-fixtures.mjs`
+    returned no hits.
+- Current state:
+  - Starter fixture scripts no longer create false-positive legacy/debt audit
+    hits for internal variable names.
+
+### 2026-06-05 Public Surface Agreement Audit
+
+- Audited the current package subpath surface against package exports, generated
+  API docs, public type mappings, and subpath tests.
+- No code changes were needed:
+  - deleted `@lupinum/trellis/functions` and `@lupinum/trellis/bridge`
+    subpaths remain only in negative assertions or migration detectors;
+  - `@lupinum/trellis/mcp/advanced` remains the deliberate standalone
+    custom-tool subpath and is consistently documented/tested as such.
+- Verification:
+  - `pnpm run check:publish-surface` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/package-subpath-exports.test.ts`
+    passed: 1 file / 4 tests.
+  - `pnpm run check:docs:api-surface` passed.
+  - `rg -n "@lupinum/trellis/bridge|@lupinum/trellis/functions|@lupinum/trellis/backend/advanced" package.json apps/docs/content/docs/13.api-reference/7.api-surface.md tests/unit/package-subpath-exports.test.ts tsconfig.types.public.json vitest.config.ts --glob '!node_modules/**' --glob '!dist/**'`
+    returned only negative subpath assertions in
+    `tests/unit/package-subpath-exports.test.ts`.
+  - `rg -n "@lupinum/trellis/mcp/advanced" package.json apps/docs/content/docs/13.api-reference/7.api-surface.md tests/unit/package-subpath-exports.test.ts tsconfig.types.public.json tests/dts/mcp.types.ts apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/14.mcp-tools/2.define-tools.md --glob '!node_modules/**' --glob '!dist/**'`
+    returned only the expected type mapping, docs, and type fixture hits.
+- Current state:
+  - Package exports, API surface docs, public type mappings, and package subpath
+    tests agree on the current 0.3 public subpath surface.
+
+### 2026-06-05 Unrestricted Service Access Hard Cut
+
+- Removed `access: 'unrestricted'` from the authored service subject runtime and
+  public type surface:
+  - `src/runtime/auth/define-services.ts` now only accepts restricted,
+    table-scoped service access;
+  - `src/runtime/functions/index.ts` no longer carries an unrestricted service
+    access branch and rejects raw-JS unrestricted service definitions before
+    handler execution.
+- Kept CLI inventory/doctor detection for scanned projects that still contain
+  `access: 'unrestricted'`; that path remains migration/diagnostic coverage,
+  not a Trellis runtime capability.
+- Added public type and runtime invariant coverage:
+  - `tests/dts/auth.types.ts` asserts `defineServices(...)` rejects
+    unrestricted service access;
+  - `tests/unit/functions-defineTrellis.test.ts` asserts an unrestricted
+    service definition fails before handler execution.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "service"`
+    passed: 1 file / 5 selected tests.
+  - `CI=true pnpm run test:types:public` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts -t "service subject inventory"`
+    passed: 1 selected test.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `pnpm exec eslint src/runtime/auth/define-services.ts src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts tests/dts/auth.types.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/auth/define-services.ts src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts tests/dts/auth.types.ts`
+    passed.
+  - `rg -n "access:\\s*'unrestricted'|access: \\"unrestricted\\"|access === 'unrestricted'|access !== 'restricted'|unrestricted" src/runtime src/cli tests/dts tests/unit/security-contract.test.ts tests/unit/cli-doctor.test.ts tests/unit/functions-defineTrellis.test.ts --glob '!dist/**' --glob '!node_modules/**'`
+    now returns only negative assertions, runtime rejection coverage, security
+    contract assertions, and CLI inventory/doctor detection.
+  - `git diff --check` passed.
+- Current state:
+  - Service subjects no longer have an ambient backend-authority path in the
+    authored Trellis runtime/type surface; service access is restricted by
+    table and tenant scope.
+
+### 2026-06-05 Forwarded Service Replay Mode Enforcement
+
+- Enforced service subject replay metadata at runtime for signed
+  identity-forwarding service calls:
+  - `src/runtime/functions/index.ts` now compares a forwarded service caller's
+    signed envelope replay mode with `defineServices(...).metadata.replayMode`
+    before allowing the target handler to run.
+- Left direct in-process service callers alone; this slice only binds
+  transport-backed service calls to their signed replay contract.
+- Added runtime tests in `tests/unit/functions-defineTrellis.test.ts` proving:
+  - a forwarded service caller whose envelope has no matching replay mode fails
+    before handler execution;
+  - a forwarded service caller with matching `domain-idempotency` replay mode
+    can enter its declared target.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "service"`
+    passed: 1 file / 7 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 59 tests.
+  - `pnpm exec eslint src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `rg -n "replayMode" src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts src/runtime/auth/define-services.ts examples/03-team-workspace/convex/auth/services.ts examples/07-mcp-reference/convex/auth/services.ts --glob '!dist/**' --glob '!node_modules/**'`
+    confirmed the runtime check, tests, service type metadata, and maintained
+    example service declarations.
+  - `git diff --check` passed.
+- Current state:
+  - Forwarded service traffic can no longer drift from its declared service
+    replay mode; service replay metadata is now runtime-enforced for signed
+    transport calls.
+
+### 2026-06-05 Service Audit Table Metadata Hard Cut
+
+- Made `defineServices(...).metadata.auditTable` required in the public service
+  subject type:
+  - `src/runtime/auth/define-services.ts` now matches doctor/security-contract
+    expectations that every safe service subject names durable
+    audit/idempotency storage.
+- Added public type coverage in `tests/dts/auth.types.ts` proving service
+  metadata without `auditTable` is rejected.
+- Verification:
+  - `CI=true pnpm run test:types:public` passed.
+  - `pnpm exec eslint src/runtime/auth/define-services.ts tests/dts/auth.types.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/auth/define-services.ts tests/dts/auth.types.ts`
+    passed.
+  - `rg -n "auditTable\\?:|service metadata must name|auditTable: TTableName|auditTable:" src/runtime/auth/define-services.ts tests/dts/auth.types.ts examples/03-team-workspace/convex/auth/services.ts examples/07-mcp-reference/convex/auth/services.ts apps/docs/content/docs/08.permissions/8.advanced-caller-models.md src/cli/lib/inventory-findings.ts --glob '!dist/**' --glob '!node_modules/**'`
+    confirmed no optional `auditTable` type remains and maintained service
+    declarations/docs still name audit tables.
+  - `git diff --check` passed.
+- Current state:
+  - Service subject metadata has one source of truth for audit storage:
+    authored service subjects must declare an audit/idempotency table, and
+    doctor/security contract continue to inventory that field.
+
+### 2026-06-05 Forwarded Service Acting-For Contract Enforcement
+
+- Enforced service subject acting-for metadata at runtime for signed
+  identity-forwarding service calls:
+  - `src/runtime/functions/index.ts` now rejects a forwarded service caller
+    carrying delegated acting-for evidence when
+    `defineServices(...).metadata.actingFor` is `false`.
+- Kept the check at the service target boundary, after the envelope has already
+  been verified and before target handler execution, so the service contract is
+  the single source of truth for whether delegated evidence can cross the
+  transport.
+- Added runtime tests in `tests/unit/functions-defineTrellis.test.ts` proving:
+  - forwarded service acting-for evidence is denied before handler execution
+    when service metadata forbids it;
+  - the same forwarded evidence is allowed when service metadata explicitly
+    permits acting-for delegation.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "service"`
+    passed: 1 file / 9 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 61 tests.
+  - `pnpm exec eslint src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+- Current state:
+  - Forwarded service traffic can no longer carry acting-for evidence unless
+    the configured service subject explicitly declares that delegation is part
+    of its contract.
+
+### 2026-06-05 Service Contract Runtime Metadata Enforcement
+
+- Hardened the service subject runtime contract so raw JavaScript and bad casts
+  cannot bypass the same metadata requirements enforced by doctor/security
+  inventory:
+  - `src/runtime/functions/index.ts` now rejects service callers whose
+    configured service subject is missing non-empty `source`, `purpose`,
+    `auditEvent`, `auditTable`, or `auditCorrelationId`;
+  - service metadata must declare a valid replay mode and an explicit boolean
+    `actingFor` contract;
+  - allowed operation ids/function refs, when present, must be arrays of
+    non-empty strings;
+  - service access must name at least one allowed table before a service DB
+    facade is built;
+  - derived service access must declare `deriveTenant` and resolve a non-empty
+    tenant id before handler execution.
+- Added runtime invariant coverage in `tests/unit/functions-defineTrellis.test.ts`
+  proving incomplete audit metadata, empty table allow-lists, and missing
+  derived tenant scope fail before handler execution.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "service"`
+    passed: 1 file / 12 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 64 tests.
+  - `pnpm exec eslint src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Service subjects now fail closed at runtime unless their single
+    `defineServices(...)` contract carries scoped access, target allow-lists,
+    replay behavior, acting-for policy, and audit/idempotency metadata.
+
+### 2026-06-05 Service Target Allow-List Type Hard Cut
+
+- Tightened the public service subject type surface so authored
+  `defineServices(...)` metadata must name at least one backend target list:
+  - `src/runtime/auth/define-services.ts` now requires either
+    `allowedOperations` or `allowedFunctionRefs` in `ServiceContractMetadata`;
+  - both lists remain optional only as alternatives to each other, matching the
+    runtime and doctor/security inventory contract that a service subject cannot
+    have no declared target.
+- Updated public dts coverage in `tests/dts/auth.types.ts`:
+  - the valid service example now names a function ref allow-list;
+  - a negative assertion proves service metadata without both target lists is
+    rejected.
+- Verification:
+  - `CI=true pnpm run test:types:public` passed.
+  - `pnpm exec eslint src/runtime/auth/define-services.ts tests/dts/auth.types.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/auth/define-services.ts tests/dts/auth.types.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Service subjects now require declared target authority in both the authored
+    TypeScript surface and runtime fail-closed path.
+
+### 2026-06-05 Trusted Write Missing Replay Fail-Closed
+
+- Closed the trusted mutation/action forwarding path that previously returned
+  early when a signed identity-forwarding envelope had no replay mode:
+  - `src/runtime/functions/index.ts` now rejects trusted `mutation` and
+    `action` envelopes without declared replay behavior before handler
+    execution;
+  - trusted queries remain allowed without replay mode, matching the 0.3.0
+    distinction between signed reads and replay-conscious writes.
+- Added runtime coverage in `tests/unit/functions-defineTrellis.test.ts`
+  proving a trusted mutation envelope without replay behavior fails before the
+  handler runs.
+- Kept the service replay mismatch coverage by making that fixture use an
+  explicit wrong replay mode (`domain-idempotency` envelope against a
+  `jti-redemption` service contract), so generic missing-replay rejection and
+  service replay-contract mismatch are both covered.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "trusted|replay"`
+    passed: 1 file / 10 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 65 tests.
+  - `pnpm exec eslint src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Plain trusted mutation/action forwarding can no longer enter a handler
+    without either domain idempotency or framework replay redemption declared in
+    the signed envelope.
+
+### 2026-06-05 Operation Execute Replay Mode Enforcement
+
+- Bound destructive operation-execute identity forwarding to the confirmation
+  replay mode:
+  - `src/runtime/functions/index.ts` now rejects `operation-execute` envelopes
+    unless their signed replay mode is `operation-confirmation`;
+  - generic trusted JTI redemption now skips `operation-confirmation`, leaving
+    destructive confirmation state as the single replay source of truth for
+    operation execution.
+- Cut over manual operation-execute envelope fixtures in
+  `tests/unit/functions-defineTrellis.test.ts` to declare
+  `replayMode: 'operation-confirmation'`.
+- Added a negative runtime test proving an operation-execute envelope without
+  operation-confirmation replay mode is rejected before handler execution.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "operation-execute|transport mutation|confirmation"`
+    passed: 1 file / 13 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 66 tests.
+  - `pnpm exec eslint src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Destructive operation execution replay is no longer an implicit
+    purpose-only convention; valid operation-execute envelopes must carry the
+    confirmation replay mode, and confirmation storage owns redemption.
+
+### 2026-06-05 Operation Confirmation Replay Purpose Enforcement
+
+- Closed the inverse replay-mode mismatch after operation-execute enforcement:
+  - `src/runtime/functions/index.ts` now rejects signed trusted envelopes that
+    use `operation-confirmation` replay mode unless the envelope purpose is
+    `operation-execute`;
+  - this prevents normal trusted mutation/action forwarding from bypassing the
+    generic JTI replay table path by declaring the destructive confirmation
+    replay mode.
+- Added runtime coverage in `tests/unit/functions-defineTrellis.test.ts`
+  proving a normal trusted mutation envelope with `operation-confirmation`
+  replay mode fails before handler execution.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "trusted|replay|operation-confirmation"`
+    passed: 1 file / 12 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 67 tests.
+  - `pnpm exec eslint src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - `operation-confirmation` is now a purpose-bound replay mode: it is accepted
+    only for destructive operation execution and cannot be used as a generic
+    trusted write replay declaration.
+
+### 2026-06-05 Server Transport Proof Operation Confirmation Fail-Fast
+
+- Mirrored the backend replay-mode/purpose invariant at the server route helper
+  boundary:
+  - `src/runtime/convex/server/convex.ts` now rejects
+    `operationConfirmation(...)` replay unless the effective transport proof
+    purpose is `operation-execute`;
+  - invalid server-route transport proofs fail before any Convex network
+    request is sent.
+- Added focused coverage in `tests/unit/server-convex-utils.test.ts` proving a
+  normal `serverConvexMutation(...)` with `operationConfirmation(...)` and no
+  `operation-execute` purpose is rejected locally.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/server-convex-utils.test.ts -t "transport proof"`
+    passed: 1 file / 7 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/server-convex-utils.test.ts`
+    passed: 1 file / 28 tests.
+  - `pnpm exec eslint src/runtime/convex/server/convex.ts tests/unit/server-convex-utils.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check src/runtime/convex/server/convex.ts tests/unit/server-convex-utils.test.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Production-copyable server routes cannot send operation-confirmation replay
+    proofs for normal trusted writes; the server helper and backend runtime now
+    agree on the replay-mode/purpose boundary.
+
+### 2026-06-05 Security Contract Server Transport Proof Coverage
+
+- Added server transport proof helper coverage to the generated security
+  contract runtime proof set:
+  - `scripts/lib/security-contract.mjs` now includes
+    `tests/unit/server-convex-utils.test.ts`;
+  - `tests/unit/security-contract.test.ts` asserts that proof file remains in
+    the contract;
+  - regenerated `security-contract.generated.json`.
+- This keeps the checked-in contract aware that replay/purpose fail-fast
+  behavior is covered at the production-copyable server route helper boundary,
+  not only in backend runtime tests.
+- Verification:
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `pnpm exec eslint scripts/lib/security-contract.mjs tests/unit/security-contract.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `pnpm exec oxfmt --check scripts/lib/security-contract.mjs tests/unit/security-contract.test.ts progress_0.3.0.md`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - The generated security contract now names the server transport proof tests
+    that enforce local replay metadata and replay-mode/purpose boundaries.
+
+### 2026-06-05 Remaining Protected/Guard Inventory Audit
+
+- Re-ran the handover protected/guard inventory audit after the service and
+  replay hardening slices:
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|protected\\(previewOf|protected preview|authRequired" tests/unit src/cli src/module-internals src/runtime scripts examples src/cli/starter-fixtures --glob '!dist/**' --glob '!node_modules/**'`
+- Current classification:
+  - no hits remain in maintained `examples/`, `src/cli/starter-fixtures/`,
+    `src/cli/`, or `src/module-internals/`;
+  - runtime hits are intentional protected-lane/custom-guard machinery in
+    `src/runtime/functions/index.ts`,
+    `src/runtime/functions/define-handler.ts`,
+    `src/runtime/functions/define-operation.ts`, and
+    `src/runtime/auth/define-guard.ts`;
+  - scanner/contract hits are intentional legacy/deleted-surface detectors in
+    `scripts/lib/security-contract.mjs`,
+    `scripts/lib/security-source-policy.mjs`, and
+    `scripts/check-security-packed-exports.mjs`;
+  - unit-test hits are intentional custom protected-lane, destructive
+    confirmation, internal `authRequired`, legacy upgrade/doctor, and lint-rule
+    fixtures in `tests/unit/functions-defineTrellis.test.ts`,
+    `tests/unit/functions-defineHandler.test.ts`,
+    `tests/unit/cli-upgrade.test.ts`, `tests/unit/cli-doctor.test.ts`,
+    `tests/unit/eslint-plugin.test.ts`, `tests/unit/cli-add-resource.test.ts`,
+    `tests/unit/auth-index.test.ts`, and `tests/unit/security-contract.test.ts`.
+- Verification:
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|protected\\(previewOf|protected preview|authRequired" examples src/cli/starter-fixtures src/cli src/module-internals --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+  - Count summary of remaining hits by file:
+    - scripts: security source/contract/packed-export policies only;
+    - runtime: protected-lane/custom-guard implementation only;
+    - tests: custom protected-lane runtime coverage, legacy detection, and
+      negative assertions only.
+- Current state:
+  - The audited protected/guard/authRequired remnants are no longer in
+    production-copyable examples, starter fixtures, generator code, or
+    first-reader source paths; remaining occurrences are classified intentional
+    coverage or internal machinery.
+
+### 2026-06-05 Debt And Compatibility Terminology Audit
+
+- Ran the handover debt/compatibility audit:
+  - `rg -n "deprecated|compat|legacy|shim|TODO|FIXME|temporary|migration-only|old path|backcompat|backward" src tests examples apps/docs packages scripts --glob '!dist/**' --glob '!node_modules/**'`
+- Classification:
+  - `compatibilityDate` hits in Nuxt configs and `compatibility.json` tooling
+    are framework/release metadata, not transitional compatibility paths;
+  - `src/cli/commands/upgrade.ts`, `tests/unit/cli-upgrade.test.ts`, and
+    `tests/unit/cli-doctor.test.ts` use `legacy` intentionally for migration
+    detection and removed-flow guidance;
+  - docs/example hits such as cached-query temporary seed wording, temporary MCP
+    shortcuts, HMAC secret names, and Plausible SSR compatibility are domain or
+    framework wording, not old Trellis implementation paths;
+  - test/support hits are fixtures or expected behavior labels, not production
+    code paths.
+- No code deletion was made from this audit because the hits were classified as
+  intentional migration support, framework metadata, test fixtures, or domain
+  wording rather than abandoned 0.3.0 scaffolding.
+- Verification:
+  - Count summary of remaining terms by file was captured from the audit; the
+    only source implementation hits were Nuxt/module compatibility metadata,
+    upgrade-command legacy detectors, validator compatibility wording, and
+    maintained example webhook/domain text.
+  - `pnpm exec oxfmt --check progress_0.3.0.md` passed.
+  - `git diff --check` passed.
+- Current state:
+  - The debt/compatibility terminology audit is recorded for final cleanup, and
+    no unclassified transitional helper/shim path was found in this slice.
+
+### 2026-06-05 Obsolete Package Subpath Audit
+
+- Ran the handover obsolete package/subpath audit:
+  - `rg -n "@lupinum/trellis/bridge|@lupinum/trellis/functions|@lupinum/trellis/backend/advanced|@lupinum/trellis/mcp/advanced" . --glob '!node_modules/**' --glob '!dist/**'`
+- Current classification:
+  - `@lupinum/trellis/functions` and `@lupinum/trellis/bridge` remain only in
+    upgrade/doctor detectors, negative export/type tests, migration/reference
+    inventory scripts, and historical planning notes;
+  - no maintained package export, Nuxt alias, starter fixture, or docs
+    production example imports the deleted core package subpaths;
+  - `@lupinum/trellis/backend/advanced` has no maintained production-surface
+    hit and appears only in historical progress/handover text;
+  - `@lupinum/trellis/mcp/advanced` remains the deliberate standalone
+    custom-tool subpath in `package.json`, the generated API surface docs,
+    public type config, security packed-export checks, and focused MCP docs/tests.
+- No code deletion was made in this audit because the live hits are the
+  intentional migration detectors, negative assertions, or the retained
+  standalone MCP advanced surface.
+- Verification:
+  - `tests/unit/package-subpath-exports.test.ts` already asserts that
+    `./functions` and `./bridge` are absent from package exports and
+    `typesVersions`, that Vitest no longer aliases them, and that Node package
+    exports reject the deleted subpaths.
+  - `apps/docs/content/docs/13.api-reference/7.api-surface.md` lists the
+    retained package subpaths and keeps bridge APIs on
+    `@lupinum/trellis-bridge`.
+- Current state:
+  - The obsolete core subpaths are hard-cut from the maintained public surface;
+    the only retained scanned subpath is the explicit
+    `@lupinum/trellis/mcp/advanced` custom-tool entrypoint.
+
+### 2026-06-05 Harness Structured Probe Authenticated Lane Cutover
+
+- Cut over the remaining structured probe reads in
+  `apps/harness/convex/functionsProbe.ts` from `query.protected(...)` plus a
+  signed-in custom guard to `query.authenticated(...)`.
+- Kept the loaded-object owner check in the structured `authorize` phase, so the
+  probe still proves isolation and object-level authorization without teaching a
+  protected-lane signed-in prefilter.
+- Updated `withTrustedCaller(...)` in `apps/harness/convex/test.helpers.ts` so
+  trusted query fixtures sign envelopes as `operation: 'query'` instead of
+  reusing mutation metadata.
+- Added explicit `jti-redemption` replay metadata to the trusted organization
+  mutation fixtures, matching the current fail-closed trusted-write runtime
+  contract and the harness `trustedReplay` table.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=convex --pool=threads --maxWorkers=1 --no-file-parallelism apps/harness/convex/functions.test.ts apps/harness/convex/organizations.test.ts`
+    passed: 2 files / 15 tests.
+  - `node node_modules/eslint/bin/eslint.js apps/harness/convex/functionsProbe.ts apps/harness/convex/functions.test.ts apps/harness/convex/organizations.test.ts apps/harness/convex/test.helpers.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/harness/convex/functionsProbe.ts apps/harness/convex/functions.test.ts apps/harness/convex/organizations.test.ts apps/harness/convex/test.helpers.ts`
+    passed.
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|authRequired|delegateToUser|readSharedSecretWebhookBody|stampMcpToolSafety|escapeIsolation|trellisUnsafeDb" apps/harness/convex/functionsProbe.ts apps/harness/convex/functions.test.ts apps/harness/convex/organizations.test.ts apps/harness/convex/test.helpers.ts --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+- Current state:
+  - The touched harness structured probes no longer use protected/guard as a
+    normal signed-in lane, and trusted forwarding test envelopes now distinguish
+    read-only forwarding from replay-conscious writes.
+
+### 2026-06-05 Public Functions DTS Permission Operation Cutover
+
+- Cut over `tests/dts/functions.types.ts` from a backend operation `guard`
+  fixture to operation `permission` metadata.
+- Tightened `src/runtime/functions/define-operation.ts` so
+  `defineOperation(...)` no longer requires a protected-lane guard when an
+  operation is permission-backed; authored custom-guard operations can still
+  carry `guard`, but metadata-only and permission-backed operations do not need
+  to duplicate authorization sources.
+- Verification:
+  - `CI=true pnpm run test:types:public` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-descriptor.test.ts`
+    passed: 1 file / 7 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/define-operation.ts tests/dts/functions.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/define-operation.ts tests/dts/functions.types.ts`
+    passed.
+  - `rg -n "defineGuard|guard:\\s*|authRequired" tests/dts/functions.types.ts src/runtime/functions/define-operation.ts --glob '!node_modules/**' --glob '!dist/**'`
+    now reports only the intentional runtime metadata preservation path for
+    authored custom-guard operations.
+- Current state:
+  - The public functions dts operation fixture now uses the same
+    permission-backed operation metadata style as the app, MCP, descriptor, and
+    type-primitives public dts coverage.
+
+### 2026-06-05 Protected Builder Docs Custom Guard Clarification
+
+- Tightened `apps/docs/content/docs/08.permissions/0.backend-builders.md` so the
+  protected-lane `rename` example no longer names a normal-looking
+  `projectWrite` guard.
+- Renamed the example guard to `integrationProjectWriter` and added explicit
+  guidance that ordinary workspace permission checks should use
+  `workspace(...)`, not `protected(...)`.
+- Verification:
+  - `pnpm run check:docs:links` passed.
+  - `pnpm run check:docs:api-surface` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/docs/content/docs/08.permissions/0.backend-builders.md`
+    passed.
+  - `rg -n "projectWrite|integrationProjectWriter|query\\.protected|mutation\\.protected|guard:" apps/docs/content/docs/08.permissions/0.backend-builders.md apps/docs/content/docs/08.permissions/6.cross-scope-and-raw-access.md`
+    now shows protected examples only in explicit custom-guard/cross-scope
+    docs sections.
+- Current state:
+  - First-reader backend builder docs still document the surviving custom
+    protected lane, but no longer use an ambiguous normal workspace-permission
+    guard name in the protected examples.
+
+### 2026-06-05 Authenticated Guard Type Fixture Classification
+
+- Added an explicit source comment to
+  `tests/types/authenticated-guard.types.ts` classifying its `open`,
+  `authRequired`, and custom `guard` usage as intentional internal
+  protected-lane narrowing coverage.
+- This keeps the type fixture from reading like app-author operation guidance
+  while preserving the proof that `buildStructuredFunctions(...)` narrows
+  runtime sentinel and custom guard contexts correctly.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/types/authenticated-guard.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/types/authenticated-guard.types.ts`
+    passed.
+- Current state:
+  - The remaining `authRequired`/`guard` type fixture is now classified
+    in-source as intentional internal protected-lane coverage.
+
+### 2026-06-05 Recoverable Failed Trusted Replay Claims
+
+- Made failed `jti-redemption` trusted replay claims recoverable when a retry
+  presents the same signed envelope metadata:
+  - `src/runtime/functions/index.ts` now reclaims a `failed` trusted replay row
+    by moving it back to `claimed` only when function ref, purpose, transport,
+    replay mode, args hash, subject, issuer, and audience match the original
+    failed claim;
+  - completed claims and in-flight claimed rows remain single-use blockers;
+  - failed claims with changed envelope metadata are rejected before handler
+    execution.
+- Updated `tests/unit/functions-defineTrellis.test.ts` so failed trusted JTI
+  redemption retries are proven recoverable for the same envelope and denied for
+  changed args.
+- Regenerated `security-contract.generated.json` after the current runtime and
+  harness lane changes so the checked-in security contract matches the current
+  worktree.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "trusted JTI redemption|trusted|replay"`
+    passed: 1 file / 13 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 68 tests.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts security-contract.generated.json`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - Trusted write replay is no longer permanently blocked by a failed handler
+    attempt when the same signed delivery is retried; failure recovery is tied
+    to the original envelope metadata, keeping the replay row as the single
+    backend source of truth.
+
+### 2026-06-05 Maintained Consumer Doctor Gate
+
+- Ran the maintained consumer and starter doctor gates from the handover's
+  broader release-verification list.
+- Verification:
+  - `pnpm run check:examples:doctor` passed for maintained examples 03 through
+    08 with zero failures:
+    - examples 03, 04, 05, 06, 07, and 08 all completed static diagnostics;
+    - remaining warnings were runtime engine baseline warnings on examples and
+      the documented backend-only destructive-operation warning for
+      `examples/03-team-workspace`;
+    - no deleted cross-scope escape API, forwarded-caller misuse, unsafe MCP
+      app-write bypass, or destructive MCP binding failure was reported.
+  - `pnpm run check:starter-fixtures:doctor` passed after `pnpm run build:cli`:
+    - `public`: 18 files, doctor 32 pass / 0 warn / 0 fail;
+    - `personal`: 26 files, doctor 32 pass / 0 warn / 0 fail;
+    - `workspace`: 38 files, doctor 32 pass / 0 warn / 0 fail;
+    - `workspace-mcp`: 44 files, doctor 32 pass / 0 warn / 0 fail.
+- Current state:
+  - The maintained examples and starter fixtures pass the current doctor gates
+    against the hard-cut operation/permission, service, replay, MCP, and unsafe
+    surface rules.
+
+### 2026-06-05 Broad Check Gate and Bridge Replay Cutover
+
+- Reran the full local `pnpm run check` gate after the operation descriptor and
+  replay hardening slices, then fixed the concrete regressions exposed by the
+  broad gate:
+  - `examples/07-mcp-reference/test/mcpReference.test.ts` now signs forwarded
+    user mutation fixtures with domain-idempotency replay evidence before
+    asserting the create permission boundary;
+  - `packages/trellis-bridge/src/bridge-forwarding.ts` now attaches replay
+    metadata to signed bridge writes: ordinary bridge mutations/actions use
+    `jti-redemption`, while `operation-execute` uses `operation-confirmation`;
+  - `packages/trellis-bridge/src/create-component-bridge.ts` now uses a bridge
+    definition's `forwardingPurpose` as the single source of truth for both
+    envelope signing and component-side verification;
+  - `examples/08-component-mini-cms/convex/features/pages/domain.ts` now sends
+    component publish calls through the `operation-execute` bridge purpose.
+- Kept the existing hard-cut behavior: trusted forwarded writes fail before
+  domain permissions unless replay metadata is present; destructive operation
+  execution requires operation-confirmation replay.
+- Regenerated `security-contract.generated.json` after the bridge and example
+  source changes.
+- Verification:
+  - `pnpm --dir examples/07-mcp-reference test -- test/mcpReference.test.ts`
+    passed: 3 files / 19 tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/create-component-bridge.test.ts`
+    passed: 1 file / 12 tests.
+  - `pnpm --dir examples/08-component-mini-cms test` passed: 1 file / 10
+    tests.
+  - `CI=true pnpm run security:contract` regenerated
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `pnpm run check` passed end-to-end:
+    - format, lint, publish surface, security tests, type checks, contract
+      tests, CLI check, maintained example doctor checks, and starter fixture
+      doctor checks all completed successfully;
+    - prepared examples 01 through 08 passed, including the replay-updated MCP
+      reference and component mini CMS examples;
+    - maintained doctor checks still report only existing warnings such as the
+      runtime engine baseline warnings and the documented backend-only
+      destructive-operation warning for `examples/03-team-workspace`.
+- Current state:
+  - The current worktree passes the full local check gate under the 0.3.0
+    replay and operation-execute invariants.
+
+### 2026-06-05 Remaining Protected/Guard Inventory Classification
+
+- Audited the remaining protected/guard/authRequired matches after the operation
+  descriptor cutover with:
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|protected\\(previewOf|protected preview|authRequired" tests/unit src/cli src/module-internals src/runtime scripts examples src/cli/starter-fixtures --glob '!dist/**' --glob '!node_modules/**'`
+- Confirmed `tests/unit/operation-descriptor.test.ts` remains on explicit
+  operation `permission` fixtures instead of old operation `guard` fixtures.
+- Classified every remaining scoped audit hit instead of deleting intentional
+  boundary coverage:
+  - runtime/internal machinery:
+    `src/runtime/functions/index.ts`,
+    `src/runtime/functions/define-handler.ts`,
+    `src/runtime/functions/define-operation.ts`, and
+    `src/runtime/auth/define-guard.ts`;
+  - security detector surfaces:
+    `scripts/lib/security-source-policy.mjs`,
+    `scripts/lib/security-contract.mjs`,
+    `scripts/check-security-packed-exports.mjs`,
+    `tests/unit/security-contract.test.ts`, and
+    `tests/unit/auth-index.test.ts`;
+  - legacy/generator negative detection:
+    `tests/unit/cli-doctor.test.ts`,
+    `tests/unit/cli-upgrade.test.ts`,
+    `tests/unit/eslint-plugin.test.ts`, and
+    `tests/unit/cli-add-resource.test.ts`;
+  - surviving custom protected-lane runtime coverage:
+    `tests/unit/functions-defineTrellis.test.ts` and
+    `tests/unit/functions-defineHandler.test.ts`.
+- Added short file-level classification comments to the legacy detector and
+  custom protected-lane test files so these old-looking fixtures are documented
+  as intentional 0.3.0 boundary coverage, not normal-path app-author guidance.
+- Verification:
+  - `node node_modules/eslint/bin/eslint.js tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-upgrade.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-upgrade.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts`
+    passed.
+  - `git diff --check` passed.
+- Current state:
+  - The scoped inventory has no stale maintained example, starter, generator, or
+    first-reader doc normal-path hits left unclassified. Remaining matches are
+    internal machinery, security detectors, runtime boundary tests, or
+    legacy/generator negative assertions.
+
+### 2026-06-05 Descriptor Implementation Guard Hard Cut
+
+- Tightened `implementOperation(...)` so descriptor-bound implementations cannot
+  carry protected-lane `guard` metadata:
+  - `DescriptorBoundOperationShape` now rejects `guard` at the type boundary;
+  - runtime assertion rejects any escaped `guard` value before descriptor
+    permission binding;
+  - `tests/unit/operation-descriptor.test.ts` covers the escaped runtime
+    rejection path;
+  - `tests/dts/functions.types.ts` covers the compiler-facing rejection.
+- Kept the surviving generic `defineOperation(...)` custom protected-lane
+  machinery intact for the classified runtime coverage. This cut only removes
+  the stale descriptor implementation path where cross-surface operation
+  metadata should be permission-owned.
+- Corrected `tests/dts/removed-subpaths.types.ts` comments from "1.0 public
+  surface" to the current 0.3.0 public surface.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-descriptor.test.ts`
+    passed: 1 file / 8 tests.
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/define-operation.ts tests/unit/operation-descriptor.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/define-operation.ts tests/unit/operation-descriptor.test.ts tests/dts/functions.types.ts tests/dts/removed-subpaths.types.ts`
+    passed.
+- Current state:
+  - Shared operation descriptors now have one authorization metadata path:
+    descriptor/implementation permission, not descriptor permission plus hidden
+    protected-lane guard.
+
+### 2026-06-05 Service Contract Target Allow-List Enforcement
+
+- Tightened the service-subject runtime contract so
+  `assertServiceContractConfigured(...)` is the single metadata-validity gate
+  for target allow-lists.
+- `defineTrellis({ services })` now rejects escaped service metadata that omits
+  both `allowedOperations` and `allowedFunctionRefs` before handler execution,
+  instead of relying on a later target-specific branch to discover the missing
+  allow-list.
+- Removed the duplicate "both allow-lists empty" check from
+  `assertServiceTargetAllowed(...)`; after this slice, target enforcement can
+  assume service metadata is already structurally valid.
+- Added focused runtime coverage in `tests/unit/functions-defineTrellis.test.ts`
+  proving a service caller with no target allow-list is denied before the
+  handler runs.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts -t "service"`
+    passed: 1 file / 13 selected tests.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 69 tests.
+  - `CI=true pnpm run check:security:contract` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+- Current state:
+  - Service metadata validity is enforced in one place before service target,
+    replay, acting-for, or table-scope enforcement proceeds.
+
+### 2026-06-05 Runtime Debt-Word Audit Narrowing
+
+- Cleaned up the misleading "compatibility" wording in
+  `tests/unit/functions-defineHandler.test.ts`.
+- The protected-lane helper test now describes `buildStructuredFunctions(...)`
+  as intentional custom protected-lane runtime and narrowing coverage, not as a
+  compatibility path or app-author guidance.
+- Verification:
+  - `node node_modules/eslint/bin/eslint.js tests/unit/functions-defineHandler.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/functions-defineHandler.test.ts`
+    passed.
+  - `rg -n "deprecated|compat|legacy|shim|TODO|FIXME|temporary|migration-only|old path|backcompat|backward" src/runtime tests/unit/functions-defineHandler.test.ts tests/unit/functions-defineTrellis.test.ts apps/docs/content/docs/08.permissions apps/docs/content/docs/13.api-reference --glob '!dist/**' --glob '!node_modules/**'`
+    now reports only `src/runtime/convex/server/validate.ts` using
+    "H3-compatible" in its ordinary technical sense.
+  - `git diff --check` passed.
+- Current state:
+  - The focused runtime/first-reader API cleanup audit no longer has
+    protected-lane "compatibility" wording that reads like a retained migration
+    path.
+
+### 2026-06-05 Shared Schema MCP Boundary Public Import Cutover
+
+- Cut the shared-schema MCP boundary fixture off relative `src/runtime` imports
+  in its app-facing server/shared files:
+  - `server/mcp/tools/create-task.ts` now imports `defineMcpTool` through the
+    generated `#trellis/mcp/advanced` alias;
+  - `shared/task.ts` now imports `defineArgs` from the public
+    `@lupinum/trellis/args` subpath.
+- Added an invariant to
+  `tests/unit/shared-schema-mcp-boundary-build.test.ts` proving fixture
+  `server/` and `shared/` files stay on public/generated Trellis imports. The
+  fixture `nuxt.config.ts` can still use local source aliases because it is the
+  module-under-test wiring.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/shared-schema-mcp-boundary-build.test.ts`
+    passed: 1 file / 2 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/shared-schema-mcp-boundary-build.test.ts tests/fixtures/shared-schema-mcp-boundary/server/mcp/tools/create-task.ts tests/fixtures/shared-schema-mcp-boundary/shared/task.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/shared-schema-mcp-boundary-build.test.ts tests/fixtures/shared-schema-mcp-boundary/server/mcp/tools/create-task.ts tests/fixtures/shared-schema-mcp-boundary/shared/task.ts`
+    passed.
+  - `rg -n "src/runtime|\\.\\./.*src/runtime" tests/fixtures/shared-schema-mcp-boundary/server tests/fixtures/shared-schema-mcp-boundary/shared --glob '!node_modules/**' --glob '!.nuxt/**' --glob '!.output/**'`
+    returned no hits.
+- Current state:
+  - The shared-schema MCP boundary fixture now proves consumer-facing server and
+    shared files use the same public/generated Trellis surfaces documented for
+    0.3.0.
+
+### 2026-06-05 Phase0 Operation Ref Public Import Cutover
+
+- Cut the phase0 workspace-MCP generated operation refs from a relative
+  `src/runtime/functions/define-operation` helper import to the public
+  `@lupinum/trellis/backend` subpath.
+- Updated `tests/fixtures/phase0-workspace-mcp/starter.manifest.json` so
+  starter codegen renders the public backend import as the source of truth, then
+  updated the checked-in `generated/operation-refs.ts` fixture to match.
+- Added fixture assertions proving generated operation refs import
+  `projectOperationRef` from `@lupinum/trellis/backend` and do not contain
+  `src/runtime`.
+- Updated shared ref codegen formatting so generated files separate bare package
+  imports from relative imports, matching `oxfmt` output.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+    passed: 2 files / 5 tests.
+  - `node node_modules/eslint/bin/eslint.js src/module-internals/ref-codegen.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts tests/unit/phase0-workspace-mcp-fixture.test.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/module-internals/ref-codegen.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/fixtures/phase0-workspace-mcp/starter.manifest.json`
+    passed.
+  - `rg -n "projectOperationRefImport|src/runtime/functions/define-operation|from '@lupinum/trellis/backend'" tests/fixtures/phase0-workspace-mcp/starter.manifest.json tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts tests/unit/phase0-workspace-mcp-fixture.test.ts src/module-internals/ref-codegen.ts`
+    shows the manifest and generated fixture on `@lupinum/trellis/backend` with
+    no stale `src/runtime/functions/define-operation` import.
+- Current state:
+  - Operation ref starter generation no longer preserves a relative runtime
+    helper import for the `projectOperationRef` public backend API.
+
+### 2026-06-05 Phase0 MCP Runtime Public Import Narrowing
+
+- Cut additional phase0 workspace-MCP fixture files from relative runtime
+  imports to existing public surfaces where the direct unit harness can load
+  them:
+  - `server/mcp/runtime.ts` now imports `operationPreview` from
+    `@lupinum/trellis/backend`;
+  - `shared/app-inventory.ts` now imports `defineAppInventory` from
+    `@lupinum/trellis/workspace`.
+- Kept `server/mcp/runtime.ts` on the direct
+  `src/runtime/mcp/define-mcp-app` import for `defineMcpApp` because the
+  top-level MCP barrel imports Nitro runtime helpers and cannot be loaded by
+  this direct Node unit fixture outside a Nuxt/Nitro context. The test now
+  documents that exception explicitly instead of hiding it behind a partial
+  alias.
+- Added assertions proving the operation tools, app inventory, and generated
+  operation refs do not contain stale `src/runtime` imports.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed: 2 files / 6 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/fixtures/phase0-workspace-mcp/server/mcp/runtime.ts tests/fixtures/phase0-workspace-mcp/shared/app-inventory.ts tests/unit/phase0-workspace-mcp-fixture.test.ts vitest.config.ts --ignore-pattern '**/_generated/**'`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/fixtures/phase0-workspace-mcp/server/mcp/runtime.ts tests/fixtures/phase0-workspace-mcp/shared/app-inventory.ts tests/unit/phase0-workspace-mcp-fixture.test.ts vitest.config.ts`
+    passed.
+  - `rg -n "src/runtime|\\.\\./.*src/runtime" tests/fixtures/phase0-workspace-mcp/server/mcp/tools tests/fixtures/phase0-workspace-mcp/shared/app-inventory.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+- Current state:
+  - The phase0 workspace-MCP consumer-facing tool, inventory, and generated ref
+    files use public Trellis surfaces where they can be loaded in the current
+    direct unit harness; the remaining direct MCP runtime import is documented
+    as a Node-test boundary, not a generator or starter public path.
+
+### 2026-06-05 Phase0 Project Fixture Public Import Cutover
+
+- Cut the phase0 workspace-MCP project fixture files from relative
+  `src/runtime` imports to public Trellis subpaths:
+  - project domain and operation implementations now import operation helpers
+    from `@lupinum/trellis/backend`;
+  - project permission keys and checks now import from
+    `@lupinum/trellis/auth`;
+  - the shared project feature now imports `defineFeature` from
+    `@lupinum/trellis/workspace`.
+- Removed a duplicate create-project args/return source in the Convex domain
+  fixture by binding `createProject` to `createProjectDescriptor.args` and
+  `createProjectDescriptor.returns`.
+- Added the create-project operation descriptor/permission implementation to
+  the fixture inventory so the public-import path is exercised for both safe
+  and destructive operation shapes.
+- Widened the phase0 fixture invariant so server tools, shared project files,
+  project Convex feature files, app inventory, and generated operation refs
+  reject stale `src/runtime` imports. The only documented exception remains
+  `server/mcp/runtime.ts` for direct `defineMcpApp` loading in the Node unit
+  harness.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed: 3 files / 9 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/phase0-workspace-mcp-fixture.test.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/domain.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/feature.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/server/mcp/runtime.ts tests/fixtures/phase0-workspace-mcp/shared/app-inventory.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts src/module-internals/ref-codegen.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/phase0-workspace-mcp-fixture.test.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/domain.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/feature.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/operations.ts tests/fixtures/phase0-workspace-mcp/shared/features/projects/permissions.ts tests/fixtures/phase0-workspace-mcp/server/mcp/runtime.ts tests/fixtures/phase0-workspace-mcp/shared/app-inventory.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts src/module-internals/ref-codegen.ts`
+    passed.
+  - `rg -n "src/runtime|\\.\\./.*src/runtime" tests/fixtures/phase0-workspace-mcp/convex/features/projects tests/fixtures/phase0-workspace-mcp/shared/features/projects tests/fixtures/phase0-workspace-mcp/server/mcp/tools tests/fixtures/phase0-workspace-mcp/shared/app-inventory.ts tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - The phase0 project fixture now uses public Trellis surfaces for project
+    descriptors, permissions, feature inventory, and operation implementations,
+    with descriptor metadata as the single source for create-project args and
+    return validation.
+
+### 2026-06-05 Destructive Confirmation Test Lane Cutover
+
+- Cut the destructive confirmation/replay block in
+  `tests/unit/functions-defineTrellis.test.ts` off `mutation.protected(...)`
+  plus `guard: allowAll` fixture style.
+- Added a shared signed-in test caller and destructive test permission, then
+  registered those destructive operation tests through
+  `mutation.authenticated(...)` / `query.authenticated(...)` with permission
+  metadata.
+- Kept the surviving `protected(...)` fixtures in the same file for their
+  documented custom protected-lane boundary coverage. This slice only changes
+  tests whose assertions are about destructive confirmation, replay, preview
+  storage, authorization re-check, stale-preview rejection, and safety
+  misconfiguration.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 69 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `rg -n "runtime\\.(query|mutation)\\.protected|guard:\\s*allowAll|guard:\\s*true|permission: destructiveTestPermission|caller: signedInTestCaller" tests/unit/functions-defineTrellis.test.ts`
+    now shows the confirmation/replay block on `destructiveTestPermission` and
+    `signedInTestCaller`; remaining protected hits are outside that block.
+  - `git diff --check` passed.
+- Current state:
+  - Destructive operation confirmation/replay unit coverage no longer presents
+    `protected`/`guard` as the normal operation registration path.
+
+### 2026-06-05 Transport Operation Test Permission Cutover
+
+- Cut the destructive transport operation tests in
+  `tests/unit/functions-defineTrellis.test.ts` off `guard: allowAll` operation
+  fixtures.
+- The projected function-ref verification and trusted operation-execute
+  transport mutation tests now use permission metadata and
+  `transportMutation.authenticated(...)` instead of custom protected-lane
+  operation registration.
+- Added the signed-in test caller to those runtime setups so the tests assert
+  the transport-specific failure paths rather than relying on a custom guard to
+  bypass caller checks.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 69 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `rg -n "guard:\\s*allowAll|runtime\\.mutation\\.protected\\(|runtime\\.transportMutation\\(" tests/unit/functions-defineTrellis.test.ts`
+    now shows remaining `guard: allowAll` and `mutation.protected(...)` hits
+    only in earlier custom protected-lane coverage, with no bare
+    `runtime.transportMutation(...)` registrations left.
+  - `git diff --check` passed.
+- Current state:
+  - Destructive transport operation unit coverage no longer depends on
+    protected-lane guard metadata for operation projection and operation-execute
+    transport assertions.
+
+### 2026-06-05 Public Write Negative Fixture Lane Cutover
+
+- Cut the `publicWrite` negative test in
+  `tests/unit/functions-defineTrellis.test.ts` off `mutation.protected(...)`
+  and `guard: allowAll`.
+- The test still proves `publicWrite` is rejected outside public mutation
+  handlers, but now uses `mutation.authenticated(...)` with the shared signed-in
+  test caller instead of presenting a protected-lane fixture as the non-public
+  example.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 69 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `rg -n "guard:\\s*allowAll|runtime\\.mutation\\.protected\\(|todos\\.protectedPublicWrite|Invalid protected write capability" tests/unit/functions-defineTrellis.test.ts`
+    shows no stale publicWrite protected fixture names or messages; remaining
+    hits are lane metadata/rejection/custom-guard tests.
+  - `git diff --check` passed.
+- Current state:
+  - Public-write boundary coverage no longer uses protected/guard as the
+    representative non-public lane.
+
+### 2026-06-05 Generated Type Consumer Preview Projection Cutover
+
+- Cut the generated type consumer fixture in
+  `tests/unit/generated-type-consumers.test.ts` from
+  operation `guard: open` metadata and `query(previewOf(archiveTaskOp))` to
+  permission metadata and a mutation preview projection.
+- Updated the consumer assertion so generated destructive preview projections
+  compile as `_type: 'mutation'`, matching the current generator, docs, and
+  runtime requirement that destructive previews issuing confirmation state use
+  mutation lanes.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/generated-type-consumers.test.ts tests/unit/public-surface-codegen.test.ts`
+    passed: 2 files / 5 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/generated-type-consumers.test.ts tests/unit/public-surface-codegen.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/generated-type-consumers.test.ts tests/unit/public-surface-codegen.test.ts`
+    passed.
+  - `rg -n "query<ReturnType|previewKind:.*query|query\\(previewOf" tests/unit/generated-type-consumers.test.ts tests/unit/public-surface-codegen.test.ts src/cli/lib apps/docs examples --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - Generated type consumer coverage no longer preserves a query-based
+    destructive preview projection fixture.
+
+### 2026-06-05 Direct MCP Mutation Type Validator Cutover
+
+- Narrowed `ValidateMcpToolOptions` in
+  `src/runtime/mcp/define-mcp-app.ts` so direct MCP tool option validation only
+  accepts query refs.
+- Kept operation-backed writes on their separate `ToolOperationOptions` path;
+  this avoids a second accepted type-level path for app-backed MCP mutations.
+- Updated `tests/dts/mcp.types.ts` and `tests/dts/type-primitives.types.ts` so
+  direct query tool options still validate while direct mutation tool options
+  are explicit `@ts-expect-error` cases.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/define-mcp-app.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/mcp/define-mcp-app.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts`
+    passed.
+  - `rg -n "ValidateMcpToolOptions<|direct MCP tool options|tool\\.mutation\\(" src/runtime/mcp/define-mcp-app.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts tests/unit/cli-doctor.test.ts`
+    shows the remaining direct mutation references only as negative
+    detector/type-error fixtures.
+  - `git diff --check` passed.
+- Current state:
+  - Public type validation no longer accepts direct MCP mutation tool options;
+    app-backed MCP writes stay operation-backed.
+
+### 2026-06-05 MCP Direct Tool Alias Removal
+
+- Removed the stale `DefineToolOptions` alias from the top-level
+  `@lupinum/trellis/mcp` type surface.
+- Kept the concrete `DefineConvexToolOptions` implementation type internal to
+  the direct Convex read-tool path; the public validation surface is now the
+  more precise `ValidateMcpToolOptions` helper.
+- Added a dts negative import assertion in `tests/dts/mcp.types.ts` so the old
+  alias is not silently reintroduced while direct MCP app writes remain on the
+  operation-backed path.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/mcp-index-exports.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed: 2 files / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/index.ts tests/dts/mcp.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/mcp/index.ts tests/dts/mcp.types.ts`
+    passed.
+  - `rg -n "DefineToolOptions|DefineConvexToolOptions as DefineToolOptions" src tests apps/docs examples --glob '!dist/**' --glob '!node_modules/**'`
+    shows only the expected negative dts assertion.
+  - `git diff --check` passed.
+- Current state:
+  - The top-level MCP type surface no longer preserves the generic direct-tool
+    alias from the old broader direct tool lane.
+
+### 2026-06-05 MCP Generic Tool Options Export Removal
+
+- Removed the generic `ToolOptions` type from the top-level
+  `@lupinum/trellis/mcp` export surface.
+- Kept the implementation interface internal to `defineMcpApp(...)`; consumers
+  should validate public direct read-tool shapes through
+  `ValidateMcpToolOptions` instead of importing the broad generic options
+  carrier.
+- Added a dts negative import assertion in `tests/dts/mcp.types.ts` next to the
+  removed `DefineToolOptions` alias assertion.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/mcp-index-exports.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed: 2 files / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/index.ts tests/dts/mcp.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/mcp/index.ts tests/dts/mcp.types.ts`
+    passed.
+  - `rg -n "ToolOptions|DefineToolOptions|DefineConvexToolOptions as DefineToolOptions" src/runtime/mcp/index.ts tests/dts/mcp.types.ts apps/docs/content/docs/13.api-reference apps/docs/content/docs/14.mcp-tools tests/dts/type-primitives.types.ts --glob '!dist/**' --glob '!node_modules/**'`
+    shows only `ValidateMcpToolOptions` references and the expected negative dts
+    assertions.
+  - `git diff --check` passed.
+- Current state:
+  - Public MCP type validation exposes the named validator helper, not broad
+    direct-tool option carrier types from the old direct app-write lane.
+
+### 2026-06-05 MCP Confirmation Redeem Type Rename
+
+- Replaced the typo-shaped `McpConfirmationConfirmationInput` type with
+  `McpConfirmationRedeemInput`.
+- Updated `McpConfirmationStore.redeem(...)`, the `defineMcpApp` type
+  re-export, and the top-level `@lupinum/trellis/mcp` type surface to use the
+  corrected redeem-input name.
+- Added dts coverage proving the corrected name imports and the duplicated old
+  name is removed.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/destructive-confirmation.test.ts tests/unit/define-convex-tool.test.ts tests/unit/mcp-operation-binding.test.ts`
+    passed: 3 files / 42 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/destructive-confirmation.ts src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/index.ts tests/dts/mcp.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/mcp/destructive-confirmation.ts src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/index.ts tests/dts/mcp.types.ts`
+    passed.
+  - `rg -n "McpConfirmationConfirmationInput|McpConfirmationRedeemInput" src tests apps/docs examples meta --glob '!dist/**' --glob '!node_modules/**'`
+    shows the corrected implementation/export references plus the expected
+    negative dts assertion for the removed typo.
+  - `git diff --check` passed.
+- Current state:
+  - MCP destructive confirmation store typing no longer exposes the duplicated
+    confirmation-input name from the interim public surface.
+
+### 2026-06-05 Public App Type Fixture Version Cleanup
+
+- Removed stale 0.2 wording from `tests/dts/app.types.ts`.
+- Updated the app-operation example payload from `Ship 0.2` to `Ship 0.3` and
+  made the `workspaceScope(...)` negative assertion version-neutral.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/dts/app.types.ts` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/dts/app.types.ts`
+    passed.
+  - `rg -n "0\\.2|Ship 0\\.2" tests/dts tests/types --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - Public dts fixtures no longer carry stale 0.2 release wording.
+
+### 2026-06-05 Transport Proof Guidance Cutover
+
+- Removed future-tense "0.3 proof API is available" wording from server-route
+  docs and starter fixture AGENTS files.
+- Updated the guidance to point at the current `transportProof.*(...)` path for
+  verified server-to-server flows and to ban raw caller/acting-for forwarding
+  from server routes.
+- Verification:
+  - `node scripts/check-doc-links.mjs` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts`
+    passed: 2 files / 14 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts`
+    passed.
+  - `rg -n "until the 0\\.3 proof API is available|being replaced in Trellis 0\\.3\\.0|once the 0\\.3 proof path is|0\\.3 proof" apps/docs/content src/cli/starter-fixtures examples meta --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `rg -n 'transport proof auth|transportProof\\.\\*|raw caller|Forwarded' apps/docs/content/docs/02.concepts/4.call-patterns.md apps/docs/content/docs/13.api-reference/4.server.md src/cli/starter-fixtures/*/AGENTS.md`
+    shows the updated current-path guidance.
+  - `git diff --check` passed.
+- Current state:
+  - Docs and starter guidance no longer describe server-to-server forwarding as
+    waiting on a future 0.3 proof API.
+
+### 2026-06-05 Unit Fixture Version Text Cleanup
+
+- Removed the remaining `Ship 0.2` literals from app operation unit fixtures.
+- Updated the operation query fixture text in `tests/unit/app-index-exports.test.ts`
+  and `tests/unit/functions-defineTrellis.test.ts` to `Ship 0.3`.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/app-index-exports.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 2 files / 77 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/app-index-exports.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/app-index-exports.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `rg -n "Ship 0\\.2|0\\.2" tests/unit/app-index-exports.test.ts tests/unit/functions-defineTrellis.test.ts tests/dts tests/types --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - Unit and dts type fixtures no longer carry stale `Ship 0.2` release text.
+
+### 2026-06-05 Cached Query Audit-Term Cleanup
+
+- Reworded cached-query docs to avoid using `temporary` as ordinary prose in a
+  first-reader page that is covered by final hard-cut debt-term audits.
+- Kept the behavior guidance the same: `isFromCache: true` is the initial detail
+  state and should be treated as pending a live upgrade.
+- Verification:
+  - `node scripts/check-doc-links.mjs` passed.
+  - `rg -n "temporary|old path|migration-only|backcompat|backward|TODO|FIXME" apps/docs/content/docs/03.data-fetching/3.cached-queries.md apps/docs/content/docs/02.concepts/4.call-patterns.md apps/docs/content/docs/13.api-reference/4.server.md src/cli/starter-fixtures/*/AGENTS.md --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - The touched first-reader docs and starter AGENTS files no longer add
+    incidental final-audit debt-term noise.
+
+### 2026-06-05 MCP Reference README Audit-Term Cleanup
+
+- Reworded the MCP reference example's session shortcut prompt from
+  `temporary shortcut` to `session-scoped shortcut`.
+- This preserves the intended MCP session behavior while removing incidental
+  final-audit `temporary` noise from a maintained example README.
+- Verification:
+  - `rg -n "temporary|old path|migration-only|backcompat|backward|TODO|FIXME" examples/07-mcp-reference/README.md apps/docs/content/docs/03.data-fetching/3.cached-queries.md apps/docs/content/docs/02.concepts/4.call-patterns.md apps/docs/content/docs/13.api-reference/4.server.md src/cli/starter-fixtures/*/AGENTS.md --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - Maintained example README guidance no longer carries this incidental
+    final-audit debt-term hit.
+
+### 2026-06-05 Test Support Audit-Term Cleanup
+
+- Renamed the server public-export test from `legacy` helper names to `deleted`
+  helper names, matching the assertion's actual purpose.
+- Reworded `tests/support/browser` in `tests/TESTING.md` from browser `shims` to
+  browser alias helpers.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/server-index-exports.test.ts`
+    passed: 1 file / 6 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/server-index-exports.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/server-index-exports.test.ts`
+    passed.
+  - `rg -n "legacy|shims|shim" tests/unit/server-index-exports.test.ts tests/TESTING.md --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - These test-support files no longer contribute incidental `legacy`/`shim`
+    hits to final debt-term audits.
+
+### 2026-06-05 Protected-App Label Cutover
+
+- Replaced remaining first-reader `protected-app` / `protected model` wording
+  with explicit workspace app language.
+- Touched docs, example navigation, and the workspace-MCP starter README; custom
+  protected-lane API docs remain where they describe the intentional custom
+  guard lane.
+- Verification:
+  - `node scripts/check-doc-links.mjs` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/phase0-starter-manifest.test.ts`
+    passed: 1 file / 5 tests.
+  - `rg -n "protected-app|protected app|protected model|protected workspace|protected-app shell|canonical protected" apps/docs/content examples src/cli/starter-fixtures --glob '!node_modules/**' --glob '!dist/**'`
+    returned no hits.
+  - `git diff --check` passed.
+- Current state:
+  - Maintained docs and starter navigation no longer name the normal workspace
+    app model as the protected-app model.
+
+### 2026-06-05 Identity Forwarding Secret Wording Cleanup
+
+- Reworded the example 03 `CONVEX_IDENTITY_FORWARDING_KEY` description from
+  shared secret language to forwarding signing-key language.
+- This keeps the maintained example aligned with the signed identity-forwarding
+  model documented in the server-side guide.
+- Verification:
+  - `rg -n "shared secret for identity forwarding|CONVEX_IDENTITY_FORWARDING_KEY.*shared secret|readSharedSecretWebhookBody" examples/03-team-workspace/README.md examples/README.md apps/docs/content tests/unit/example-webhook-security.test.ts --glob '!dist/**' --glob '!node_modules/**'`
+    shows only intentional negative `readSharedSecretWebhookBody` assertions.
+  - `rg -n "CONVEX_IDENTITY_FORWARDING_KEY" examples/03-team-workspace/README.md examples/README.md examples/07-mcp-reference/README.md apps/docs/content/docs/07.server-side/3.webhooks-and-identity-forwarding.md`
+    shows current forwarding-key guidance.
+  - `git diff --check` passed.
+- Current state:
+  - Maintained example 03 no longer describes the identity-forwarding key as a
+    generic shared secret.
+
+### 2026-06-05 Runtime/Test Stale Label Cleanup
+
+- Replaced a stale `protected app runtime` comment in `defineCaller(...)` with
+  explicit app runtime language.
+- Reworded the identity-forwarding weak-key production warning from random
+  shared secret language to random signing key language.
+- Updated the examples gallery doc test to expect the current workspace-app
+  wording already present in `examples/README.md`.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/examples-gallery-docs.test.ts tests/unit/identity-forwarding.test.ts tests/unit/server-boundaries.test.ts`
+    passed: 3 files / 34 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/define-caller.ts src/runtime/identity-forwarding/shared.ts tests/unit/examples-gallery-docs.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/define-caller.ts src/runtime/identity-forwarding/shared.ts tests/unit/examples-gallery-docs.test.ts`
+    passed.
+  - `rg -n "protected app runtime|protected-app example|long random shared secret|CONVEX_IDENTITY_FORWARDING_KEY.*shared secret" src/runtime tests/unit apps/docs/content examples --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - Runtime comments, identity-forwarding diagnostics, and examples gallery
+    tests now use current 0.3 terminology.
+
+### 2026-06-05 MCP Internal Direct Tool Options Rename
+
+- Renamed the internal `ToolOptions` carrier in `defineMcpApp(...)` to
+  `DirectToolOptions`.
+- Changed its default function ref from mutation to query so the internal type
+  matches the current direct MCP lane: direct reads only; writes remain
+  operation-backed through `ToolOperationOptions`.
+- Kept the removed public `ToolOptions` dts negative assertion in place, with
+  no compatibility alias.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/define-convex-tool.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/mcp-index-exports.test.ts`
+    passed: 3 files / 43 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/define-mcp-app.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/mcp/define-mcp-app.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts`
+    passed.
+  - `rg -n "ToolOptions|DirectToolOptions|ValidateMcpToolOptions|AnyMutationRef" src/runtime/mcp/define-mcp-app.ts tests/dts/mcp.types.ts tests/dts/type-primitives.types.ts src/runtime/mcp/index.ts apps/docs/content/docs/13.api-reference/8.type-primitives.md`
+    shows `ToolOptions` only in the expected negative dts assertion and
+    `DirectToolOptions` only in the internal MCP implementation.
+  - `git diff --check` passed.
+- Current state:
+  - The MCP runtime no longer keeps an internal broad `ToolOptions` name from
+    the deleted direct app-write lane.
+
+### 2026-06-05 Unit Fixture Audit-Term Cleanup
+
+- Reworded the example dev launcher assertion from temporary env-file wording
+  to ephemeral env-file wording while keeping the private temp directory and
+  restrictive-mode invariant intact.
+- Replaced the JWT decoding fixture value `legacy_user_123` with
+  `token_user_123`; the test still proves JWT identifiers are not exposed as
+  app user ids.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/example-dev-launcher.test.ts tests/unit/jwt-user-decoding.test.ts`
+    passed: 2 files / 39 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/example-dev-launcher.test.ts tests/unit/jwt-user-decoding.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/example-dev-launcher.test.ts tests/unit/jwt-user-decoding.test.ts`
+    passed.
+  - `rg -n "temporary Convex env|legacy_user_123" tests/unit/example-dev-launcher.test.ts tests/unit/jwt-user-decoding.test.ts --glob '!dist/**' --glob '!node_modules/**'`
+    returned no hits.
+- Current state:
+  - The focused unit fixtures no longer add false-positive legacy/temporary
+    wording to the 0.3 audit surface.
+
+### 2026-06-05 MCP Enabled Predicate Comment Cleanup
+
+- Reworded the `enabled` direct-tool option comment in
+  `src/runtime/mcp/types.ts` from guard wording to predicate wording.
+- This keeps the current `enabled` API untouched while avoiding a misleading
+  operation-guard label in the direct MCP option surface.
+- Verification:
+  - `node node_modules/eslint/bin/eslint.js src/runtime/mcp/types.ts` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/mcp/types.ts`
+    passed.
+  - `rg -n "Guard to include|guard to include" src/runtime/mcp/types.ts src/runtime/mcp/define-convex-tool.ts src/runtime/mcp/define-mcp-app.ts`
+    returned no hits.
+- Current state:
+  - MCP direct-tool option comments no longer describe the `enabled` predicate
+    as a guard.
+
+### 2026-06-05 Generic Compatibility Wording Cleanup
+
+- Reworded a unit test name from Convex-compatible path wording to Convex local
+  env path wording.
+- Reworded the server validation helper comments from H3-compatible wording to
+  direct H3 validation wording.
+- Left real Nuxt `compatibility` metadata untouched because it is framework
+  configuration, not an old-path compatibility shim.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/example-dev-launcher.test.ts`
+    passed: 1 file / 34 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/example-dev-launcher.test.ts src/runtime/convex/server/validate.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/example-dev-launcher.test.ts src/runtime/convex/server/validate.ts`
+    passed.
+  - `rg -n "Convex-compatible|H3-compatible|Compatible with H3" tests/unit/example-dev-launcher.test.ts src/runtime/convex/server/validate.ts`
+    returned no hits.
+- Current state:
+  - These maintained source/test files no longer add generic compatibility-term
+    noise to the final hard-cut audit surface.
+
+### 2026-06-05 Docs And Skill Compatibility Wording Cleanup
+
+- Reworded the docs Plausible plugin comment from SSR/prerender compatibility
+  wording to SSR/prerender-safe loading.
+- Reworded the client-composables skill reference from compatible result shapes
+  to aligned result shapes.
+- These are wording-only changes; they do not alter Nuxt compatibility metadata
+  or any app/runtime behavior.
+- Verification:
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/docs/app/plugins/plausible.client.ts meta/skill/references/client-composables.md`
+    passed.
+  - `rg -n "SSR/prerender compatibility|result shapes\\s+compatible|compatible\\.|compatibility and automatic" apps/docs/app/plugins/plausible.client.ts meta/skill/references/client-composables.md`
+    returned no hits.
+  - `node scripts/check-doc-links.mjs` passed.
+  - `git diff --check` passed.
+  - Scoped ESLint for `apps/docs/app/plugins/plausible.client.ts` could not run
+    in this checkout because `apps/docs/eslint.config.mjs` imports generated
+    `.nuxt/eslint.config.mjs`; this slice is comment-only in that file.
+- Current state:
+  - These maintained docs/skill files no longer add generic compatibility-term
+    noise to the final hard-cut audit surface.
+
+### 2026-06-05 Operation Descriptor Guard-Hit Classification
+
+- Added a file-level classification comment to
+  `tests/unit/operation-descriptor.test.ts` explaining that its remaining
+  `guard: true` hit is intentional boundary coverage.
+- The file remains permission-backed for normal descriptor implementations; the
+  guard fixture exists only to prove descriptor implementations reject
+  protected-lane guard metadata.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/operation-descriptor.test.ts`
+    passed: 1 file / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/operation-descriptor.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/operation-descriptor.test.ts`
+    passed.
+  - `rg -n "guard:\\s*|protected-lane guard metadata|Intentional 0\\.3\\.0 boundary coverage" tests/unit/operation-descriptor.test.ts`
+    shows the file-level classification next to the intentional negative guard
+    assertion.
+- Current state:
+  - The remaining operation-descriptor guard audit hit is classified in source
+    as intentional rejection coverage, not old-path fixture guidance.
+
+### 2026-06-05 Public DTS Old-Path Assertion Classification
+
+- Added file-level classification comments to:
+  - `tests/dts/app.types.ts`;
+  - `tests/dts/functions.types.ts`;
+  - `tests/dts/mcp.types.ts`.
+- These comments make the remaining `guard: true`, deleted MCP option aliases,
+  typo-name import, and `runtime.tool.mutation(...)` hits self-describing as
+  negative public type boundary assertions.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/dts/app.types.ts tests/dts/functions.types.ts tests/dts/mcp.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/dts/app.types.ts tests/dts/functions.types.ts tests/dts/mcp.types.ts`
+    passed.
+  - `rg -n "Intentional 0\\.3\\.0|guard:\\s*true|tool\\.mutation|DefineToolOptions|ToolOptions|McpConfirmationConfirmationInput" tests/dts/app.types.ts tests/dts/functions.types.ts tests/dts/mcp.types.ts`
+    shows the file-level classifications next to the intentional negative type
+    assertions.
+- Current state:
+  - The remaining public DTS old-path tokens are classified in source as
+    deliberate removed-surface/type-boundary checks.
+
+### 2026-06-05 MCP Reference Direct-Write Assertion Classification
+
+- Added an in-test classification comment to
+  `examples/07-mcp-reference/test/mcpReference.test.ts` explaining that the
+  remaining `tool.mutation(` and `tool.operation(` strings are negative
+  read-only boundary assertions for anonymous MCP tools.
+- Verification:
+  - `pnpm exec vitest run test/mcpReference.test.ts` from
+    `examples/07-mcp-reference` passed: 1 file / 11 tests.
+  - `node ../../node_modules/eslint/bin/eslint.js test/mcpReference.test.ts`
+    from `examples/07-mcp-reference` passed.
+  - `node ../../node_modules/oxfmt/bin/oxfmt --check --threads=1 test/mcpReference.test.ts`
+    from `examples/07-mcp-reference` passed.
+  - `rg -n "Intentional 0\\.3\\.0 boundary coverage|tool\\.mutation\\(|tool\\.operation\\(" examples/07-mcp-reference/test/mcpReference.test.ts`
+    shows the classification next to the intentional negative assertions.
+- Current state:
+  - The maintained MCP reference example no longer has an unclassified direct
+    MCP write-token audit hit.
+
+### 2026-06-05 Unsafe Lane Protected-Shape Wording Cleanup
+
+- Reworded unsafe-lane table descriptions in:
+  - `apps/docs/content/docs/08.permissions/0.backend-builders.md`;
+  - `apps/docs/content/docs/08.permissions/6.cross-scope-and-raw-access.md`.
+- The docs now describe unsafe lanes as leaving normal lane shape / normal lane
+  guard phases instead of using `protected` as a generic normal-path label.
+- Verification:
+  - `node scripts/check-doc-links.mjs` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 apps/docs/content/docs/08.permissions/0.backend-builders.md apps/docs/content/docs/08.permissions/6.cross-scope-and-raw-access.md`
+    passed.
+  - `rg -n "normal protected shape|Protected handler path|normal lane shape|Normal lane guard phases" apps/docs/content/docs/08.permissions/0.backend-builders.md apps/docs/content/docs/08.permissions/6.cross-scope-and-raw-access.md`
+    shows only the new normal-lane wording.
+- Current state:
+  - First-reader advanced permission docs no longer describe the normal lane
+    model as a protected shape.
+
+### 2026-06-05 Nuxt Auth Flow TODO-Token Fixture Cleanup
+
+- Renamed the `TODOS_QUERY` fixture constant in
+  `tests/nuxt/useConvexAuthFlow.nuxt.test.ts` to `TASK_LIST_QUERY`.
+- This removes incidental `TODO` audit noise from a test fixture name without
+  changing the mocked Convex function ref or test behavior.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=nuxt --pool=threads --maxWorkers=1 --no-file-parallelism tests/nuxt/useConvexAuthFlow.nuxt.test.ts`
+    passed: 1 file / 19 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/nuxt/useConvexAuthFlow.nuxt.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/nuxt/useConvexAuthFlow.nuxt.test.ts`
+    passed.
+  - `rg -n "TODOS_QUERY|TASK_LIST_QUERY" tests/nuxt/useConvexAuthFlow.nuxt.test.ts`
+    shows only the new fixture name.
+- Current state:
+  - The Nuxt auth-flow test no longer contributes an incidental `TODO` token to
+    final debt-term audits.
+
+### 2026-06-05 Upgrade Command 0.3 Label Cutover
+
+- Replaced stale `Trellis 1.0` upgrade command wording with `Trellis 0.3` in
+  `src/cli/commands/upgrade.ts`.
+- Updated `tests/unit/cli-upgrade.test.ts` to expect the 0.3 upgrade heading.
+- Rebuilt the CLI because the focused upgrade tests execute `dist/cli.mjs`.
+- Verification:
+  - `pnpm run build:cli` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-upgrade.test.ts`
+    passed: 1 file / 24 tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts`
+    passed.
+  - `rg -n "Trellis 1\\.0|Trellis 0\\.3 upgrade|Trellis 0\\.3 migration" src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts dist/cli.mjs --glob '!node_modules/**'`
+    shows only current 0.3 upgrade/migration wording.
+- Current state:
+  - The upgrade CLI no longer labels the active hard-cut migration as Trellis
+    1.0.
+
+### 2026-06-05 Upgrade Command Detector Classification
+
+- Added a file-level classification comment to
+  `src/cli/commands/upgrade.ts` explaining that its remaining legacy-token
+  names are intentional pre-0.3 migration detector labels, not retained
+  compatibility paths.
+- Removed stale `1.0` wording from the functions-import fix hint so the CLI no
+  longer describes `@lupinum/trellis/backend` as a canonical 1.0 import.
+- Rebuilt the CLI because the focused upgrade tests execute `dist/cli.mjs`.
+- Verification:
+  - `pnpm run build:cli` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-upgrade.test.ts`
+    passed: 1 file / 24 tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts`
+    passed.
+  - `rg -n "Intentional 0\\.3\\.0 migration detector|canonical 1\\.0 backend import|Trellis 1\\.0|Trellis 0\\.3 upgrade|Trellis 0\\.3 migration" src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts dist/cli.mjs --glob '!node_modules/**'`
+    shows the detector classification and current 0.3 labels, with no stale
+    canonical 1.0 import hint.
+- Current state:
+  - The upgrade command's remaining old-path terms are classified as migration
+    detector coverage in source.
+
+### 2026-06-05 Repo Policy 0.3 Label Cutover
+
+- Replaced the retained examples/apps deleted-surface policy error label in
+  `scripts/check-repo-policies.mjs` from `Trellis 1.0` to `Trellis 0.3`.
+- This is a wording-only hard-cut alignment; the deleted-surface policy and
+  scanned paths are unchanged.
+- Verification:
+  - `node scripts/check-repo-policies.mjs` passed.
+  - `node node_modules/eslint/bin/eslint.js scripts/check-repo-policies.mjs`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 scripts/check-repo-policies.mjs`
+    passed.
+  - `rg -n "Trellis 1\\.0|deleted Trellis 0\\.3 surfaces" scripts/check-repo-policies.mjs`
+    shows only the current 0.3 deleted-surface label.
+- Current state:
+  - The retained examples/apps deleted-surface gate no longer reports the 0.3
+    hard-cut policy as a Trellis 1.0 policy.
+
+### 2026-06-05 Runtime Guard Machinery Classification
+
+- Added source-level 0.3.0 classification comments to:
+  - `src/runtime/auth/define-guard.ts`;
+  - `src/runtime/functions/define-handler.ts`;
+  - `src/runtime/functions/define-operation.ts`;
+  - `src/runtime/functions/index.ts`.
+- These comments classify remaining runtime `guard` / `authRequired` terms as
+  internal custom protected-lane, authenticated-lane, workspace-lane, or
+  operation-projection machinery, not public first-reader app-author API.
+- The audit also confirmed `@lupinum/trellis/mcp/advanced` is currently a
+  deliberate advanced subpath: it exports `defineMcpTool`, docs describe it as
+  standalone non-app-write tooling, dts coverage proves advanced tool extras do
+  not expose app mutation/action helpers, and packed-export/security-contract
+  checks ban the removed `defineTool` symbol.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/operation-descriptor.test.ts`
+    passed: 3 files / 93 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/index.ts src/runtime/functions/define-handler.ts src/runtime/functions/define-operation.ts src/runtime/auth/define-guard.ts tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/operation-descriptor.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/index.ts src/runtime/functions/define-handler.ts src/runtime/functions/define-operation.ts src/runtime/auth/define-guard.ts tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/operation-descriptor.test.ts`
+    passed after formatting `src/runtime/functions/index.ts`.
+  - `git diff --check` passed.
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|protected\\(previewOf|protected preview|authRequired" tests/unit src/cli src/module-internals src/runtime scripts examples src/cli/starter-fixtures --glob '!dist/**' --glob '!node_modules/**'`
+    shows remaining hits in classified runtime machinery, security scanners,
+    legacy-detection fixtures, negative export/type assertions, or custom
+    protected-lane tests.
+- Current state:
+  - The runtime source files now classify their remaining old-looking
+    guard/authRequired terms in place for the final hard-cut audit.
+
+### 2026-06-05 Security Scanner Old-Path Classification
+
+- Added source-level 0.3.0 classification comments to:
+  - `scripts/lib/security-source-policy.mjs`;
+  - `scripts/check-security-packed-exports.mjs`;
+  - `scripts/lib/security-contract.mjs`;
+  - `scripts/lib/retained-target-old-paths.mjs`;
+  - `scripts/lib/public-surface-inventory.mjs`.
+- These comments classify remaining deleted API names, stale subpaths, and
+  old-tool names in scanner code as policy data or stale-reference detectors,
+  not retained implementation paths.
+- Verification:
+  - `node scripts/check-security-source-policy.mjs` passed.
+  - `node scripts/check-security-packed-exports.mjs` passed.
+  - `node scripts/check-repo-policies.mjs` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed: 3 files / 8 tests.
+  - `node node_modules/eslint/bin/eslint.js scripts/lib/security-source-policy.mjs scripts/check-security-packed-exports.mjs scripts/lib/security-contract.mjs scripts/lib/retained-target-old-paths.mjs scripts/lib/public-surface-inventory.mjs tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 scripts/lib/security-source-policy.mjs scripts/check-security-packed-exports.mjs scripts/lib/security-contract.mjs scripts/lib/retained-target-old-paths.mjs scripts/lib/public-surface-inventory.mjs tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts tests/unit/package-subpath-exports.test.ts`
+    passed.
+- Current state:
+  - Old-path terms in security scanner files are now classified at the source as
+    enforcement data for the hard-cut cleanup audit.
+
+### 2026-06-05 Authenticated Guard Type Fixture Classification
+
+- Updated the classification comment in
+  `tests/types/authenticated-guard.types.ts` to use the same `Intentional
+0.3.0` marker as the rest of the old-path audit surface.
+- The fixture remains internal protected-lane type coverage for runtime
+  sentinels and custom guards, not app-author operation guidance.
+- Verification:
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/types/authenticated-guard.types.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/types/authenticated-guard.types.ts`
+    passed.
+  - `rg -n "Intentional 0\\.3\\.0 internal protected-lane|guard:\\s*|authRequired" tests/types/authenticated-guard.types.ts`
+    shows the 0.3.0 classification next to the protected-lane guard fixtures.
+- Current state:
+  - The remaining `guard` / `authRequired` hits in
+    `tests/types/authenticated-guard.types.ts` are classified in source as
+    intentional internal type coverage.
+
+### 2026-06-05 Deleted API Negative Assertion Classification
+
+- Added source-level 0.3.0 classification comments to deleted-API negative
+  assertion tests:
+  - `tests/unit/auth-index.test.ts`;
+  - `tests/unit/mcp-index-exports.test.ts`;
+  - `tests/unit/server-index-exports.test.ts`;
+  - `tests/unit/example-webhook-security.test.ts`;
+  - `tests/unit/security-contract.test.ts`;
+  - `tests/unit/retained-target-old-paths.test.ts`.
+- These comments classify remaining deleted helper names and old subpath/tool
+  strings as negative public export, maintained-example, security contract, or
+  scanner fixture assertions.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/auth-index.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/server-index-exports.test.ts tests/unit/example-webhook-security.test.ts tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts`
+    passed: 6 files / 16 tests.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/auth-index.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/server-index-exports.test.ts tests/unit/example-webhook-security.test.ts tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 tests/unit/auth-index.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/server-index-exports.test.ts tests/unit/example-webhook-security.test.ts tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts`
+    passed.
+  - `rg -n "Intentional 0\\.3\\.0|delegateToUser|readSharedSecretWebhookBody|stampMcpToolSafety|authRequired|tool\\.fromOperation" tests/unit/auth-index.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/server-index-exports.test.ts tests/unit/example-webhook-security.test.ts tests/unit/security-contract.test.ts tests/unit/retained-target-old-paths.test.ts`
+    shows the classification comments next to the deleted API negative
+    assertions.
+- Current state:
+  - Deleted public API names in these negative tests are classified in source
+    as intentional boundary assertions.
+
+### 2026-06-05 CLI Inventory Detector Classification
+
+- Added source-level 0.3.0 classification comments to:
+  - `src/cli/lib/project.ts`;
+  - `src/cli/lib/inventory-findings.ts`.
+- These comments classify remaining deleted API names, including
+  `ctx.db.escapeIsolation(...)`, as CLI inventory detector targets and report
+  labels for consumer projects, not retained runtime paths.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-doctor.test.ts -t "cross-scope escape|escapeIsolation|unsafe surface inventory"`
+    passed: 1 selected test.
+  - `node node_modules/eslint/bin/eslint.js src/cli/lib/project.ts src/cli/lib/inventory-findings.ts tests/unit/cli-doctor.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/lib/project.ts src/cli/lib/inventory-findings.ts tests/unit/cli-doctor.test.ts`
+    passed.
+  - `rg -n "Intentional 0\\.3\\.0 inventory|escapeIsolation" src/cli/lib/project.ts src/cli/lib/inventory-findings.ts tests/unit/cli-doctor.test.ts`
+    shows the classification comments next to the deleted API detector and
+    finding text.
+- Current state:
+  - CLI inventory code now classifies its remaining deleted API strings as
+    consumer-project detector data.
+
+### 2026-06-05 Skill Reference Guard Sentinel Classification
+
+- Updated `meta/skill/references/backend-auth-permissions.md` so the remaining
+  `authRequired`, `guard: authRequired`, and `guard: open` guidance uses an
+  explicit `Intentional 0.3.0` boundary marker.
+- The reference already directed new app code to `public(...)`,
+  `authenticated(...)`, `workspace(...)`, or real custom `protected(...)`
+  guards; this slice makes the audit classification explicit.
+- Verification:
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 meta/skill/references/backend-auth-permissions.md`
+    passed.
+  - `node scripts/check-doc-links.mjs` passed.
+  - `rg -n "Intentional 0\\.3\\.0 boundary|authRequired|guard: authRequired|guard: open|compatibility shims" meta/skill/references/backend-auth-permissions.md`
+    shows the 0.3.0 boundary marker next to the remaining guard-sentinel
+    wording.
+  - `git diff --check` passed.
+- Current state:
+  - The skill reference classifies its remaining guard-sentinel terms as 0.3.0
+    internal-boundary guidance, not normal app-author API.
+
+### 2026-06-05 Skill Reference Compatibility-Term Cleanup
+
+- Reworded hard-cut guidance in the Trellis skill files so incidental
+  `compatibility` terms no longer appear in skill/reference audit output:
+  - `meta/skill/SKILL.md`;
+  - `meta/skill/references/config-cli.md`;
+  - `meta/skill/references/public-surface.md`;
+  - `meta/skill/references/backend-auth-permissions.md`.
+- The guidance still says not to preserve or reintroduce stale paths; it now
+  uses direct `old-path` / `parallel alias` wording instead of generic
+  compatibility phrasing.
+- Verification:
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 meta/skill/SKILL.md meta/skill/references/config-cli.md meta/skill/references/public-surface.md meta/skill/references/backend-auth-permissions.md`
+    passed.
+  - `node scripts/check-doc-links.mjs` passed.
+  - `rg -n "compatibility shims|compatibility paths|compatibility aliases|compatibility layer|old-path shims|old-path aliases|parallel alias layer|Intentional 0\\.3\\.0 boundary" meta/skill/SKILL.md meta/skill/references/config-cli.md meta/skill/references/public-surface.md meta/skill/references/backend-auth-permissions.md`
+    shows only the new old-path / parallel-alias wording plus the existing 0.3
+    guard boundary marker.
+  - `git diff --check` passed.
+- Current state:
+  - Skill docs no longer contribute generic compatibility-term noise to the
+    final cleanup audit.
+
+### 2026-06-05 Public Surface Alignment Audit
+
+- Audited the package export source of truth against public-surface docs and
+  subpath/type boundary tests:
+  - `package.json` exports/typesVersions;
+  - `apps/docs/content/docs/13.api-reference/7.api-surface.md`;
+  - `tests/unit/package-subpath-exports.test.ts`;
+  - `tests/dts/removed-subpaths.types.ts`;
+  - `tests/dts/mcp.types.ts`.
+- No public-surface drift was found. The current exported package subpaths are:
+  root, `app`, `args`, `auth`, `backend`, `composables`, `mcp`,
+  `mcp/advanced`, `server`, `testing`, `type-primitives`, and `workspace`.
+- The surviving `@lupinum/trellis/mcp/advanced` subpath remains deliberate and
+  bounded to standalone `defineMcpTool`; removed `functions` and `bridge`
+  subpaths remain covered by negative export/type assertions.
+- Verification:
+  - `CI=true pnpm run check:docs:api-surface` passed.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/package-subpath-exports.test.ts tests/unit/api-surface-doc.test.ts`
+    passed: 2 files / 6 tests.
+  - `CI=true pnpm run test:types:contracts` passed.
+  - `node node_modules/eslint/bin/eslint.js tests/unit/package-subpath-exports.test.ts tests/unit/api-surface-doc.test.ts tests/dts/removed-subpaths.types.ts tests/dts/mcp.types.ts`
+    passed.
+- Current state:
+  - Package exports, generated API docs, subpath export tests, and public type
+    boundary tests agree on the current 0.3 public surface.
+
+### 2026-06-05 Broad Hard-Cut Audit And Security Contract Refresh
+
+- Ran the broad final hard-cut audit commands, excluding historical review/spec
+  ledgers, for:
+  - protected/guard/authRequired/deleted API terms;
+  - compatibility/debt terms;
+  - deleted public subpaths and advanced MCP subpath usage.
+- The remaining old-path hits are classified as generated security contract
+  data, source-policy scanners, CLI migration/inventory detectors, custom
+  protected-lane docs/tests, negative public export/type assertions, or real
+  Nuxt/package compatibility metadata. No unclassified active implementation
+  path was found in this pass.
+- `CI=true pnpm run check:security:contract` initially failed with generated
+  contract drift. Regenerated `security-contract.generated.json` with
+  `pnpm run security:contract`.
+- The regenerated contract now reflects current lane inventory from the broader
+  0.3 cutover, including harness entries that moved from protected/guard to
+  authenticated/workspace lanes plus expected line-number drift.
+- Verification:
+  - `pnpm run security:contract` passed and rewrote
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed after regeneration.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts tests/unit/cli-upgrade.test.ts tests/unit/cli-doctor.test.ts tests/unit/functions-defineTrellis.test.ts`
+    passed: 4 files / 157 tests.
+  - `node node_modules/eslint/bin/eslint.js scripts/lib/security-contract.mjs tests/unit/security-contract.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 security-contract.generated.json scripts/lib/security-contract.mjs tests/unit/security-contract.test.ts`
+    passed.
+  - `CI=true pnpm run test:security` passed:
+    - source policy;
+    - security contract drift check;
+    - module build;
+    - packed export policy;
+    - 25 unit proof files / 265 tests.
+- Current state:
+  - The generated security contract is current after the cleanup/classification
+    passes.
+  - The broad old-path audit surface has no newly discovered unclassified
+    active implementation path from this pass.
+
+### 2026-06-05 Broad Check Gate
+
+- Ran the full repository check after the operation permission cutover,
+  old-path classification cleanup, public-surface alignment audit, and security
+  contract refresh.
+- Verification:
+  - `pnpm run check` passed.
+  - The gate covered formatting, lint, repo policy checks, published surface
+    checks, security checks, type checks, contract tests, maintained examples,
+    CLI doctor fixtures, and starter fixture validation.
+- Current state:
+  - The broad check gate is green for the current 0.3 worktree state.
+  - The full 0.3.0 objective remains active; this entry records the check gate,
+    not the end of the refactor.
+
+### 2026-06-05 Testing Replay And MCP Transport Release Verify
+
+- Completed the handover slice by cutting
+  `tests/unit/operation-descriptor.test.ts` from operation `guard` fixtures to
+  operation `permission` fixtures.
+- The release gate exposed real identity-forwarding gaps rather than fixture
+  noise:
+  - harness public-read allowlisting needed `notes` and `users`;
+  - MCP-exposed harness operations needed explicit MCP forwarding transport
+    metadata;
+  - operation preview calls needed `operation-preview` purpose and replay
+    metadata;
+  - backend destructive execute needed `operation-execute` purpose and
+    confirmation-token-hash JTI redemption;
+  - forwarded test callers needed an explicit transport option for MCP-only
+    handlers.
+- Added `ctx.asCaller(caller, { replayMode, transport, jti })` support in the
+  testing helper. The default remains `server`; tests and docs opt into
+  `transport: 'mcp'` only for MCP-only handlers.
+- Regenerated `security-contract.generated.json` after the identity-forwarding
+  and operation-preview hard cutover changes.
+- Fixed the release audit by moving the Hono override to the workspace-level
+  override source of truth and bumping it from `4.12.18` to `4.12.21`.
+- Verification:
+  - focused unit checks passed for operation descriptors, Convex server utils,
+    function definition, MCP tool definition, security contract, CLI upgrade,
+    and CLI doctor coverage;
+  - `CI=true pnpm run test:types:contracts` passed;
+  - `node scripts/check-doc-links.mjs` passed;
+  - focused e2e harness/MCP smoke tests passed;
+  - focused Convex testing-package helper test passed;
+  - `pnpm audit --prod --audit-level low` passed after the Hono override bump;
+  - `pnpm run release:verify` passed.
+- Current state:
+  - Operation descriptor tests now use permission fixtures.
+  - The replay/transport behavior is covered across runtime, MCP, testing, docs,
+    and security contract surfaces.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Service Operation Target Allow-List Proof
+
+- Audited the next open architecture item from the handover: service subjects
+  must not become ambient backend authority.
+- Current runtime already enforces restricted service tables, derived tenant
+  scope, service contract metadata, replay mode, acting-for policy, and target
+  allow-lists.
+- Added the missing runtime invariant coverage for operation-backed targets:
+  - a service principal with `allowedOperations: ['sync.allowed']` is rejected
+    before handler execution when invoking operation metadata for
+    `sync.denied`;
+  - the same service principal is allowed when invoking operation metadata for
+    `sync.allowed`, even without a broad function-ref allow-list.
+- Simplified the service target denial diagnostic so operation-backed handlers
+  report the operation id when operation metadata is present.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/functions-defineTrellis.test.ts`
+    passed: 1 file / 71 tests.
+  - `node node_modules/eslint/bin/eslint.js src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+  - `git diff --check -- src/runtime/functions/index.ts tests/unit/functions-defineTrellis.test.ts`
+    passed.
+- Current state:
+  - Service subjects remain table-scoped and target-scoped.
+  - Operation-backed service writes now have explicit allow-list proof in
+    runtime tests.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Team Workspace Domain Idempotency Hard Cut
+
+- Audited the replay/idempotency recovery item against the maintained
+  team-workspace webhook example.
+- Removed the split `ensureNotProcessed(...)` / `markProcessed(...)` helper
+  shape. That shape made the example read like route-side pre-consumption even
+  though the actual write ran inside a Convex mutation.
+- Replaced it with `processDomainIdempotentEvent(...)`, a single backend-domain
+  helper that:
+  - checks the source/event/workspace replay key;
+  - runs the domain write;
+  - records the processed event in the same Convex mutation transaction.
+- Kept `hasProcessedEvent(...)` as a test/read helper for proving replay-key
+  behavior without restoring the split write path.
+- Added example tests proving:
+  - source plus event id is the replay key;
+  - a failed domain write does not create a processed-event record;
+  - the webhook-created todo path still writes visible workspace data.
+- Verification:
+  - `pnpm --dir examples/03-team-workspace test` passed: 2 files / 18 tests.
+  - `node node_modules/eslint/bin/eslint.js examples/03-team-workspace/convex/auth/idempotency.ts examples/03-team-workspace/convex/features/todos/webhooks.ts examples/03-team-workspace/convex/todos.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 examples/03-team-workspace/convex/auth/idempotency.ts examples/03-team-workspace/convex/features/todos/webhooks.ts examples/03-team-workspace/convex/todos.test.ts`
+    passed.
+- Current state:
+  - The maintained team-workspace webhook example no longer exposes a split
+    check/mark idempotency path.
+  - Delivery idempotency remains backend-owned and domain-atomic for that
+    example.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 MCP Reference Webhook Delivery Idempotency Hard Cut
+
+- Continued the replay/idempotency cleanup on the maintained MCP reference
+  webhook example.
+- Extracted the inline delivery duplicate check plus delivery insert into
+  `createDomainIdempotentRunbook(...)`, keeping the runbook insert and delivery
+  record in one Convex mutation transaction.
+- Added a regression test proving a failed domain write does not create
+  `runbookWebhookDeliveries` state. The test uses a delegated member attempting
+  to create a public runbook, which fails the domain permission check before
+  delivery state can be recorded.
+- Verification:
+  - `pnpm --dir examples/07-mcp-reference test` passed: 3 files / 20 tests.
+  - `node node_modules/eslint/bin/eslint.js examples/07-mcp-reference/convex/features/runbooks/webhooks.ts examples/07-mcp-reference/test/mcpReference.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 examples/07-mcp-reference/convex/features/runbooks/webhooks.ts examples/07-mcp-reference/test/mcpReference.test.ts`
+    passed.
+  - `git diff --check -- examples/07-mcp-reference/convex/features/runbooks/webhooks.ts examples/07-mcp-reference/test/mcpReference.test.ts`
+    passed.
+- Current state:
+  - Both maintained webhook examples now prove backend-domain delivery
+    idempotency and failed-domain-write recovery behavior.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Active Debt-Term Audit Noise Cleanup
+
+- Reran the active-source old-path and debt-term audits across `src`, `tests`,
+  `examples`, `apps/docs`, `packages`, `scripts`, and `meta/skill`.
+- Confirmed the surviving protected/guard/authRequired hits are classified as
+  internal protected-lane machinery, custom-guard docs/tests, deleted-API
+  negative assertions, security scanners, or migration detectors.
+- Removed one generic `compatibility paths` phrase from
+  `src/cli/commands/upgrade.ts`; the upgrade command is a pre-0.3 consumer
+  migration detector, not a retained old-path alias.
+- The remaining debt-term hits in the focused CLI audit are intentional legacy
+  detector labels/fixtures plus real Nuxt/package compatibility metadata.
+- Verification:
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/cli-upgrade.test.ts`
+    passed: 1 file / 24 tests.
+  - `node node_modules/eslint/bin/eslint.js src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts`
+    passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts`
+    passed.
+- Current state:
+  - The active CLI migration detector no longer contributes generic
+    compatibility-term noise to the final cleanup audit.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Security Contract Refresh After Replay Cleanup
+
+- Checked security contract drift after the service-target and webhook
+  idempotency hard-cut slices.
+- `CI=true pnpm run check:security:contract` initially failed with generated
+  contract drift. Regenerated `security-contract.generated.json` with
+  `pnpm run security:contract`.
+- The regenerated contract captures expected line-number drift from the
+  maintained webhook tests and keeps the newer lane/public-read inventory
+  current.
+- Verified generated Convex files separately:
+  - `node scripts/check-convex-generated-drift.mjs` passed with 25 tracked
+    `_generated` files and no drift.
+- Verification:
+  - `pnpm run security:contract` passed and rewrote
+    `security-contract.generated.json`.
+  - `CI=true pnpm run check:security:contract` passed after regeneration.
+  - `node node_modules/vitest/vitest.mjs run --project=unit --pool=threads --maxWorkers=1 --no-file-parallelism tests/unit/security-contract.test.ts`
+    passed: 1 file / 2 tests.
+  - `CI=true pnpm run test:security` passed:
+    - source policy;
+    - security contract drift check;
+    - module build;
+    - packed export policy;
+    - 25 unit proof files / 267 tests.
+- Current state:
+  - The generated security contract is current after the replay/idempotency
+    cleanup.
+  - The focused security gate is green for the current 0.3 worktree state.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Final Protected/Guard Inventory Classification
+
+- Reran the handover's remaining protected/guard inventory over active source,
+  runtime, scripts, examples, starter fixtures, and focused unit tests:
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|protected\\(previewOf|protected preview|authRequired" tests/unit src/cli src/module-internals src/runtime scripts examples src/cli/starter-fixtures --glob '!dist/**' --glob '!node_modules/**'`
+- Classified the surviving hits:
+  - `scripts/lib/security-source-policy.mjs`,
+    `scripts/lib/security-contract.mjs`, and
+    `scripts/check-security-packed-exports.mjs` are intentional scanners and
+    generated-contract inputs for deleted/controlled auth surfaces.
+  - `src/runtime/functions/index.ts`,
+    `src/runtime/functions/define-handler.ts`,
+    `src/runtime/functions/define-operation.ts`, and
+    `src/runtime/auth/define-guard.ts` are internal lane machinery for the
+    surviving custom protected lane and authenticated/workspace sentinels.
+  - `tests/unit/functions-defineHandler.test.ts` and
+    `tests/unit/functions-defineTrellis.test.ts` are custom protected-lane and
+    internal guard-engine runtime coverage.
+  - `tests/unit/cli-doctor.test.ts`, `tests/unit/cli-upgrade.test.ts`,
+    `tests/unit/eslint-plugin.test.ts`, and
+    `tests/unit/cli-add-resource.test.ts` are legacy detector or negative
+    generator fixtures.
+  - `tests/unit/auth-index.test.ts`, `tests/unit/security-contract.test.ts`,
+    and `tests/unit/operation-descriptor.test.ts` are negative public-export,
+    contract, or descriptor guard-rejection coverage.
+- Rechecked the earlier operation descriptor hit at
+  `tests/unit/operation-descriptor.test.ts:183`; it is the deliberate
+  `implementOperation(...)` rejection proof for protected-lane `guard`
+  metadata, not a stale operation fixture.
+- Verification:
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 progress_0.3.0.md security-contract.generated.json`
+    passed before this ledger entry.
+  - `git diff --check` passed before this ledger entry.
+- Current state:
+  - The active-source protected/guard/authRequired inventory is captured and
+    classified for the final hard-cut cleanup acceptance.
+  - No stale normal-path protected/guard fixture was found in the focused
+    remaining inventory.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Broad Check And Release Verify Gate
+
+- Ran the broad local check gate after the operation-permission cutover,
+  service-target cleanup, replay/idempotency cleanup, security contract refresh,
+  and final protected/guard inventory classification.
+- Ran the release verification gate end-to-end.
+- Verification:
+  - `pnpm run check` passed:
+    - formatting, lint, publish surface, security, types, contracts, CLI smoke,
+      maintained example doctor, and starter fixture doctor were green.
+  - `pnpm run release:verify` passed:
+    - formatting, lint, publish surface, compatibility matrix, types, contracts,
+      security, maintained example doctor, starter fixture doctor, full tests,
+      e2e, starter fixture typecheck/build, Convex generated drift,
+      packed-tarball workspace-reference check, production audit, and final
+      build were green.
+    - `test:security` remained green with 25 proof files / 267 tests.
+    - full `pnpm run test` included 125 unit files / 1167 tests, 20 Convex
+      files / 121 tests, 21 Nuxt files / 166 tests, 2 server files / 21 tests,
+      2 browser files / 6 tests, and all maintained example suites.
+    - `test:e2e` passed: 3 files / 13 tests.
+    - starter fixture typecheck and build passed for `public`, `personal`,
+      `workspace`, and `workspace-mcp`.
+    - `node scripts/check-convex-generated-drift.mjs` passed with 25 tracked
+      `_generated` files and no drift.
+    - packed-tarball workspace-reference check passed for
+      `lupinum-trellis-0.2.0.tgz` and
+      `lupinum-trellis-bridge-0.2.0.tgz`.
+    - `pnpm audit --prod --audit-level low` reported no known vulnerabilities.
+- Current state:
+  - The current 0.3.0 worktree passes the broad local and release verification
+    gates.
+  - Generated `dist/` and pack-check artifacts were produced by the gate runs
+    and remain non-source build output.
+  - The next release gate is `pnpm run release:pack`.
+  - The full 0.3.0 objective remains active.
+
+### 2026-06-05 Release Pack Gate
+
+- Ran the release pack gate after the broad check and release verification gate
+  were green.
+- Verification:
+  - `pnpm run release:pack` passed.
+  - The pack script rebuilt the module, devtools client, and CLI, packed both
+    workspace packages, and reran the packed export security policy.
+  - Tarballs were written to `.pack/`:
+    - `.pack/lupinum-trellis-0.2.0.tgz`
+    - `.pack/lupinum-trellis-bridge-0.2.0.tgz`
+- Current state:
+  - `pnpm run check`, `pnpm run release:verify`, and
+    `pnpm run release:pack` are green for the current 0.3.0 worktree.
+  - `.pack/` and `dist/` are generated release/build artifacts and remain
+    non-source output.
+  - The full 0.3.0 objective remains active until the final completion audit is
+    explicitly closed.
+
+### 2026-06-05 Handover And Final Audit State Refresh
+
+- Reran the handover's final hard-cut audit probes after the broad check,
+  release verify, and release pack gates passed.
+- Updated `handover_0.3.0.md` so the next developer no longer sees the already
+  completed operation-descriptor fixture cutover or broad release gates as the
+  immediate next work.
+- Updated the phase/proof summary at the top of this ledger so it no longer
+  says broader release gates are pending.
+- Audit observations:
+  - The old-path audit still reports historical planning/source-review files
+    such as `SPEC.md`, `auth-review-rfc.md`, `a_target.md`, `summary.md`,
+    `handover_0.3.0.md`, `0.3.0.md`, and this ledger. Active production
+    surfaces remain covered by the focused classifications already recorded.
+  - The active debt-term audit reports release/framework compatibility metadata,
+    intentional CLI migration detector labels/fixtures, and HMAC webhook secret
+    names; no new active transitional shim or stale normal-path fixture was
+    identified.
+  - The deleted-subpath audit reports migration detectors, negative dts tests,
+    historical notes, and the deliberate `@lupinum/trellis/mcp/advanced`
+    standalone custom-tool surface. No active production import of deleted
+    `@lupinum/trellis/functions`, `@lupinum/trellis/bridge`, or
+    `@lupinum/trellis/backend/advanced` was found.
+  - Package metadata and `compatibility.json` still list `0.2.0`, so
+    `release:pack` writes `0.2.0` tarballs. That is now called out in the
+    handover as a release-approval/versioning decision rather than hidden
+    cleanup debt.
+- Verification:
+  - `rg -n "query\\.protected|mutation\\.protected|action\\.protected|guard:\\s*|authRequired|delegateToUser|readSharedSecretWebhookBody|stampMcpToolSafety|escapeIsolation|trellisUnsafeDb|tool\\.mutation|tool\\.fromOperation" . --glob '!node_modules/**' --glob '!dist/**' --glob '!.pack/**' --glob '!.pack-check/**'`
+    ran and the active hits were classified as above.
+  - `rg -n "deprecated|compat|legacy|shim|TODO|FIXME|temporary|migration-only|old path|backcompat|backward" src tests examples apps/docs packages scripts --glob '!dist/**'`
+    ran and found no new active cleanup target.
+  - `rg -n "@lupinum/trellis/bridge|@lupinum/trellis/functions|@lupinum/trellis/backend/advanced|@lupinum/trellis/mcp/advanced" . --glob '!node_modules/**' --glob '!dist/**' --glob '!.pack/**' --glob '!.pack-check/**'`
+    ran and found no active production import of deleted subpaths.
+  - `rg -n "0\\.3|service|trusted|replay|idempot|forwarding|publicWrite|crossTenant|unsafe|bridge|mcp|operation" src tests examples src/cli apps/docs packages scripts --glob '!dist/**'`
+    ran as a broad architecture-term smoke audit; it is intentionally noisy and
+    did not produce a focused deletion list.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 handover_0.3.0.md progress_0.3.0.md`
+    passed after formatting.
+  - `git diff --check -- handover_0.3.0.md progress_0.3.0.md` passed.
+- Current state:
+  - The handover now points to the final completion audit as the immediate next
+    slice.
+  - The full 0.3.0 objective remains active; do not mark it complete until the
+    release acceptance bullets in `0.3.0.md` are proven item-by-item and the
+    version/release-notes decision is resolved.
+
+### 2026-06-05 Release Acceptance Audit Probe
+
+- Started the item-by-item release acceptance audit from `0.3.0.md`.
+- Rechecked the stale docs build caveat directly.
+- Current acceptance evidence:
+  - F-AUTH coverage and P0/P1 regression coverage are represented by the
+    security contract, source-policy gate, packed export gate, focused proof
+    files, and the broad `test:security` result already recorded above.
+  - `pnpm run test:security` exists and passed inside both `pnpm run check` and
+    `pnpm run release:verify`.
+  - `pnpm run check` includes `test:security`; this was exercised by the broad
+    check gate.
+  - Public package export exactness and unsafe export absence are covered by
+    `check:publish-surface`, `test:security`, the packed export policy, and
+    `release:pack`.
+  - Maintained examples and starter fixtures passed the production doctor
+    checks inside both `pnpm run check` and `pnpm run release:verify`.
+  - Docs no longer teaching unsafe trusted forwarding, unconditional
+    delegation, shared-secret trusted webhooks, or tool-local MCP safety is
+    covered by the source-policy/doc-link/API-surface checks and old-path
+    audits already recorded.
+  - Nuxt auth runtime tests, replay/idempotency proofs, service subject
+    metadata, and consumer MCP/starter migration fixtures are covered by the
+    broad `pnpm run release:verify` gate and the focused proof entries above.
+- Still not enough to close the full 0.3.0 goal:
+  - Package metadata and `compatibility.json` still list `0.2.0`, so release
+    artifacts are not versioned as `0.3.0`.
+  - Release notes have not been generated in this session.
+  - The standalone docs production build failure found by this probe is resolved
+    by the later docs production build gate fix.
+- Initial docs build probe:
+  - `pnpm --dir apps/docs build` failed before Vite build.
+  - `nuxt-og-image` reported missing `@resvg/resvg-js`.
+  - Nuxt Content failed to load the `better-sqlite3` native binding.
+  - At the time of this failed probe, `apps/docs/package.json` declared
+    `better-sqlite3`, but `pnpm-workspace.yaml` blocked
+    `allowBuilds.better-sqlite3`, and `@resvg/resvg-js` was not installed.
+- Current state:
+  - The release acceptance audit has direct positive evidence for the security,
+    public-surface, examples/starters, auth, replay, service, and consumer
+    migration gates.
+  - The full 0.3.0 objective remains active because version metadata,
+    release-notes generation, and final release approval are not resolved.
+
+### 2026-06-05 Docs Production Build Gate Fix
+
+- Closed the standalone docs production build caveat from the release acceptance
+  audit probe.
+- Added the missing docs-app `@resvg/resvg-js` dependency because
+  `nuxt-og-image` needs it for Satori/resvg rendering.
+- Changed the workspace build policy for `better-sqlite3` from blocked to
+  allowed so Nuxt Content can load/build the native SQLite binding declared by
+  `apps/docs`.
+- Rebuilt `better-sqlite3` locally after changing the build policy.
+- Verification:
+  - `pnpm --dir apps/docs add @resvg/resvg-js@^2.6.0` completed and updated
+    `apps/docs/package.json` plus `pnpm-lock.yaml`.
+  - `pnpm rebuild better-sqlite3` completed.
+  - `pnpm --dir apps/docs build` passed; Nuxt Content processed 3 collections /
+    74 files, Nitro prerendered 226 routes, and the build completed. The run
+    still emitted non-fatal sourcemap/chunk-size/icon-load warnings.
+  - `pnpm run check:compatibility-matrix` passed.
+  - `pnpm run audit:prod` passed with no known vulnerabilities.
+  - `pnpm run check` passed after the docs dependency/build-policy fix.
+  - `pnpm run release:verify` passed after the docs dependency/build-policy
+    fix:
+    - formatting, lint, publish surface, compatibility matrix, docs API surface,
+      docs links, types, contracts, security, maintained example doctor,
+      starter fixture doctor, full tests, e2e, starter fixture typecheck/build,
+      Convex generated drift, packed-tarball workspace-reference check,
+      production audit, and final build were green;
+    - full `pnpm run test` included 125 unit files / 1167 tests, 20 Convex
+      files / 121 tests, 21 Nuxt files / 166 tests, 2 server files / 21 tests,
+      and 2 browser files / 6 tests;
+    - `test:e2e` passed: 3 files / 13 tests;
+    - packed-tarball workspace-reference check still passed for
+      `lupinum-trellis-0.2.0.tgz` and
+      `lupinum-trellis-bridge-0.2.0.tgz`.
+- Current state:
+  - The docs production build is no longer a 0.3.0 release-audit blocker in
+    this checkout.
+  - The full 0.3.0 objective remains active because package metadata still
+    targets `0.2.0` and release notes have not been generated.
+
+### 2026-06-05 0.3.0 Release Metadata And Final Gate Audit
+
+- Cut release metadata over to `0.3.0`:
+  - root `package.json`;
+  - `packages/trellis-bridge/package.json`;
+  - `compatibility.json` release stack;
+  - `MAINTAINING.md` release runbook example.
+- Ran `pnpm run release:notes`, then replaced the branch-compare draft with a
+  curated `CHANGELOG.md` `v0.3.0` entry covering the hard-cut security
+  foundation release.
+- Verified packed package metadata:
+  - `.pack/lupinum-trellis-0.3.0.tgz` contains
+    `@lupinum/trellis@0.3.0`;
+  - `.pack/lupinum-trellis-bridge-0.3.0.tgz` contains
+    `@lupinum/trellis-bridge@0.3.0`;
+  - the bridge package peer dependency on `@lupinum/trellis` is `^0.3.0`.
+- Verification:
+  - stale metadata audit found no remaining active Trellis `0.2.0` release
+    metadata; remaining `0.2.0` hits are historical changelog entries or
+    third-party dependency versions.
+  - `pnpm run check:compatibility-matrix` passed.
+  - `node node_modules/oxfmt/bin/oxfmt --check --threads=1 CHANGELOG.md MAINTAINING.md compatibility.json package.json packages/trellis-bridge/package.json`
+    passed.
+  - `pnpm run check:publish-surface` passed.
+  - `pnpm run release:pack` passed and wrote 0.3.0 tarballs.
+  - `node scripts/check-pack-workspace-refs.mjs` passed independently against
+    the 0.3.0 tarballs.
+  - `pnpm run release:verify` passed after the 0.3.0 metadata cutover:
+    - formatting, lint, publish surface, compatibility matrix, docs API
+      surface, docs links, types, contracts, security, maintained example
+      doctor, starter fixture doctor, full tests, e2e, starter fixture
+      typecheck/build, Convex generated drift, packed-tarball
+      workspace-reference check, production audit, and final build were green;
+    - `test:security` passed with 25 proof files / 267 tests;
+    - full `pnpm run test` included 125 unit files / 1167 tests, 20 Convex
+      files / 121 tests, 21 Nuxt files / 166 tests, 2 server files / 21 tests,
+      2 browser files / 6 tests, and all maintained example suites;
+    - `test:e2e` passed: 3 files / 13 tests;
+    - starter fixture typecheck and build passed for `public`, `personal`,
+      `workspace`, and `workspace-mcp`;
+    - packed-tarball workspace-reference check passed for
+      `lupinum-trellis-0.3.0.tgz` and
+      `lupinum-trellis-bridge-0.3.0.tgz`;
+    - `pnpm audit --prod --audit-level low` reported no known vulnerabilities.
+- Current state:
+  - The 0.3.0 refactor and release-prep acceptance evidence is complete in
+    this checkout.
+  - Live publish/tag/release approval remains maintainer-owned runbook work and
+    was not run from this agent session.

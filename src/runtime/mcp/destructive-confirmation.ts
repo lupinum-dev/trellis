@@ -19,7 +19,7 @@ import type { ConvexErrorCategory } from '../utils/types.js'
 
 type MaybePromise<T> = T | Promise<T>
 
-export type McpConfirmationConfirmationInput = {
+export type McpConfirmationRedeemInput = {
   tokenHash: string
   payload: ToolConfirmationPayload
   operationId: string
@@ -41,7 +41,7 @@ export type McpConfirmationCreateInput = {
 export interface McpConfirmationStore {
   create(input: McpConfirmationCreateInput): MaybePromise<void>
   lookup(input: { tokenHash: string }): MaybePromise<StoredToolConfirmationPayload | null>
-  redeem(input: McpConfirmationConfirmationInput): MaybePromise<'redeemed' | 'replayed'>
+  redeem(input: McpConfirmationRedeemInput): MaybePromise<'redeemed' | 'replayed'>
 }
 
 export const DEFAULT_MCP_CONFIRMATION_TTL_MS = 5 * 60 * 1000

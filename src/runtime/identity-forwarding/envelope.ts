@@ -368,10 +368,7 @@ export function verifyIdentityForwardingEnvelope(
   if (options.expectedPurpose !== undefined && payload.purpose !== options.expectedPurpose) {
     throw new IdentityForwardingEnvelopeError('Forwarding envelope purpose mismatch.', 'purpose')
   }
-  if (
-    payload.replayMode !== undefined &&
-    !identityForwardingReplayModes.has(payload.replayMode)
-  ) {
+  if (payload.replayMode !== undefined && !identityForwardingReplayModes.has(payload.replayMode)) {
     throw new IdentityForwardingEnvelopeError('Malformed forwarding envelope payload.', 'malformed')
   }
   if (options.expectedTransport !== undefined && payload.transport !== options.expectedTransport) {

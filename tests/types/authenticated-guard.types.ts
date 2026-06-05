@@ -2,6 +2,10 @@ import { defineGuard, open } from '../../src/runtime/auth'
 import { authRequired } from '../../src/runtime/auth/define-guard'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
+// Intentional 0.3.0 internal protected-lane type coverage: this file proves
+// structured guard narrowing for runtime sentinels and custom guards. It is not
+// app-author operation fixture guidance.
+
 type Assert<T extends true> = T
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false

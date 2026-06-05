@@ -22,5 +22,5 @@ Use `pnpm convex:dev` and `pnpm dev` when you want to connect to a hosted Convex
 
 ## Maintained reference
 
-- Start with the protected-app baseline: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).
+- Start with the explicit workspace app baseline: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).
 - Then study the MCP branch: [`07-mcp-reference`](https://github.com/lupinum-dev/trellis/tree/main/examples/07-mcp-reference).

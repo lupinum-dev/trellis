@@ -20,6 +20,10 @@ import { buildDoctorReport } from '../../src/cli/lib/doctor-report'
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
 const cliDoctorTestTimeoutMs = 120_000
+
+// Intentional 0.3.0 legacy-detection fixtures: old protected/guard snippets in
+// this file are doctor inputs or negative assertions for stale consumer paths.
+
 type CanonicalLayoutOptions = {
   auth: boolean
   permissions: boolean
@@ -249,7 +253,7 @@ type DoctorInventoryJsonReport = {
       }>
       tools: Array<{
         name: string
-        source: 'tool' | 'operation' | 'defineTool'
+        source: 'tool' | 'operation' | 'defineMcpTool'
         sourceLocation: { path: string; line: number }
       }>
     }
@@ -2408,7 +2412,7 @@ export const assertionFixture = {
     expect(report.inventory.forwarding.forwardedCallerMisuses).toEqual([])
   })
 
-  it('surfaces unsafe and cross-scope escape inventories without turning them into failures', () => {
+  it('surfaces unsafe inventory and fails deleted cross-scope escapes', () => {
     const cwd = createTempDir('trellis-doctor-inventory-')
     const initResult = runCli(
       ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
@@ -2459,8 +2463,8 @@ export const uploadUrl = mutation.unsafe({
       summary: { fail: number }
     }
 
-    expect(result.status, result.stderr).toBe(0)
-    expect(report.summary.fail).toBe(0)
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
     expect(report.findings.find((entry) => entry.id === 'unsafe-surface-inventory')?.status).toBe(
       'pass',
     )
@@ -2523,10 +2527,10 @@ export const uploadUrl = mutation.unsafe({
     )
     expect(
       report.findings.find((entry) => entry.id === 'cross-scope-escape-inventory')?.status,
-    ).toBe('pass')
+    ).toBe('fail')
     expect(
       report.findings.find((entry) => entry.id === 'cross-scope-escape-inventory')?.message,
-    ).toContain('convex/features/todos/domain.ts')
+    ).toContain('Found deleted `ctx.db.escapeIsolation(...)` usage')
     expect(
       report.findings.find((entry) => entry.id === 'cross-scope-escape-inventory')?.sources,
     ).toEqual([
@@ -2685,19 +2689,27 @@ export const services = defineServices({
       operationsPath,
       `${read(operationsPath)}
 
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 
 export const purgeTodoOp = defineOperation({
   id: 'todos.purge',
   kind: 'destructive',
+  name: 'PurgeTodo',
   args: { id: v.string() },
-  guard: open,
+  permission: 'todos.delete',
+  safety: 'destructive-write',
+  preview: async (_ctx, args) =>
+    operationPreview({
+      summary: \`Purge todo \${args.id}\`,
+      confirm: { id: args.id },
+    }),
   handler: async () => null,
 })
 
-export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
+export const previewPurgeTodo = mutation.authenticated(previewOf(purgeTodoOp))
+export const executePurgeTodo = mutation.authenticated(purgeTodoOp)
 `,
     )
 
@@ -2771,19 +2783,27 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/operations.ts'),
       `
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 
 export const purgeTodoOp = defineOperation({
   id: 'todos.purge',
   kind: 'destructive',
+  name: 'PurgeTodo',
   args: { id: v.string() },
-  guard: open,
+  permission: 'todos.delete',
+  safety: 'destructive-write',
+  preview: async (_ctx, args) =>
+    operationPreview({
+      summary: \`Purge todo \${args.id}\`,
+      confirm: { id: args.id },
+    }),
   handler: async () => null,
 })
 
-export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
+export const previewPurgeTodo = mutation.authenticated(previewOf(purgeTodoOp))
+export const executePurgeTodo = mutation.authenticated(purgeTodoOp)
 `.trimStart(),
     )
 
@@ -2833,19 +2853,27 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/operations.ts'),
       `
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 
 export const purgeTodoOp = defineOperation({
   id: 'todos.purge',
   kind: 'destructive',
+  name: 'PurgeTodo',
   args: { id: v.string() },
-  guard: open,
+  permission: 'todos.delete',
+  safety: 'destructive-write',
+  preview: async (_ctx, args) =>
+    operationPreview({
+      summary: \`Purge todo \${args.id}\`,
+      confirm: { id: args.id },
+    }),
   handler: async () => null,
 })
 
-export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
+export const previewPurgeTodo = mutation.authenticated(previewOf(purgeTodoOp))
+export const executePurgeTodo = mutation.authenticated(purgeTodoOp)
 `.trimStart(),
     )
     writeFileSync(
@@ -2963,13 +2991,11 @@ export default tool.mutation({
     writeFileSync(
       resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
       `
-import { defineTool } from '@lupinum/trellis/mcp/advanced'
+import { defineMcpTool } from '@lupinum/trellis/mcp/advanced'
 import { api } from '~/convex/_generated/api'
-import { createTodo } from '~/shared/features/todos/contract'
 
-export default defineTool({
-  schema: createTodo,
-  effect: 'diagnostic',
+export default defineMcpTool({
+  inputSchema: {},
   handler: async (args, ctx) => {
     return await ctx.mutation(api.features.todos.domain.create, args)
   },

@@ -48,7 +48,7 @@ export default defineNuxtConfig({
         {
           name: 'description',
           content:
-            'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
+            'Build Nuxt apps on one explicit backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
         },
         { name: 'apple-mobile-web-app-title', content: 'Trellis' },
         {
@@ -60,7 +60,7 @@ export default defineNuxtConfig({
         {
           property: 'og:description',
           content:
-            'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
+            'Build Nuxt apps on one explicit backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
         },
         { property: 'og:image', content: `${siteUrl}og-image.png` },
         { property: 'og:url', content: siteUrl },
@@ -69,7 +69,7 @@ export default defineNuxtConfig({
         {
           name: 'twitter:description',
           content:
-            'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
+            'Build Nuxt apps on one explicit backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
         },
         { name: 'twitter:image', content: `${siteUrl}og-image.png` },
       ],
@@ -136,7 +136,7 @@ export default defineNuxtConfig({
     sections: [
       {
         title: 'Getting Started',
-        description: 'Orientation, installation, and the first protected app path.',
+        description: 'Orientation, installation, and the first signed-in app path.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
@@ -145,7 +145,7 @@ export default defineNuxtConfig({
       },
       {
         title: 'Concepts',
-        description: 'Cross-cutting mental models for the protected backend execution model.',
+        description: 'Cross-cutting mental models for the explicit backend execution model.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/2.concepts%' },
@@ -236,7 +236,7 @@ export default defineNuxtConfig({
       },
       {
         title: 'Testing',
-        description: 'Testing protected handlers, server helpers, and MCP-backed flows.',
+        description: 'Testing backend handlers, server helpers, and MCP-backed flows.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/12.testing%' },
@@ -255,7 +255,7 @@ export default defineNuxtConfig({
       },
       {
         title: 'MCP Tools',
-        description: 'Expose the protected backend model safely to agent callers.',
+        description: 'Expose operation-backed backend tools safely to agent callers.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/14.mcp-tools%' },

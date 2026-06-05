@@ -163,6 +163,7 @@
     "tests/unit/cli-add-resource.test.ts",
     "tests/unit/define-convex-tool.test.ts",
     "tests/unit/mcp-convex-caller.test.ts",
+    "tests/unit/server-convex-utils.test.ts",
     "tests/unit/server-index-exports.test.ts",
     "tests/unit/backend-index-exports.test.ts",
     "tests/unit/mcp-index-exports.test.ts",
@@ -203,14 +204,14 @@
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when the delegation workspace is forged",
       "proves": ["backend delegation revalidation", "forged workspace rejection"],
-      "line": 288
+      "line": 315
     },
     {
       "id": "example03-webhook-expired-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when delegation evidence is expired",
       "proves": ["backend delegation revalidation", "expired delegation rejection"],
-      "line": 321
+      "line": 348
     },
     {
       "id": "example07-webhook-route-retry",
@@ -220,14 +221,14 @@
         "route retry after backend dispatch failure",
         "route does not own delivery consume"
       ],
-      "line": 189
+      "line": 190
     },
     {
       "id": "example07-webhook-domain-duplicate",
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "applies the same create permission rules to delegated service principals",
       "proves": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
-      "line": 368
+      "line": 394
     },
     {
       "id": "example07-webhook-forged-binding",
@@ -238,7 +239,7 @@
         "wrong service rejection",
         "wrong purpose rejection"
       ],
-      "line": 478
+      "line": 555
     }
   ],
   "serverRoutes": [
@@ -381,7 +382,7 @@
   "delegationBindings": [
     {
       "file": "examples/03-team-workspace/convex/todos.test.ts",
-      "line": 267,
+      "line": 294,
       "serviceId": "todo-sync-webhook",
       "purpose": "todo-sync-webhook",
       "grantSource": "workspace-service-policy",
@@ -393,7 +394,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/todos.test.ts",
-      "line": 303,
+      "line": 330,
       "serviceId": "todo-sync-webhook",
       "purpose": "todo-sync-webhook",
       "grantSource": "workspace-service-policy",
@@ -417,7 +418,7 @@
     },
     {
       "file": "examples/07-mcp-reference/server/api/runbook-webhook.post.ts",
-      "line": 75,
+      "line": 72,
       "serviceId": "runbook-webhook",
       "purpose": "runbook-webhook:create",
       "grantSource": "workspace-service-policy",
@@ -490,6 +491,10 @@
     }
   },
   "publicReadTables": [
+    {
+      "file": "apps/harness/convex/functions.ts",
+      "readTables": ["notes", "users"]
+    },
     {
       "file": "examples/01-public-todo/convex/functions.ts",
       "readTables": ["todos"]
@@ -594,10 +599,10 @@
     },
     {
       "file": "apps/harness/convex/comments.ts",
-      "line": 35,
+      "line": 33,
       "exportName": "create",
       "functionType": "mutation",
-      "lane": "protected",
+      "lane": "workspace",
       "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
@@ -606,12 +611,12 @@
     },
     {
       "file": "apps/harness/convex/crossTenant.ts",
-      "line": 43,
+      "line": 40,
       "exportName": "getAnyPost",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "authenticated",
       "operationBacked": "none",
-      "guard": "declared",
+      "guard": null,
       "authorize": false,
       "publicWrite": false,
       "crossTenant": true
@@ -621,16 +626,16 @@
       "line": 61,
       "exportName": "listAllPosts",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "authenticated",
       "operationBacked": "none",
-      "guard": "declared",
+      "guard": null,
       "authorize": false,
       "publicWrite": false,
       "crossTenant": true
     },
     {
       "file": "apps/harness/convex/crossTenant.ts",
-      "line": 83,
+      "line": 86,
       "exportName": "getAnyPostRaw",
       "functionType": "query",
       "lane": "unsafe",
@@ -642,7 +647,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 119,
+      "line": 115,
       "exportName": "publicWithoutActor",
       "functionType": "query",
       "lane": "unsafe",
@@ -654,7 +659,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 127,
+      "line": 123,
       "exportName": "structuredPublicActorEcho",
       "functionType": "query",
       "lane": "public",
@@ -666,31 +671,31 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 134,
+      "line": 130,
       "exportName": "structuredPostOwner",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "authenticated",
       "operationBacked": "none",
-      "guard": "declared",
+      "guard": null,
       "authorize": true,
       "publicWrite": false,
       "crossTenant": false
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 151,
+      "line": 146,
       "exportName": "structuredEnvelopeProbe",
       "functionType": "query",
-      "lane": "protected",
+      "lane": "authenticated",
       "operationBacked": "none",
-      "guard": "declared",
+      "guard": null,
       "authorize": true,
       "publicWrite": false,
       "crossTenant": false
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 178,
+      "line": 172,
       "exportName": "structuredDelegationProbe",
       "functionType": "query",
       "lane": "public",
@@ -702,7 +707,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 186,
+      "line": 180,
       "exportName": "resetActorResolverCalls",
       "functionType": "mutation",
       "lane": "unsafe",
@@ -714,7 +719,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 199,
+      "line": 193,
       "exportName": "actorMemoization",
       "functionType": "query",
       "lane": "public",
@@ -726,7 +731,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 216,
+      "line": 210,
       "exportName": "identityForwardingStateProbe",
       "functionType": "query",
       "lane": "public",
@@ -738,7 +743,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 225,
+      "line": 219,
       "exportName": "echoedArgs",
       "functionType": "query",
       "lane": "public",
@@ -750,7 +755,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 233,
+      "line": 227,
       "exportName": "onSuccessEnvelopeProbe",
       "functionType": "query",
       "lane": "unsafe",
@@ -762,7 +767,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 244,
+      "line": 238,
       "exportName": "getEnvelopeProbeState",
       "functionType": "query",
       "lane": "unsafe",
@@ -774,7 +779,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 255,
+      "line": 249,
       "exportName": "unsafeForwardedCallerProbe",
       "functionType": "query",
       "lane": "public",
@@ -786,7 +791,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 263,
+      "line": 257,
       "exportName": "unsafeListPosts",
       "functionType": "query",
       "lane": "unsafe",
@@ -798,7 +803,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 271,
+      "line": 265,
       "exportName": "unsafeRenamePost",
       "functionType": "mutation",
       "lane": "unsafe",
@@ -810,7 +815,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 287,
+      "line": 281,
       "exportName": "unsafeListMcpKeys",
       "functionType": "query",
       "lane": "unsafe",
@@ -822,7 +827,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 295,
+      "line": 289,
       "exportName": "createTriggeredNote",
       "functionType": "mutation",
       "lane": "unsafe",
@@ -834,7 +839,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 308,
+      "line": 302,
       "exportName": "getNote",
       "functionType": "query",
       "lane": "unsafe",
@@ -846,36 +851,36 @@
     },
     {
       "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 47,
-      "exportName": "list",
-      "functionType": "query",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": "declared",
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 64,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": "declared",
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 93,
+      "line": 106,
       "exportName": "revoke",
       "functionType": "mutation",
-      "lane": "protected",
+      "lane": "workspace",
+      "operationBacked": "referenced",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/mcpKeys.ts",
+      "line": 38,
+      "exportName": "list",
+      "functionType": "query",
+      "lane": "authenticated",
       "operationBacked": "none",
-      "guard": "declared",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/mcpKeys.ts",
+      "line": 86,
+      "exportName": "create",
+      "functionType": "mutation",
+      "lane": "workspace",
+      "operationBacked": "referenced",
+      "guard": null,
       "authorize": false,
       "publicWrite": false,
       "crossTenant": false
@@ -906,11 +911,23 @@
     },
     {
       "file": "apps/harness/convex/notes.ts",
-      "line": 59,
+      "line": 72,
       "exportName": "add",
       "functionType": "mutation",
-      "lane": "protected",
+      "lane": "public",
       "operationBacked": "referenced",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/organizations.ts",
+      "line": 14,
+      "exportName": "list",
+      "functionType": "query",
+      "lane": "authenticated",
+      "operationBacked": "none",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -919,9 +936,9 @@
     {
       "file": "apps/harness/convex/organizations.ts",
       "line": 21,
-      "exportName": "list",
-      "functionType": "query",
-      "lane": "public",
+      "exportName": "create",
+      "functionType": "mutation",
+      "lane": "authenticated",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -929,36 +946,12 @@
       "crossTenant": false
     },
     {
-      "file": "apps/harness/convex/organizations.ts",
-      "line": 28,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": "declared",
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
       "file": "apps/harness/convex/posts.ts",
-      "line": 115,
+      "line": 117,
       "exportName": "get",
       "functionType": "query",
-      "lane": "public",
+      "lane": "authenticated",
       "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "apps/harness/convex/posts.ts",
-      "line": 153,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -967,45 +960,9 @@
     {
       "file": "apps/harness/convex/posts.ts",
       "line": 155,
-      "exportName": "update",
+      "exportName": "create",
       "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": "declared",
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "apps/harness/convex/posts.ts",
-      "line": 181,
-      "exportName": "remove",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": "declared",
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "apps/harness/convex/posts.ts",
-      "line": 246,
-      "exportName": "removeWithConfirmation",
-      "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "apps/harness/convex/posts.ts",
-      "line": 250,
-      "exportName": "previewRemove",
-      "functionType": "mutation",
-      "lane": "protected",
+      "lane": "authenticated",
       "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
@@ -1014,22 +971,70 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 255,
-      "exportName": "publish",
+      "line": 184,
+      "exportName": "update",
       "functionType": "mutation",
-      "lane": "protected",
-      "operationBacked": "none",
-      "guard": "declared",
+      "lane": "workspace",
+      "operationBacked": "referenced",
+      "guard": null,
       "authorize": false,
       "publicWrite": false,
       "crossTenant": false
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 97,
+      "line": 208,
+      "exportName": "remove",
+      "functionType": "mutation",
+      "lane": "workspace",
+      "operationBacked": "referenced",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 260,
+      "exportName": "removeWithConfirmation",
+      "functionType": "mutation",
+      "lane": "workspace",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 265,
+      "exportName": "previewRemove",
+      "functionType": "mutation",
+      "lane": "workspace",
+      "operationBacked": "referenced",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 298,
+      "exportName": "publish",
+      "functionType": "mutation",
+      "lane": "workspace",
+      "operationBacked": "referenced",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 99,
       "exportName": "list",
       "functionType": "query",
-      "lane": "public",
+      "lane": "authenticated",
       "operationBacked": "none",
       "guard": null,
       "authorize": false,
@@ -1038,10 +1043,10 @@
     },
     {
       "file": "apps/harness/convex/tasks.ts",
-      "line": 26,
+      "line": 22,
       "exportName": "add",
       "functionType": "mutation",
-      "lane": "protected",
+      "lane": "authenticated",
       "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
@@ -1218,7 +1223,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/webhooks.ts",
-      "line": 43,
+      "line": 47,
       "exportName": "processTodoSyncWebhookMutation",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -2034,7 +2039,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/webhooks.ts",
-      "line": 105,
+      "line": 124,
       "exportName": "createRunbookFromWebhookMutation",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -2070,7 +2075,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 119,
+      "line": 115,
       "exportName": "createWorkspaceMutation",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -2190,7 +2195,19 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 109,
+      "line": 107,
+      "exportName": "listStudio",
+      "functionType": "query",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 117,
       "exportName": "listDraft",
       "functionType": "query",
       "lane": "public",
@@ -2202,7 +2219,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 119,
+      "line": 127,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "public",
@@ -2214,7 +2231,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 129,
+      "line": 137,
       "exportName": "save",
       "functionType": "mutation",
       "lane": "public",
@@ -2226,7 +2243,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 139,
+      "line": 147,
       "exportName": "publish",
       "functionType": "mutation",
       "lane": "public",
@@ -2238,7 +2255,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 151,
+      "line": 159,
       "exportName": "publishAction",
       "functionType": "action",
       "lane": "public",
@@ -2250,7 +2267,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 161,
+      "line": 169,
       "exportName": "previewPublish",
       "functionType": "query",
       "lane": "public",
@@ -2262,7 +2279,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 79,
+      "line": 87,
       "exportName": "listPublished",
       "functionType": "query",
       "lane": "public",
@@ -2274,20 +2291,8 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 89,
+      "line": 97,
       "exportName": "getPublished",
-      "functionType": "query",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 99,
-      "exportName": "listStudio",
       "functionType": "query",
       "lane": "public",
       "operationBacked": "none",
@@ -2504,11 +2509,39 @@
   "operations": [
     {
       "file": "apps/harness/convex/comments.ts",
-      "line": 15,
+      "line": 10,
       "exportName": "createCommentOp",
       "type": "mutation",
       "id": "comments.create",
-      "hasGuard": true,
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": false,
+      "hasPreview": false,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": null,
+      "identityForwardingTransport": "mcp"
+    },
+    {
+      "file": "apps/harness/convex/mcpKeys.ts",
+      "line": 54,
+      "exportName": "createMcpKeyOp",
+      "type": "mutation",
+      "id": "mcp-keys.create",
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": false,
+      "hasPreview": false,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": null,
+      "identityForwardingTransport": null
+    },
+    {
+      "file": "apps/harness/convex/mcpKeys.ts",
+      "line": 88,
+      "exportName": "revokeMcpKeyOp",
+      "type": "mutation",
+      "id": "mcp-keys.revoke",
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
@@ -2520,43 +2553,99 @@
       "file": "apps/harness/convex/notes.ts",
       "line": 45,
       "exportName": "addNoteOp",
-      "type": "mutation",
+      "type": "publicMutation",
       "id": "notes.add",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
-      "hasPublicWrite": false,
+      "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
       "identityForwardingFunctionRef": "notes:add",
-      "identityForwardingTransport": null
+      "identityForwardingTransport": "mcp"
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 129,
+      "line": 131,
       "exportName": "createPostOp",
       "type": "mutation",
       "id": "posts.create",
-      "hasGuard": true,
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
       "identityForwardingFunctionRef": "posts:create",
-      "identityForwardingTransport": null
+      "identityForwardingTransport": "mcp"
     },
     {
-      "file": "apps/harness/convex/tasks.ts",
-      "line": 10,
-      "exportName": "addTaskOp",
+      "file": "apps/harness/convex/posts.ts",
+      "line": 157,
+      "exportName": "updatePostOp",
       "type": "mutation",
-      "id": "tasks.add",
-      "hasGuard": true,
+      "id": "posts.update",
+      "hasGuard": false,
       "hasAuthorize": false,
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
       "identityForwardingFunctionRef": null,
       "identityForwardingTransport": null
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 186,
+      "exportName": "removePostDirectOp",
+      "type": "mutation",
+      "id": "posts.remove.direct",
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": false,
+      "hasPreview": false,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": null,
+      "identityForwardingTransport": null
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 210,
+      "exportName": "removePostOp",
+      "type": "destructive",
+      "id": null,
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": false,
+      "hasPreview": true,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": "posts:removeWithConfirmation",
+      "identityForwardingTransport": null
+    },
+    {
+      "file": "apps/harness/convex/posts.ts",
+      "line": 271,
+      "exportName": "publishPostOp",
+      "type": "mutation",
+      "id": "posts.publish",
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": false,
+      "hasPreview": false,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": null,
+      "identityForwardingTransport": null
+    },
+    {
+      "file": "apps/harness/convex/tasks.ts",
+      "line": 6,
+      "exportName": "addTaskOp",
+      "type": "mutation",
+      "id": "tasks.add",
+      "hasGuard": false,
+      "hasAuthorize": false,
+      "hasPublicWrite": false,
+      "hasPreview": false,
+      "hasExecute": false,
+      "identityForwardingFunctionRef": null,
+      "identityForwardingTransport": "mcp"
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
@@ -3512,7 +3601,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/webhooks.ts",
-      "line": 43,
+      "line": 81,
       "exportName": "createRunbookFromWebhookOp",
       "type": "mutation",
       "id": "runbooks.create-from-webhook",

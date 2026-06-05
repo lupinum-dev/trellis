@@ -17,7 +17,7 @@ import {
   type FunctionLikeReturnType,
 } from '../convex/shared/convex-shared.js'
 import { defineArgs } from '../convex/shared/define-convex-schema.js'
-import { hashConfirmationValue } from '../functions/confirmation-token.js'
+import { hashConfirmationToken, hashConfirmationValue } from '../functions/confirmation-token.js'
 import type { ActingFor } from '../functions/define-acting-for.js'
 import {
   isOperationPreviewEnvelope,
@@ -33,19 +33,19 @@ import {
   type EventObservationState,
 } from '../observability/envelope.js'
 import {
-  jtiRedemption,
-  operationConfirmation,
-  type TrustedTransportReplay,
-} from '../server/index.js'
-import {
   createDenialExplanation,
   createObservationEmitter,
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
 import { createObservationSummary, type ObservationSummary } from '../observability/summary.js'
+import {
+  jtiRedemption,
+  operationConfirmation,
+  type TrustedTransportReplay,
+} from '../server/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
-import { defineToolInternal as defineTool } from './define-convex-tool.js'
+import { defineConvexToolInternal } from './define-convex-tool.js'
 import {
   assertProductionConfirmationStore,
   createMemoryConfirmationStore,
@@ -61,13 +61,7 @@ import {
 } from './destructive-confirmation.js'
 import { normalizeMcpError } from './error-normalization.js'
 import { markDestructiveExecuted } from './mcp-tool-result.js'
-import {
-  assertOperationBinding,
-  getMcpToolSafety,
-  toKebabCase,
-  type AnyFunctionRef,
-  type TrellisMcpToolSafety,
-} from './operation-binding.js'
+import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
 import { checkToolRateLimit, parseWindowString, type McpRateLimitStore } from './rate-limiter.js'
 import type {
   AnyConvexSchema,
@@ -79,7 +73,7 @@ import type {
 type MaybePromise<T> = T | Promise<T>
 
 export type {
-  McpConfirmationConfirmationInput,
+  McpConfirmationRedeemInput,
   McpConfirmationStore,
 } from './destructive-confirmation.js'
 
@@ -206,13 +200,13 @@ function assertNamedRateLimitedTool(toolName: string | undefined, rateLimit: unk
   )
 }
 
-export interface ToolOptions<
+interface DirectToolOptions<
   S extends AnyConvexSchema,
   TCaller,
   TActingFor extends ActingFor,
   TAccess extends ProjectionAccessSnapshot | null,
   TRuntime,
-  TCall extends AnyFunctionRef = AnyMutationRef,
+  TCall extends AnyFunctionRef = AnyQueryRef,
   _TPreview extends AnyFunctionRef | undefined = undefined,
 > {
   schema: S
@@ -225,7 +219,6 @@ export interface ToolOptions<
     ctx: ProjectionRuntimeCtx<TCaller, TActingFor, TAccess, TRuntime>,
   ) => MaybePromise<boolean>
   meta?: ProjectToolMeta
-  safety?: TrellisMcpToolSafety
   rateLimit?: { max: number; window: string }
   rateLimitStore?: McpRateLimitStore
   maxItems?: {
@@ -307,7 +300,7 @@ export interface ToolOperationOptions<
   TExecute extends AnyFunctionRef = AnyMutationRef,
   TPreview extends AnyFunctionRef | undefined = undefined,
 > extends Omit<
-  ToolOptions<AnyConvexSchema, TCaller, TActingFor, TAccess, TRuntime, TExecute, TPreview>,
+  DirectToolOptions<AnyConvexSchema, TCaller, TActingFor, TAccess, TRuntime, TExecute, TPreview>,
   'schema' | 'call' | 'preview' | 'operation' | 'previewOperation' | 'previewResult' | 'maxItems'
 > {
   execute: ExecuteProjectionRef<TOperation, TExecute>
@@ -342,14 +335,14 @@ export type ValidateMcpToolOptions<
   TRuntime,
   TOptions,
 > =
-  TOptions extends ToolOptions<
+  TOptions extends DirectToolOptions<
     S,
     TCaller,
     TActingFor,
     TAccess,
     TRuntime,
-    AnyFunctionRef,
-    AnyFunctionRef | undefined
+    AnyQueryRef,
+    undefined
   >
     ? NoInfer<TOptions>
     : never
@@ -361,10 +354,7 @@ type ToolFactory<
   TRuntime,
 > = {
   query: <S extends AnyConvexSchema, TCall extends AnyQueryRef = AnyQueryRef>(
-    tool: ToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
-  ) => McpToolDefinition
-  mutation: <S extends AnyConvexSchema, TCall extends AnyMutationRef = AnyMutationRef>(
-    tool: ToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
+    tool: DirectToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
   ) => McpToolDefinition
   operation: <
     TOperation extends AnyOperationDefinition,
@@ -466,38 +456,6 @@ async function observeAccessBackendDrift<TCaller, TActingFor extends ActingFor, 
   })
 }
 
-function assertDirectToolSafety(
-  toolName: string,
-  operation: ConvexToolOperation,
-  ref: AnyFunctionRef,
-  declaredSafety: TrellisMcpToolSafety | undefined,
-): void {
-  if (operation === 'query') return
-
-  if (!declaredSafety) {
-    throw new Error(
-      `${toolName}: direct MCP ${operation} tools must declare bounded-write safety or use tool.operation(...).`,
-    )
-  }
-  if (declaredSafety.kind !== 'bounded-write') {
-    throw new Error(
-      `${toolName}: direct MCP ${operation} tools only support bounded-write safety. Use tool.operation(...) for ${declaredSafety.kind}.`,
-    )
-  }
-
-  const backendSafety = getMcpToolSafety(ref)
-  if (!backendSafety) {
-    throw new Error(
-      `${toolName}: direct MCP ${operation} safety must be stamped on the backend/generated ref, not only declared on the tool.`,
-    )
-  }
-  if (backendSafety.kind !== declaredSafety.kind) {
-    throw new Error(
-      `${toolName}: direct MCP ${operation} safety "${declaredSafety.kind}" does not match backend ref safety "${backendSafety.kind}".`,
-    )
-  }
-}
-
 function withProjectionCalls<TRole extends string, TCaller, TActingFor extends ActingFor>(
   ctx: ConvexToolHandlerCtx<TRole>,
   projectionCtx: ProjectionRuntimeCtx<TCaller, TActingFor, unknown, unknown>,
@@ -536,6 +494,18 @@ async function callByOperation<TRef extends AnyFunctionRef>(
         options,
       )) as FunctionLikeReturnType<TRef>
   }
+}
+
+function operationPreviewCallOptions(
+  operation: ConvexToolOperation | undefined,
+): McpConvexCallOptions {
+  const resolvedOperation = operation ?? 'query'
+  return resolvedOperation === 'query'
+    ? { purpose: 'operation-preview' }
+    : {
+        purpose: 'operation-preview',
+        replay: jtiRedemption({ jti: crypto.randomUUID() }),
+      }
 }
 
 /**
@@ -655,8 +625,8 @@ export function defineMcpApp<
   }
 
   const createDirectTool = <S extends AnyConvexSchema, TCall extends AnyFunctionRef>(
-    operation: 'query' | 'mutation',
-    definition: ToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
+    operation: 'query',
+    definition: DirectToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
   ): McpToolDefinition => {
     if (definition.meta?.destructive || definition.preview) {
       throw new Error(
@@ -673,7 +643,6 @@ export function defineMcpApp<
       definition.rateLimitStore ?? appRateLimitStore,
     )
 
-    assertDirectToolSafety(toolName, operation, definition.call, definition.safety)
     const middleware: ConvexToolMiddleware<S> | undefined =
       definition.rateLimit || definition.middleware
         ? async (args, ctx, next) => {
@@ -710,9 +679,9 @@ export function defineMcpApp<
           }
         : undefined
 
-    return defineTool({
+    return defineConvexToolInternal({
       schema: definition.schema,
-      effect: operation === 'query' ? 'read' : 'diagnostic',
+      effect: 'read',
       auth: 'none',
       operation,
       name: definition.meta?.name,
@@ -918,7 +887,6 @@ export function defineMcpApp<
 
   const tool: ToolFactory<TCaller, TActingFor, TAccess, TRuntime> = {
     query: (definition) => createDirectTool('query', definition),
-    mutation: (definition) => createDirectTool('mutation', definition),
     operation: <
       TOperation extends AnyOperationDefinition,
       TExecute extends AnyFunctionRef = AnyMutationRef,
@@ -990,7 +958,7 @@ export function defineMcpApp<
         hasExplicitConfirmationStore: Boolean(options.confirmationStore ?? appConfirmationStore),
       })
 
-      return defineTool({
+      return defineConvexToolInternal({
         schema,
         effect: 'diagnostic',
         auth: 'none',
@@ -1320,9 +1288,7 @@ export function defineMcpApp<
                   executeArgs as FunctionLikeArgs<
                     PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
                   >,
-                  {
-                    purpose: 'operation-preview',
-                  },
+                  operationPreviewCallOptions(options.previewOperation),
                 )
               } catch (error) {
                 return await returnBackendFailure(error)
@@ -1409,9 +1375,7 @@ export function defineMcpApp<
                   executeArgs as FunctionLikeArgs<
                     PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
                   >,
-                  {
-                    purpose: 'operation-preview',
-                  },
+                  operationPreviewCallOptions(options.previewOperation),
                 )
               } catch (error) {
                 return await returnBackendFailure(error)
@@ -1456,6 +1420,11 @@ export function defineMcpApp<
             }
           }
 
+          const backendConfirmationJti =
+            confirmationToken && isDestructive && confirmationMode === 'backend'
+              ? await hashConfirmationToken(confirmationToken)
+              : undefined
+
           try {
             const result = await callByOperation(
               projectionCtx.convex,
@@ -1466,11 +1435,14 @@ export function defineMcpApp<
                   ? { _confirmationToken: confirmationToken }
                   : {}),
               }) as FunctionLikeArgs<TExecute>,
-              confirmationToken && isDestructive && confirmationMode === 'transport'
+              confirmationToken && isDestructive
                 ? {
                     purpose: 'operation-execute',
                     replay: operationConfirmation({
-                      jti: operationExecuteJti ?? crypto.randomUUID(),
+                      jti:
+                        confirmationMode === 'transport'
+                          ? (operationExecuteJti ?? crypto.randomUUID())
+                          : (backendConfirmationJti ?? crypto.randomUUID()),
                     }),
                   }
                 : options.executeOperation === 'query'

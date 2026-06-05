@@ -33,6 +33,9 @@ export const retainedTargetRoots = [
   'apps/devtools-ui',
 ]
 
+// Intentional 0.3.0 retained-target policy data: these deleted paths are
+// banned from retained examples/apps/docs and remain here only as scanner
+// patterns.
 export const deletedTrellisSurfacePatterns = [
   {
     label: '@lupinum/trellis/functions',

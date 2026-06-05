@@ -23,10 +23,9 @@ Convex:
 Server:
 
 - use `serverConvexQuery`, `serverConvexMutation`, and `serverConvexAction` for server-to-Convex calls;
-- do not forward caller or acting-for data from server routes until the 0.3 proof API is available.
+- do not forward raw caller or acting-for data from server routes; use transport proof auth only for verified server-to-server flows.
 
 MCP:
 
 - use `tool.query(...)` for reads;
-- use `tool.mutation(...)` only for bounded writes;
-- use `tool.operation(...)` for destructive or sensitive actions.
+- use `tool.operation(...)` for writes, destructive actions, and sensitive actions.

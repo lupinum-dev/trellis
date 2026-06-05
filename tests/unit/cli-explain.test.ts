@@ -29,7 +29,7 @@ type ExplainOperationReport = {
       status: 'none' | 'matched'
       tools: Array<{
         name: string
-        source: 'tool' | 'operation' | 'defineTool'
+        source: 'tool' | 'operation' | 'defineMcpTool'
         sourceLocation: { path: string; line: number }
         operationId?: string
         operationExportName?: string

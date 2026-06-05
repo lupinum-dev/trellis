@@ -1,9 +1,8 @@
+import { operation as appOperation, operationPreview } from '@lupinum/trellis/app'
 import { defineArgs } from '@lupinum/trellis/args'
-import { definePermission, defineAccessContext, open } from '@lupinum/trellis/auth'
+import { definePermission, defineAccessContext } from '@lupinum/trellis/auth'
 import {
-  defineOperation,
   executeOperationRef,
-  operationPreview,
   previewOperationRef,
   type OperationPreviewEnvelope,
 } from '@lupinum/trellis/backend'
@@ -42,13 +41,13 @@ type AccessContext = InferAccessContext<typeof _accessContext>
 
 expectTypeOf<ValidatePermissionKey<AccessContext, 'task.read'>>().toEqualTypeOf<'task.read'>()
 
-const operation = defineOperation({
+const operation = appOperation.destructive({
   id: 'entries.archive',
-  kind: 'destructive',
   args: {
     id: v.string(),
   },
-  guard: open,
+  permission,
+  safety: 'destructive-write',
   preview: async () => operationPreview({ summary: 'Archive entry', confirm: { id: 'entry_1' } }),
   handler: async () => ({ archived: true as const }),
 })
@@ -102,9 +101,25 @@ type _toolOptions = ValidateMcpToolOptions<
   Record<string, never>,
   {
     schema: typeof _schema
-    call: FunctionReference<'mutation', 'internal', { id: string }, { archived: true }>
+    call: FunctionReference<'query', 'internal', { id: string }, { archived: true }>
   }
 >
+
+// @ts-expect-error direct MCP tool options cannot validate app-backed mutation refs
+const _directMutationToolOptions: ValidateMcpToolOptions<
+  typeof _schema,
+  { kind: 'agent'; id: string },
+  never,
+  { publishEntry: boolean },
+  Record<string, never>,
+  {
+    schema: typeof _schema
+    call: FunctionReference<'mutation', 'internal', { id: string }, { archived: true }>
+  }
+> = {
+  schema: _schema,
+  call: {} as FunctionReference<'mutation', 'internal', { id: string }, { archived: true }>,
+}
 
 const executeRef = executeOperationRef(
   operation,
@@ -123,3 +138,4 @@ const previewRef = previewOperationRef(
 void executeRef
 void previewRef
 void ({} as _toolOptions)
+void _directMutationToolOptions

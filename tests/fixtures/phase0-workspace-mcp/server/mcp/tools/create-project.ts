@@ -1,15 +1,7 @@
-import { createProjectRef } from '../../../generated/mcp-tool-refs'
-import {
-  createProjectArgs,
-  createProjectToolDescriptor,
-} from '../../../shared/features/projects/tools'
+import { createProjectRef } from '../../../generated/operation-refs'
+import { createProjectDescriptor } from '../../../shared/features/projects/operations'
 import { tool } from '../runtime'
 
-export default tool.mutation({
-  schema: createProjectArgs,
-  call: createProjectRef,
-  safety: createProjectToolDescriptor.safety,
-  meta: {
-    name: createProjectToolDescriptor.name,
-  },
+export default tool.operation(createProjectDescriptor, {
+  execute: createProjectRef,
 })

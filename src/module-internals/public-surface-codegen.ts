@@ -34,7 +34,7 @@ export interface ToolDefinitionMetadata {
   name: string
   file: string
   line: number
-  source: 'tool' | 'operation' | 'defineTool'
+  source: 'tool' | 'operation' | 'defineMcpTool'
   operationId?: string
   operationExportName?: string
 }
@@ -305,8 +305,8 @@ function readToolMetadata(
   let operation: OperationDefinitionMetadata | undefined
 
   if (Node.isIdentifier(callee)) {
-    if (callee.getText() !== 'tool' && callee.getText() !== 'defineTool') return null
-    source = callee.getText() === 'defineTool' ? 'defineTool' : 'tool'
+    if (callee.getText() !== 'tool' && callee.getText() !== 'defineMcpTool') return null
+    source = callee.getText() === 'defineMcpTool' ? 'defineMcpTool' : 'tool'
     const [firstArg] = expression.getArguments()
     const unwrappedArg = unwrapExpression(firstArg)
     options = unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null

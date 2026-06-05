@@ -23,7 +23,7 @@ Every major feature in this example maps to a recognizable production authorizat
 
 ## What this example assumes
 
-You already understand the canonical protected workspace model from
+You already understand the canonical explicit workspace model from
 [`03-team-workspace`](../03-team-workspace/README.md).
 
 ## Files to read first

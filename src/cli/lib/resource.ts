@@ -12,7 +12,6 @@ type ResourceGeneratorContext = {
   ownerField: 'ownerId' | 'authorId'
   tenantField: 'workspaceId' | null
   hasUpdatedAt: boolean
-  guardImportPath: '../../auth/guards'
   name: string
   fileStem: string
   singularPascal: string
@@ -79,7 +78,6 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
       ? 'author-owned'
       : 'personal'
   const hasFeatureManifest = await exists(resolve(cwd, 'convex/features/index.ts'))
-  const guardImportPath = '../../auth/guards'
 
   const singularCamel = camelCase(name)
   const singularPascal = pascalCase(name)
@@ -100,7 +98,6 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
     ownerField,
     tenantField,
     hasUpdatedAt,
-    guardImportPath,
     name,
     fileStem: kebabCase(name),
     singularPascal,
@@ -160,33 +157,68 @@ export const ${listName} = defineArgs({
 }
 
 function resourcePermissionsTemplate(ctx: ResourceGeneratorContext): string {
-  const createCheck =
-    ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('member'))" : 'isAuthenticated'
-  const readCheck =
-    ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('viewer'))" : 'isAuthenticated'
-  const deleteCheck =
-    ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('member'))" : 'isAuthenticated'
-  const imports =
-    ctx.kind === 'workspace'
-      ? `import { hasMinimumRole, hasWorkspace } from '${ctx.guardImportPath}'\n`
-      : `import { isAuthenticated } from '${ctx.guardImportPath}'\n`
-
-  return `
+  if (ctx.kind !== 'workspace') {
+    return `
 import { definePermission } from '@lupinum/trellis/auth'
-${imports}
+
 export const ${ctx.singularCamel}ReadPermission = definePermission({
   key: '${ctx.permissionPrefix}.read',
-  check: ${readCheck},
+  check: (appIdentity) => appIdentity !== null,
 })
 
 export const ${ctx.singularCamel}CreatePermission = definePermission({
   key: '${ctx.permissionPrefix}.create',
-  check: ${createCheck},
+  check: (appIdentity) => appIdentity !== null,
 })
 
 export const ${ctx.singularCamel}DeletePermission = definePermission({
   key: '${ctx.permissionPrefix}.delete',
-  check: ${deleteCheck},
+  check: (appIdentity) => appIdentity !== null,
+})
+
+export const ${ctx.singularCamel}Permissions = [
+  ${ctx.singularCamel}ReadPermission,
+  ${ctx.singularCamel}CreatePermission,
+  ${ctx.singularCamel}DeletePermission,
+] as const
+`.trimStart()
+  }
+
+  return `
+import { definePermission } from '@lupinum/trellis/auth'
+
+import type { AccessIdentity } from '../../auth/appIdentity'
+import type { Role } from '../../auth/caller'
+
+const roleRank: Record<Role, number> = {
+  owner: 4,
+  admin: 3,
+  member: 2,
+  viewer: 1,
+}
+
+function hasWorkspace(appIdentity: AccessIdentity | null): boolean {
+  return !!appIdentity?.workspaceId
+}
+
+function hasMinimumRole(appIdentity: AccessIdentity | null, minimum: Role): boolean {
+  if (!appIdentity?.workspaceId) return false
+  return roleRank[appIdentity.role] >= roleRank[minimum]
+}
+
+export const ${ctx.singularCamel}ReadPermission = definePermission({
+  key: '${ctx.permissionPrefix}.read',
+  check: hasWorkspace,
+})
+
+export const ${ctx.singularCamel}CreatePermission = definePermission({
+  key: '${ctx.permissionPrefix}.create',
+  check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member'),
+})
+
+export const ${ctx.singularCamel}DeletePermission = definePermission({
+  key: '${ctx.permissionPrefix}.delete',
+  check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member'),
 })
 
 export const ${ctx.singularCamel}Permissions = [

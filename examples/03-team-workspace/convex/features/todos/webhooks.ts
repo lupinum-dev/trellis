@@ -3,7 +3,7 @@ import { can, deny, requireAuth } from '@lupinum/trellis/auth'
 
 import { processTodoSyncWebhook as processTodoSyncWebhookContract } from '../../../shared/features/todos/contract'
 import type { Id } from '../../_generated/dataModel'
-import { ensureNotProcessed, markProcessed } from '../../auth/idempotency'
+import { processDomainIdempotentEvent } from '../../auth/idempotency'
 import { mutation } from '../../functions'
 import { todoCreate } from './permissions'
 
@@ -22,21 +22,25 @@ export const processTodoSyncWebhookOp = operation.mutation({
       throw deny('Forbidden: Create todo')
     }
 
-    await ensureNotProcessed(ctx.db, 'webhook', args.eventId, args.workspaceId)
-
-    const todoId = await ctx.db.insert('todos', {
-      title: args.title,
-      completed: args.completed ?? false,
-      ownerId: appIdentity.userId,
-      workspaceId: args.workspaceId,
-      source: 'webhook',
-      externalId: args.externalId,
-      createdAt: Date.now(),
-    })
-
-    await markProcessed(ctx.db, args.eventId, 'webhook', args.workspaceId)
-
-    return todoId
+    return await processDomainIdempotentEvent(
+      ctx.db,
+      {
+        source: 'webhook',
+        eventId: args.eventId,
+        workspaceId: args.workspaceId,
+      },
+      async () => {
+        return await ctx.db.insert('todos', {
+          title: args.title,
+          completed: args.completed ?? false,
+          ownerId: appIdentity.userId,
+          workspaceId: args.workspaceId,
+          source: 'webhook',
+          externalId: args.externalId,
+          createdAt: Date.now(),
+        })
+      },
+    )
   },
 })
 

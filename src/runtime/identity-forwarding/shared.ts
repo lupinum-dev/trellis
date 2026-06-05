@@ -189,7 +189,7 @@ export function getIdentityForwardingKeyProductionIssue(
   }
 
   if (isObviouslyDevLikeIdentityForwardingKey(value)) {
-    return 'CONVEX_IDENTITY_FORWARDING_KEY looks like a development or placeholder value. Replace it with a long random shared secret in production.'
+    return 'CONVEX_IDENTITY_FORWARDING_KEY looks like a development or placeholder value. Replace it with a long random signing key in production.'
   }
 
   return null

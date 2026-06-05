@@ -1,10 +1,10 @@
+import { deny } from '@lupinum/trellis/auth'
 import {
   assertDelegationBinding,
   defineActingFor,
   getForwardedActingFor,
   type DelegationBinding,
 } from '@lupinum/trellis/backend'
-import { deny } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 

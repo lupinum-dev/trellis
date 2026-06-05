@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { definePermissionKey } from '../../src/runtime/auth'
 import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/convex/server/convex'
+import { hashConfirmationToken } from '../../src/runtime/functions/confirmation-token'
 import {
   defineOperation,
   defineOperationDescriptor,
@@ -12,13 +13,8 @@ import {
   previewOf,
   projectOperationRef,
 } from '../../src/runtime/functions/define-operation'
-import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
+import { defineConvexToolInternal } from '../../src/runtime/mcp/define-convex-tool'
 import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
-import {
-  defineMcpToolRefDescriptor,
-  projectMcpToolRef,
-  stampMcpToolSafety,
-} from '../../src/runtime/mcp/operation-binding'
 import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { unsafe } from '../../src/runtime/mcp/unsafe-permit'
 import { defineArgs } from '../../src/runtime/schema'
@@ -83,9 +79,17 @@ const scopedSchema = defineArgs({
   },
 })
 
+const postOperationPermission = definePermissionKey('posts.manage')
+
+async function allowPostOperationAccess() {
+  return {
+    [postOperationPermission.key]: true,
+  }
+}
+
 let rateLimitStore: ToolRateLimiter
 
-describe('defineTool MCP input projection', () => {
+describe('defineConvexToolInternal MCP input projection', () => {
   it('projects ids, arrays, records, nested objects, and literal unions into JSON-schema-safe Zod', () => {
     const schema = defineArgs({
       description: 'Projected tool',
@@ -107,7 +111,7 @@ describe('defineTool MCP input projection', () => {
       },
     })
 
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema,
       effect: 'read',
       name: 'projected-tool',
@@ -158,7 +162,7 @@ describe('defineTool MCP input projection', () => {
     })
 
     expect(() =>
-      defineTool({
+      defineConvexToolInternal({
         schema,
         effect: 'read',
         name: 'ambiguous-tool',
@@ -176,7 +180,7 @@ describe('defineTool MCP input projection', () => {
     })
 
     expect(() =>
-      defineTool({
+      defineConvexToolInternal({
         schema,
         effect: 'read',
         name: 'unsupported-tool',
@@ -186,7 +190,7 @@ describe('defineTool MCP input projection', () => {
   })
 })
 
-describe('defineTool visibility and auth parity', () => {
+describe('defineConvexToolInternal visibility and auth parity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     rateLimitStore = new ToolRateLimiter()
@@ -198,7 +202,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   it('hides auth-required tools for anonymous callers', async () => {
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'private-tool',
@@ -210,7 +214,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   it('hides check-denied tools during discovery', async () => {
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'member-only-tool',
@@ -228,7 +232,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   it('rejects non-boolean MCP check results during discovery', async () => {
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'invalid-check-tool',
@@ -245,7 +249,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   it('hides scoped tools when the appIdentity has no workspaceId', async () => {
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: scopedSchema,
       effect: 'read',
       name: 'scoped-tool',
@@ -263,7 +267,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   it('keeps handler-time auth errors aligned when execution bypasses discovery', async () => {
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'guarded-tool',
@@ -292,7 +296,7 @@ describe('defineTool visibility and auth parity', () => {
 
   it('rejects invalid MCP check results before handler execution', async () => {
     const handler = vi.fn(async (_args, ctx) => ctx.ok({ ok: true }))
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'invalid-handler-check-tool',
@@ -320,7 +324,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 })
 
-describe('defineTool error handling', () => {
+describe('defineConvexToolInternal error handling', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     rateLimitStore = new ToolRateLimiter()
@@ -340,7 +344,7 @@ describe('defineTool error handling', () => {
       ),
     )
 
-    const tool = defineTool({
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'query-tool',
@@ -367,7 +371,7 @@ describe('defineTool error handling', () => {
 
   it('requires a typed unsafe permit for external-service custom tools', () => {
     expect(() =>
-      defineTool({
+      defineConvexToolInternal({
         schema: emptySchema,
         effect: 'external-service',
         name: 'external-tool',
@@ -378,7 +382,7 @@ describe('defineTool error handling', () => {
 
   it('accepts external-service custom tools with a typed unsafe permit', () => {
     expect(() =>
-      defineTool({
+      defineConvexToolInternal({
         schema: emptySchema,
         effect: 'external-service',
         permit: unsafe.permit({
@@ -437,17 +441,9 @@ describe('defineMcpApp middleware forwarding', () => {
         }),
     })
 
-    const updateRunbook = stampMcpToolSafety({} as never, {
-      kind: 'bounded-write',
-      reason: 'Updates one runbook explicitly named by args.',
-    })
-    const tool = mcp.tool.mutation({
+    const tool = mcp.tool.query({
       schema: emptySchema,
-      call: updateRunbook,
-      safety: {
-        kind: 'bounded-write',
-        reason: 'Updates one runbook explicitly named by args.',
-      },
+      call: {} as never,
       middleware: async (_args, ctx, next) => {
         await ctx.query('runbooks:getWorkspace' as never, { id: 'runbook_1' } as never)
         return await next()
@@ -488,8 +484,8 @@ describe('MCP rate-limit integration', () => {
     )
   })
 
-  it('applies shared storage-backed rate limits to defineTool', async () => {
-    const tool = defineTool({
+  it('applies shared storage-backed rate limits to defineConvexToolInternal', async () => {
+    const tool = defineConvexToolInternal({
       schema: emptySchema,
       effect: 'read',
       name: 'limited-tool',
@@ -534,18 +530,9 @@ describe('MCP rate-limit integration', () => {
       scopeKey: () => 'global',
     })
 
-    const createPostDescriptor = defineMcpToolRefDescriptor({
-      name: 'create-post',
-      safety: {
-        kind: 'bounded-write',
-        reason: 'Creates one post explicitly named by args.',
-      },
-    })
-    const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
-    const tool = mcp.tool.mutation({
+    const tool = mcp.tool.query({
       schema: emptySchema,
-      call: createPost,
-      safety: createPostDescriptor.safety,
+      call: {} as never,
       rateLimit: { max: 1, window: '1m' },
       meta: { name: 'limited-project-tool' },
     })
@@ -585,184 +572,13 @@ describe('MCP rate-limit integration', () => {
       scopeKey: () => 'global',
     })
 
-    const createPostDescriptor = defineMcpToolRefDescriptor({
-      name: 'create-post',
-      safety: {
-        kind: 'bounded-write',
-        reason: 'Creates one post explicitly named by args.',
-      },
-    })
-
     expect(() =>
-      mcp.tool.mutation({
+      mcp.tool.query({
         schema: emptySchema,
-        call: projectMcpToolRef(createPostDescriptor, {} as never),
-        safety: createPostDescriptor.safety,
+        call: {} as never,
         rateLimit: { max: 1, window: '1m' },
       }),
     ).toThrow(/rateLimit.*meta\.name/)
-  })
-
-  it('accepts direct mutation safety projected from a shared tool ref descriptor', () => {
-    const createPostDescriptor = defineMcpToolRefDescriptor({
-      name: 'create-post',
-      safety: {
-        kind: 'bounded-write',
-        reason: 'Creates one post explicitly named by args.',
-      },
-    })
-    const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
-    const mcp = defineMcpApp({
-      resolveCaller: async () => ({
-        kind: 'agent' as const,
-        agentId: 'assistant-bot',
-        subject: 'agent:assistant-bot',
-      }),
-      callConvex: async () => ({
-        query: async () => ({ ok: true }),
-        mutation: async () => ({ ok: true }),
-        action: async () => ({ ok: true }),
-      }),
-      scopeKey: () => 'global',
-    })
-
-    expect(() =>
-      mcp.tool.mutation({
-        schema: emptySchema,
-        call: createPost,
-        safety: createPostDescriptor.safety,
-      }),
-    ).not.toThrow()
-  })
-
-  it('rejects direct mutation tools when safety only exists on the MCP declaration', () => {
-    const mcp = defineMcpApp({
-      resolveCaller: async () => ({
-        kind: 'agent' as const,
-        agentId: 'assistant-bot',
-        subject: 'agent:assistant-bot',
-      }),
-      callConvex: async () => ({
-        query: async () => ({ ok: true }),
-        mutation: async () => ({ ok: true }),
-        action: async () => ({ ok: true }),
-      }),
-      scopeKey: () => 'global',
-    })
-
-    expect(() =>
-      mcp.tool.mutation({
-        schema: emptySchema,
-        call: {} as never,
-        safety: {
-          kind: 'bounded-write',
-          reason: 'Creates one record.',
-        },
-      }),
-    ).toThrow(/safety must be stamped on the backend\/generated ref/)
-  })
-
-  it('rejects direct mutation tools when backend safety is not bounded-write', () => {
-    const publishPost = stampMcpToolSafety({} as never, {
-      kind: 'sensitive-write',
-      reason: 'Publishes content.',
-    })
-    const mcp = defineMcpApp({
-      resolveCaller: async () => ({
-        kind: 'agent' as const,
-        agentId: 'assistant-bot',
-        subject: 'agent:assistant-bot',
-      }),
-      callConvex: async () => ({
-        query: async () => ({ ok: true }),
-        mutation: async () => ({ ok: true }),
-        action: async () => ({ ok: true }),
-      }),
-      scopeKey: () => 'global',
-    })
-
-    expect(() =>
-      mcp.tool.mutation({
-        schema: emptySchema,
-        call: publishPost,
-        safety: {
-          kind: 'sensitive-write',
-          reason: 'Publishes content.',
-        },
-      }),
-    ).toThrow(/Use tool\.operation/)
-  })
-
-  it('returns backend denial and emits drift when direct mutation visibility is stale', async () => {
-    const capture = createObservationCapture()
-    const permission = definePermissionKey('posts.create')
-    const createPostDescriptor = defineMcpToolRefDescriptor({
-      name: 'create-post',
-      safety: {
-        kind: 'bounded-write',
-        reason: 'Creates one post explicitly named by args.',
-      },
-    })
-    const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
-    const mcp = defineMcpApp({
-      observability: { enabled: true, level: 'verbose' },
-      resolveCaller: async () => ({
-        kind: 'agent' as const,
-        agentId: 'assistant-bot',
-        subject: 'agent:assistant-bot',
-      }),
-      resolveAccess: async () => ({
-        [permission.key]: true,
-      }),
-      callConvex: async () => ({
-        query: async () => ({ ok: true }),
-        mutation: async () => {
-          throw new Error('Forbidden by backend authorize')
-        },
-        action: async () => ({ ok: true }),
-      }),
-      scopeKey: () => 'global',
-    })
-
-    try {
-      const tool = mcp.tool.mutation({
-        schema: emptySchema,
-        call: createPost,
-        permission,
-        safety: createPostDescriptor.safety,
-        meta: { name: 'create-post' },
-      })
-
-      const result = await tool.handler({} as never, {} as never)
-
-      expect(result).toMatchObject({
-        structuredContent: {
-          ok: false,
-          error: {
-            category: 'auth',
-            message: expect.stringContaining('Forbidden by backend authorize'),
-          },
-        },
-      })
-      expect(capture.find('tool.denied')).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            tool: 'create-post',
-            reasonCode: 'tool.recordAccess_backend_drift',
-            status: 'deny',
-            details: expect.objectContaining({
-              category: 'auth',
-              explanation: expect.objectContaining({
-                reasonCode: 'tool.recordAccess_backend_drift',
-              }),
-            }),
-          }),
-        ]),
-      )
-      expect(capture.find('tool.failed')).toEqual([])
-    } finally {
-      capture.stop()
-    }
   })
 
   it('refuses production rate-limited tools without an explicit distributed store', () => {
@@ -771,7 +587,7 @@ describe('MCP rate-limit integration', () => {
 
     try {
       expect(() =>
-        defineTool({
+        defineConvexToolInternal({
           schema: emptySchema,
           effect: 'read',
           name: 'production-limited-tool',
@@ -805,7 +621,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -816,6 +632,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
@@ -852,6 +669,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
@@ -877,7 +695,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -915,7 +733,6 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
       handler: async () => ({ ok: true }),
     })
     const mcp = defineMcpApp({
@@ -981,7 +798,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -994,6 +811,7 @@ describe('Destructive confirmation payload validation', () => {
           agentId: 'assistant-bot',
           subject: 'agent:assistant-bot',
         }),
+        resolveAccess: allowPostOperationAccess,
         callConvex: async () => ({
           query: async () => deletePostPreview(),
           mutation: async () => ({ ok: true }),
@@ -1024,7 +842,7 @@ describe('Destructive confirmation payload validation', () => {
       name: 'DeletePost',
       kind: 'destructive',
       args: {},
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => ({
         allowed: true,
         summary: 'Delete post',
@@ -1043,6 +861,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => ({
           allowed: true,
@@ -1087,7 +906,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview({ version: { rev: previewVersion } }),
       handler: async () => ({ ok: true }),
     })
@@ -1099,6 +918,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => deletePostPreview({ version: { rev: previewVersion } }),
         mutation: async () => ({ ok: true }),
@@ -1151,7 +971,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
         message: v.optional(v.string()),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1163,6 +983,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
@@ -1223,7 +1044,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1235,6 +1056,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => deletePostPreview(),
         mutation: async (_ref, args, options) => {
@@ -1287,7 +1109,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1299,6 +1121,7 @@ describe('Destructive confirmation payload validation', () => {
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
+      resolveAccess: allowPostOperationAccess,
       callConvex: async () => ({
         query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
@@ -1357,7 +1180,7 @@ describe('Destructive confirmation payload validation', () => {
       args: {
         id: v.string(),
       },
-      guard: { label: 'open', check: () => true } as never,
+      permission: postOperationPermission,
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1373,6 +1196,7 @@ describe('Destructive confirmation payload validation', () => {
     const mcp = defineMcpApp({
       resolveCaller: async () => caller,
       resolveActingFor: async () => actingFor,
+      resolveAccess: allowPostOperationAccess,
       callConvex: async (event, caller) =>
         createServerConvexCaller(event, {
           auth: {
@@ -1397,10 +1221,13 @@ describe('Destructive confirmation payload validation', () => {
       }
     }
 
+    const confirmationToken = previewResult.structuredContent?.preview?.confirmation?.token
+    const confirmationJti = await hashConfirmationToken(confirmationToken!)
+
     await tool.handler(
       {
         id: 'post-1',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
+        _confirmationToken: confirmationToken,
       } as never,
       {} as never,
     )
@@ -1423,7 +1250,7 @@ describe('Destructive confirmation payload validation', () => {
       operation,
       {
         id: 'post-1',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
+        _confirmationToken: confirmationToken,
       },
       {
         auth: {
@@ -1431,9 +1258,10 @@ describe('Destructive confirmation payload validation', () => {
           caller,
           actingFor,
         },
+        purpose: 'operation-execute',
         replay: {
           mode: 'operation-confirmation',
-          jti: previewResult.structuredContent?.preview?.confirmation?.token,
+          jti: confirmationJti,
         },
       },
     )

@@ -2,6 +2,7 @@ import {
   definePermission,
   defineAccessContext,
   defineGuard,
+  defineServices,
   explainPermission,
 } from '@lupinum/trellis/auth'
 import { expectTypeOf } from 'vitest'
@@ -59,3 +60,77 @@ const explanation = explainPermission({ userId: 'user_1' }, deletePermission)
 
 expectTypeOf(explanation.decision).toMatchTypeOf<'allowed' | 'denied'>()
 expectTypeOf(explanation.check.checks).toMatchTypeOf<readonly unknown[]>()
+
+defineServices({
+  sync: {
+    metadata: {
+      source: 'verifiedWebhook',
+      purpose: 'sync',
+      allowedFunctionRefs: ['events:sync'],
+      replayMode: 'domain-idempotency',
+      actingFor: false,
+      auditEvent: 'sync.processed',
+      auditTable: 'events',
+      auditCorrelationId: 'args.deliveryId',
+    },
+    access: {
+      tables: ['events'],
+      tenant: 'global',
+    },
+  },
+})
+
+defineServices({
+  sync: {
+    metadata: {
+      source: 'verifiedWebhook',
+      purpose: 'sync',
+      allowedFunctionRefs: ['events:sync'],
+      replayMode: 'domain-idempotency',
+      actingFor: false,
+      auditEvent: 'sync.processed',
+      auditTable: 'events',
+      auditCorrelationId: 'args.deliveryId',
+    },
+    // @ts-expect-error service access must be table-restricted
+    access: 'unrestricted',
+  },
+})
+
+defineServices({
+  sync: {
+    // @ts-expect-error service metadata must name an audit/idempotency table
+    metadata: {
+      source: 'verifiedWebhook',
+      purpose: 'sync',
+      allowedFunctionRefs: ['events:sync'],
+      replayMode: 'domain-idempotency',
+      actingFor: false,
+      auditEvent: 'sync.processed',
+      auditCorrelationId: 'args.deliveryId',
+    },
+    access: {
+      tables: ['events'],
+      tenant: 'global',
+    },
+  },
+})
+
+defineServices({
+  sync: {
+    // @ts-expect-error service metadata must allow at least one operation id or function ref
+    metadata: {
+      source: 'verifiedWebhook',
+      purpose: 'sync',
+      replayMode: 'domain-idempotency',
+      actingFor: false,
+      auditEvent: 'sync.processed',
+      auditTable: 'events',
+      auditCorrelationId: 'args.deliveryId',
+    },
+    access: {
+      tables: ['events'],
+      tenant: 'global',
+    },
+  },
+})

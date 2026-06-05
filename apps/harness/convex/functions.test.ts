@@ -51,6 +51,7 @@ describe('defineTrellis', () => {
           { kind: 'user', authKey: 'memo_user', subject: 'auth:memo_user' },
           null,
           api.functionsProbe.actorMemoization,
+          { operation: 'query' },
         ),
       ),
     ).resolves.toMatchObject({
@@ -72,6 +73,7 @@ describe('defineTrellis', () => {
           { kind: 'user', authKey: 'memo_user', subject: 'auth:memo_user' },
           null,
           api.functionsProbe.actorMemoization,
+          { operation: 'query' },
         ),
       ),
     ).resolves.toMatchObject({
@@ -93,6 +95,7 @@ describe('defineTrellis', () => {
           { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
           null,
           api.functionsProbe.identityForwardingStateProbe,
+          { operation: 'query' },
         ),
       ),
     ).resolves.toMatchObject({
@@ -114,6 +117,7 @@ describe('defineTrellis', () => {
           { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
           null,
           api.functionsProbe.echoedArgs,
+          { operation: 'query' },
         ),
       ),
     ).resolves.toEqual({
@@ -183,6 +187,7 @@ describe('defineTrellis', () => {
           { kind: 'agent', agentId: 'agent_1', subject: 'agent:agent_1', role: 'member' },
           { subject: 'user:delegated_user', reason: 'approved' },
           api.functionsProbe.structuredDelegationProbe,
+          { operation: 'query' },
         ),
       ),
     ).resolves.toEqual({

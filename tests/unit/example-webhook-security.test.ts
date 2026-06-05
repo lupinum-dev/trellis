@@ -3,6 +3,9 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+// Intentional 0.3.0 maintained-example boundary coverage: deleted webhook
+// helpers and stringly trusted auth appear here only as negative assertions.
+
 const repoRoot = resolve(__dirname, '../..')
 
 describe('example webhook security posture', () => {

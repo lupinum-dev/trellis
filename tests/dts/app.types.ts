@@ -10,15 +10,16 @@ import {
   type InferOperationResult,
   type WorkspaceScopeDefinition,
 } from '@lupinum/trellis/app'
-import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 import { expectTypeOf } from 'vitest'
+
+// Intentional 0.3.0 public type boundary coverage: old protected-lane guard
+// shapes appear only as negative app-operation assertions.
 
 const _listTodos = operation.query({
   id: 'todos.list',
   args: {},
-  guard: open,
-  handler: async () => [{ title: 'Ship 0.2' }],
+  handler: async () => [{ title: 'Ship 0.3' }],
 })
 
 expectTypeOf<InferOperationResult<typeof _listTodos>>().toEqualTypeOf<
@@ -30,7 +31,7 @@ expectTypeOf<InferOperationResult<typeof _listTodos>>().toEqualTypeOf<
 const _createTodo = operation.mutation({
   id: 'todos.create',
   args: { title: v.string() },
-  guard: open,
+  permission: 'todos.create',
   handler: async () => ({ created: true as const }),
 })
 
@@ -41,7 +42,7 @@ expectTypeOf<InferOperationResult<typeof _createTodo>>().toEqualTypeOf<{
 const _removeTodo = operation.destructive({
   id: 'todos.remove',
   args: { id: v.string() },
-  guard: open,
+  permission: 'todos.remove',
   safety: 'destructive-write',
   preview: async () => ({
     allowed: true as const,
@@ -77,14 +78,14 @@ blockedOperationPreview({
 const scope = workspaceScope()
 expectTypeOf<typeof scope>().toEqualTypeOf<WorkspaceScopeDefinition<'workspaceId'>>()
 
-// @ts-expect-error workspaceScope is fixed to ctx.workspaceId in 0.2.
+// @ts-expect-error workspaceScope is fixed to ctx.workspaceId.
 workspaceScope({ field: 'organizationId' })
 
 operation.query({
   id: 'todos.listByWorkspace',
   args: {},
   scope,
-  guard: open,
+  permission: 'todos.read',
   handler: async (ctx: { workspaceId: string }) => ctx.workspaceId,
 })
 
@@ -92,7 +93,7 @@ operation.destructive({
   id: 'todos.removeScoped',
   args: { id: v.string() },
   scope,
-  guard: open,
+  permission: 'todos.remove',
   safety: 'destructive-write',
   preview: async () => ({
     allowed: true as const,
@@ -107,7 +108,7 @@ operation.destructive({
 operation.mutation({
   id: 'todos.rename',
   args: { id: v.string(), title: v.string() },
-  guard: open,
+  permission: 'todos.rename',
   safety: 'bounded-write',
   handler: async () => null,
 })
@@ -115,7 +116,6 @@ operation.mutation({
 operation.query({
   id: 'todos.invalidQuery',
   args: {},
-  guard: open,
   // @ts-expect-error query operations must not opt into destructive metadata.
   kind: 'destructive',
   handler: async () => null,
@@ -125,7 +125,7 @@ operation.query({
 operation.destructive({
   id: 'todos.invalidDestructive',
   args: {},
-  guard: open,
+  permission: 'todos.remove',
   preview: async () => ({
     allowed: true as const,
     summary: 'Invalid',
@@ -140,7 +140,15 @@ operation.destructive({
 operation.destructive({
   id: 'todos.invalidDestructivePreview',
   args: {},
-  guard: open,
+  permission: 'todos.remove',
   safety: 'destructive-write',
+  handler: async () => null,
+})
+
+operation.query({
+  id: 'todos.invalidGuard',
+  args: {},
+  // @ts-expect-error app operations do not accept protected-lane guards.
+  guard: true,
   handler: async () => null,
 })

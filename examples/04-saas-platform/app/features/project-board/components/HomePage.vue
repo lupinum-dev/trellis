@@ -9,8 +9,8 @@
         </p>
         <h1 class="text-3xl font-bold mt-1">Server Integration Workspace</h1>
         <p class="text-sm text-muted mt-2">
-          The final beginner-ladder example: protected workspace patterns plus Nitro routes,
-          uploads, and one verified external integration boundary.
+          The final beginner-ladder example: explicit workspace lanes plus Nitro routes, uploads,
+          and one verified external integration boundary.
         </p>
       </template>
 

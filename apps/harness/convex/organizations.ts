@@ -1,8 +1,6 @@
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import type { AppIdentity } from './auth/appIdentity'
 import { mutation, query } from './functions'
 import { getUserRowFromActor } from './lib/user_row'
 
@@ -13,22 +11,16 @@ const createOrganizationArgs = defineArgs({
   },
 })
 
-const canCreateOrganization = defineGuard<AppIdentity>(
-  'Create organization',
-  (appIdentity) => appIdentity !== null,
-)
-
-export const list = query.public({
+export const list = query.authenticated({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('organizations').order('desc').collect()
   },
 })
 
-export const create = mutation.protected({
+export const create = mutation.authenticated({
   args: createOrganizationArgs.args,
   identityForwardingFunctionRef: 'organizations:create',
-  guard: canCreateOrganization,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
 

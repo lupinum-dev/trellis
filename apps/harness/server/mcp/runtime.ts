@@ -4,7 +4,11 @@ import type { H3Event } from 'h3'
 
 import type { InternalHarnessCaller } from '../../convex/auth/caller'
 import {
+  commentCreatePermission,
+  mcpKeyManagePermission,
   postDeletePermission,
+  postPublishPermission,
+  postUpdatePermission,
   type InternalHarnessPermissionKey,
 } from '../../convex/auth/permissions'
 import { trellisObservability } from '../../observability.config'
@@ -71,7 +75,15 @@ export const mcpRuntime = defineMcpApp<
     }
   },
   resolveAccess: async ({ caller }) => ({
+    [commentCreatePermission.key]:
+      caller.kind === 'agent' && ['owner', 'admin', 'member', 'viewer'].includes(caller.role),
+    [mcpKeyManagePermission.key]:
+      caller.kind === 'agent' && ['owner', 'admin'].includes(caller.role),
     [postDeletePermission.key]:
+      caller.kind === 'agent' && ['owner', 'admin', 'member'].includes(caller.role),
+    [postPublishPermission.key]:
+      caller.kind === 'agent' && ['owner', 'admin'].includes(caller.role),
+    [postUpdatePermission.key]:
       caller.kind === 'agent' && ['owner', 'admin', 'member'].includes(caller.role),
   }),
   callerKey: (caller) =>

@@ -1,5 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 
+import { operation as appOperation } from '../../src/runtime/app'
 import { defineArgs } from '../../src/runtime/args'
 import {
   definePermission,
@@ -13,7 +14,6 @@ import {
 } from '../../src/runtime/auth'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
-import { defineOperation } from '../../src/runtime/functions'
 import { createIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
 import { createTestContext } from '../../src/runtime/testing'
 
@@ -162,9 +162,9 @@ const toolSchema = defineArgs({
   args: {},
 })
 
-const _createTaskOperation = defineOperation({
+const _createTaskOperation = appOperation.mutation({
   args: toolSchema.args,
-  guard: createTaskPermission,
+  permission: createTaskPermission,
   handler: async (_ctx, _args, _loaded) => null,
 })
 void _createTaskOperation

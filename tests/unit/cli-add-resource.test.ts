@@ -11,6 +11,9 @@ import {
 } from '../../src/cli/lib/init'
 import { renderAddFixture, renderAppStarterFixtureSubset } from '../../src/cli/lib/starter-fixtures'
 
+// Intentional 0.3.0 generator boundary coverage: old `guard:` strings here are
+// negative assertions proving generated resources no longer emit guard fixtures.
+
 const tempDirs: string[] = []
 
 async function createTempAppRoot(prefix: string) {
@@ -169,7 +172,7 @@ describe('trellis add entity', () => {
     ).resolves.toContain('export const projectReadPermission = definePermission')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
-    ).resolves.toContain('check: isAuthenticated')
+    ).resolves.toContain('check: (appIdentity) => appIdentity !== null')
   })
 
   it('scaffolds a workspace resource slice that follows tenant conventions', async () => {
@@ -194,7 +197,9 @@ describe('trellis add entity', () => {
     ).resolves.toContain(".withIndex('by_workspace'")
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
-    ).resolves.toContain("check: hasWorkspace.and(hasMinimumRole('member'))")
+    ).resolves.toContain(
+      "check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member')",
+    )
     await expect(readFile(resolve(cwd, 'convex/features/index.ts'), 'utf8')).resolves.toContain(
       "import { projectsFeature } from './projects/feature'",
     )

@@ -37,6 +37,12 @@ const bridgeForwardingTtlsMs = {
 type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 export type IdentityForwardingKeyInput = string | ((args?: unknown) => string)
 
+function getBridgeReplayMode(operation: BridgeForwardingPurpose) {
+  if (operation === 'query') return undefined
+  if (operation === 'operation-execute') return 'operation-confirmation'
+  return 'jti-redemption'
+}
+
 function withResolvedSubject(
   caller: unknown,
   subject: Subject,
@@ -151,6 +157,9 @@ export function createBridgeForwardingEnvelope(
     transport: 'bridge',
     operation: options.operation === 'operation-execute' ? 'mutation' : options.operation,
     purpose: options.operation,
+    ...(getBridgeReplayMode(options.operation)
+      ? { replayMode: getBridgeReplayMode(options.operation) }
+      : {}),
     functionRef: options.functionRef,
     args: options.args,
     ttlMs: bridgeForwardingTtlsMs[options.operation],

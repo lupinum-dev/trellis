@@ -18,14 +18,11 @@
  * enforcement and observability emission.
  */
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineGuard } from '@lupinum/trellis/auth'
 import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
-import type { AppIdentity } from './auth/appIdentity'
+import type { DatabaseReader } from './_generated/server'
 import { query } from './functions'
-
-const authed = defineGuard<AppIdentity>('Authenticated', (appIdentity) => !!appIdentity)
 
 const getPostArgs = defineArgs({
   args: {
@@ -40,15 +37,18 @@ const getPostArgs = defineArgs({
  * `appIdentity.workspaceId === post.organizationId`. The runtime's cross-scope
  * capability exposes the post regardless of the appIdentity's tenant.
  */
-export const getAnyPost = query.protected({
+export const getAnyPost = query.authenticated({
   args: getPostArgs.args,
-  guard: authed,
   crossTenant: {
     reason: 'Harness cross-scope post lookup.',
     tables: ['posts'],
-    access: ({ db }) => ({
-      getPost: async (id: string) => await db.get(id as never),
-    }),
+    access: ({ db }) => {
+      const readDb = db as DatabaseReader
+
+      return {
+        getPost: async (id: string) => await readDb.get(id as never),
+      }
+    },
   },
   handler: async (ctx, args) => {
     return await ctx.crossTenant.getPost(args.id)
@@ -58,15 +58,18 @@ export const getAnyPost = query.protected({
 /**
  * List all posts across all tenants using an explicit named capability.
  */
-export const listAllPosts = query.protected({
+export const listAllPosts = query.authenticated({
   args: {},
-  guard: authed,
   crossTenant: {
     reason: 'Harness cross-scope post listing.',
     tables: ['posts'],
-    access: ({ db }) => ({
-      listPosts: async () => await db.query('posts' as never).collect(),
-    }),
+    access: ({ db }) => {
+      const readDb = db as DatabaseReader
+
+      return {
+        listPosts: async () => await readDb.query('posts' as never).collect(),
+      }
+    },
   },
   handler: async (ctx) => {
     return await ctx.crossTenant.listPosts()

@@ -1,6 +1,6 @@
 /**
  * Why this file exists:
- * Example 03 is the canonical protected app. It keeps the Nuxt side intentionally small:
+ * Example 03 is the canonical explicit-lane workspace app. It keeps the Nuxt side intentionally small:
  * auth, permissions, and one ordinary server route.
  */
 export default defineNuxtConfig({

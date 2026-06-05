@@ -24,18 +24,18 @@ Auth:
 Convex:
 
 - keep business rules in Convex handlers;
-- use protected handlers for signed-in app work;
+- use `authenticated(...)` for personal signed-in work and `workspace(...)` for
+  tenant-scoped app work;
 - use local `users._id` for domain user references;
 - keep tenant checks in Convex, not in frontend orchestration.
 
 Server:
 
 - use `serverConvexQuery`, `serverConvexMutation`, and `serverConvexAction`;
-- do not forward caller or acting-for data from server routes until the 0.3
-  proof API is available.
+- do not forward raw caller or acting-for data from server routes; use
+  transport proof auth only for verified server-to-server flows.
 
 MCP:
 
 - use `tool.query(...)` for reads;
-- use `tool.mutation(...)` only for bounded writes;
-- use `tool.operation(...)` for destructive or sensitive actions.
+- use `tool.operation(...)` for writes, destructive actions, and sensitive actions.

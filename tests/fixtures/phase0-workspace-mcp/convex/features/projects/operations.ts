@@ -1,12 +1,20 @@
+import { implementOperation, operationPreview } from '@lupinum/trellis/backend'
+
 import {
-  implementOperation,
-  operationPreview,
-} from '../../../../../../src/runtime/functions/define-operation'
-import { deleteProjectDescriptor } from '../../../shared/features/projects/operations'
-import { projectDelete } from './permissions'
+  createProjectDescriptor,
+  deleteProjectDescriptor,
+} from '../../../shared/features/projects/operations'
+import { projectCreate, projectDelete } from './permissions'
+
+export const createProjectOperation = implementOperation(createProjectDescriptor, {
+  permission: projectCreate,
+  handler: async (_ctx, args) => ({
+    id: `project:${args.title}`,
+    title: args.title,
+  }),
+})
 
 export const deleteProjectOperation = implementOperation(deleteProjectDescriptor, {
-  guard: projectDelete,
   permission: projectDelete,
   preview: async () =>
     operationPreview({

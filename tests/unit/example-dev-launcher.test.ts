@@ -406,7 +406,7 @@ describe('example dev launcher', () => {
     })
   })
 
-  it('writes local env files to the Convex-compatible path', () => {
+  it('writes local env files to the Convex local env path', () => {
     const writeFileSyncFn = vi.fn()
 
     writeLocalEnvFile(
@@ -812,7 +812,7 @@ describe('example dev launcher', () => {
     expect(processExit).toHaveBeenCalledWith(1)
   })
 
-  it('writes temporary Convex env files in a private temp directory with restrictive mode', () => {
+  it('writes ephemeral Convex env files in a private temp directory with restrictive mode', () => {
     const source = readFileSync(resolve(process.cwd(), 'scripts/example-dev.mjs'), 'utf8')
 
     expect(source).toContain("mkdtempSync(path.join(tmpdir(), 'trellis-convex-env-'))")

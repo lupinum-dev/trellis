@@ -100,10 +100,6 @@ const unsafeArgPrincipalRuntime = defineTrellis<
       await getAppIdentityFromCaller(ctx, args, resolvedCaller, resolvedActingFor),
   },
 )
-const canReadStructuredProbe = defineGuard<AppIdentity>(
-  'probe.read',
-  (appIdentity) => !!appIdentity,
-)
 const canEditStructuredPost = (ownerId: string) =>
   defineGuard<NonNullable<AppIdentity>>(
     'probe.update',
@@ -131,11 +127,10 @@ export const structuredPublicActorEcho = query.public({
   }),
 })
 
-export const structuredPostOwner = query.protected({
+export const structuredPostOwner = query.authenticated({
   args: {
     id: v.id('posts'),
   },
-  guard: canReadStructuredProbe,
   load: async (ctx, args) => ({
     post: await ctx.db.get(args.id),
   }),
@@ -148,11 +143,10 @@ export const structuredPostOwner = query.protected({
   }),
 })
 
-export const structuredEnvelopeProbe = query.protected({
+export const structuredEnvelopeProbe = query.authenticated({
   args: {
     title: v.string(),
   },
-  guard: canReadStructuredProbe,
   load: async (_ctx, args) => {
     structuredLoadArgs = args
     return {

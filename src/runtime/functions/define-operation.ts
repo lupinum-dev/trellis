@@ -62,6 +62,10 @@ export type {
   ValidateOperationProjectionRef,
 } from './operation-metadata.js'
 
+// Intentional 0.3.0 boundary support: operation definitions can carry an
+// internal guard only when projected from the surviving custom protected lane.
+// Descriptor/app-authored operation metadata rejects guard and uses permission.
+
 type MaybePromise<T> = T | Promise<T>
 type Callback<TArgs extends unknown[], TResult> = (...args: TArgs) => TResult
 
@@ -84,32 +88,36 @@ export type OperationDefinition<
   TPreview = unknown,
   TCrossTenant = undefined,
   TPublicWrite = undefined,
-> = StructuredHandlerDefinition<
-  TCtx,
-  TCaller,
-  TActingFor,
-  TActor,
-  TGuard,
-  TArgsValidator,
-  TLoaded,
-  TResult,
-  TCrossTenant,
-  TPublicWrite
-> & {
-  id?: string
-  name?: string
-  kind?: OperationKind
-  permission?: PermissionKeyHandle<string>
-  safety?: McpWriteSafety
-  preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
-  previewReturns?: GenericValidator
-  [trellisOperationMetadataKey]?: TrellisOperationMetadata
-  [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
-}
+> =
+  StructuredHandlerDefinition<
+    TCtx,
+    TCaller,
+    TActingFor,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult,
+    TCrossTenant,
+    TPublicWrite
+  > extends infer THandlerDefinition
+    ? Omit<THandlerDefinition, 'guard'> & {
+        guard?: TGuard
+        id?: string
+        name?: string
+        kind?: OperationKind
+        permission?: PermissionKeyHandle<string>
+        safety?: McpWriteSafety
+        preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
+        previewReturns?: GenericValidator
+        [trellisOperationMetadataKey]?: TrellisOperationMetadata
+        [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
+      }
+    : never
 
 export type OperationShape = {
   args: PropertyValidators
-  guard: StructuredGuard<any, any>
+  guard?: StructuredGuard<any, any>
   handler: (...args: any[]) => unknown
   load?: (...args: any[]) => unknown
   preview?: (...args: any[]) => unknown
@@ -214,11 +222,12 @@ type ContextBoundOperationShape<TCtx> = Omit<OperationShape, 'handler' | 'load' 
 
 type DescriptorBoundOperationShape = Omit<
   OperationShape,
-  'id' | 'kind' | 'args' | 'permission' | 'safety' | 'returns' | 'previewReturns'
+  'id' | 'kind' | 'args' | 'guard' | 'permission' | 'safety' | 'returns' | 'previewReturns'
 > & {
   id?: string
   kind?: OperationKind
   args?: PropertyValidators
+  guard?: never
   permission?: PermissionKeyHandle<string>
   safety?: McpWriteSafety
   returns?: GenericValidator
@@ -313,6 +322,11 @@ function assertDescriptorPermission(
   )
 }
 
+function assertDescriptorGuard(definition: { guard?: unknown }): void {
+  if (definition.guard === undefined) return
+  throw new Error('implementOperation(...) does not accept protected-lane guard metadata.')
+}
+
 /**
  * Bind a shared operation descriptor to its Convex implementation.
  *
@@ -339,6 +353,7 @@ export function implementOperation<
     definition.previewReturns,
   )
   assertDescriptorValue(descriptor, 'safety', descriptor.safety, definition.safety)
+  assertDescriptorGuard(definition)
   assertDescriptorPermission(descriptor, definition)
 
   if (descriptor.kind === 'destructive' && !definition.preview) {

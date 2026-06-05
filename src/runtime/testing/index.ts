@@ -17,6 +17,10 @@ import type { Subject } from '../auth/index.js'
 import { subject } from '../auth/subject.js'
 import { getFunctionName } from '../convex/shared/convex-shared.js'
 import type { AnyConvexFunction } from '../convex/shared/convex-shared.js'
+import type {
+  IdentityForwardingReplayMode,
+  IdentityForwardingTransport,
+} from '../identity-forwarding/envelope.js'
 import { createIdentityForwardingEnvelopeArgs } from '../identity-forwarding/shared.js'
 import { registerObservationCaptureListener } from '../observability/capture.js'
 import type { TrellisObservationEvent } from '../observability/index.js'
@@ -139,6 +143,12 @@ type TestClient<TSchema extends AnySchemaDefinition> = Pick<
   'query' | 'mutation' | 'action'
 >
 
+type TestCallerOptions = {
+  replayMode?: IdentityForwardingReplayMode
+  transport?: IdentityForwardingTransport
+  jti?: string
+}
+
 type SeedTenantUserInput<TRole extends string> = {
   role: TRole
   authKey?: string
@@ -223,7 +233,7 @@ export interface TestContext<
     id: DocumentFor<TSchema, TTenantTable>['_id']
     users: SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
   }>
-  asCaller: (caller: Record<string, unknown>) => TestClient<TSchema>
+  asCaller: (caller: Record<string, unknown>, options?: TestCallerOptions) => TestClient<TSchema>
 }
 
 const DEFAULT_CONVEX_TEST_TSCONFIG = {
@@ -303,6 +313,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   raw: TestConvex<TSchema>,
   caller: Record<string, unknown>,
   identityForwardingKey?: string,
+  options: TestCallerOptions = {},
 ): TestClient<TSchema> {
   const effectiveIdentityForwardingKey =
     identityForwardingKey?.trim() || process.env.CONVEX_IDENTITY_FORWARDING_KEY
@@ -331,7 +342,9 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         functionRef: getFunctionName(fn as unknown as AnyConvexFunction),
         operation: kind,
         key: effectiveIdentityForwardingKey,
-        transport: 'server',
+        transport: options.transport ?? 'server',
+        ...(options.replayMode ? { replayMode: options.replayMode } : {}),
+        ...(options.jti ? { jti: options.jti } : {}),
       })
     }
 
@@ -580,8 +593,11 @@ export function createTestContext<
     }
   }
 
-  function asCaller(caller: Record<string, unknown>): TestClient<TSchema> {
-    return createPrincipalClient(raw, caller, identityForwardingKey)
+  function asCaller(
+    caller: Record<string, unknown>,
+    options?: TestCallerOptions,
+  ): TestClient<TSchema> {
+    return createPrincipalClient(raw, caller, identityForwardingKey, options)
   }
 
   return {

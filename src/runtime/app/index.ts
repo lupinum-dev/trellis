@@ -42,7 +42,7 @@ export function workspaceScope(): WorkspaceScopeDefinition {
 type WorkspaceScopedContext<TCtx> = Omit<TCtx, 'workspaceId'> & { workspaceId: string }
 
 type AppOperationShape = Omit<OperationShape, 'guard'> & {
-  guard?: OperationShape['guard']
+  guard?: never
   identityForwardingFunctionRef?: string
 }
 
@@ -84,26 +84,21 @@ type ProjectRuntimeCallback<TCallback> = TCallback extends (
   ? (ctx: unknown, ...args: TArgs) => TResult
   : TCallback
 
-type OperationGuardShape<TDefinition> = TDefinition extends { guard: infer _TGuard }
-  ? TDefinition
-  : Omit<TDefinition, 'guard'> & { guard?: never }
-
 type ProjectedRuntimeOperation<TDefinition> = TDefinition extends {
   scope: WorkspaceScopeDefinition
 }
-  ? OperationGuardShape<
-      Omit<TDefinition, 'handler' | 'load' | 'preview'> & {
-        handler: ProjectRuntimeCallback<
-          TDefinition extends { handler: infer THandler } ? THandler : never
-        >
-      } & (TDefinition extends { load: infer TLoad }
-          ? { load: ProjectRuntimeCallback<TLoad> }
-          : unknown) &
-        (TDefinition extends { preview: infer TPreview }
-          ? { preview: ProjectRuntimeCallback<TPreview> }
-          : unknown)
-    >
-  : OperationGuardShape<TDefinition>
+  ? Omit<TDefinition, 'guard' | 'handler' | 'load' | 'preview'> & {
+      guard?: never
+      handler: ProjectRuntimeCallback<
+        TDefinition extends { handler: infer THandler } ? THandler : never
+      >
+    } & (TDefinition extends { load: infer TLoad }
+        ? { load: ProjectRuntimeCallback<TLoad> }
+        : unknown) &
+      (TDefinition extends { preview: infer TPreview }
+        ? { preview: ProjectRuntimeCallback<TPreview> }
+        : unknown)
+  : Omit<TDefinition, 'guard'> & { guard?: never }
 
 function getWorkspaceId(value: unknown): string | null {
   if (typeof value !== 'object' || value === null || !('workspaceId' in value)) return null

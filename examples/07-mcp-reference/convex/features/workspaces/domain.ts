@@ -21,11 +21,7 @@ export const createWorkspaceOp = operation.mutation({
     reason: 'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
     tables: ['runbooks'],
     access: ({ db }) => ({
-      seedRunbooks: async (input: {
-        workspaceId: string
-        userId: string
-        now: number
-      }) => {
+      seedRunbooks: async (input: { workspaceId: string; userId: string; now: number }) => {
         const writer = db as typeof db & {
           insert: (table: string, value: unknown) => Promise<unknown>
         }

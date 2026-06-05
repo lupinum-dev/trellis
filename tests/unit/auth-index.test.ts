@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
+// Intentional 0.3.0 public export boundary coverage: deleted auth sentinel
+// names appear here only as negative entrypoint assertions.
+
 describe('auth entrypoint exports', () => {
   let authApi: typeof import('../../src/runtime/auth/index')
   let identityForwardingApi: typeof import('../../src/runtime/identity-forwarding/index')

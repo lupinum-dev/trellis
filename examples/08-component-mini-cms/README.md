@@ -22,7 +22,7 @@ is already clear.
 
 ## What this example assumes
 
-You already understand the canonical protected workspace model from
+You already understand the canonical explicit workspace model from
 [`03-team-workspace`](../03-team-workspace/README.md) and the MCP surface from
 [`07-mcp-reference`](../07-mcp-reference/README.md).
 

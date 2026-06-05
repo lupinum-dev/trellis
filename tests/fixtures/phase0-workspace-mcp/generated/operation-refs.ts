@@ -1,6 +1,17 @@
-import { projectOperationRef } from '../../../../src/runtime/functions/define-operation'
+import { projectOperationRef } from '@lupinum/trellis/backend'
+
 import { api } from '../convex/_generated/api'
-import { deleteProjectDescriptor } from '../shared/features/projects/operations'
+import {
+  createProjectDescriptor,
+  deleteProjectDescriptor,
+} from '../shared/features/projects/operations'
+
+export const createProjectRef = projectOperationRef(
+  createProjectDescriptor,
+  'execute',
+  api.features.projects.domain.createProject,
+  { functionRef: 'features/projects/domain:createProject' },
+)
 
 export const executeDeleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,

@@ -1,8 +1,7 @@
-import { defineArgs } from '@lupinum/trellis/args'
 import { operation } from '@lupinum/trellis/app'
-import { can, defineGuard, open } from '@lupinum/trellis/auth'
+import { defineArgs } from '@lupinum/trellis/args'
+import { can } from '@lupinum/trellis/auth'
 import {
-  implementOperation,
   operationEffect,
   operationIssue,
   operationPreview,
@@ -16,6 +15,11 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { AppIdentity } from './auth/appIdentity'
 import type { InternalHarnessCaller } from './auth/caller'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
+import {
+  postDeletePermission,
+  postPublishPermission,
+  postUpdatePermission,
+} from './auth/permissions'
 import { mutation, query } from './functions'
 
 const listPostsArgs = defineArgs({
@@ -28,8 +32,6 @@ const getPostArgs = defineArgs({
   },
 })
 
-const canCreatePostActor = defineGuard<AppIdentity>('Create post', (appIdentity) => !!appIdentity)
-const canManagePosts = defineGuard<AppIdentity>('post.manage', (appIdentity) => !!appIdentity)
 type PostOperationCtx = {
   appIdentity: () => Promise<AppIdentity>
   caller: () => Promise<InternalHarnessCaller>
@@ -94,7 +96,7 @@ function denyTenantMismatch(appIdentity: AppIdentity, post: { organizationId: st
   )
 }
 
-export const list = query.public({
+export const list = query.authenticated({
   args: listPostsArgs.args,
   handler: async (ctx, _args) => {
     const appIdentity = await ctx.appIdentity()
@@ -112,7 +114,7 @@ export const list = query.public({
   },
 })
 
-export const get = query.public({
+export const get = query.authenticated({
   args: getPostArgs.args,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
@@ -130,7 +132,7 @@ export const createPostOp = operation.mutation({
   id: 'posts.create',
   args: createPost.args,
   identityForwardingFunctionRef: 'posts:create',
-  guard: canCreatePostActor,
+  identityForwardingTransport: 'mcp',
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     if (!can(appIdentity, canCreatePost)) {
@@ -150,11 +152,12 @@ export const createPostOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createPostOp)
+export const create = mutation.authenticated(createPostOp)
 
-export const update = mutation.protected({
+export const updatePostOp = operation.mutation({
+  id: 'posts.update',
   args: updatePost.args,
-  guard: canManagePosts,
+  permission: postUpdatePermission,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
@@ -178,9 +181,12 @@ export const update = mutation.protected({
   },
 })
 
-export const remove = mutation.protected({
+export const update = mutation.workspace(updatePostOp)
+
+export const removePostDirectOp = operation.mutation({
+  id: 'posts.remove.direct',
   args: deletePost.args,
-  guard: canManagePosts,
+  permission: postDeletePermission,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
@@ -199,9 +205,17 @@ export const remove = mutation.protected({
   },
 })
 
-export const removePostOp = implementOperation(removePostDescriptor, {
+export const remove = mutation.workspace(removePostDirectOp)
+
+export const removePostOp = operation.destructive({
+  id: removePostDescriptor.id,
+  name: removePostDescriptor.name,
+  args: removePostDescriptor.args,
+  returns: removePostDescriptor.returns,
+  previewReturns: removePostDescriptor.previewReturns,
   identityForwardingFunctionRef: 'posts:removeWithConfirmation',
-  guard: canManagePosts,
+  permission: postDeletePermission,
+  safety: 'destructive-write',
   load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
     const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
@@ -243,18 +257,21 @@ export const removePostOp = implementOperation(removePostDescriptor, {
   },
 })
 
-export const removeWithConfirmation = mutation.protected({
+export const removeWithConfirmation = mutation.workspace({
   ...removePostOp,
   identityForwardingFunctionRef: 'posts:removeWithConfirmation',
+  identityForwardingTransport: 'mcp',
 })
-export const previewRemove = mutation.protected({
+export const previewRemove = mutation.workspace({
   ...previewOf(removePostOp),
   identityForwardingFunctionRef: 'posts:previewRemove',
+  identityForwardingTransport: 'mcp',
 })
 
-export const publish = mutation.protected({
+export const publishPostOp = operation.mutation({
+  id: 'posts.publish',
   args: { id: v.id('posts') },
-  guard: canManagePosts,
+  permission: postPublishPermission,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
@@ -277,3 +294,5 @@ export const publish = mutation.protected({
     })
   },
 })
+
+export const publish = mutation.workspace(publishPostOp)

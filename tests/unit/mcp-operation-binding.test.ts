@@ -5,13 +5,7 @@ import {
   trellisOperationProjectionMetadataKey,
   type TrellisOperationProjectionMetadata,
 } from '../../src/runtime/functions'
-import {
-  assertOperationBinding,
-  defineMcpToolRefDescriptor,
-  getMcpToolSafety,
-  projectMcpToolRef,
-  toKebabCase,
-} from '../../src/runtime/mcp/operation-binding'
+import { assertOperationBinding, toKebabCase } from '../../src/runtime/mcp/operation-binding'
 
 function ref(metadata?: TrellisOperationProjectionMetadata) {
   return (
@@ -164,18 +158,5 @@ describe('mcp operation binding', () => {
   it('formats default tool names from operation names', () => {
     expect(toKebabCase('archiveBoard')).toBe('archive-board')
     expect(toKebabCase('archive_board')).toBe('archive-board')
-  })
-
-  it('projects direct MCP tool safety from a shared descriptor', () => {
-    const descriptor = defineMcpToolRefDescriptor({
-      name: 'create-project',
-      safety: {
-        kind: 'bounded-write',
-        reason: 'Creates one draft project record named by args.',
-      },
-    })
-    const projected = projectMcpToolRef(descriptor, {})
-
-    expect(getMcpToolSafety(projected)).toEqual(descriptor.safety)
   })
 })

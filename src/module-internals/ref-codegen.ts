@@ -18,7 +18,15 @@ export interface RefModuleInput<TRef extends RefBindingInput> {
 }
 
 function renderImport(names: readonly string[], from: string): string {
+  if (names.length > 1) {
+    return [`import {`, ...names.map((name) => `  ${name},`), `} from '${from}'`].join('\n')
+  }
+
   return `import { ${names.join(', ')} } from '${from}'`
+}
+
+function isBareImport(from: string): boolean {
+  return !from.startsWith('.') && !from.startsWith('/')
 }
 
 export function renderGeneratedApiPath(path: readonly string[], label: string): string {
@@ -48,12 +56,13 @@ export function renderRefModule<TRef extends RefBindingInput>(input: RefModuleIn
     throw new Error(input.emptyRefsMessage)
   }
 
-  const lines = [
-    renderImport([input.helperImportName], input.helperImportFrom),
+  const lines = [renderImport([input.helperImportName], input.helperImportFrom)]
+  if (isBareImport(input.helperImportFrom)) lines.push('')
+  lines.push(
     renderImport(['api'], input.apiImport),
     renderImport(input.descriptors, input.descriptorImport),
     '',
-  ]
+  )
 
   for (const [index, ref] of input.refs.entries()) {
     lines.push(...input.renderBinding(ref, renderGeneratedApiPath(ref.apiPath, input.apiPathLabel)))

@@ -41,7 +41,7 @@ export type DelegationBindingExpectation = {
 
 function requireNonBlank(value: unknown, label: string): string {
   if (typeof value !== 'string') {
-    throw new Error(`${label} must be a non-empty string.`)
+    throw new TypeError(`${label} must be a non-empty string.`)
   }
   const trimmed = value.trim()
   if (!trimmed) {
@@ -57,7 +57,7 @@ function requireOptionalNonBlank(value: unknown, label: string): string | undefi
 
 function requireValidExpiresAt(value: unknown, label: string, now: number): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer timestamp.`)
+    throw new TypeError(`${label} must be a safe integer timestamp.`)
   }
   if (value <= now) {
     throw new Error(`${label} must be in the future.`)
@@ -73,7 +73,11 @@ function requireCanonicalSubject(value: unknown, label: string): Subject {
   return subjectValue
 }
 
-function requireMatching(value: string | number, expected: string | number | undefined, label: string) {
+function requireMatching(
+  value: string | number,
+  expected: string | number | undefined,
+  label: string,
+) {
   if (expected !== undefined && value !== expected) {
     throw new Error(`Delegation binding ${label} does not match the expected value.`)
   }

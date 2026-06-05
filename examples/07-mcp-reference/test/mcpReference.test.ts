@@ -129,6 +129,8 @@ describe('mcp reference example', () => {
     const readServerFile = (relativePath: string) =>
       readFileSync(new URL(`../server/${relativePath}`, import.meta.url), 'utf8')
 
+    // Intentional 0.3.0 boundary coverage: anonymous MCP server tools must not
+    // use the deleted direct write lane or operation-backed writes.
     const publicReadTools = [
       'mcp/tools/runbooks/list-public.ts',
       'mcp/tools/runbooks/search-public.ts',
@@ -339,29 +341,53 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx
-        .asCaller({
-          kind: 'user',
-          authKey: team.users.viewer.authKey,
-          subject: `auth:${team.users.viewer.authKey}`,
-        })
-        .mutation(api.features.runbooks.domain.create, {
-          title: 'Viewer should fail',
-          summary: 'No permission',
-          content: '# Nope',
-          visibility: 'draft',
-          tags: [],
-        }),
+      ctx.raw.mutation(
+        api.features.runbooks.domain.create,
+        withSignedForwarding(
+          {
+            title: 'Viewer should fail',
+            summary: 'No permission',
+            content: '# Nope',
+            visibility: 'draft',
+            tags: [],
+          },
+          {
+            ref: api.features.runbooks.domain.create,
+            operation: 'mutation',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'user',
+              authKey: team.users.viewer.authKey,
+              subject: `auth:${team.users.viewer.authKey}`,
+            },
+          },
+        ),
+      ),
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      team.users.member.mutation(api.features.runbooks.domain.create, {
-        title: 'Member may create',
-        summary: 'Allowed',
-        content: '# Allowed',
-        visibility: 'draft',
-        tags: ['ops'],
-      }),
+      ctx.raw.mutation(
+        api.features.runbooks.domain.create,
+        withSignedForwarding(
+          {
+            title: 'Member may create',
+            summary: 'Allowed',
+            content: '# Allowed',
+            visibility: 'draft',
+            tags: ['ops'],
+          },
+          {
+            ref: api.features.runbooks.domain.create,
+            operation: 'mutation',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'user',
+              authKey: team.users.member.authKey,
+              subject: `auth:${team.users.member.authKey}`,
+            },
+          },
+        ),
+      ),
     ).resolves.toBeTruthy()
   })
 
@@ -473,6 +499,57 @@ describe('mcp reference example', () => {
         ),
       ),
     ).rejects.toThrow(/Duplicate webhook delivery/)
+  })
+
+  it('does not record webhook delivery state when the domain write fails', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        member: { role: 'member' },
+      },
+    })
+
+    await expect(
+      ctx.raw.mutation(
+        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+        withSignedForwarding(
+          {
+            deliveryId: 'delivery_public_denied',
+            workspaceId: team.id,
+            title: 'Public webhook should fail',
+            summary: 'Denied',
+            content: '# Denied',
+            visibility: 'public',
+            tags: ['webhook'],
+          },
+          {
+            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
+            operation: 'mutation',
+            transport: 'webhook',
+            replayMode: 'domain-idempotency',
+            caller: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            actingFor: runbookWebhookDelegation({
+              userId: team.users.member.id,
+              workspaceId: team.id,
+              deliveryId: 'delivery_public_denied',
+            }),
+          },
+        ),
+      ),
+    ).rejects.toThrow(/Only owners and admins can create public runbooks/)
+
+    await ctx.raw.run(async (innerCtx) => {
+      const delivery = await innerCtx.db
+        .query('runbookWebhookDeliveries')
+        .withIndex('by_delivery_id', (q) => q.eq('deliveryId', 'delivery_public_denied'))
+        .unique()
+      expect(delivery).toBeNull()
+    })
   })
 
   it('rejects delegated service principals with forged binding fields', async () => {
