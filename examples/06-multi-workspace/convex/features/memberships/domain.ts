@@ -16,7 +16,7 @@ export const listMembersOp = operation.query({
   id: 'memberships.list',
   args: listMembersArgs.args,
   scope: workspaceScope(),
-  guard: membershipRead,
+  permission: membershipRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     const memberships = await ctx.db
       .query('memberships')
@@ -39,4 +39,4 @@ export const listMembersOp = operation.query({
   },
 })
 
-export const listMembers = query.protected(listMembersOp)
+export const listMembers = query.workspace(listMembersOp)

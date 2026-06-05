@@ -1773,6 +1773,48 @@ type StructuredTransportMutationBuilder<
   >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
+type AuthenticatedStructuredTransportMutationBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['caller']>>,
+      Awaited<ReturnType<TCtx['actingFor']>>,
+      TActor,
+      typeof authRequired,
+      TArgsValidator,
+      TLoaded,
+      TResult,
+      TCrossTenant,
+      TPublicWrite
+    >,
+    'guard'
+  > & { guard?: never },
+) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type TransportMutationWithBackendLanes<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = StructuredTransportMutationBuilder<TCtx, Visibility, TActor> & {
+  authenticated: AuthenticatedStructuredTransportMutationBuilder<TCtx, Visibility, TActor>
+}
+
 type StructuredActionBuilder<
   TCtx extends {
     caller: () => Promise<unknown>
@@ -3035,7 +3077,7 @@ type TrellisBackendRuntime<
 > = {
   query: QueryWithBackendLanes<DataModel, QueryVisibility, TCaller, TActingFor, TActor>
   mutation: MutationWithBackendLanes<DataModel, MutationVisibility, TCaller, TActingFor, TActor>
-  transportMutation: StructuredTransportMutationBuilder<
+  transportMutation: TransportMutationWithBackendLanes<
     MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     MutationVisibility,
     TActor
@@ -3055,7 +3097,7 @@ type TrellisBackendRuntime<
     TActingFor,
     TActor
   >
-  internalTransportMutation?: StructuredTransportMutationBuilder<
+  internalTransportMutation?: TransportMutationWithBackendLanes<
     MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     InternalMutationVisibility,
     TActor
@@ -3657,7 +3699,7 @@ function buildStructuredTransportMutationRuntime<
   TActor,
 >(
   builder: unknown,
-): StructuredTransportMutationBuilder<
+): TransportMutationWithBackendLanes<
   MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
   Visibility,
   TActor
@@ -3670,7 +3712,7 @@ function buildStructuredTransportMutationRuntime<
     never
   >(builder as never)
 
-  return ((definition) => {
+  const transportMutation = ((definition) => {
     const metadata = getOperationMetadata(definition as never)
     const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive') {
@@ -3794,6 +3836,14 @@ function buildStructuredTransportMutationRuntime<
 
     return structured(transformed as never)
   }) as StructuredTransportMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
+
+  return Object.assign(transportMutation, {
+    authenticated: createAuthenticatedLaneBuilder(transportMutation as never),
+  }) as TransportMutationWithBackendLanes<
     MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor

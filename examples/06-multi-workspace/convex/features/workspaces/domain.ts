@@ -125,7 +125,7 @@ export const createWorkspaceOp = operation.mutation({
   },
 })
 
-export const createWorkspaceMutation = mutation.public(createWorkspaceOp)
+export const createWorkspaceMutation = mutation.authenticated(createWorkspaceOp)
 
 export const switchWorkspaceOp = operation.mutation({
   id: 'workspaces.switch',
@@ -163,4 +163,4 @@ export const switchWorkspaceOp = operation.mutation({
   },
 })
 
-export const switchWorkspace = mutation.public(switchWorkspaceOp)
+export const switchWorkspace = mutation.authenticated(switchWorkspaceOp)

@@ -1,5 +1,5 @@
 import { operation, workspaceScope } from '@lupinum/trellis/app'
-import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
+import { deny, loadTenantResource as loadResource, requireAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createComment } from '../../../shared/features/comments/contract'
@@ -7,6 +7,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
+import { taskRead } from '../tasks'
 import { commentCreate } from './permissions'
 
 type WorkspaceQueryCtx = QueryCtx & {
@@ -28,7 +29,7 @@ export const listCommentsByTaskOp = operation.query({
   id: 'comments.list-by-task',
   args: { taskId: v.id('tasks') },
   scope: workspaceScope(),
-  guard: commentCreate,
+  permission: taskRead,
   handler: async (ctx: WorkspaceQueryCtx, args: ListCommentsByTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
 
@@ -42,15 +43,16 @@ export const listCommentsByTaskOp = operation.query({
   },
 })
 
-export const listByTask = query.protected(listCommentsByTaskOp)
+export const listByTask = query.workspace(listCommentsByTaskOp)
 
 export const createCommentOp = operation.mutation({
   id: 'comments.create',
   args: createComment.args,
   scope: workspaceScope(),
-  guard: commentCreate,
+  permission: commentCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateCommentArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const task = loadResource(
       appIdentity,
@@ -92,4 +94,4 @@ export const createCommentOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createCommentOp)
+export const create = mutation.workspace(createCommentOp)

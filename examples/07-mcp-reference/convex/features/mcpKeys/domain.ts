@@ -1,5 +1,5 @@
 import { operation, workspaceScope } from '@lupinum/trellis/app'
-import { deny } from '@lupinum/trellis/auth'
+import { deny, requireAuth } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -85,7 +85,7 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
 
 export const listMcpKeysOp = operation.query({
   id: 'mcpKeys.list',
-  guard: mcpManage,
+  permission: mcpManage,
   args: {},
   scope: workspaceScope(),
   handler: async (ctx: WorkspaceQueryCtx) => {
@@ -101,15 +101,16 @@ export const listMcpKeysOp = operation.query({
   },
 })
 
-export const list = query.protected(listMcpKeysOp)
+export const list = query.workspace(listMcpKeysOp)
 
 export const createMcpKeyOp = operation.mutation({
   id: 'mcpKeys.create',
-  guard: mcpManage,
+  permission: mcpManage,
   args: createMcpKey.args,
   scope: workspaceScope(),
   handler: async (ctx: WorkspaceMutationCtx, args: CreateMcpKeyArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const boundUser = await getBoundUser(ctx, args.boundUserId)
     if (!boundUser?.workspaceId || boundUser.workspaceId !== ctx.workspaceId) {
@@ -132,15 +133,16 @@ export const createMcpKeyOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createMcpKeyOp)
+export const create = mutation.workspace(createMcpKeyOp)
 
 export const revokeMcpKeyOp = operation.mutation({
   id: 'mcpKeys.revoke',
-  guard: mcpManage,
+  permission: mcpManage,
   args: revokeMcpKey.args,
   scope: workspaceScope(),
   handler: async (ctx: WorkspaceMutationCtx, args: RevokeMcpKeyArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const rawKey = await ctx.db.get(args.id)
     if (!rawKey || rawKey.boundWorkspaceId !== ctx.workspaceId) {
@@ -163,7 +165,7 @@ export const revokeMcpKeyOp = operation.mutation({
   },
 })
 
-export const revoke = mutation.protected(revokeMcpKeyOp)
+export const revoke = mutation.workspace(revokeMcpKeyOp)
 
 export const validateMcpKeyOp = operation.query({
   id: 'mcpKeys.validate',

@@ -13,7 +13,7 @@ import {
 } from '../../../../../shared/features/pages/contract'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { canManagePages, mutation, query, transportMutation } from '../../functions'
+import { mutation, query, transportMutation } from '../../functions'
 import { publishPageOp } from './operations'
 
 type CreatePageArgs = { slug: string; title: string; draftBody?: string }
@@ -115,14 +115,13 @@ export const listStudioPagesOp = operation.query({
   returns: v.array(studioPageValidator),
   identityForwardingFunctionRef: 'features/pages/domain:listStudio',
   identityForwardingTransport: 'bridge',
-  guard: canManagePages,
   handler: async (ctx: QueryCtx) => {
     const pages = await ctx.db.query('pages').order('desc').collect()
     return pages.map(toStudioPage)
   },
 })
 
-export const listStudio = query.protected(listStudioPagesOp)
+export const listStudio = query.authenticated(listStudioPagesOp)
 
 export const listDraftPagesOp = operation.query({
   id: 'pages.list-draft',
@@ -130,7 +129,6 @@ export const listDraftPagesOp = operation.query({
   returns: v.array(studioPageValidator),
   identityForwardingFunctionRef: 'features/pages/domain:listDraft',
   identityForwardingTransport: 'bridge',
-  guard: canManagePages,
   handler: async (ctx: QueryCtx) => {
     const pages = await ctx.db
       .query('pages')
@@ -142,7 +140,7 @@ export const listDraftPagesOp = operation.query({
   },
 })
 
-export const listDraft = query.protected(listDraftPagesOp)
+export const listDraft = query.authenticated(listDraftPagesOp)
 
 export const createPageOp = operation.mutation({
   id: 'pages.create',
@@ -150,7 +148,6 @@ export const createPageOp = operation.mutation({
   returns: v.string(),
   identityForwardingFunctionRef: 'features/pages/domain:create',
   identityForwardingTransport: 'bridge',
-  guard: canManagePages,
   handler: async (ctx: ManagePagesMutationCtx, args: CreatePageArgs) => {
     const appIdentity = await ctx.appIdentity()
     const authorId =
@@ -175,7 +172,7 @@ export const createPageOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createPageOp)
+export const create = mutation.authenticated(createPageOp)
 
 export const saveDraftOp = operation.mutation({
   id: 'pages.save-draft',
@@ -183,7 +180,6 @@ export const saveDraftOp = operation.mutation({
   returns: v.null(),
   identityForwardingFunctionRef: 'features/pages/domain:save',
   identityForwardingTransport: 'bridge',
-  guard: canManagePages,
   handler: async (ctx: MutationCtx, args: SaveDraftArgs) => {
     await ctx.db.patch(args.id as Id<'pages'>, {
       slug: args.slug.trim(),
@@ -195,6 +191,6 @@ export const saveDraftOp = operation.mutation({
   },
 })
 
-export const save = mutation.protected(saveDraftOp)
+export const save = mutation.authenticated(saveDraftOp)
 
-export const publish = transportMutation(publishPageOp)
+export const publish = transportMutation.authenticated(publishPageOp)

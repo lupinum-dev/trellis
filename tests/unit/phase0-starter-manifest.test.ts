@@ -183,6 +183,10 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(todosDomain).toContain("import { operation } from '@lupinum/trellis/app'")
     expect(todosDomain).toContain('operation.query({')
     expect(todosDomain).toContain('operation.mutation({')
+    expect(todosDomain).toContain('query.authenticated(listTodosOp)')
+    expect(todosDomain).toContain('mutation.authenticated(createTodoOp)')
+    expect(todosDomain).not.toContain('query.workspace(listTodosOp)')
+    expect(todosDomain).not.toContain('mutation.workspace(createTodoOp)')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 

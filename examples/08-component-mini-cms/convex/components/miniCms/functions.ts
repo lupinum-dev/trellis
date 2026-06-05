@@ -1,4 +1,3 @@
-import { defineGuard } from '@lupinum/trellis/auth'
 import { defineCaller, defineTrellis, getForwardedCaller } from '@lupinum/trellis/backend'
 import {
   actionGeneric as generatedAction,
@@ -34,11 +33,6 @@ export async function getAppIdentityFromCaller(
       return { kind: 'agent', agentId: resolved.agentId }
   }
 }
-
-export const canManagePages = defineGuard<MiniCmsActor>(
-  'Manage pages',
-  (appIdentity) => appIdentity.kind !== 'viewer',
-)
 
 export const { action, mutation, query, transportMutation } = defineTrellis(
   {

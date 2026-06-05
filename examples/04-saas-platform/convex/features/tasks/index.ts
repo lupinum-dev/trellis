@@ -9,6 +9,7 @@ export {
   taskPermissionMatrix,
   taskPermissions,
   taskRead,
+  taskUpdate,
 } from './permissions'
 export { taskTables } from './schema'
 export { createTaskFromWebhookMutation } from './webhooks'

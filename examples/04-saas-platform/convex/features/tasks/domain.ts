@@ -1,5 +1,11 @@
 import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
-import { can, deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
+import {
+  can,
+  deny,
+  enforce,
+  loadTenantResource as loadResource,
+  requireAuth,
+} from '@lupinum/trellis/auth'
 import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 
@@ -12,11 +18,10 @@ import {
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
-import { hasRole, hasWorkspace } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 import { canUpdateTask } from './checks'
 import { removeTaskOp } from './operations'
-import { taskAssign, taskCreate, taskRead } from './permissions'
+import { taskAssign, taskCreate, taskRead, taskUpdate } from './permissions'
 import { taskCapabilities } from './recordAccess'
 
 type WorkspaceQueryCtx = QueryCtx & {
@@ -40,7 +45,7 @@ export const listTasksByProjectOp = operation.query({
   id: 'tasks.list-by-project',
   args: { projectId: v.id('projects') },
   scope: workspaceScope(),
-  guard: taskRead,
+  permission: taskRead,
   handler: async (ctx: WorkspaceQueryCtx, args: ProjectIdArgs) => {
     const appIdentity = await ctx.appIdentity()
 
@@ -56,13 +61,13 @@ export const listTasksByProjectOp = operation.query({
   },
 })
 
-export const listByProject = query.protected(listTasksByProjectOp)
+export const listByProject = query.workspace(listTasksByProjectOp)
 
 export const getTaskOp = operation.query({
   id: 'tasks.get',
   args: { id: v.id('tasks') },
   scope: workspaceScope(),
-  guard: taskRead,
+  permission: taskRead,
   handler: async (ctx: WorkspaceQueryCtx, args: TaskIdArgs) => {
     const appIdentity = await ctx.appIdentity()
     const task = loadResource(
@@ -74,15 +79,16 @@ export const getTaskOp = operation.query({
   },
 })
 
-export const get = query.protected(getTaskOp)
+export const get = query.workspace(getTaskOp)
 
 export const createTaskOp = operation.mutation({
   id: 'tasks.create',
   args: createTask.args,
   scope: workspaceScope(),
-  guard: taskCreate,
+  permission: taskCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const project = loadResource(
       appIdentity,
@@ -120,13 +126,13 @@ export const createTaskOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createTaskOp)
+export const create = mutation.workspace(createTaskOp)
 
 export const moveTaskToColumnOp = operation.mutation({
   id: 'tasks.move-to-column',
   args: moveTask.args,
   scope: workspaceScope(),
-  guard: taskRead,
+  permission: taskUpdate,
   handler: async (ctx: WorkspaceMutationCtx, args: MoveTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
     const task = loadResource(
@@ -151,15 +157,16 @@ export const moveTaskToColumnOp = operation.mutation({
   },
 })
 
-export const moveToColumn = mutation.protected(moveTaskToColumnOp)
+export const moveToColumn = mutation.workspace(moveTaskToColumnOp)
 
 export const assignTaskOp = operation.mutation({
   id: 'tasks.assign',
   args: assignTask.args,
   scope: workspaceScope(),
-  guard: taskAssign,
+  permission: taskAssign,
   handler: async (ctx: WorkspaceMutationCtx, args: AssignTaskArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const task = loadResource(
       appIdentity,
@@ -189,7 +196,7 @@ export const assignTaskOp = operation.mutation({
   },
 })
 
-export const assign = mutation.protected(assignTaskOp)
+export const assign = mutation.workspace(assignTaskOp)
 
 export const bulkUpdateTaskStatusOp = operation.mutation({
   id: 'tasks.bulk-update-status',
@@ -198,9 +205,10 @@ export const bulkUpdateTaskStatusOp = operation.mutation({
     status: taskStatusValidator,
   },
   scope: workspaceScope(),
-  guard: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
+  permission: taskUpdate,
   handler: async (ctx: WorkspaceMutationCtx, args: BulkUpdateTaskStatusArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const now = Date.now()
     const updates = await asyncMap(args.ids, async (id) => {
@@ -237,16 +245,16 @@ export const bulkUpdateTaskStatusOp = operation.mutation({
   },
 })
 
-export const bulkUpdateStatus = mutation.protected(bulkUpdateTaskStatusOp)
+export const bulkUpdateStatus = mutation.workspace(bulkUpdateTaskStatusOp)
 
-export const previewRemoveTask = mutation.protected(previewOf(removeTaskOp))
-export const remove = mutation.protected(removeTaskOp)
+export const previewRemoveTask = mutation.workspace(previewOf(removeTaskOp))
+export const remove = mutation.workspace(removeTaskOp)
 
 export const listTasksForExportOp = operation.query({
   id: 'tasks.list-for-export',
   args: { projectId: v.id('projects') },
   scope: workspaceScope(),
-  guard: taskRead,
+  permission: taskRead,
   handler: async (ctx: WorkspaceQueryCtx, args: ProjectIdArgs) => {
     const appIdentity = await ctx.appIdentity()
 
@@ -260,4 +268,4 @@ export const listTasksForExportOp = operation.query({
   },
 })
 
-export const listForExport = query.protected(listTasksForExportOp)
+export const listForExport = query.workspace(listTasksForExportOp)

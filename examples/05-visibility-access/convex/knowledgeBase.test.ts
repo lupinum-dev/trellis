@@ -431,7 +431,7 @@ describe('share tokens', () => {
     expect(typeof token).toBe('string')
 
     // Anonymous user can view with token (via raw context)
-    const article = await ctx.raw.query(api.features.articles.domain.view, {
+    const article = await ctx.raw.query(api.features.articles.domain.viewShared, {
       id: articleId,
       shareToken: token,
     })
@@ -492,7 +492,7 @@ describe('share tokens', () => {
     })
 
     await expect(
-      ctx.raw.query(api.features.articles.domain.view, { id: articleId, shareToken: token }),
+      ctx.raw.query(api.features.articles.domain.viewShared, { id: articleId, shareToken: token }),
     ).rejects.toThrow('revoked')
   })
 
@@ -526,7 +526,7 @@ describe('share tokens', () => {
     })
 
     await expect(
-      ctx.raw.query(api.features.articles.domain.view, { id: article2, shareToken: token }),
+      ctx.raw.query(api.features.articles.domain.viewShared, { id: article2, shareToken: token }),
     ).rejects.toThrow('does not match')
   })
 

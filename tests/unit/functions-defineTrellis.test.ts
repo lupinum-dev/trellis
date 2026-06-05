@@ -193,6 +193,8 @@ describe('defineTrellis', () => {
     expect(runtime.mutation.workspace).toBeTypeOf('function')
     expect(runtime.mutation.protected).toBeTypeOf('function')
     expect(runtime.mutation.unsafe).toBeTypeOf('function')
+    expect(runtime.transportMutation).toBeTypeOf('function')
+    expect(runtime.transportMutation.authenticated).toBeTypeOf('function')
     expect(runtime.unsafe.query).toBeTypeOf('function')
     expect(runtime.unsafe.mutation).toBeTypeOf('function')
     expect(runtime).not.toHaveProperty('app')
@@ -1636,6 +1638,73 @@ describe('defineTrellis', () => {
         }),
       ),
     ).resolves.toEqual({ deleted: true })
+  })
+
+  it('rejects anonymous callers on authenticated destructive transport mutations', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+        appIdentity: testAppIdentity,
+      },
+    )
+
+    let executed = false
+    const operation = appOperation.destructive({
+      id: 'tasks.delete.transport.authenticated',
+      args: {
+        id: v.string(),
+      },
+      preview: async (_ctx, args) =>
+        operationPreview({ summary: `Delete ${args.id}`, confirm: { id: args.id } }),
+      handler: async () => {
+        executed = true
+        return { deleted: true }
+      },
+    })
+
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const definition = runtime.transportMutation.authenticated(
+      transportExecuteOperationRef(operation, operation, {
+        functionRef: 'tasks:delete',
+      }) as never,
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+        loaded?: unknown,
+      ) => Promise<unknown>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        createIdentityForwardingEnvelopeArgs({
+          args: { id: 'task_1' },
+          caller: { kind: 'anonymous', subject: 'system:anonymous' },
+          functionRef: 'tasks:delete',
+          operation: 'mutation',
+          purpose: 'operation-execute',
+          jti: 'execute-anonymous',
+        }),
+      ),
+    ).rejects.toThrow(/Forbidden: authRequired/)
+    expect(executed).toBe(false)
   })
 
   it('rejects replayed operation-execute forwarding envelopes before handler execution', async () => {

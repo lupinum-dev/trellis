@@ -23,10 +23,17 @@ export const listArticles = defineArgs({
 })
 
 export const viewArticle = defineArgs({
-  description: 'View one article, optionally with a public share token.',
+  description: 'View one article as an authenticated workspace member.',
   args: {
     id: v.id('articles'),
-    shareToken: v.optional(v.string()),
+  },
+})
+
+export const viewSharedArticle = defineArgs({
+  description: 'View one article with a public share token.',
+  args: {
+    id: v.id('articles'),
+    shareToken: v.string(),
   },
 })
 

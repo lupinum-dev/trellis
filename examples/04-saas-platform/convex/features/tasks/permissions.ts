@@ -9,6 +9,13 @@ export const taskCreate = definePermission({
   check: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
 })
 
+export const taskUpdate = definePermission({
+  key: 'task.update',
+  label: 'Update task',
+  roles: ['owner', 'admin', 'member'],
+  check: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
+})
+
 export const taskRead = definePermission({
   key: 'task.read',
   label: 'Read tasks',
@@ -24,6 +31,6 @@ export const taskAssign = definePermission({
   check: hasWorkspace.and(hasRole('owner', 'admin')),
 })
 
-export const taskPermissions = [taskCreate, taskRead, taskAssign] as const
+export const taskPermissions = [taskCreate, taskUpdate, taskRead, taskAssign] as const
 
 export const taskPermissionMatrix = buildPermissionMatrix(taskPermissions)

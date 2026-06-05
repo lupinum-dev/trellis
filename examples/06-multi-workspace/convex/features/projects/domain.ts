@@ -26,7 +26,7 @@ export const listProjectsOp = operation.query({
   id: 'projects.list',
   args: listProjects.args,
   scope: workspaceScope(),
-  guard: projectRead,
+  permission: projectRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     return ctx.db
       .query('projects')
@@ -36,13 +36,13 @@ export const listProjectsOp = operation.query({
   },
 })
 
-export const list = query.protected(listProjectsOp)
+export const list = query.workspace(listProjectsOp)
 
 export const createProjectOp = operation.mutation({
   id: 'projects.create',
   args: createProject.args,
   scope: workspaceScope(),
-  guard: projectCreate,
+  permission: projectCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateProjectArgs) => {
     return ctx.db.insert('projects', {
       workspaceId: ctx.workspaceId,
@@ -54,13 +54,13 @@ export const createProjectOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createProjectOp)
+export const create = mutation.workspace(createProjectOp)
 
 export const toggleProjectStatusOp = operation.mutation({
   id: 'projects.toggle-status',
   args: toggleProjectStatus.args,
   scope: workspaceScope(),
-  guard: projectCreate,
+  permission: projectCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: ToggleProjectStatusArgs) => {
     const project = await ctx.db.get(args.id)
     if (!project) throw new Error('Project not found.')
@@ -71,4 +71,4 @@ export const toggleProjectStatusOp = operation.mutation({
   },
 })
 
-export const toggleStatus = mutation.protected(toggleProjectStatusOp)
+export const toggleStatus = mutation.workspace(toggleProjectStatusOp)

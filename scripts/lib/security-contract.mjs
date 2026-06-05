@@ -186,7 +186,9 @@ function collectBackendFunctions(repoRoot, files) {
     if (!file.includes('/convex/')) continue
     const source = read(repoRoot, file)
     for (const block of localExportBlocks(source)) {
-      const lane = block.source.match(/\b(query|mutation|action)\.(public|protected|unsafe)\s*\(/)
+      const lane = block.source.match(
+        /\b(query|mutation|action|transportMutation)\.(public|authenticated|workspace|protected|unsafe)\s*\(/,
+      )
       if (!lane) continue
       rows.push({
         file,

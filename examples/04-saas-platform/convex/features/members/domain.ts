@@ -16,11 +16,11 @@ export const listMembersOp = operation.query({
   id: 'members.list',
   args: listMembers.args,
   scope: workspaceScope(),
-  guard: projectRead,
+  permission: projectRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     const users = await ctx.db.query('users').order('asc').collect()
     return users.filter((user) => user.workspaceId === ctx.workspaceId)
   },
 })
 
-export const list = query.protected(listMembersOp)
+export const list = query.workspace(listMembersOp)

@@ -94,12 +94,19 @@ const { can } = useAccess()
 const canShare = can(shareCreate)
 const canPublish = can(articleCreate)
 
-const { data: article, error } = await useConvexQuery(
+const workspaceArticleQuery = await useConvexQuery(
   api.features.articles.domain.view,
-  computed(() => ({
-    id: articleId,
-    shareToken: shareToken || undefined,
-  })),
+  computed(() => (shareToken ? null : { id: articleId })),
+)
+const sharedArticleQuery = await useConvexQuery(
+  api.features.articles.domain.viewShared,
+  computed(() => (shareToken ? { id: articleId, shareToken } : null)),
+)
+const article = computed(() =>
+  shareToken ? sharedArticleQuery.data.value : workspaceArticleQuery.data.value,
+)
+const error = computed(() =>
+  shareToken ? sharedArticleQuery.error.value : workspaceArticleQuery.error.value,
 )
 
 const markCompleted = useConvexMutation(api.features.articles.domain.markCompleted, {

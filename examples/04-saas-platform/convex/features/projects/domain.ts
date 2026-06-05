@@ -1,5 +1,5 @@
 import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
-import { loadTenantResource as loadResource } from '@lupinum/trellis/auth'
+import { loadTenantResource as loadResource, requireAuth } from '@lupinum/trellis/auth'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -26,7 +26,7 @@ export const listProjectsOp = operation.query({
   id: 'projects.list',
   args: { paginationOpts: paginationOptsValidator },
   scope: workspaceScope(),
-  guard: projectRead,
+  permission: projectRead,
   handler: async (ctx: WorkspaceQueryCtx, args) => {
     return ctx.db
       .query('projects')
@@ -36,13 +36,13 @@ export const listProjectsOp = operation.query({
   },
 })
 
-export const list = query.protected(listProjectsOp)
+export const list = query.workspace(listProjectsOp)
 
 export const getProjectOp = operation.query({
   id: 'projects.get',
   args: { id: v.id('projects') },
   scope: workspaceScope(),
-  guard: projectRead,
+  permission: projectRead,
   handler: async (ctx: WorkspaceQueryCtx, args: ProjectIdArgs): Promise<Doc<'projects'>> => {
     const appIdentity = await ctx.appIdentity()
     return loadResource(
@@ -53,15 +53,16 @@ export const getProjectOp = operation.query({
   },
 })
 
-export const get = query.protected(getProjectOp)
+export const get = query.workspace(getProjectOp)
 
 export const createProjectOp = operation.mutation({
   id: 'projects.create',
   args: createProject.args,
   scope: workspaceScope(),
-  guard: projectCreate,
+  permission: projectCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateProjectArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const now = Date.now()
     const projectId = await ctx.db.insert('projects', {
@@ -88,16 +89,16 @@ export const createProjectOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createProjectOp)
+export const create = mutation.workspace(createProjectOp)
 
-export const previewArchiveProject = mutation.protected(previewOf(archiveProjectOp))
-export const archive = mutation.protected(archiveProjectOp)
+export const previewArchiveProject = mutation.workspace(previewOf(archiveProjectOp))
+export const archive = mutation.workspace(archiveProjectOp)
 
 export const exportProjectsOp = operation.query({
   id: 'projects.export',
   args: {},
   scope: workspaceScope(),
-  guard: projectExport,
+  permission: projectExport,
   handler: async (ctx: WorkspaceQueryCtx) => {
     const projects = await ctx.db
       .query('projects')
@@ -108,4 +109,4 @@ export const exportProjectsOp = operation.query({
   },
 })
 
-export const exportProjects = query.protected(exportProjectsOp)
+export const exportProjects = query.workspace(exportProjectsOp)

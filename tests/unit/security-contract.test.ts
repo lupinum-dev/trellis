@@ -222,6 +222,40 @@ describe('security contract generator', () => {
       [],
     )
     expect(contract.backendFunctions.length).toBeGreaterThan(0)
+    expect(contract.backendFunctions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'examples/02-auth-todo/convex/features/todos/domain.ts',
+          exportName: 'list',
+          functionType: 'query',
+          lane: 'authenticated',
+        }),
+        expect.objectContaining({
+          file: 'examples/03-team-workspace/convex/features/todos/domain.ts',
+          exportName: 'list',
+          functionType: 'query',
+          lane: 'workspace',
+        }),
+        expect.objectContaining({
+          file: 'examples/03-team-workspace/convex/features/todos/webhooks.ts',
+          exportName: 'processTodoSyncWebhookMutation',
+          functionType: 'mutation',
+          lane: 'authenticated',
+        }),
+        expect.objectContaining({
+          file: 'examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts',
+          exportName: 'listStudio',
+          functionType: 'query',
+          lane: 'authenticated',
+        }),
+        expect.objectContaining({
+          file: 'examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts',
+          exportName: 'publish',
+          functionType: 'transportMutation',
+          lane: 'authenticated',
+        }),
+      ]),
+    )
     expect(contract.operations.length).toBeGreaterThan(0)
     expect(contract.mcpTools.length).toBeGreaterThan(0)
   })

@@ -11,7 +11,7 @@ import { v } from 'convex/values'
 
 import { publishPage, publishPreviewValidator } from '../../../../../shared/features/pages/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { canManagePages, query } from '../../functions'
+import { query } from '../../functions'
 
 type PublishPageArgs = { id: string }
 type LoadedPage = { page: Doc<'pages'> }
@@ -31,7 +31,6 @@ export const publishPageOp = operation.destructive({
     pageId: v.string(),
     published: v.boolean(),
   }),
-  guard: canManagePages,
   safety: 'external-side-effect',
   previewReturns: operationPreviewValidator({
     details: publishPreviewValidator,
@@ -92,7 +91,7 @@ export const publishPageOp = operation.destructive({
   },
 })
 
-export const previewPublish = query.protected({
+export const previewPublish = query.authenticated({
   ...previewOf(publishPageOp),
   identityForwardingFunctionRef: 'features/pages/operations:previewPublish',
   identityForwardingTransport: 'bridge',

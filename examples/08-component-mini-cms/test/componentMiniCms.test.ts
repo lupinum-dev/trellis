@@ -119,7 +119,7 @@ describe('example 08 component mini cms', () => {
     })
 
     await expect(ctx.raw.query(api.features.pages.domain.listStudio, {})).rejects.toThrow(
-      'Forbidden: Manage pages',
+      'Forbidden: authRequired',
     )
   })
 

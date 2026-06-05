@@ -1,12 +1,11 @@
 import { operation } from '@lupinum/trellis/app'
-import { deny } from '@lupinum/trellis/auth'
+import { deny, requireAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createTodo } from '../../../shared/features/todos/contract'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
-import { isAuthenticated } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 
 type TodoIdArgs = { id: Id<'todos'> }
@@ -21,9 +20,9 @@ type PersonalMutationCtx = MutationCtx & {
 export const listTodosOp = operation.query({
   id: 'todos.list',
   args: {},
-  guard: isAuthenticated,
   handler: async (ctx: PersonalQueryCtx) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     return await ctx.db
       .query('todos')
@@ -33,14 +32,14 @@ export const listTodosOp = operation.query({
   },
 })
 
-export const list = query.protected(listTodosOp)
+export const list = query.authenticated(listTodosOp)
 
 export const createTodoOp = operation.mutation({
   id: 'todos.create',
   args: createTodo.args,
-  guard: isAuthenticated,
   handler: async (ctx: PersonalMutationCtx, args) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     return await ctx.db.insert('todos', {
       ownerId: appIdentity.userId,
@@ -51,14 +50,14 @@ export const createTodoOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createTodoOp)
+export const create = mutation.authenticated(createTodoOp)
 
 export const toggleTodoOp = operation.mutation({
   id: 'todos.toggle',
   args: { id: v.id('todos') },
-  guard: isAuthenticated,
   load: async (ctx: PersonalMutationCtx, args: TodoIdArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     const todo = await ctx.db.get(args.id)
     if (!todo || todo.ownerId !== appIdentity.userId) {
       throw deny('Todo not found.')
@@ -72,14 +71,14 @@ export const toggleTodoOp = operation.mutation({
   },
 })
 
-export const toggle = mutation.protected(toggleTodoOp)
+export const toggle = mutation.authenticated(toggleTodoOp)
 
 export const removeTodoOp = operation.mutation({
   id: 'todos.remove',
   args: { id: v.id('todos') },
-  guard: isAuthenticated,
   load: async (ctx: PersonalMutationCtx, args: TodoIdArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     const todo = await ctx.db.get(args.id)
     if (!todo || todo.ownerId !== appIdentity.userId) {
       throw deny('Todo not found.')
@@ -91,4 +90,4 @@ export const removeTodoOp = operation.mutation({
   },
 })
 
-export const remove = mutation.protected(removeTodoOp)
+export const remove = mutation.authenticated(removeTodoOp)

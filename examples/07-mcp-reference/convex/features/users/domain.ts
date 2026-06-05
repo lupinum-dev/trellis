@@ -1,4 +1,5 @@
 import { operation, workspaceScope } from '@lupinum/trellis/app'
+import { requireAuth } from '@lupinum/trellis/auth'
 
 import type { Id } from '../../_generated/dataModel'
 import type { QueryCtx } from '../../_generated/server'
@@ -37,11 +38,12 @@ export const getCurrentUser = query.public(getCurrentUserOp)
 
 export const listWorkspaceUsersForMcpKeysOp = operation.query({
   id: 'users.list-for-mcp-keys',
-  guard: mcpManage,
+  permission: mcpManage,
   args: {},
   scope: workspaceScope(),
   handler: async (ctx: WorkspaceQueryCtx) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const users = await ctx.db.query('users').collect()
 
@@ -58,4 +60,4 @@ export const listWorkspaceUsersForMcpKeysOp = operation.query({
   },
 })
 
-export const listWorkspaceUsersForMcpKeys = query.protected(listWorkspaceUsersForMcpKeysOp)
+export const listWorkspaceUsersForMcpKeys = query.workspace(listWorkspaceUsersForMcpKeysOp)

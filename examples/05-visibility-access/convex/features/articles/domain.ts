@@ -6,8 +6,8 @@
 import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
 import {
   deny,
-  enforce,
   loadTenantResource as loadResource,
+  requireAuth,
   requireRecord,
 } from '@lupinum/trellis/auth'
 
@@ -19,11 +19,11 @@ import {
   publishArticle,
   seedDemoArticles,
   viewArticle,
+  viewSharedArticle,
 } from '../../../shared/features/articles/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { DatabaseReader, MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
-import { getAppIdentity } from '../../auth/appIdentity'
 import { hasRole } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 import { getInheritedAccessLevel, requireArticleAccess } from './access'
@@ -38,9 +38,7 @@ import {
 } from './shareTokens'
 import { canAccessArticleOwner, getArticleOwnerScope } from './visibility'
 
-function isStaffActor(
-  appIdentity: NonNullable<Awaited<ReturnType<typeof getAppIdentity>>>,
-): boolean {
+function isStaffActor(appIdentity: AppIdentity): boolean {
   return hasRole('owner', 'admin', 'editor')(appIdentity)
 }
 
@@ -53,7 +51,8 @@ type WorkspaceMutationCtx = MutationCtx & {
   appIdentity: () => Promise<AppIdentity>
 }
 type ListArticlesArgs = { knowledgeBaseId: Id<'knowledgeBases'> }
-type ViewArticleArgs = { id: Id<'articles'>; shareToken?: string }
+type ViewArticleArgs = { id: Id<'articles'> }
+type ViewSharedArticleArgs = { id: Id<'articles'>; shareToken: string }
 type CreateArticleArgs = {
   knowledgeBaseId: Id<'knowledgeBases'>
   title: string
@@ -77,7 +76,7 @@ type LoadedArticle = { article: Doc<'articles'> }
 
 export const listArticlesOp = operation.query({
   id: 'articles.list',
-  guard: articleRead,
+  permission: articleRead,
   args: listArticles.args,
   scope: workspaceScope(),
   load: async (ctx: WorkspaceQueryCtx, args: ListArticlesArgs): Promise<LoadedKnowledgeBase> => ({
@@ -89,6 +88,7 @@ export const listArticlesOp = operation.query({
   }),
   handler: async (ctx: WorkspaceQueryCtx, _args: ListArticlesArgs, { knowledgeBase }) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const allArticles = await ctx.db
       .query('articles')
@@ -112,45 +112,22 @@ export const listArticlesOp = operation.query({
   },
 })
 
-export const list = query.protected(listArticlesOp)
+export const list = query.workspace(listArticlesOp)
 
 export const viewArticleOp = operation.query({
   id: 'articles.view',
   args: viewArticle.args,
-  crossTenant: {
-    reason: 'Resolve share-token reads across-scope boundaries.',
-    tables: ['shareTokens', 'articles'],
-    access: ({ db }) => {
-      const reader = db as DatabaseReader
-      return {
-        resolveSharedArticle: async (
-          args: Required<Pick<ViewArticleArgs, 'shareToken' | 'id'>>,
-        ) => {
-          const grant = await resolveShareToken(reader, args.shareToken)
-          if (grant.articleId !== args.id) throw deny('Token does not match this article.')
-          const article = await reader.get(args.id)
-          requireRecord(article, 'Article')
-          return { article, grant }
-        },
-      }
-    },
-  },
-  handler: async (ctx, args: ViewArticleArgs) => {
-    if (args.shareToken) {
-      const { article, grant } = await ctx.crossTenant.resolveSharedArticle({
-        shareToken: args.shareToken,
-        id: args.id,
-      })
-      return projectArticle(null, article, (safeArticle) => ({
-        ...safeArticle,
-        _access: grant.level,
-      }))
-    }
+  scope: workspaceScope(),
+  permission: articleRead,
+  handler: async (ctx: WorkspaceQueryCtx, args: ViewArticleArgs) => {
+    const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
-    const appIdentity = await getAppIdentity(ctx)
-    enforce(appIdentity, 'Read articles', articleRead.check)
-
-    const article = loadResource(appIdentity, await ctx.db.get(args.id), 'Article')
+    const article = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.id)) as Doc<'articles'> | null,
+      'Article',
+    )
     await requireArticleAccess(ctx.db, appIdentity, article)
 
     const accessLevel = await getInheritedAccessLevel(ctx.db, appIdentity, article._id)
@@ -161,11 +138,44 @@ export const viewArticleOp = operation.query({
   },
 })
 
-export const view = query.public(viewArticleOp)
+export const view = query.workspace(viewArticleOp)
+
+export const viewSharedArticleOp = operation.query({
+  id: 'articles.view-shared',
+  args: viewSharedArticle.args,
+  crossTenant: {
+    reason: 'Resolve share-token reads across-scope boundaries.',
+    tables: ['shareTokens', 'articles'],
+    access: ({ db }) => {
+      const reader = db as DatabaseReader
+      return {
+        resolveSharedArticle: async (args: ViewSharedArticleArgs) => {
+          const grant = await resolveShareToken(reader, args.shareToken)
+          if (grant.articleId !== args.id) throw deny('Token does not match this article.')
+          const article = await reader.get(args.id)
+          requireRecord(article, 'Article')
+          return { article, grant }
+        },
+      }
+    },
+  },
+  handler: async (ctx, args: ViewSharedArticleArgs) => {
+    const { article, grant } = await ctx.crossTenant.resolveSharedArticle({
+      shareToken: args.shareToken,
+      id: args.id,
+    })
+    return projectArticle(null, article, (safeArticle) => ({
+      ...safeArticle,
+      _access: grant.level,
+    }))
+  },
+})
+
+export const viewShared = query.public(viewSharedArticleOp)
 
 export const createArticleOp = operation.mutation({
   id: 'articles.create',
-  guard: articleCreate,
+  permission: articleCreate,
   args: createArticle.args,
   scope: workspaceScope(),
   load: async (
@@ -180,6 +190,7 @@ export const createArticleOp = operation.mutation({
   }),
   handler: async (ctx: WorkspaceMutationCtx, args: CreateArticleArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const now = Date.now()
     return ctx.db.insert('articles', {
@@ -200,11 +211,11 @@ export const createArticleOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createArticleOp)
+export const create = mutation.workspace(createArticleOp)
 
 export const publishArticleOp = operation.mutation({
   id: 'articles.publish',
-  guard: articleCreate,
+  permission: articleCreate,
   args: publishArticle.args,
   scope: workspaceScope(),
   load: async (ctx: WorkspaceMutationCtx, args: PublishArticleArgs): Promise<LoadedArticle> => ({
@@ -220,11 +231,11 @@ export const publishArticleOp = operation.mutation({
   },
 })
 
-export const publish = mutation.protected(publishArticleOp)
+export const publish = mutation.workspace(publishArticleOp)
 
 export const markArticleCompletedOp = operation.mutation({
   id: 'articles.mark-completed',
-  guard: articleRead,
+  permission: articleRead,
   args: markArticleCompleted.args,
   scope: workspaceScope(),
   load: async (
@@ -239,6 +250,7 @@ export const markArticleCompletedOp = operation.mutation({
   }),
   handler: async (ctx: WorkspaceMutationCtx, args: MarkArticleCompletedArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const existing = await ctx.db
       .query('articleProgress')
@@ -264,11 +276,11 @@ export const markArticleCompletedOp = operation.mutation({
   },
 })
 
-export const markCompleted = mutation.protected(markArticleCompletedOp)
+export const markCompleted = mutation.workspace(markArticleCompletedOp)
 
 export const createArticleShareTokenOp = operation.mutation({
   id: 'shareTokens.create',
-  guard: shareCreate,
+  permission: shareCreate,
   args: createArticleShareToken.args,
   scope: workspaceScope(),
   load: async (ctx: WorkspaceMutationCtx, args: CreateShareTokenArgs): Promise<LoadedArticle> => ({
@@ -296,14 +308,14 @@ export const createArticleShareTokenOp = operation.mutation({
   },
 })
 
-export const createShareToken = mutation.protected(createArticleShareTokenOp)
+export const createShareToken = mutation.workspace(createArticleShareTokenOp)
 
-export const previewRevokeShareToken = mutation.protected(previewOf(revokeShareTokenOp))
-export const revokeShareToken = mutation.protected(revokeShareTokenOp)
+export const previewRevokeShareToken = mutation.workspace(previewOf(revokeShareTokenOp))
+export const revokeShareToken = mutation.workspace(revokeShareTokenOp)
 
 export const seedDemoArticlesOp = operation.mutation({
   id: 'articles.seed-demo',
-  guard: articleCreate,
+  permission: articleCreate,
   args: seedDemoArticles.args,
   scope: workspaceScope(),
   load: async (
@@ -318,6 +330,7 @@ export const seedDemoArticlesOp = operation.mutation({
   }),
   handler: async (ctx: WorkspaceMutationCtx, args: SeedDemoArticlesArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const now = Date.now()
     const introId = await ctx.db.insert('articles', {
@@ -363,4 +376,4 @@ export const seedDemoArticlesOp = operation.mutation({
   },
 })
 
-export const seed = mutation.protected(seedDemoArticlesOp)
+export const seed = mutation.workspace(seedDemoArticlesOp)

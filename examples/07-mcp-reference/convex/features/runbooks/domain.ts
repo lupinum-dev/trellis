@@ -4,6 +4,7 @@ import {
   deny,
   enforce,
   loadTenantResource as loadResource,
+  requireAuth,
   requireRecord,
 } from '@lupinum/trellis/auth'
 
@@ -147,7 +148,7 @@ export const listWorkspaceRunbooksOp = operation.query({
   id: 'runbooks.list-workspace',
   args: listRunbooks.args,
   scope: workspaceScope(),
-  guard: runbookRead,
+  permission: runbookRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     const appIdentity = await ctx.appIdentity()
     const runbooks = await ctx.db
@@ -160,7 +161,7 @@ export const listWorkspaceRunbooksOp = operation.query({
   },
 })
 
-export const listWorkspace = query.protected(listWorkspaceRunbooksOp)
+export const listWorkspace = query.workspace(listWorkspaceRunbooksOp)
 
 export const get = query.public({
   args: getRunbook.args,
@@ -212,7 +213,7 @@ export const getWorkspaceRunbookOp = operation.query({
   id: 'runbooks.get-workspace',
   args: getRunbook.args,
   scope: workspaceScope(),
-  guard: runbookRead,
+  permission: runbookRead,
   handler: async (ctx: WorkspaceQueryCtx, args: RunbookIdArgs) => {
     const appIdentity = await ctx.appIdentity()
     const runbook = await ctx.db.get(args.id)
@@ -225,16 +226,17 @@ export const getWorkspaceRunbookOp = operation.query({
   },
 })
 
-export const getWorkspace = query.protected(getWorkspaceRunbookOp)
+export const getWorkspace = query.workspace(getWorkspaceRunbookOp)
 
 export const createRunbookOp = operation.mutation({
   id: 'runbooks.create',
   args: createRunbook.args,
   identityForwardingFunctionRef: 'features/runbooks/domain:create',
   scope: workspaceScope(),
-  guard: runbookCreate,
+  permission: runbookCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const visibility = args.visibility ?? 'draft'
     if (visibility === 'public' && !can(appIdentity, runbookPublish.check)) {
@@ -257,13 +259,13 @@ export const createRunbookOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createRunbookOp)
+export const create = mutation.workspace(createRunbookOp)
 
 export const updateRunbookOp = operation.mutation({
   id: 'runbooks.update',
   args: updateRunbook.args,
   scope: workspaceScope(),
-  guard: runbookRead,
+  permission: runbookRead,
   load: async (ctx: WorkspaceMutationCtx, args: RunbookIdArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     requireRecord(runbook, 'Runbook')
@@ -278,6 +280,7 @@ export const updateRunbookOp = operation.mutation({
     { runbook }: LoadedRunbook,
   ) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     const nextVisibility = args.visibility ?? runbook.visibility
     if (nextVisibility === 'public' && !can(appIdentity, runbookPublish.check)) {
       throw deny('Only owners and admins can publish runbooks.')
@@ -297,18 +300,18 @@ export const updateRunbookOp = operation.mutation({
   },
 })
 
-export const update = mutation.protected(updateRunbookOp)
+export const update = mutation.workspace(updateRunbookOp)
 
-export const previewRemove = mutation.protected(previewOf(removeRunbookOp))
-export const remove = mutation.protected(removeRunbookOp)
-export const previewBulkRemove = mutation.protected(previewOf(bulkRemoveRunbooksOp))
-export const bulkRemove = mutation.protected(bulkRemoveRunbooksOp)
+export const previewRemove = mutation.workspace(previewOf(removeRunbookOp))
+export const remove = mutation.workspace(removeRunbookOp)
+export const previewBulkRemove = mutation.workspace(previewOf(bulkRemoveRunbooksOp))
+export const bulkRemove = mutation.workspace(bulkRemoveRunbooksOp)
 
 export const workspaceOverviewOp = operation.query({
   id: 'runbooks.workspace-overview',
   args: listRunbooks.args,
   scope: workspaceScope(),
-  guard: runbookRead,
+  permission: runbookRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
     const runbooks = await ctx.db
       .query('runbooks')
@@ -326,4 +329,4 @@ export const workspaceOverviewOp = operation.query({
   },
 })
 
-export const workspaceOverview = query.protected(workspaceOverviewOp)
+export const workspaceOverview = query.workspace(workspaceOverviewOp)

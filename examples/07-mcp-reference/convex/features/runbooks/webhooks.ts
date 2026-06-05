@@ -53,11 +53,13 @@ export const createRunbookFromWebhookOp = operation.mutation({
   },
   identityForwardingFunctionRef: 'features/runbooks/webhooks:createRunbookFromWebhookMutation',
   identityForwardingTransport: 'webhook',
-  guard: runbookCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookFromWebhookArgs) => {
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity || appIdentity.workspaceId !== args.workspaceId) {
       throw deny('Webhook delegation is not valid for this workspace.')
+    }
+    if (!can(appIdentity, runbookCreate.check)) {
+      throw deny('Forbidden: Create runbook')
     }
 
     const deliveryDb = ctx.db as WebhookDeliveryDb
@@ -100,4 +102,4 @@ export const createRunbookFromWebhookOp = operation.mutation({
   },
 })
 
-export const createRunbookFromWebhookMutation = mutation.protected(createRunbookFromWebhookOp)
+export const createRunbookFromWebhookMutation = mutation.authenticated(createRunbookFromWebhookOp)

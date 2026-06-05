@@ -6,7 +6,7 @@ import {
   operationPreviewValidator,
   workspaceScope,
 } from '@lupinum/trellis/app'
-import { deny, requireRecord } from '@lupinum/trellis/auth'
+import { deny, requireAuth, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { archiveProject } from '../../../shared/features/projects/contract'
@@ -27,7 +27,6 @@ export const archiveProjectOp = operation.destructive({
   args: archiveProject.args,
   returns: v.null(),
   scope: workspaceScope(),
-  guard: projectArchive,
   permission: projectArchive,
   safety: 'destructive-write',
   previewReturns: operationPreviewValidator({
@@ -73,6 +72,7 @@ export const archiveProjectOp = operation.destructive({
     loaded: { project: Doc<'projects'> },
   ) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     if (loaded.project.status === 'archived') throw deny('Project is already archived.')
 

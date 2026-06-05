@@ -1,5 +1,5 @@
 import { operation, workspaceScope } from '@lupinum/trellis/app'
-import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
+import { deny, loadTenantResource as loadResource, requireAuth } from '@lupinum/trellis/auth'
 
 import {
   createKnowledgeBase,
@@ -31,7 +31,7 @@ type LoadedKnowledgeBase = { knowledgeBase: Doc<'knowledgeBases'> }
 
 export const listKnowledgeBasesOp = operation.query({
   id: 'knowledgeBases.list',
-  guard: kbRead,
+  permission: kbRead,
   args: listKnowledgeBases.args,
   scope: workspaceScope(),
   handler: async (ctx: WorkspaceQueryCtx) => {
@@ -43,11 +43,11 @@ export const listKnowledgeBasesOp = operation.query({
   },
 })
 
-export const list = query.protected(listKnowledgeBasesOp)
+export const list = query.workspace(listKnowledgeBasesOp)
 
 export const getKnowledgeBaseOp = operation.query({
   id: 'knowledgeBases.get',
-  guard: kbRead,
+  permission: kbRead,
   args: getKnowledgeBase.args,
   scope: workspaceScope(),
   load: async (
@@ -63,15 +63,16 @@ export const getKnowledgeBaseOp = operation.query({
   handler: async (_ctx, _args, { knowledgeBase }) => knowledgeBase,
 })
 
-export const get = query.protected(getKnowledgeBaseOp)
+export const get = query.workspace(getKnowledgeBaseOp)
 
 export const createKnowledgeBaseOp = operation.mutation({
   id: 'knowledgeBases.create',
-  guard: kbCreate,
+  permission: kbCreate,
   args: createKnowledgeBase.args,
   scope: workspaceScope(),
   handler: async (ctx: WorkspaceMutationCtx, args: CreateKnowledgeBaseArgs) => {
     const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
 
     const now = Date.now()
     return ctx.db.insert('knowledgeBases', {
@@ -85,11 +86,11 @@ export const createKnowledgeBaseOp = operation.mutation({
   },
 })
 
-export const create = mutation.protected(createKnowledgeBaseOp)
+export const create = mutation.workspace(createKnowledgeBaseOp)
 
 export const publishKnowledgeBaseOp = operation.mutation({
   id: 'knowledgeBases.publish',
-  guard: kbCreate,
+  permission: kbCreate,
   args: publishKnowledgeBase.args,
   scope: workspaceScope(),
   load: async (
@@ -108,11 +109,11 @@ export const publishKnowledgeBaseOp = operation.mutation({
   },
 })
 
-export const publish = mutation.protected(publishKnowledgeBaseOp)
+export const publish = mutation.workspace(publishKnowledgeBaseOp)
 
 export const enrollKnowledgeBaseUserOp = operation.mutation({
   id: 'knowledgeBases.enroll',
-  guard: enrollmentManage,
+  permission: enrollmentManage,
   args: enrollKnowledgeBaseUser.args,
   scope: workspaceScope(),
   load: async (
@@ -154,11 +155,11 @@ export const enrollKnowledgeBaseUserOp = operation.mutation({
   },
 })
 
-export const enroll = mutation.protected(enrollKnowledgeBaseUserOp)
+export const enroll = mutation.workspace(enrollKnowledgeBaseUserOp)
 
 export const enrollKnowledgeBaseUserByEmailOp = operation.mutation({
   id: 'knowledgeBases.enroll-by-email',
-  guard: enrollmentManage,
+  permission: enrollmentManage,
   args: enrollKnowledgeBaseUserByEmail.args,
   scope: workspaceScope(),
   load: async (
@@ -206,4 +207,4 @@ export const enrollKnowledgeBaseUserByEmailOp = operation.mutation({
   },
 })
 
-export const enrollByEmail = mutation.protected(enrollKnowledgeBaseUserByEmailOp)
+export const enrollByEmail = mutation.workspace(enrollKnowledgeBaseUserByEmailOp)

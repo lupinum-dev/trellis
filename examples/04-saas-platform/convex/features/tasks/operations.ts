@@ -38,7 +38,6 @@ export const removeTaskOp = operation.destructive({
       }),
     }),
   }),
-  guard: taskRead,
   permission: taskRead,
   safety: 'destructive-write',
   load: async (ctx: WorkspaceMutationCtx, args: RemoveTaskArgs): Promise<RemoveTaskLoaded> => {

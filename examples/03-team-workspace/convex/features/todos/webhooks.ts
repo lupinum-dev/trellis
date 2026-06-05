@@ -1,5 +1,5 @@
 import { operation } from '@lupinum/trellis/app'
-import { deny } from '@lupinum/trellis/auth'
+import { can, deny, requireAuth } from '@lupinum/trellis/auth'
 
 import { processTodoSyncWebhook as processTodoSyncWebhookContract } from '../../../shared/features/todos/contract'
 import type { Id } from '../../_generated/dataModel'
@@ -12,14 +12,14 @@ export const processTodoSyncWebhookOp = operation.mutation({
   args: processTodoSyncWebhookContract.args,
   identityForwardingFunctionRef: 'features/todos/webhooks:processTodoSyncWebhookMutation',
   identityForwardingTransport: 'webhook',
-  guard: todoCreate,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
-    if (
-      !appIdentity?.workspaceId ||
-      appIdentity.workspaceId !== (args.workspaceId as Id<'workspaces'>)
-    ) {
+    requireAuth(appIdentity)
+    if (appIdentity.workspaceId !== (args.workspaceId as Id<'workspaces'>)) {
       throw deny('Not available.')
+    }
+    if (!can(appIdentity, todoCreate.check)) {
+      throw deny('Forbidden: Create todo')
     }
 
     await ensureNotProcessed(ctx.db, 'webhook', args.eventId, args.workspaceId)
@@ -40,4 +40,4 @@ export const processTodoSyncWebhookOp = operation.mutation({
   },
 })
 
-export const processTodoSyncWebhookMutation = mutation.protected(processTodoSyncWebhookOp)
+export const processTodoSyncWebhookMutation = mutation.authenticated(processTodoSyncWebhookOp)

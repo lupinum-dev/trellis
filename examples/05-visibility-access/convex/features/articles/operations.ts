@@ -28,7 +28,6 @@ export const revokeShareTokenOp = operation.destructive({
   args: revokeArticleShareToken.args,
   returns: v.null(),
   scope: workspaceScope(),
-  guard: shareCreate,
   permission: shareCreate,
   safety: 'destructive-write',
   previewReturns: operationPreviewValidator({

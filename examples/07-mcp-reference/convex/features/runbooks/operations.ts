@@ -44,7 +44,6 @@ export const removeRunbookOp = operation.destructive({
   args: deleteRunbook.args,
   returns: v.null(),
   scope: workspaceScope(),
-  guard: runbookDelete,
   permission: runbookDelete,
   safety: 'destructive-write',
   previewReturns: operationPreviewValidator({
@@ -101,7 +100,6 @@ export const bulkRemoveRunbooksOp = operation.destructive({
     total: v.number(),
   }),
   scope: workspaceScope(),
-  guard: runbookBulkDelete,
   permission: runbookBulkDelete,
   safety: 'destructive-write',
   previewReturns: operationPreviewValidator({
