@@ -22,3 +22,8 @@ Use `pnpm convex:dev` and `pnpm dev` when you want to connect to a hosted Convex
 ## Maintained reference
 
 - Start with the maintained reference: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).
+
+## Next lane
+
+Add MCP with `trellis add mcp` only when agents are a product surface. If MCP is
+already part of the product, start from the `workspace-mcp` preset instead.

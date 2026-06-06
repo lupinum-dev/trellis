@@ -577,15 +577,12 @@ export const ${exportName}Op = operation.mutation({
 export function getCanonicalAppTemplateSet(options: {
   appName: string
   template: CanonicalAppTemplate
-  mcp?: boolean
 }): InitTemplateSet {
-  const template =
-    options.template === 'workspace' && options.mcp === true ? 'workspace-mcp' : options.template
-  const appTemplateSet = buildAppTemplateSet(template, options.appName)
+  const appTemplateSet = buildAppTemplateSet(options.template, options.appName)
 
   return {
-    label: `init:${template}`,
-    description: `Bootstrap a ${template} Trellis app`,
+    label: `init:${options.template}`,
+    description: `Bootstrap a ${options.template} Trellis app`,
     files: appTemplateSet.files,
   }
 }

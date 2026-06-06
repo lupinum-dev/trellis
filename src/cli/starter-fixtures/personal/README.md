@@ -16,9 +16,13 @@ Use `pnpm convex:dev` and `pnpm dev` when you want to connect to a hosted Convex
 - `convex/features/` for backend feature modules
 - `shared/features/` for runtime-neutral contracts
 - `convex/auth/` for appIdentity and guard logic
-- `convex/permissions/` for permission projection when the starter uses access context
 - `app/features/` for feature-owned UI and route shells
 
 ## Maintained reference
 
 - Start with the maintained reference: [`02-auth-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/02-auth-todo).
+
+## Next lane
+
+Add workspace with `trellis add workspace` only when the app needs tenant
+boundaries, roles, or backend-owned permission projection.

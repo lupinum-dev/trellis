@@ -22,12 +22,11 @@ async function createTempAppRoot(prefix: string) {
   return cwd
 }
 
-async function scaffoldApp(template: 'public' | 'personal' | 'workspace', mcp = false) {
-  const cwd = await createTempAppRoot(`${template}${mcp ? '-mcp' : ''}`)
+async function scaffoldApp(template: 'public' | 'personal' | 'workspace' | 'workspace-mcp') {
+  const cwd = await createTempAppRoot(template)
   const initTemplate = getCanonicalAppTemplateSet({
     appName: 'demo-app',
     template,
-    mcp,
   })
   await applyInitTemplateSet(cwd, initTemplate, false)
   return cwd
@@ -215,7 +214,7 @@ describe('trellis add entity', () => {
   })
 
   it('adds MCP-facing resource files and runtime recordAccess when MCP is enabled', async () => {
-    const cwd = await scaffoldApp('workspace', true)
+    const cwd = await scaffoldApp('workspace-mcp')
     const template = await getAddTemplateSet({
       feature: 'entity',
       cwd,

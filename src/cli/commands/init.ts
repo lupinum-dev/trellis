@@ -64,11 +64,6 @@ export const initCommand = defineCommand({
       type: 'string',
       description: 'App preset shortcut. One of: public, personal, workspace, workspace-mcp',
     },
-    mcp: {
-      type: 'boolean',
-      default: false,
-      description: 'Add the MCP runtime to the workspace starter',
-    },
     cwd: {
       type: 'string',
       description: 'Parent directory for the new app',
@@ -88,7 +83,6 @@ export const initCommand = defineCommand({
   async run({ args }) {
     const appName = assertAppName(args.name ? String(args.name) : undefined)
     const template = resolvePreset(args)
-    const mcp = Boolean(args.mcp)
 
     if (
       template !== 'public' &&
@@ -99,18 +93,11 @@ export const initCommand = defineCommand({
       throw new Error('Invalid preset. Use one of: public, personal, workspace, workspace-mcp.')
     }
 
-    if (mcp && template !== 'workspace' && template !== 'workspace-mcp') {
-      throw new Error(
-        '`--mcp` is currently only supported with `--preset workspace` or `--preset workspace-mcp`.',
-      )
-    }
-
     const parentDir = resolve(args.cwd || process.cwd())
     const cwd = resolve(parentDir, appName)
     const templateSet = getCanonicalAppTemplateSet({
       appName,
       template,
-      mcp,
     })
     const result = await applyInitTemplateSet(cwd, templateSet, Boolean(args.force))
     const commandResult = createTemplateCommandResult({

@@ -91,7 +91,9 @@ Supported presets are only:
 - `workspace-mcp`
 
 `workspace-mcp` is the first-class preset name for the agent-enabled workspace
-starter. `--mcp` remains an accepted alias with `--preset workspace`.
+starter. `--mcp` is a deleted legacy init spelling; use
+`--preset workspace-mcp` for a new app or `trellis add mcp` for an existing
+workspace app.
 
 CMS product setup is owned by Ginko, not the Trellis init surface.
 

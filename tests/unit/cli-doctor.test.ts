@@ -157,6 +157,7 @@ type DoctorInventoryJsonReport = {
       destructiveMcpToolMisuses: number
       mcpRateLimit: boolean
       mcpRateLimitStore: 'supported' | 'unverified' | 'none'
+      serverAuthNoneCalls: number
     }
     forwarding: {
       expected: boolean
@@ -187,6 +188,7 @@ type DoctorInventoryJsonReport = {
       }>
       crossTenantEscapes: Array<{ path: string; line: number }>
       destructiveOperations: Array<{ path: string; line: number }>
+      serverAuthNoneCalls: Array<{ path: string; line: number }>
     }
     serviceSubjects: Array<{
       serviceId: string
@@ -646,10 +648,10 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expectNoOldBackendSurface(todos, 'personal todos domain')
   })
 
-  it('initializes a workspace app with MCP via --mcp', () => {
+  it('initializes a first-class workspace MCP app via the preset', () => {
     const cwd = createTempDir('trellis-init-workspace-mcp-')
     const result = runCli(
-      ['init', 'demo-workspace', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'demo-workspace', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'demo-workspace')
@@ -715,6 +717,23 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(report.findings.find((entry) => entry.id === 'mcp-bearer-auth-configured')).toEqual(
       expect.objectContaining({ status: 'pass' }),
     )
+    expect(report.inventory.surfaces.serverAuthNoneCalls).toBe(2)
+    expect(report.inventory.backend.serverAuthNoneCalls).toEqual([
+      expect.objectContaining({
+        path: 'server/middleware/mcp-auth.ts',
+        line: expect.any(Number),
+      }),
+      expect.objectContaining({
+        path: 'server/middleware/mcp-auth.ts',
+        line: expect.any(Number),
+      }),
+    ])
+    expect(report.findings.find((entry) => entry.id === 'server-auth-none-inventory')).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        message: expect.stringContaining('auth: "none"'),
+      }),
+    )
   })
 
   it('initializes a workspace MCP app with the preset shortcut and ladder README', () => {
@@ -728,7 +747,10 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot, { auth: true, permissions: true })
     expect(read(resolve(appRoot, 'README.md'))).toContain(
-      'Generated with `trellis init demo-workspace`, `trellis add auth`, `trellis add workspace`, and `trellis add mcp`.',
+      'Generated with `trellis init demo-workspace --preset workspace-mcp`.',
+    )
+    expect(read(resolve(appRoot, 'README.md'))).toContain(
+      'first-class agent-enabled workspace lane',
     )
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
       "mcp: { name: 'demo-workspace', sessions: true }",
@@ -1755,7 +1777,7 @@ export const appInventory = defineAppInventory({
   it('fails doctor when identity-forwarding surfaces use a placeholder key', () => {
     const cwd = createTempDir('trellis-doctor-identity-forwarding-placeholder-')
     const initResult = runCli(
-      ['init', 'doctor-trusted-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-trusted-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-trusted-app')
@@ -1826,7 +1848,7 @@ export const appInventory = defineAppInventory({
   it('fails doctor when the identity-forwarding key is exposed through a public env name', () => {
     const cwd = createTempDir('trellis-doctor-identity-forwarding-public-exposure-')
     const initResult = runCli(
-      ['init', 'doctor-trusted-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-trusted-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-trusted-app')
@@ -1886,7 +1908,7 @@ export const appInventory = defineAppInventory({
   it('fails doctor when MCP rate-limited tools do not configure an explicit external store', () => {
     const cwd = createTempDir('trellis-doctor-mcp-rate-limit-missing-store-')
     const initResult = runCli(
-      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-mcp-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-mcp-app')
@@ -1921,7 +1943,7 @@ export const appInventory = defineAppInventory({
   it('passes doctor when MCP rate-limited tools configure the supported Redis store', () => {
     const cwd = createTempDir('trellis-doctor-mcp-rate-limit-store-')
     const initResult = runCli(
-      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-mcp-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-mcp-app')
@@ -1964,7 +1986,7 @@ export const appInventory = defineAppInventory({
   it('passes doctor when the supported Redis store is factored through a local helper', () => {
     const cwd = createTempDir('trellis-doctor-mcp-rate-limit-helper-store-')
     const initResult = runCli(
-      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-mcp-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-mcp-app')
@@ -2018,7 +2040,7 @@ export const appInventory = defineAppInventory({
   it('fails doctor when MCP rate-limited tools use an unverified custom store', () => {
     const cwd = createTempDir('trellis-doctor-mcp-rate-limit-custom-store-')
     const initResult = runCli(
-      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-mcp-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-mcp-app')
@@ -2918,7 +2940,7 @@ export default tool.operation(purgeTodoOp, {
   it('fails doctor when a destructive MCP tool skips tool.operation', () => {
     const cwd = createTempDir('trellis-doctor-mcp-operation-binding-')
     const initResult = runCli(
-      ['init', 'doctor-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-app')
@@ -2981,7 +3003,7 @@ export default tool.mutation({
   it('fails doctor when a standalone custom MCP tool calls Convex writes', () => {
     const cwd = createTempDir('trellis-doctor-mcp-custom-app-write-')
     const initResult = runCli(
-      ['init', 'doctor-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      ['init', 'doctor-app', '--preset', 'workspace-mcp', '--cwd', cwd],
       repoRoot,
     )
     const appRoot = resolve(cwd, 'doctor-app')

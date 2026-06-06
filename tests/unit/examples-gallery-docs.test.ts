@@ -19,9 +19,9 @@ describe('examples gallery docs', () => {
     expect(combined).toContain('trellis add auth')
     expect(combined).toContain('trellis add workspace')
     expect(combined).toContain('trellis add mcp')
+    expect(rootReadme).toContain('--preset workspace-mcp')
     expect(combined).not.toContain('--template workspace --mcp')
     expect(combined).not.toContain('--template cms')
-    expect(rootReadme).not.toContain('--preset workspace-mcp')
     expect(rootReadme).not.toMatch(/Official starters:[\s\S]*- `cms`/)
   })
 

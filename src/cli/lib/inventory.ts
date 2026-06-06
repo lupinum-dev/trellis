@@ -14,6 +14,7 @@ import {
   findForwardedCallerWithoutTrustedAuth,
   findMcpRateLimitStoreSupport,
   findIdentityForwardingPublicExposure,
+  findServerConvexAuthNoneCalls,
   findUnsafeSurfaceEntries,
   hasBetterConvexNuxtRegistration,
   hasDependency,
@@ -36,6 +37,7 @@ export interface TrellisCliInventoryFacts {
   customMcpAppWriteMisuse: ProjectSourceLocation[]
   forwardedCallerMisuse: ProjectSourceLocation[]
   identityForwardingPublicExposure: ProjectSourceLocation[]
+  serverAuthNoneInventory: ProjectSourceLocation[]
   mcpRateLimitExpected: boolean
   mcpRateLimitStoreSupport: 'supported' | 'unverified' | 'none'
 }
@@ -207,6 +209,7 @@ export interface TrellisCliInventory {
     destructiveMcpToolMisuses: number
     mcpRateLimit: boolean
     mcpRateLimitStore: 'supported' | 'unverified' | 'none'
+    serverAuthNoneCalls: number
   }
   forwarding: {
     expected: boolean
@@ -226,6 +229,7 @@ export interface TrellisCliInventory {
     unsafeEntrypoints: TrellisCliInventoryUnsafeEntrypoint[]
     crossTenantEscapes: TrellisCliInventorySourceLocation[]
     destructiveOperations: TrellisCliInventorySourceLocation[]
+    serverAuthNoneCalls: TrellisCliInventorySourceLocation[]
   }
   serviceSubjects: TrellisCliInventoryServiceSubject[]
   appInventory: {
@@ -879,6 +883,7 @@ export function collectTrellisCliInventoryFacts(
     customMcpAppWriteMisuse: findCustomMcpToolsWithAppWrites(project),
     forwardedCallerMisuse: findForwardedCallerWithoutTrustedAuth(project),
     identityForwardingPublicExposure: findIdentityForwardingPublicExposure(project),
+    serverAuthNoneInventory: findServerConvexAuthNoneCalls(project),
     mcpRateLimitExpected: usesMcpRateLimit(project),
     mcpRateLimitStoreSupport: findMcpRateLimitStoreSupport(project),
   }
@@ -945,6 +950,7 @@ export function collectTrellisCliInventory(
       destructiveMcpToolMisuses: facts.destructiveMcpToolMisuse.length,
       mcpRateLimit: facts.mcpRateLimitExpected,
       mcpRateLimitStore: facts.mcpRateLimitStoreSupport,
+      serverAuthNoneCalls: facts.serverAuthNoneInventory.length,
     },
     forwarding: {
       expected: facts.identityForwardingExpected,
@@ -964,6 +970,7 @@ export function collectTrellisCliInventory(
       unsafeEntrypoints: collectUnsafeEntrypoints(project, facts.unsafeSurfaceInventory),
       crossTenantEscapes: toInventoryLocations(project, facts.crossTenantEscapeInventory),
       destructiveOperations: toInventoryLocations(project, facts.destructiveOperationInventory),
+      serverAuthNoneCalls: toInventoryLocations(project, facts.serverAuthNoneInventory),
     },
     serviceSubjects: collectServiceSubjects(project),
     appInventory: collectAppInventory(project, appInventorySource),

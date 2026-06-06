@@ -137,6 +137,26 @@ function createUnsafeSurfaceFinding(inventory: TrellisCliInventory): DoctorFindi
   }
 }
 
+function createServerAuthNoneFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const locations = inventory.backend.serverAuthNoneCalls
+
+  return {
+    id: 'server-auth-none-inventory',
+    category: 'advanced',
+    title: 'Server auth none inventory',
+    status: 'pass',
+    message:
+      locations.length === 0
+        ? 'No server Convex helper calls with `auth: "none"` were detected.'
+        : `Found ${locations.length} server Convex helper call${locations.length === 1 ? '' : 's'} with \`auth: "none"\` in ${formatInventoryLocations(locations)}.`,
+    fixHint:
+      locations.length === 0
+        ? 'Use `auth: "required"` for user routes and signed transport proof for trusted server calls.'
+        : 'Review each `auth: "none"` call. It should target genuinely public handlers or a route-owned transport proof path with tests and an explicit reason.',
+    sources: [findingInventorySource('backend.serverAuthNoneCalls', locations)],
+  }
+}
+
 function createCrossTenantEscapeFinding(inventory: TrellisCliInventory): DoctorFinding {
   const locations = inventory.backend.crossTenantEscapes
 
@@ -440,6 +460,7 @@ export function collectInventoryDoctorFindings(inventory: TrellisCliInventory): 
     createIdentityForwardingPublicExposureFinding(inventory),
     createForwardedCallerFinding(inventory),
     createUnsafeSurfaceFinding(inventory),
+    createServerAuthNoneFinding(inventory),
     createCrossTenantEscapeFinding(inventory),
     createDestructiveOperationFinding(inventory),
     createServiceSubjectAccessFinding(inventory),

@@ -3,9 +3,11 @@
 Opinionated app framework for repeated Nuxt + Convex apps.
 
 Trellis gives teams one app shape for browser UI, Nitro routes, Convex
-functions, Better Auth, permissions, destructive operations, and MCP tools. Use
-it when the app needs shared backend rules across surfaces and you do not want
-each project to invent its own auth, access, and feature layout.
+functions, Better Auth, permissions, destructive operations, and MCP tools. MCP
+is first-class: agent tools should project the same backend-owned authorization
+model as browser, server, and webhook callers. Use Trellis when the app needs
+shared backend rules across surfaces and you do not want each project to invent
+its own auth, access, agent, and feature layout.
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -34,6 +36,14 @@ pnpm install
 pnpm dev
 ```
 
+Choose a first-class lane when the default public app is not the right baseline:
+
+```bash
+pnpm dlx @lupinum/trellis init my-app --preset personal
+pnpm dlx @lupinum/trellis init my-app --preset workspace
+pnpm dlx @lupinum/trellis init my-app --preset workspace-mcp
+```
+
 Add capabilities only when the product needs them:
 
 ```bash
@@ -43,7 +53,8 @@ trellis add mcp
 ```
 
 Presets remain shortcuts for generated fixtures, but the normal path is the ladder: start public,
-then add auth, workspace, and MCP as real requirements appear.
+then add auth and workspace as real requirements appear. If agents are already a
+product requirement, start directly with `workspace-mcp`.
 
 If you are adding Trellis to an existing Nuxt app instead:
 
@@ -83,6 +94,8 @@ Use Trellis when:
 - the app is on Nuxt + Convex + Better Auth already
 - one backend model needs to serve browser UI, Nitro routes, and MCP
 - isolation, roles, permissions, or destructive-work safety are real product requirements
+- MCP agents are a first-class product surface and must share the same backend
+  authorization model as users and server callers
 - you want the CLI, examples, and guardrails to push the team toward one consistent shape
 
 Skip it when:
@@ -123,6 +136,18 @@ Keep routes thin and put product behavior under feature folders. Treat each
 top-level feature as a small Trellis boundary: runtime-neutral contracts in
 `shared/features`, backend behavior in `convex/features`, and UI-specific code
 in `app/features`.
+
+## Starter Lanes
+
+| Lane            | Use it when                                                                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| `public`        | The app has public data and no sign-in flow yet.                                                          |
+| `personal`      | The app needs signed-in users but not tenant-scoped data.                                                 |
+| `workspace`     | The app needs roles, tenant boundaries, and backend-owned permission projection.                          |
+| `workspace-mcp` | MCP agents are part of the product and need scoped tools, bearer validation, and operation-backed writes. |
+
+`workspace-mcp` is not a side example; it is the first-class agent-enabled
+workspace lane. Smaller apps should still stay on smaller lanes.
 
 ## Runtime Model
 

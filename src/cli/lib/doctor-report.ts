@@ -272,7 +272,7 @@ function createDoctorFindings(
           ? `Run ${formatIntegrationDoctorCommand(integrationOwners)} for integration-specific layout checks.`
           : missingCanonicalLayoutPaths.length === 0
             ? 'Keep the generated Trellis layout intact.'
-            : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template public|personal|workspace|workspace-mcp`.',
+            : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --preset public|personal|workspace|workspace-mcp`.',
     },
     {
       id: 'convex-installed',

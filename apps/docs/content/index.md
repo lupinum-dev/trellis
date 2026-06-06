@@ -1,17 +1,23 @@
 ---
-title: 'The Trellis framework for Nuxt + Convex.'
+title: 'Trellis'
 navigation: false
-description: 'Build Nuxt apps on one app-owned business layer with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.'
+description: 'Build Nuxt + Convex apps with one backend path for data, auth, permissions, server routes, and MCP tools.'
 ---
 
-# One framework-owned business layer for Nuxt + Convex
+# Trellis
 
-Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MCP on one app-owned business layer instead of splitting those rules across transports.
+Trellis is for Nuxt apps that use Convex as the backend and need the same rules to work in more than one place.
 
-It is an opinionated framework, not a neutral helper layer. The product surface is the canonical app shape plus the starters, generators, examples, lint rules, `doctor`, and maintained runtime contracts that reinforce it.
+That usually means browser pages, server routes, signed-in users, workspace data, permissions, webhooks, or MCP tools.
+
+The main idea is simple:
+
+Put the important rules in Convex. Let every caller go through that same backend path.
+
+Do not use Trellis if raw Nuxt + Convex is enough. Trellis is opinionated on purpose. It gives you a generated app layout, supported starter lanes, examples, lint rules, `doctor`, and runtime checks. That is useful when your app will grow into auth, permissions, server routes, or agents. It is too much if you only need a tiny public app.
 
 ::callout{icon="i-lucide-arrow-right" color="neutral" to="/docs/getting-started/start-here"}
-Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the signed-in app path.
+Start with [Start here](/docs/getting-started/start-here), then build [First live query](/docs/getting-started/first-live-query).
 ::
 
 :u-input-copy{value="pnpm dlx @lupinum/trellis init my-app"}
@@ -21,42 +27,64 @@ Start with [Start here](/docs/getting-started/start-here) if you are evaluating 
 ::card-group
 
 ::card{title="Start here" icon="i-lucide-compass" to="/docs/getting-started/start-here"}
-What Trellis adds, which first path to choose, and where to go next.
+What Trellis is, when to use it, and how to start with the smallest app that proves your setup.
+::
+
+::card{title="Adoption decision" icon="i-lucide-compass" to="/docs/getting-started/adoption-decision"}
+Decide whether Trellis fits before you add framework structure to your app.
 ::
 
 ::card{title="Installation" icon="i-lucide-download" to="/docs/getting-started/installation"}
-Install the module, wire the basics, and verify the docs examples match your app shape.
+Install the module, wire the required environment, and run the first health check.
 ::
 
 ::card{title="First live query" icon="i-lucide-rocket" to="/docs/getting-started/first-live-query"}
 Build the smallest useful Trellis app: one query, one mutation, one visible live update.
 ::
 
-::card{title="Build a Signed-In Todo App" icon="i-lucide-lock" to="/docs/getting-started/build-a-signed-in-todo-app"}
-Add auth, one authenticated query, and one authenticated mutation without jumping into tenancy or MCP.
+::card{title="Signed-in todo app" icon="i-lucide-lock" to="/docs/getting-started/build-a-signed-in-todo-app"}
+Add auth without jumping straight into workspaces, roles, or MCP.
 ::
 
-::card{title="How it works" icon="i-lucide-waypoints" to="/docs/concepts/how-it-works"}
-See the execution model across browser, server, webhook, and agent callers.
-::
-
-::card{title="Examples" icon="i-lucide-flask-conical" to="/docs/examples"}
-Choose the right repo example before copying patterns into your own app.
-::
-
-::card{title="Reference" icon="i-lucide-book-open" to="/docs/reference"}
-Look up exact behavior for the high-traffic composables, server helpers, and API surfaces.
+::card{title="Examples" icon="i-lucide-layout-template" to="/docs/examples"}
+Pick the smallest example that matches the app you are actually building.
 ::
 
 ::
+
+## What you get
+
+Trellis handles the repeated framework wiring:
+
+- Nuxt module setup
+- Convex client setup
+- SSR-aware queries
+- live subscriptions
+- mutation state
+- Better Auth integration
+- auth refresh after sign-in
+- permission projection into the UI
+- server helpers for Nitro routes
+- MCP tool helpers
+- doctor checks for common setup mistakes
+
+You still own the product rules:
+
+- what tables exist
+- what a user means in your app
+- what a workspace means
+- who can create, update, delete, invite, publish, revoke, or export
+- what a destructive action should preview before it runs
+
+Trellis gives you the path. It does not invent your business logic.
 
 ## What it looks like
 
 ::tabs
 
-:::tabs-item{label="Queries" icon="i-lucide-database"}
+:::tabs-item{label="Query" icon="i-lucide-database"}
 
-```vue
+```vue [app/features/todos/TodoList.vue]
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
@@ -76,29 +104,13 @@ const { data: todos, pending, error } = await useConvexQuery(api.features.todos.
 
 :::
 
-:::tabs-item{label="Mutations" icon="i-lucide-edit"}
+:::tabs-item{label="Mutation" icon="i-lucide-edit"}
 
-```vue
+```vue [app/features/todos/CreateTodo.vue]
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const createTodo = useConvexMutation(api.features.todos.domain.create, {
-  optimisticUpdate: (ctx, args) => {
-    ctx.query(api.features.todos.domain.list, {}).update((current) =>
-      current
-        ? [
-            {
-              _id: 'temp',
-              title: args.title,
-              completed: false,
-              createdAt: Date.now(),
-            },
-            ...current,
-          ]
-        : [],
-    )
-  },
-})
+const createTodo = useConvexMutation(api.features.todos.domain.create)
 
 await createTodo({ title: 'Ship my app' })
 </script>
@@ -108,63 +120,24 @@ await createTodo({ title: 'Ship my app' })
 
 :::tabs-item{label="Auth" icon="i-lucide-lock"}
 
-```vue
+```vue [app/features/auth/AuthButton.vue]
 <script setup lang="ts">
 const { isAuthenticated, sessionUser, signOut } = useConvexAuth()
 const client = useBetterAuthClient()
 
-async function handleOAuth() {
-  if (!client) return
-  await client.signIn.social({ provider: 'github' })
+async function signIn() {
+  await client?.signIn.social({ provider: 'github' })
 }
 </script>
 
 <template>
-  <div v-if="isAuthenticated">
-    Welcome, {{ sessionUser?.displayName }}!
-    <button @click="signOut()">Sign Out</button>
-  </div>
-  <div v-else>
-    <button @click="handleOAuth">Sign in with GitHub</button>
-  </div>
+  <button v-if="isAuthenticated" @click="signOut()">Sign out {{ sessionUser?.displayName }}</button>
+  <button v-else @click="signIn">Sign in with GitHub</button>
 </template>
 ```
 
 :::
 
-:::tabs-item{label="Permissions" icon="i-lucide-shield"}
-
-```vue
-<script setup lang="ts">
-import { api } from '#trellis/api'
-import { postDelete, postPublish, postUpdate } from '~/convex/features/posts/permissions'
-
-const props = defineProps<{ id: string }>()
-const { can } = useAccess()
-const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
-
-const canUpdatePost = can(postUpdate)
-const canDeletePost = can(postDelete)
-const canPublishPost = can(postPublish)
-</script>
-
-<template>
-  <article v-if="post">
-    <h1>{{ post.title }}</h1>
-    <p>{{ post.content }}</p>
-
-    <button v-if="canUpdatePost">Edit</button>
-    <button v-if="canDeletePost">Delete</button>
-    <button v-if="canPublishPost">Publish</button>
-  </article>
-</template>
-```
-
-:::
-
-::
-
-::landing-stack
 ::
 
 ## Explore the docs
@@ -172,27 +145,23 @@ const canPublishPost = can(postPublish)
 ::card-group
 
 ::card{title="Getting started" icon="i-lucide-compass" to="/docs/getting-started"}
-The reader path from orientation to the first live query and then the first signed-in app.
+Start small, prove the live data path, then add auth only when you need it.
 ::
 
 ::card{title="Guides" icon="i-lucide-route" to="/docs/guides"}
-Task-first docs for data, auth, permissions, server-side flows, uploads, and MCP tools.
+Task pages for data, auth, permissions, server-side flows, uploads, and MCP tools.
 ::
 
 ::card{title="Concepts" icon="i-lucide-waypoints" to="/docs/concepts"}
-One canonical explanation page for the explicit backend model.
+The mental model behind the backend-owned app path.
 ::
 
 ::card{title="Reference" icon="i-lucide-book-type" to="/docs/reference"}
-Exact behavior for composables, runtime functions, config, and generated API inventory.
-::
-
-::card{title="Examples" icon="i-lucide-flask-conical" to="/docs/examples"}
-The canonical public example set, ordered from smallest baseline to the richer workspace model.
+Exact behavior for composables, runtime helpers, config, and generated API inventory.
 ::
 
 ::card{title="Project" icon="i-lucide-git-branch" to="/docs/project"}
-Contributor entry points and the public change record, without turning project docs into a junk drawer.
+Contributor entry points and the public change record.
 ::
 
 ::

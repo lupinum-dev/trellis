@@ -810,6 +810,55 @@ export function findForwardedCallerWithoutTrustedAuth(
   return findings
 }
 
+function serverHelperAuthOptionsIndex(functionName: string): number | null {
+  if (
+    functionName === 'serverConvexQuery' ||
+    functionName === 'serverConvexMutation' ||
+    functionName === 'serverConvexAction'
+  ) {
+    return 3
+  }
+
+  if (functionName === 'createServerConvexCaller') return 1
+
+  return null
+}
+
+export function findServerConvexAuthNoneCalls(project: ProjectInspection): ProjectSourceLocation[] {
+  const analysis = createAnalysisProject(project)
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of analysis.getSourceFiles()) {
+    const filePath = sourceFile.getFilePath()
+    if (!/[/\\]server[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(filePath)) continue
+    if (/\.(?:test|spec)\.(?:[cm]?[jt]s|tsx?)$/.test(filePath)) continue
+    if (/[/\\]tests?[/\\]/.test(filePath)) continue
+
+    for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const expression = unwrapExpression(call.getExpression())
+      if (!expression || !Node.isIdentifier(expression)) continue
+
+      const optionsIndex = serverHelperAuthOptionsIndex(expression.getText())
+      if (optionsIndex === null) continue
+
+      const optionsArg = unwrapExpression(call.getArguments()[optionsIndex])
+      if (!optionsArg || !Node.isObjectLiteralExpression(optionsArg)) continue
+
+      const authValue = readStaticString(
+        getPropertyAssignment(optionsArg, 'auth')?.getInitializer(),
+      )
+      if (authValue !== 'none') continue
+
+      findings.push({
+        path: filePath,
+        line: optionsArg.getStartLineNumber(),
+      })
+    }
+  }
+
+  return findings
+}
+
 function looksDestructiveTool(text: string, filePath: string): boolean {
   const destructiveVerb =
     /\b(?:delete|remove|archive|revoke|destroy|purge)\b|bulk-delete|bulkDelete/i
