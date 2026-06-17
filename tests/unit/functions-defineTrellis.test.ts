@@ -1506,7 +1506,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'posts:create',
+      id: 'posts:create',
       handler: async () => ({ ok: true }),
     } as never) as {
       handler: (
@@ -2093,7 +2093,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -2143,7 +2143,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -2195,7 +2195,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:sync',
+      id: 'tasks:sync',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -2251,7 +2251,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         executions += 1
         return { ok: true }
@@ -2316,7 +2316,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         executions += 1
         if (shouldFail) throw new Error('business failed')
@@ -2392,7 +2392,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => ({ ok: true }),
     } as never) as {
       handler: (
@@ -2454,7 +2454,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         throw new Error('business failed')
       },
@@ -2511,7 +2511,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -2860,7 +2860,7 @@ describe('defineTrellis', () => {
 
     const previewDefinition = runtime.mutation.authenticated({
       ...previewOf(destructiveOp),
-      identityForwardingFunctionRef: 'tasks:previewDelete',
+      id: 'tasks:previewDelete',
     }) as {
       handler: (
         ctx: {
@@ -2951,7 +2951,7 @@ describe('defineTrellis', () => {
     expect(() =>
       runtime.query.authenticated({
         ...previewOf(destructiveOp),
-        identityForwardingFunctionRef: 'tasks:previewDelete',
+        id: 'tasks:previewDelete',
       }),
     ).toThrow(/cannot issue confirmation tokens.*mutation\(previewOf\(op\)\)/i)
   })

@@ -70,7 +70,7 @@ describe('defineTrellis service access', () => {
         rowWorkspaceId: v.string(),
         tenantWorkspaceId: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async (ctx, args) => {
         return await ctx.db
           .query('tasks' as never)
@@ -164,7 +164,7 @@ describe('defineTrellis service access', () => {
     const definition = runtime.query.public({
       reads: ['tasks'] as never[],
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -233,7 +233,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.query.public({
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async (ctx) => {
         reachedHandler = true
         return await ctx.db.query('tasks' as never).collect()
@@ -301,7 +301,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.query.public({
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -370,7 +370,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.query.public({
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -437,7 +437,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.query.public({
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -506,7 +506,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.query.public({
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -579,7 +579,7 @@ describe('defineTrellis service access', () => {
     const definition = runtime.query.public({
       reads: ['tasks'] as never[],
       args: {},
-      identityForwardingFunctionRef: 'tasks:list',
+      id: 'tasks:list',
       handler: async (ctx) => {
         const tasks = await ctx.db.query('tasks' as never).collect()
         let denied = false
@@ -659,7 +659,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.query.public({
       args: {},
-      identityForwardingFunctionRef: 'tasks:delete',
+      id: 'tasks:delete',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -728,7 +728,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.mutation.public({
       args: { title: v.string() },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -798,7 +798,7 @@ describe('defineTrellis service access', () => {
     const definition = runtime.mutation.protected({
       args: { id: v.string() },
       guard: allowAll,
-      identityForwardingFunctionRef: 'tasks:update',
+      id: 'tasks:update',
       handler: async (ctx, args) => {
         await (
           ctx.db as { patch: (table: string, id: string, value: object) => Promise<unknown> }
@@ -886,7 +886,7 @@ describe('defineTrellis service access', () => {
     let reachedHandler = false
     const definition = runtime.mutation.public({
       args: { title: v.string() },
-      identityForwardingFunctionRef: 'tasks:denied',
+      id: 'tasks:denied',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -968,7 +968,7 @@ describe('defineTrellis service access', () => {
       id: 'sync.denied',
       kind: 'safe',
       args: { title: v.string() },
-      identityForwardingFunctionRef: 'tasks:create',
+      executeFunctionRef: 'tasks:create',
       permission: destructiveTestPermission,
       handler: async () => {
         reachedHandler = true
@@ -1049,7 +1049,7 @@ describe('defineTrellis service access', () => {
       id: 'sync.allowed',
       kind: 'safe',
       args: { title: v.string() },
-      identityForwardingFunctionRef: 'tasks:create',
+      executeFunctionRef: 'tasks:create',
       permission: destructiveTestPermission,
       handler: async () => ({ ok: true }),
     })
@@ -1128,7 +1128,7 @@ describe('defineTrellis service access', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -1208,7 +1208,7 @@ describe('defineTrellis service access', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => ({ ok: true }),
     } as never) as {
       handler: (
@@ -1285,7 +1285,7 @@ describe('defineTrellis service access', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => {
         reachedHandler = true
         return { ok: true }
@@ -1366,7 +1366,7 @@ describe('defineTrellis service access', () => {
       args: {
         title: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:create',
+      id: 'tasks:create',
       handler: async () => ({ ok: true }),
     } as never) as {
       handler: (

@@ -526,7 +526,7 @@ export async function assertServiceTargetAllowed<DataModel extends GenericDataMo
     ? `operation "${targetOperationId}"`
     : targetFunctionRef
       ? `function "${targetFunctionRef}"`
-      : 'a handler without identityForwardingFunctionRef or operation metadata'
+      : 'a handler without id or operation metadata'
 
   throw deny(`Service "${caller.serviceId}" is not allowed to call ${targetDescription}.`, {
     source: 'service-access',

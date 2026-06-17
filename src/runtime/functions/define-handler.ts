@@ -52,7 +52,6 @@ type AnyBuilder = (definition: {
   returns?: GenericValidator
   trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
   publicReadTables?: readonly string[]
-  identityForwardingFunctionRef?: string
   executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   crossTenant?: unknown
@@ -60,6 +59,13 @@ type AnyBuilder = (definition: {
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
+
+function getInternalForwardingFunctionRef(definition: unknown): string | undefined {
+  return typeof (definition as { identityForwardingFunctionRef?: unknown })
+    .identityForwardingFunctionRef === 'string'
+    ? (definition as { identityForwardingFunctionRef: string }).identityForwardingFunctionRef
+    : undefined
+}
 
 export type StructuredLoadedValue = Record<string, unknown> | undefined
 
@@ -263,11 +269,6 @@ type HandlerDefinition<
     ],
     MaybePromise<TResult>
   >
-  /**
-   * Internal alpha metadata. When present, protected handler setup verifies
-   * signed identity-forwarding envelopes against this exact Convex function ref.
-   */
-  identityForwardingFunctionRef?: string
   executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
@@ -504,7 +505,7 @@ function createStructuredBuilder<
     >,
   ): ReturnType<TBuilder> {
     const forwardingTarget =
-      definition.identityForwardingFunctionRef ??
+      getInternalForwardingFunctionRef(definition) ??
       definition.executeFunctionRef ??
       getOperationProjectionMetadata(definition)?.functionRef ??
       definition.id

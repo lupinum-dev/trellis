@@ -125,6 +125,15 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     `executeFunctionRef`;
   - the remaining operation-code reference to `identityForwardingFunctionRef`
     is the type-level `Omit` that blocks the old field from operations.
+- 2026-06-17: Removed the old direct-handler authoring field from structured
+  handlers:
+  - service/direct-handler tests now use stable `id` as the callable verifier
+    target;
+  - structured handler definitions no longer expose
+    `identityForwardingFunctionRef`;
+  - lower runtime wrappers still pass a computed internal verifier target into
+    the Convex builder, but that slot is no longer part of normal handler
+    authoring.
 
 ## Blockers
 
@@ -181,3 +190,8 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` and
   `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/security-contract.test.ts`
   passed after removing the legacy operation-definition fallback.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/security-contract.test.ts`,
+  `pnpm run check:security:contract`, `pnpm run check:docs:api-surface`,
+  `pnpm run check:publish-surface`, and `pnpm run test:types` passed after
+  removing the old direct-handler authoring field.

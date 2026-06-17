@@ -2865,19 +2865,15 @@ function buildStructuredMutationRuntime<
 
     const transformed = {
       ...definition,
-      ...(definition.identityForwardingFunctionRef
+      ...(getExecuteFunctionRef(definition)
         ? {
-            identityForwardingFunctionRef: definition.identityForwardingFunctionRef,
+            identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
           }
-        : getExecuteFunctionRef(definition)
-          ? {
-              identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
-            }
-          : projectionMetadata?.functionRef
-            ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
-            : definition.id
-              ? { identityForwardingFunctionRef: definition.id }
-              : {}),
+        : projectionMetadata?.functionRef
+          ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
+          : definition.id
+            ? { identityForwardingFunctionRef: definition.id }
+            : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
@@ -2990,10 +2986,7 @@ function buildStructuredMutationRuntime<
             `Confirmation token targets operation "${payload.operationId}", not "${operationId}".`,
           )
         }
-        const executePath =
-          definition.identityForwardingFunctionRef ??
-          getExecuteFunctionRef(definition) ??
-          projectionMetadata?.functionRef
+        const executePath = getExecuteFunctionRef(definition) ?? projectionMetadata?.functionRef
         if (executePath && payload.executePath !== executePath) {
           throw new Error(
             `Confirmation token targets execute path "${payload.executePath}", not "${executePath}".`,
@@ -3259,19 +3252,15 @@ function buildStructuredTransportMutationRuntime<
 
     const transformed = {
       ...definition,
-      ...(definition.identityForwardingFunctionRef
+      ...(getExecuteFunctionRef(definition)
         ? {
-            identityForwardingFunctionRef: definition.identityForwardingFunctionRef,
+            identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
           }
-        : getExecuteFunctionRef(definition)
-          ? {
-              identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
-            }
-          : projectionMetadata?.functionRef
-            ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
-            : definition.id
-              ? { identityForwardingFunctionRef: definition.id }
-              : {}),
+        : projectionMetadata?.functionRef
+          ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
+          : definition.id
+            ? { identityForwardingFunctionRef: definition.id }
+            : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
