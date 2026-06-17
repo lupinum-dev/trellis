@@ -27,6 +27,7 @@ overrides:
   qs: 6.15.2
   ws: 8.21.0
   hono: 4.12.25
+  '@nuxt/schema': 4.4.8
 
 allowBuilds:
   '@parcel/watcher': false

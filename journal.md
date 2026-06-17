@@ -77,13 +77,18 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: Removed global `public.readTables` from the runtime surface and
   docs. Security contract now records handler-local `publicReads` with
   file/line/export metadata.
+- 2026-06-17: Resolved the broad-check dependency blocker by pinning the
+  workspace to a single `@nuxt/schema@4.4.8` via pnpm overrides. This removes
+  the duplicate Nuxt schema type graph instead of adding local type casts.
+- 2026-06-17: Fixed two broad-gate findings from the clean-cut migration:
+  - harness access-context debug metadata now uses the resolved app identity
+    source of truth instead of a stale `user` local;
+  - example 06 agency dashboard declares the `users` table it reads while
+    resolving the authenticated agency actor.
 
 ## Blockers
 
-- Broad `pnpm run check` currently fails in `check:publish-surface` because the
-  local workspace resolves both `@nuxt/schema@4.4.7` via `@nuxt/ui@4.8.1` and
-  `@nuxt/schema@4.4.8` via Nuxt/module-builder. The public-read/session changes
-  pass their focused runtime, docs, security-contract, example, and lint gates.
+- No active blocker for the current Phase 0 slice.
 
 ## Verification Log
 
@@ -101,3 +106,12 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm run check` passed format, docs links, repo policy,
   compatibility, source lint, test lint, and example lint, then failed at
   `check:publish-surface` on the `@nuxt/schema` 4.4.7/4.4.8 type split.
+- 2026-06-17: `pnpm why @nuxt/schema` now reports one version,
+  `@nuxt/schema@4.4.8`, after the workspace override.
+- 2026-06-17: `pnpm run check:publish-surface` passed after the Nuxt schema
+  alignment.
+- 2026-06-17: `pnpm --dir examples/06-multi-workspace test` passed after
+  adding `users` to the agency dashboard public read inventory.
+- 2026-06-17: `pnpm run check` passed end to end after the Nuxt schema
+  alignment, harness debug fix, example 06 read inventory fix, and regenerated
+  security contract.

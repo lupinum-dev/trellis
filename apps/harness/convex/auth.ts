@@ -155,7 +155,7 @@ export const getAccessContext = query.session({
 
     // #region agent log
     debugInfo.context = context
-    debugInfo.reason = user.organizationId ? 'success' : 'user has no organizationId'
+    debugInfo.reason = appIdentity.workspaceId ? 'success' : 'user has no workspaceId'
     // Always attach debug info for debugging
     return { ...context, _debug: debugInfo }
     // #endregion

@@ -555,7 +555,7 @@
       "file": "examples/06-multi-workspace/convex/features/dashboard/domain.ts",
       "line": 9,
       "exportName": "portfolio",
-      "reads": ["memberships", "projects", "workspaces"]
+      "reads": ["memberships", "projects", "users", "workspaces"]
     },
     {
       "file": "examples/06-multi-workspace/convex/features/workspaces/domain.ts",
