@@ -26,6 +26,7 @@ const permission = definePermission({
 })
 
 const _accessContext = defineAccessContext({
+  id: 'tests.accessContext',
   permissions: [permission] as const,
   resolve: async () => ({
     userId: 'user_1',

@@ -19,6 +19,7 @@ const publishPermission = definePermission({
 })
 
 const _accessContext = defineAccessContext({
+  id: 'tests.accessContext',
   permissions: [readPermission, publishPermission] as const,
   resolve: async (_ctx: { caller: { userId: string } }) => ({
     userId: 'user_1',

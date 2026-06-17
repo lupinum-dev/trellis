@@ -183,21 +183,25 @@ describe('module validation', () => {
       `,
       'convex/todos.ts': `
         export const list = query.public({
+          id: 'todos:list',
           args: {},
           handler: async () => []
         })
 
         export const sessionAccess = query.session({
+          id: 'todos:sessionAccess',
           args: {},
           handler: async () => null
         })
 
         export const workspaceList = query.workspace({
+          id: 'todos:workspaceList',
           args: {},
           handler: async () => []
         })
 
         export const authenticatedUpdate = mutation.authenticated({
+          id: 'todos:authenticatedUpdate',
           args: {},
           handler: async () => null
         })

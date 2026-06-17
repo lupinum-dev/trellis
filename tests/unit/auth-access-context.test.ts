@@ -22,6 +22,7 @@ describe('access context primitives', () => {
     })
 
     const query = defineAccessContext({
+      id: 'tests.accessContext.builds',
       resolve: async () => ({
         userId: 'alice',
         workspaceId: 'workspace-1',
@@ -48,6 +49,7 @@ describe('access context primitives', () => {
 
   it('fails closed when a guard throws a ConvexError', async () => {
     const query = defineAccessContext({
+      id: 'tests.accessContext.convexError',
       resolve: async () => ({ userId: 'alice', role: 'member' }),
       permissions: [
         definePermission({
@@ -71,6 +73,7 @@ describe('access context primitives', () => {
 
   it('rejects non-boolean permission projection results', async () => {
     const query = defineAccessContext({
+      id: 'tests.accessContext.nonBoolean',
       resolve: async () => ({ userId: 'alice', role: 'member' }),
       permissions: [
         definePermission({
@@ -85,8 +88,9 @@ describe('access context primitives', () => {
     )
   })
 
-  it('returns a public definition that app.query can consume directly', async () => {
+  it('returns a complete handler definition that app.query can consume directly', async () => {
     const query = defineAccessContext({
+      id: 'tests.accessContext.definition',
       resolve: async () => ({
         userId: 'alice',
         workspaceId: 'workspace-1',
@@ -117,6 +121,7 @@ describe('access context primitives', () => {
 
   it('rejects reserved access context keys from extend at runtime', async () => {
     const query = defineAccessContext({
+      id: 'tests.accessContext.reserved',
       resolve: async () => ({
         userId: 'alice',
         workspaceId: 'workspace-1',

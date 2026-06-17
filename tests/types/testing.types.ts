@@ -114,6 +114,7 @@ const exportsPermission = definePermission({
 })
 
 const _accessContext = defineAccessContext({
+  id: 'tests.accessContext',
   resolve: async () => ({
     role: 'owner' as const,
     userId: 'owner-1',

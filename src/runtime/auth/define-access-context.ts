@@ -37,6 +37,7 @@ type AccessContextHandlerResult<
 > = AccessContextBase<PermissionFlags<TPermissions>> & TContext
 
 type AccessContextOptions = {
+  id: string
   resolve: (ctx: any) => Promise<unknown | null>
   permissions: PermissionTuple
   crossTenant?: any
@@ -85,6 +86,7 @@ export type AccessContextDefinition<
   TPermissions extends PermissionTuple,
   TContext extends Record<string, unknown>,
 > = {
+  id: string
   args: Record<string, never>
   permissions: TPermissions
   crossTenant?: any
@@ -122,6 +124,7 @@ export function defineAccessContext<TOptions extends AccessContextOptions>(
   ) as ProjectedPermissionDefinitions<TOptions['permissions']>[]
 
   return {
+    id: options.id,
     args: {},
     permissions: options.permissions,
     ...(options.crossTenant ? { crossTenant: options.crossTenant } : {}),

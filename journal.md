@@ -163,6 +163,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     transport projections;
   - review and sprint planning notes now describe stable handler ids and
     handler-local public reads instead of removed legacy fields.
+- 2026-06-17: Simplified access-context authoring:
+  - `defineAccessContext({ id, ... })` now returns a complete structured handler
+    definition with stable id metadata;
+  - maintained examples, starter fixtures, docs, and type tests no longer need
+    `query.session({ ...defineAccessContext(...), id })` spread wrappers.
 
 ## Blockers
 
@@ -254,3 +259,9 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   cleaning up remaining starter/example/docs authoring-shape drift.
 - 2026-06-17: `rg -n "identityForwardingFunctionRef|public table reads|configured public read table list|public\\.readTables|readTables" meta/skill library-review-state.md sprint-plan.md apps/docs/content scripts src/cli/starter-fixtures examples --glob '!dist/**' --glob '!node_modules/**'`
   returned no matches after the agent-facing reference cleanup.
+- 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/auth-access-context.test.ts tests/unit/module-validation.test.ts tests/unit/functions-defineTrellis.test.ts`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm run test:types:examples:canonical`, `pnpm run test:types`,
+  `pnpm run check:docs:links`, `pnpm run check:security:contract`,
+  `pnpm run format:check`, and `git diff --check` passed after moving stable
+  access-context ids into `defineAccessContext(...)`.
