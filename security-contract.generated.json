@@ -89,6 +89,12 @@
         "pattern": "/\\bstampMcpToolSafety\\b|\\btrellisMcpToolSafetyKey\\b/"
       },
       {
+        "id": "no-app-surface-raw-forwarding-envelope",
+        "kind": "line",
+        "policy": "production-copyable app surfaces must use Trellis caller helpers, not raw forwarding envelopes",
+        "pattern": "/\\bcreateIdentityForwardingEnvelopeArgs\\b/"
+      },
+      {
         "id": "no-boolean-delegation",
         "kind": "block",
         "policy": "boolean delegation is banned; use backend-revalidated delegation evidence",

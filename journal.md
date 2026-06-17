@@ -55,6 +55,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   validation belong to `@lupinum/trellis-bridge`. App/root wrappers may choose
   an explicit `signedArgs` verification payload, but they should not construct
   raw identity-forwarding envelopes.
+- D010: Raw identity-forwarding envelope construction is not an app-surface
+  escape hatch. Production-copyable examples, starters, and docs should fail
+  source policy if they import or call `createIdentityForwardingEnvelopeArgs`.
 
 ## Progress
 
@@ -220,6 +223,12 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   - Example 08 no longer imports `createIdentityForwardingEnvelopeArgs` or
     duplicates bridge issuer, audience, replay, and key policy;
   - a focused bridge unit test covers the explicit verification-payload path.
+- 2026-06-18: Promoted the raw-envelope cleanup to a production-copyable source
+  policy:
+  - examples, starter fixtures, and docs now fail policy on
+    `createIdentityForwardingEnvelopeArgs`;
+  - low-level runtime and focused protocol tests remain the only places where
+    raw forwarding primitives should appear.
 
 ## Blockers
 
@@ -370,3 +379,7 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   and `pnpm exec vitest run --project=unit tests/unit/create-component-bridge.test.ts`
   passed. `pnpm run check:security:contract` drifted from Example 08 line
   changes and was regenerated with `pnpm run security:contract`.
+- 2026-06-18: `pnpm run check:security:source-policy` and
+  `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`
+  passed after adding the production-copyable raw-envelope policy. The security
+  contract was regenerated with `pnpm run security:contract`.

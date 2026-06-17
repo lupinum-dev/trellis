@@ -32,6 +32,9 @@ describe('security contract generator', () => {
     expect(contract.sourcePolicy.policies.map((policy) => policy.id)).toContain(
       'no-stringly-trusted-auth',
     )
+    expect(contract.sourcePolicy.policies.map((policy) => policy.id)).toContain(
+      'no-app-surface-raw-forwarding-envelope',
+    )
     expect(contract.securityRuntimeProofs).toContain('tests/unit/functions-defineTrellis.test.ts')
     expect(contract.securityRuntimeProofs).toContain('tests/unit/auth-index.test.ts')
     expect(contract.securityRuntimeProofs).toContain('tests/unit/auth-proxy-handler.server.test.ts')

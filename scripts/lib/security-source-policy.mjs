@@ -75,6 +75,14 @@ export const securitySourcePolicies = [
     pattern: /\bcreateIdentityForwardingEnvelopeArgs\b/,
   },
   {
+    id: 'no-app-surface-raw-forwarding-envelope',
+    kind: 'line',
+    filePathPattern: /^(?:apps\/docs\/content\/docs|examples|src\/cli\/starter-fixtures)\//,
+    policy:
+      'production-copyable app surfaces must use Trellis caller helpers, not raw forwarding envelopes',
+    pattern: /\bcreateIdentityForwardingEnvelopeArgs\b/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',
