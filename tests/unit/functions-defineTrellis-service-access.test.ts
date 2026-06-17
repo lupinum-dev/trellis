@@ -5,7 +5,6 @@ import { defineCaller, defineTrellis } from '../../src/runtime/backend'
 import { defineOperation } from '../../src/runtime/functions/define-operation'
 import { getForwardedCaller } from '../../src/runtime/identity-forwarding'
 import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity-forwarding/shared'
-import { createObservationCapture } from '../../src/runtime/testing'
 import {
   allowAll,
   createMemoryDb,

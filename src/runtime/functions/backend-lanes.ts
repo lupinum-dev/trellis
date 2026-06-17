@@ -49,7 +49,7 @@ function getOwnReads(definition: object): unknown {
 function readPublicReadTables(value: unknown, lane: 'public'): string[] | undefined {
   if (value === undefined) return undefined
   if (!Array.isArray(value)) {
-    throw new Error(`${lane} backend handlers must provide \`reads\` as an array.`)
+    throw new TypeError(`${lane} backend handlers must provide \`reads\` as an array.`)
   }
 
   const seen = new Set<string>()
