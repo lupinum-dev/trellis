@@ -68,6 +68,10 @@ them behind app factories. For forwarded writes, pass the replay behavior the
 backend expects. For MCP-only handlers, pass `transport: 'mcp'`. Forwarded reads
 can omit replay metadata.
 
+Use `asAuthUser(...)` for auth-only handlers that intentionally read Convex auth
+identity through `ctx.auth.getUserIdentity()` or `getAuth(ctx)`. Do not use it as
+a shortcut for trusted Trellis caller forwarding.
+
 Keep `convex/test.setup.ts` in consumer apps when they need the generated server
 mock path.
 

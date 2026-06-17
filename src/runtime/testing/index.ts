@@ -198,6 +198,14 @@ type SeededTenantUsers<
 export type TestUserCaller = ({ authKey: string } | { userId: string } | { subject: string }) &
   Record<string, unknown>
 
+export type TestAuthUser = {
+  authKey: string
+  subject?: string
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+}
+
 export type TestServiceCaller = ({ serviceId: string } | { subject: string }) &
   Record<string, unknown>
 
@@ -249,6 +257,7 @@ export interface TestContext<
   }>
   asCaller: (caller: Record<string, unknown>, options?: TestCallerOptions) => TestClient<TSchema>
   asUser: (caller: TestUserCaller, options?: TestCallerOptions) => TestClient<TSchema>
+  asAuthUser: (user: TestAuthUser) => TestClient<TSchema>
   asService: (
     service: string | TestServiceCaller,
     options?: TestCallerOptions,
@@ -638,6 +647,16 @@ export function createTestContext<
     return asCaller({ ...caller, kind: 'user' }, options)
   }
 
+  function asAuthUser(user: TestAuthUser): TestClient<TSchema> {
+    return raw.withIdentity({
+      subject: user.subject ?? user.authKey,
+      tokenIdentifier: user.authKey,
+      ...(user.email ? { email: user.email } : {}),
+      ...(user.displayName ? { name: user.displayName } : {}),
+      ...(user.avatarUrl ? { picture: user.avatarUrl } : {}),
+    } as never)
+  }
+
   function asService(
     service: string | TestServiceCaller,
     options?: TestCallerOptions,
@@ -657,6 +676,7 @@ export function createTestContext<
     seedTenant,
     asCaller,
     asUser,
+    asAuthUser,
     asService,
   }
 }

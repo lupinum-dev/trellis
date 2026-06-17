@@ -33,17 +33,15 @@ describe('auth todo example', () => {
       updatedAt: Date.now(),
     })
 
-    const alice = ctx.raw.withIdentity({
-      subject: 'alice',
-      tokenIdentifier: 'alice',
+    const alice = ctx.asAuthUser({
+      authKey: 'alice',
       email: 'alice@example.test',
-      name: 'Alice',
+      displayName: 'Alice',
     })
-    const bob = ctx.raw.withIdentity({
-      subject: 'bob',
-      tokenIdentifier: 'bob',
+    const bob = ctx.asAuthUser({
+      authKey: 'bob',
       email: 'bob@example.test',
-      name: 'Bob',
+      displayName: 'Bob',
     })
 
     const todoId = await alice.mutation(api.features.todos.domain.create, {

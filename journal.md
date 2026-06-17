@@ -67,6 +67,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   handlers should read `ctx.workspaceId`; `appIdentity.workspaceId` remains the
   identity fact used to authorize and derive that context, not the field copied
   throughout generated resource code.
+- D014: Auth-identity tests and trusted-forwarding tests are separate concepts.
+  Use `ctx.asAuthUser(...)` for handlers that intentionally read Convex auth
+  identity; keep `ctx.asUser(...)` for signed Trellis caller forwarding.
 
 ## Progress
 
@@ -264,6 +267,12 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
     instead of repeating `appIdentity.workspaceId!`;
   - runtime and CLI generator tests cover the lane projection and generated
     tenant field usage.
+- 2026-06-18: Added explicit auth-identity test vocabulary:
+  - `createTestContext(...)` now exposes `asAuthUser(...)` for handlers that
+    read Convex auth identity through `getAuth(ctx)`;
+  - Example 02 no longer copies `ctx.raw.withIdentity(...)`;
+  - testing docs and agent guidance distinguish Convex auth identity from
+    trusted Trellis caller forwarding.
 
 ## Blockers
 
@@ -431,3 +440,7 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/cli-add-resource.test.ts`
   and `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after promoting
   workspace lanes to a typed `ctx.workspaceId` context.
+- 2026-06-18: `pnpm --dir examples/02-auth-todo test`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`, `pnpm run build:module`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:security:source-policy`,
+  and `pnpm run test:types` passed after adding `asAuthUser(...)`.
