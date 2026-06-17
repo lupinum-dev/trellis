@@ -576,3 +576,7 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm run check:security:source-policy` passed after adding a source policy
   that prevents production-copyable access context handlers from being
   registered on `query.public(...)`; the supported lane is `query.session(...)`.
+- 2026-06-18: Updated `meta/0.2-implementation-note.md` to split resolved
+  drift from remaining work so future RFC slices do not chase completed
+  beginner docs, access-context, workspace-id, test-helper, or MCP operation-ref
+  cleanup.
