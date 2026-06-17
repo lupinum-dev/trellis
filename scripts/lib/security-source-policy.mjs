@@ -106,6 +106,14 @@ export const securitySourcePolicies = [
     pattern: /import\s*\{[^}]*\bdefineTrellis\b[^}]*\}\s*from ['"]@lupinum\/trellis\/backend['"]/,
   },
   {
+    id: 'no-beginner-define-operation-docs',
+    kind: 'line',
+    filePathPattern:
+      /^apps\/docs\/content\/docs\/(?:4\.reference|13\.api-reference\/3\.functions)\.md$/,
+    policy: 'beginner function reference must teach operation.* from @lupinum/trellis/app',
+    pattern: /defineOperation\(\.\.\.\)|defineOperation\(\{\.\.\.\}\)|`defineOperation\(\.\.\.\)`/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',

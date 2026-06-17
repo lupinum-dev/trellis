@@ -95,6 +95,12 @@
         "pattern": "/\\bcreateIdentityForwardingEnvelopeArgs\\b/"
       },
       {
+        "id": "no-beginner-define-operation-docs",
+        "kind": "line",
+        "policy": "beginner function reference must teach operation.* from @lupinum/trellis/app",
+        "pattern": "/defineOperation\\(\\.\\.\\.\\)|defineOperation\\(\\{\\.\\.\\.\\}\\)|`defineOperation\\(\\.\\.\\.\\)`/"
+      },
+      {
         "id": "no-beginner-define-trellis-from-backend",
         "kind": "line",
         "policy": "beginner app setup must import defineTrellis from @lupinum/trellis/app",

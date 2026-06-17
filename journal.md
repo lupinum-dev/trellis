@@ -559,3 +559,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `git diff --check` passed after updating workspace-lane docs to show
   `ctx.workspaceId` as the handler-local tenant source instead of copying
   `appIdentity.workspaceId` into writes.
+- 2026-06-18: `pnpm run security:contract`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:docs:links`,
+  `pnpm run check:security:source-policy`, and
+  `pnpm run check:security:contract`, `pnpm run format:check`, and
+  `git diff --check` passed after moving the functions API reference to the
+  app-first `operation.*` wording and adding a source policy that prevents the
+  beginner function reference from drifting back to `defineOperation(...)`.
