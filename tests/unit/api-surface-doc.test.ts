@@ -35,4 +35,18 @@ describe('generated API surface docs', () => {
     expect(functionsReference).not.toContain('| `rls`')
     expect(functionsReference).toContain('Trellis has one public authorization model')
   })
+
+  it('keeps beginner destructive-operation docs on the app operation builder', () => {
+    const docs = [
+      'apps/docs/content/docs/02.concepts/4.call-patterns.md',
+      'apps/docs/content/docs/04.mutations/4.destructive-operations.md',
+    ]
+
+    for (const docPath of docs) {
+      const content = readFileSync(resolve(process.cwd(), docPath), 'utf8')
+      expect(content).toContain("from '@lupinum/trellis/app'")
+      expect(content).toContain('operation.destructive({')
+      expect(content).not.toContain('defineOperation({')
+    }
+  })
 })

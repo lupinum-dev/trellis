@@ -229,6 +229,14 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
     `createIdentityForwardingEnvelopeArgs`;
   - low-level runtime and focused protocol tests remain the only places where
     raw forwarding primitives should appear.
+- 2026-06-18: Cut beginner destructive-operation docs over to the app operation
+  builder:
+  - destructive guide and call-patterns examples now teach
+    `operation.destructive(...)` from `@lupinum/trellis/app`;
+  - remaining `defineOperation(...)` mentions are reference/advanced notes, not
+    the copied beginner path;
+  - docs unit coverage now keeps those beginner pages on the app operation
+    builder.
 
 ## Blockers
 
@@ -383,3 +391,6 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`
   passed after adding the production-copyable raw-envelope policy. The security
   contract was regenerated with `pnpm run security:contract`.
+- 2026-06-18: `rg -n "defineOperation\\(" apps/docs/content/docs` only returns
+  reference/advanced mentions after updating beginner destructive-operation
+  examples to `operation.destructive(...)`.
