@@ -591,3 +591,8 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `trellis explain permission <key>` and `trellis permissions matrix` as the
   canonical static permission debugging path in authorization and observability
   docs, with unit docs coverage to keep those commands visible.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts -t "keeps presets mechanically equivalent"`,
+  `pnpm run format:check`, and `git diff --check` passed after moving
+  preset/ladder equivalence out of remaining drift in
+  `meta/0.2-implementation-note.md`; the CLI unit suite proves this by
+  comparing generated preset trees against composed `trellis add` ladder output.
