@@ -80,8 +80,10 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 
 ## Blockers
 
-- Maintained examples/starters/docs still use global `public.readTables` and
-  public access context. These must migrate before the full repo gate can pass.
+- Broad `pnpm run check` currently fails in `check:publish-surface` because the
+  local workspace resolves both `@nuxt/schema@4.4.7` via `@nuxt/ui@4.8.1` and
+  `@nuxt/schema@4.4.8` via Nuxt/module-builder. The public-read/session changes
+  pass their focused runtime, docs, security-contract, example, and lint gates.
 
 ## Verification Log
 
@@ -96,3 +98,6 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts tests/unit/phase0-starter-manifest.test.ts` passed.
 - 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/security-contract.test.ts` passed.
 - 2026-06-17: `pnpm run check:docs:api-surface` and `pnpm run check:security:contract` passed.
+- 2026-06-17: `pnpm run check` passed format, docs links, repo policy,
+  compatibility, source lint, test lint, and example lint, then failed at
+  `check:publish-surface` on the `@nuxt/schema` 4.4.7/4.4.8 type split.
