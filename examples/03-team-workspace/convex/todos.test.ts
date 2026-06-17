@@ -5,10 +5,7 @@
  */
 /// <reference types="vite/client" />
 
-import {
-  createIdentityForwardingEnvelopeArgs,
-  requireDelegationBinding,
-} from '@lupinum/trellis/backend'
+import { requireDelegationBinding } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -21,7 +18,6 @@ import { modules } from './test.setup'
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 const api = anyApi as any
 const IDENTITY_FORWARDING_KEY = 'team-workspace-test-identity-forwarding-key'
-const functionNameSymbol = Symbol.for('functionName')
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
@@ -31,35 +27,34 @@ function createCtx() {
   })
 }
 
-function getFunctionRef(ref: unknown): string {
-  if (typeof ref === 'string') return ref
-  if (typeof ref === 'object' && ref !== null) {
-    const record = ref as Record<string | symbol, unknown>
-    if (typeof record[functionNameSymbol] === 'string') return record[functionNameSymbol]
-    if (typeof record._path === 'string') return record._path
-    if (typeof record.functionPath === 'string') return record.functionPath
-  }
-
-  throw new Error('Expected generated Convex function ref in team workspace test.')
-}
-
-function signedWebhookArgs(args: Record<string, unknown>, actingFor: Record<string, unknown>) {
-  const target = api.features.todos.webhooks.processTodoSyncWebhookMutation
-  return createIdentityForwardingEnvelopeArgs({
-    args,
-    caller: {
+function webhookService(
+  ctx: ReturnType<typeof createCtx>,
+  actingFor: { subject: string } & Record<string, unknown>,
+) {
+  return ctx.asCaller(
+    {
       kind: 'service',
       serviceId: 'todo-sync-webhook',
       subject: 'service:todo-sync-webhook',
     },
-    actingFor,
-    key: IDENTITY_FORWARDING_KEY,
-    transport: 'webhook',
-    purpose: 'mutation',
-    replayMode: 'domain-idempotency',
-    functionRef: getFunctionRef(target),
-    operation: 'mutation',
-  })
+    {
+      actingFor,
+      transport: 'webhook',
+      purpose: 'mutation',
+      replayMode: 'domain-idempotency',
+    },
+  )
+}
+
+async function createTodoFromWebhook(
+  ctx: ReturnType<typeof createCtx>,
+  args: Record<string, unknown>,
+  actingFor: { subject: string } & Record<string, unknown>,
+) {
+  return await webhookService(ctx, actingFor).mutation(
+    api.features.todos.webhooks.processTodoSyncWebhookMutation,
+    args,
+  )
 }
 
 describe('team todo example', () => {
@@ -301,10 +296,7 @@ describe('webhook idempotency', () => {
       expiresAt: Date.now() + 60_000,
     })
 
-    await ctx.raw.mutation(
-      api.features.todos.webhooks.processTodoSyncWebhookMutation,
-      signedWebhookArgs(args, actingFor),
-    )
+    await createTodoFromWebhook(ctx, args, actingFor)
 
     const todos = await team.users.member.query(api.features.todos.domain.list, {})
     expect(todos).toHaveLength(1)
@@ -337,12 +329,9 @@ describe('webhook idempotency', () => {
       expiresAt: Date.now() + 60_000,
     })
 
-    await expect(
-      ctx.raw.mutation(
-        api.features.todos.webhooks.processTodoSyncWebhookMutation,
-        signedWebhookArgs(args, actingFor),
-      ),
-    ).rejects.toThrow(/workspaceId does not match|workspace user/i)
+    await expect(createTodoFromWebhook(ctx, args, actingFor)).rejects.toThrow(
+      /workspaceId does not match|workspace user/i,
+    )
   })
 
   it('rejects signed service forwarding when delegation evidence is expired', async () => {
@@ -367,11 +356,8 @@ describe('webhook idempotency', () => {
       expiresAt: Date.now() - 1,
     }
 
-    await expect(
-      ctx.raw.mutation(
-        api.features.todos.webhooks.processTodoSyncWebhookMutation,
-        signedWebhookArgs(args, actingFor),
-      ),
-    ).rejects.toThrow(/expiresAt must be in the future/i)
+    await expect(createTodoFromWebhook(ctx, args, actingFor)).rejects.toThrow(
+      /expiresAt must be in the future/i,
+    )
   })
 })

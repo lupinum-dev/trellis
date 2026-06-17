@@ -85,6 +85,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     source of truth instead of a stale `user` local;
   - example 06 agency dashboard declares the `users` table it reads while
     resolving the authenticated agency actor.
+- 2026-06-17: Extended the maintained `createTestContext(...).asCaller(...)`
+  helper to cover service/webhook acting-for calls with purpose, replay key,
+  replay target, key id, and transport options. Example 03 no longer needs a
+  local function-ref extractor or direct identity-forwarding envelope signing
+  for its webhook delegation tests.
 
 ## Blockers
 
@@ -115,3 +120,7 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm run check` passed end to end after the Nuxt schema
   alignment, harness debug fix, example 06 read inventory fix, and regenerated
   security contract.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm --dir examples/03-team-workspace test`, and
+  `pnpm exec vitest run --project=unit tests/unit/package-subpath-exports.test.ts`
+  passed for the expanded testing helper.

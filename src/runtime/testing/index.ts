@@ -20,6 +20,7 @@ import type { AnyConvexFunction } from '../convex/shared/convex-shared.js'
 import type {
   IdentityForwardingReplayMode,
   IdentityForwardingTransport,
+  IdentityForwardingPurpose,
 } from '../identity-forwarding/envelope.js'
 import { createIdentityForwardingEnvelopeArgs } from '../identity-forwarding/shared.js'
 import { registerObservationCaptureListener } from '../observability/capture.js'
@@ -144,8 +145,13 @@ type TestClient<TSchema extends AnySchemaDefinition> = Pick<
 >
 
 type TestCallerOptions = {
+  actingFor?: { subject: Subject } & Record<string, unknown>
+  purpose?: IdentityForwardingPurpose
   replayMode?: IdentityForwardingReplayMode
+  replayKey?: string
+  replayTarget?: string
   transport?: IdentityForwardingTransport
+  keyId?: string
   jti?: string
 }
 
@@ -339,11 +345,16 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
           ...caller,
           subject: principalSubject,
         },
+        ...(options.actingFor ? { actingFor: options.actingFor } : {}),
         functionRef: getFunctionName(fn as unknown as AnyConvexFunction),
         operation: kind,
+        ...(options.purpose ? { purpose: options.purpose } : {}),
         key: effectiveIdentityForwardingKey,
+        ...(options.keyId ? { keyId: options.keyId } : {}),
         transport: options.transport ?? 'server',
         ...(options.replayMode ? { replayMode: options.replayMode } : {}),
+        ...(options.replayKey ? { replayKey: options.replayKey } : {}),
+        ...(options.replayTarget ? { replayTarget: options.replayTarget } : {}),
         ...(options.jti ? { jti: options.jti } : {}),
       })
     }
@@ -351,6 +362,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     return {
       ...(args ?? {}),
       caller,
+      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
     }
   }
 

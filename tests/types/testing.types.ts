@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 
 import { defineAccessContext } from '../../src/runtime/auth/define-access-context'
 import { defineGuard, definePermission } from '../../src/runtime/auth/index'
+import { subject } from '../../src/runtime/auth/subject'
 import { createTestContext } from '../../src/runtime/testing'
 
 type Assert<T extends true> = T
@@ -67,6 +68,21 @@ const _forwardedWriteClient = defaultCtx.asCaller(
 )
 type _forwardedWriteClientSurface = Assert<
   IsEqual<keyof typeof _forwardedWriteClient, 'action' | 'mutation' | 'query'>
+>
+const _forwardedServiceClient = defaultCtx.asCaller(
+  { kind: 'service', serviceId: 'webhook', subject: subject.service('webhook') },
+  {
+    actingFor: { subject: subject.user('owner-1'), reason: 'type-test' },
+    purpose: 'mutation',
+    replayMode: 'domain-idempotency',
+    replayKey: 'event-1',
+    replayTarget: 'features/items:webhook',
+    transport: 'webhook',
+    keyId: 'default',
+  },
+)
+type _forwardedServiceClientSurface = Assert<
+  IsEqual<keyof typeof _forwardedServiceClient, 'action' | 'mutation' | 'query'>
 >
 
 const _organizationCtx = createTestContext({
