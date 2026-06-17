@@ -155,6 +155,12 @@
         "pattern": "/\\b(?:query|mutation|action)\\.protected\\s*\\([\\s\\S]{0,700}?guard\\s*:\\s*open/g"
       },
       {
+        "id": "no-public-access-context",
+        "kind": "block",
+        "policy": "access context handlers must use query.session, not public reads",
+        "pattern": "/\\bquery\\.public\\s*\\([\\s\\S]{0,500}?\\bdefineAccessContext\\s*\\(/g"
+      },
+      {
         "id": "no-public-demo-seed",
         "kind": "line",
         "policy": "public agency/demo seed mutations are banned",
@@ -1295,7 +1301,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 118,
+      "line": 112,
       "exportName": "setCompleted",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1307,7 +1313,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 120,
+      "line": 114,
       "exportName": "previewRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1319,7 +1325,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 121,
+      "line": 115,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1331,7 +1337,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 59,
+      "line": 53,
       "exportName": "list",
       "functionType": "query",
       "lane": "workspace",
@@ -1343,7 +1349,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 76,
+      "line": 70,
       "exportName": "get",
       "functionType": "query",
       "lane": "workspace",
@@ -1355,7 +1361,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 96,
+      "line": 90,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2821,7 +2827,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 42,
+      "line": 36,
       "exportName": "listTodosOp",
       "type": "query",
       "id": "todos.list",
@@ -2835,7 +2841,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 61,
+      "line": 55,
       "exportName": "getTodoOp",
       "type": "query",
       "id": "todos.get",
@@ -2849,7 +2855,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 78,
+      "line": 72,
       "exportName": "createTodoOp",
       "type": "mutation",
       "id": "todos.create",
@@ -2863,7 +2869,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/features/todos/domain.ts",
-      "line": 98,
+      "line": 92,
       "exportName": "setTodoCompletedOp",
       "type": "mutation",
       "id": "todos.set-completed",

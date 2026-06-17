@@ -114,6 +114,13 @@ export const securitySourcePolicies = [
     pattern: /defineOperation\(\.\.\.\)|defineOperation\(\{\.\.\.\}\)|`defineOperation\(\.\.\.\)`/,
   },
   {
+    id: 'no-public-access-context',
+    kind: 'block',
+    filePathPattern: /^(?:apps\/docs\/content\/docs|examples|src\/cli\/starter-fixtures)\//,
+    policy: 'access context handlers must use query.session, not public reads',
+    pattern: /\bquery\.public\s*\([\s\S]{0,500}?\bdefineAccessContext\s*\(/g,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',

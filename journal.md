@@ -572,3 +572,7 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   remaining workspace-lane docs to use `ctx.workspaceId` and deleting an
   unused tenant helper from the team-workspace todo example. Search for stale
   `appIdentity.workspaceId` copy patterns in docs/examples/starters is clean.
+- 2026-06-18: `pnpm run security:contract` and
+  `pnpm run check:security:source-policy` passed after adding a source policy
+  that prevents production-copyable access context handlers from being
+  registered on `query.public(...)`; the supported lane is `query.session(...)`.
