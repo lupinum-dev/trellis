@@ -24,7 +24,7 @@ type RemoveTaskLoaded = { task: Doc<'tasks'>; comments: Doc<'comments'>[] }
 
 export const removeTaskOp = operation.destructive({
   id: 'tasks.remove',
-  identityForwardingFunctionRef: 'features/tasks/domain:remove',
+  executeFunctionRef: 'features/tasks/domain:remove',
   args: { id: v.id('tasks') },
   returns: v.null(),
   scope: workspaceScope(),

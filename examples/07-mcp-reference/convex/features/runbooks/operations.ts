@@ -40,7 +40,7 @@ type LoadedBulkRunbooks = {
 
 export const removeRunbookOp = operation.destructive({
   id: 'runbooks.remove',
-  identityForwardingFunctionRef: 'features/runbooks/domain:remove',
+  executeFunctionRef: 'features/runbooks/domain:remove',
   args: deleteRunbook.args,
   returns: v.null(),
   scope: workspaceScope(),
@@ -87,7 +87,7 @@ export const removeRunbookOp = operation.destructive({
 
 export const bulkRemoveRunbooksOp = operation.destructive({
   id: 'runbooks.bulkRemove',
-  identityForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
+  executeFunctionRef: 'features/runbooks/domain:bulkRemove',
   args: bulkDeleteRunbooks.args,
   returns: v.object({
     deleted: v.number(),

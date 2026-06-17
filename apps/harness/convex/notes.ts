@@ -47,7 +47,7 @@ export const search = query.public({
 export const addNoteOp = operation.publicMutation({
   id: 'notes.add',
   args: createNote.args,
-  identityForwardingFunctionRef: 'notes:add',
+  executeFunctionRef: 'notes:add',
   identityForwardingTransport: 'mcp',
   publicWrite: {
     reason: 'Harness note demo allows anonymous note creation.',

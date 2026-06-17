@@ -75,7 +75,7 @@ export const listPublishedPagesOp = operation.query({
   id: 'pages.list-published',
   args: listPublishedPages.args,
   returns: v.array(publishedPageValidator),
-  identityForwardingFunctionRef: 'features/pages/domain:listPublished',
+  executeFunctionRef: 'features/pages/domain:listPublished',
   identityForwardingTransport: 'bridge',
   handler: async (ctx) => {
     const pages = await ctx.db
@@ -94,7 +94,7 @@ export const getPublishedPageOp = operation.query({
   id: 'pages.get-published',
   args: getPublishedPage.args,
   returns: v.union(publishedPageValidator, v.null()),
-  identityForwardingFunctionRef: 'features/pages/domain:getPublished',
+  executeFunctionRef: 'features/pages/domain:getPublished',
   identityForwardingTransport: 'bridge',
   handler: async (ctx, args: GetPublishedPageArgs) => {
     const page = await ctx.db
@@ -113,7 +113,7 @@ export const listStudioPagesOp = operation.query({
   id: 'pages.list-studio',
   args: listStudioPages.args,
   returns: v.array(studioPageValidator),
-  identityForwardingFunctionRef: 'features/pages/domain:listStudio',
+  executeFunctionRef: 'features/pages/domain:listStudio',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: QueryCtx) => {
     const pages = await ctx.db.query('pages').order('desc').collect()
@@ -127,7 +127,7 @@ export const listDraftPagesOp = operation.query({
   id: 'pages.list-draft',
   args: listDraftPages.args,
   returns: v.array(studioPageValidator),
-  identityForwardingFunctionRef: 'features/pages/domain:listDraft',
+  executeFunctionRef: 'features/pages/domain:listDraft',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: QueryCtx) => {
     const pages = await ctx.db
@@ -146,7 +146,7 @@ export const createPageOp = operation.mutation({
   id: 'pages.create',
   args: createPage.args,
   returns: v.string(),
-  identityForwardingFunctionRef: 'features/pages/domain:create',
+  executeFunctionRef: 'features/pages/domain:create',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: ManagePagesMutationCtx, args: CreatePageArgs) => {
     const appIdentity = await ctx.appIdentity()
@@ -178,7 +178,7 @@ export const saveDraftOp = operation.mutation({
   id: 'pages.save-draft',
   args: saveDraft.args,
   returns: v.null(),
-  identityForwardingFunctionRef: 'features/pages/domain:save',
+  executeFunctionRef: 'features/pages/domain:save',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: MutationCtx, args: SaveDraftArgs) => {
     await ctx.db.patch(args.id as Id<'pages'>, {

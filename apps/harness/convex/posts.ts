@@ -131,7 +131,7 @@ export const get = query.authenticated({
 export const createPostOp = operation.mutation({
   id: 'posts.create',
   args: createPost.args,
-  identityForwardingFunctionRef: 'posts:create',
+  executeFunctionRef: 'posts:create',
   identityForwardingTransport: 'mcp',
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
@@ -213,7 +213,7 @@ export const removePostOp = operation.destructive({
   args: removePostDescriptor.args,
   returns: removePostDescriptor.returns,
   previewReturns: removePostDescriptor.previewReturns,
-  identityForwardingFunctionRef: 'posts:removeWithConfirmation',
+  executeFunctionRef: 'posts:removeWithConfirmation',
   permission: postDeletePermission,
   safety: 'destructive-write',
   load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
@@ -259,12 +259,12 @@ export const removePostOp = operation.destructive({
 
 export const removeWithConfirmation = mutation.workspace({
   ...removePostOp,
-  identityForwardingFunctionRef: 'posts:removeWithConfirmation',
+  executeFunctionRef: 'posts:removeWithConfirmation',
   identityForwardingTransport: 'mcp',
 })
 export const previewRemove = mutation.workspace({
   ...previewOf(removePostOp),
-  identityForwardingFunctionRef: 'posts:previewRemove',
+  executeFunctionRef: 'posts:previewRemove',
   identityForwardingTransport: 'mcp',
 })
 

@@ -23,7 +23,7 @@ type ArchiveProjectArgs = { id: Id<'projects'> }
 
 export const archiveProjectOp = operation.destructive({
   id: 'projects.archive',
-  identityForwardingFunctionRef: 'features/projects/domain:archive',
+  executeFunctionRef: 'features/projects/domain:archive',
   args: archiveProject.args,
   returns: v.null(),
   scope: workspaceScope(),

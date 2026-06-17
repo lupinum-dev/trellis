@@ -335,6 +335,7 @@ type ActionCustomizationCtx<
 
 type IdentityForwardingCustomizationExtra = {
   id?: string
+  executeFunctionRef?: string
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   trellisBackendLane?: TrellisBackendLane
@@ -1903,17 +1904,28 @@ function getDestructivePreviewExecutePath(
   const executePath = projectionMetadata?.executeFunctionRef
   if (!executePath) {
     throw new Error(
-      `Destructive operation "${metadata.id ?? metadata.name ?? 'unknown'}" preview confirmation requires the operation definition to provide identityForwardingFunctionRef for the execute function.`,
+      `Destructive operation "${metadata.id ?? metadata.name ?? 'unknown'}" preview confirmation requires the operation definition to provide executeFunctionRef for the execute function.`,
     )
   }
   return executePath
 }
 
+function getExecuteFunctionRef(definition: unknown): string | undefined {
+  return typeof (definition as { executeFunctionRef?: unknown }).executeFunctionRef === 'string'
+    ? (definition as { executeFunctionRef: string }).executeFunctionRef
+    : undefined
+}
+
 function getDestructivePreviewPath(
-  definition: { identityForwardingFunctionRef?: string },
+  definition: { id?: string; identityForwardingFunctionRef?: string },
   projectionMetadata: TrellisOperationProjectionMetadata | null,
 ): string {
-  return definition.identityForwardingFunctionRef ?? projectionMetadata?.functionRef ?? 'preview'
+  return (
+    definition.identityForwardingFunctionRef ??
+    projectionMetadata?.functionRef ??
+    definition.id ??
+    'preview'
+  )
 }
 
 function getStoredConfirmationId(row: StoredToolConfirmationRow): unknown {
@@ -1963,7 +1975,7 @@ async function attachDestructivePreviewConfirmation<
   loaded: unknown
   metadata: TrellisOperationMetadata
   projectionMetadata: TrellisOperationProjectionMetadata | null
-  definition: { identityForwardingFunctionRef?: string }
+  definition: { id?: string; identityForwardingFunctionRef?: string }
   previewResult: unknown
   options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>
 }): Promise<unknown> {
@@ -2857,11 +2869,15 @@ function buildStructuredMutationRuntime<
         ? {
             identityForwardingFunctionRef: definition.identityForwardingFunctionRef,
           }
-        : projectionMetadata?.functionRef
-          ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
-          : definition.id
-            ? { identityForwardingFunctionRef: definition.id }
-            : {}),
+        : getExecuteFunctionRef(definition)
+          ? {
+              identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
+            }
+          : projectionMetadata?.functionRef
+            ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
+            : definition.id
+              ? { identityForwardingFunctionRef: definition.id }
+              : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
@@ -2975,7 +2991,9 @@ function buildStructuredMutationRuntime<
           )
         }
         const executePath =
-          definition.identityForwardingFunctionRef ?? projectionMetadata?.functionRef
+          definition.identityForwardingFunctionRef ??
+          getExecuteFunctionRef(definition) ??
+          projectionMetadata?.functionRef
         if (executePath && payload.executePath !== executePath) {
           throw new Error(
             `Confirmation token targets execute path "${payload.executePath}", not "${executePath}".`,
@@ -3245,11 +3263,15 @@ function buildStructuredTransportMutationRuntime<
         ? {
             identityForwardingFunctionRef: definition.identityForwardingFunctionRef,
           }
-        : projectionMetadata?.functionRef
-          ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
-          : definition.id
-            ? { identityForwardingFunctionRef: definition.id }
-            : {}),
+        : getExecuteFunctionRef(definition)
+          ? {
+              identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
+            }
+          : projectionMetadata?.functionRef
+            ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
+            : definition.id
+              ? { identityForwardingFunctionRef: definition.id }
+              : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),

@@ -234,7 +234,7 @@ export const getWorkspace = query.workspace(getWorkspaceRunbookOp)
 export const createRunbookOp = operation.mutation({
   id: 'runbooks.create',
   args: createRunbook.args,
-  identityForwardingFunctionRef: 'features/runbooks/domain:create',
+  executeFunctionRef: 'features/runbooks/domain:create',
   scope: workspaceScope(),
   permission: runbookCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookArgs) => {

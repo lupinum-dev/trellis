@@ -98,6 +98,18 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     Operation definitions still retain execute-target metadata for now because
     their existing `id` is the operation id, not the Convex execute function
     target.
+- 2026-06-17: Renamed app-authored operation execute target metadata to
+  `executeFunctionRef`:
+  - maintained examples, harness operations, docs, CLI resource generation, and
+    the security contract scanner no longer use
+    `identityForwardingFunctionRef` for operation definitions;
+  - structured handlers now prefer `executeFunctionRef` before falling back to
+    projection metadata or handler `id`, so operation ids and Convex execute
+    paths stay separate;
+  - internal verifier plumbing still maps the app-facing field into the
+    existing `identityForwardingFunctionRef` runtime slot. This is intentionally
+    scoped as transport internals for this slice; the remaining cleanup is to
+    collapse that internal name once the broader forwarding tests are migrated.
 
 ## Blockers
 
@@ -136,3 +148,15 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm exec tsc -p tsconfig.types.json --noEmit`, and
   `pnpm --dir examples/07-mcp-reference test` passed for the direct-handler
   stable `id` forwarding slice.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/security-contract.test.ts`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:security:contract`,
+  `pnpm run build:module`, `pnpm --dir examples/03-team-workspace test`,
+  `pnpm --dir examples/04-saas-platform typecheck:tests`,
+  `pnpm --dir examples/05-visibility-access typecheck:tests`,
+  `pnpm --dir examples/07-mcp-reference test`, and
+  `pnpm --dir examples/08-component-mini-cms test` passed for the operation
+  `executeFunctionRef` slice.
+- 2026-06-17: `pnpm run check` passed end to end after the operation
+  `executeFunctionRef` migration and structured-handler forwarding fallback
+  fix.

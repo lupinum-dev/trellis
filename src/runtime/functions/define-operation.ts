@@ -106,6 +106,7 @@ export type OperationDefinition<
         id?: string
         name?: string
         kind?: OperationKind
+        executeFunctionRef?: string
         permission?: PermissionKeyHandle<string>
         safety?: McpWriteSafety
         preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
@@ -128,6 +129,7 @@ export type OperationShape = {
   id?: string
   name?: string
   kind?: OperationKind
+  executeFunctionRef?: string
   permission?: PermissionKeyHandle<string>
   safety?: McpWriteSafety
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -396,6 +398,7 @@ export function previewOf<
     returns?: GenericValidator
     load?: (...args: any[]) => unknown
     authorize?: unknown
+    executeFunctionRef?: string
     identityForwardingFunctionRef?: string
     [trellisOperationMetadataKey]?: TrellisOperationMetadata
     [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
@@ -473,8 +476,11 @@ export function previewOf(operation: any): any {
           [trellisOperationProjectionMetadataKey]: {
             operationId: metadata.id,
             projection: 'preview' as const,
-            ...(operation.identityForwardingFunctionRef
-              ? { executeFunctionRef: operation.identityForwardingFunctionRef }
+            ...((operation.executeFunctionRef ?? operation.identityForwardingFunctionRef)
+              ? {
+                  executeFunctionRef:
+                    operation.executeFunctionRef ?? operation.identityForwardingFunctionRef,
+                }
               : {}),
           },
         }

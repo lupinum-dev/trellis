@@ -244,8 +244,7 @@ function collectOperations(repoRoot, files) {
         hasPublicWrite: block.source.includes('publicWrite:'),
         hasPreview: block.source.includes('preview:'),
         hasExecute: block.source.includes('execute:'),
-        identityForwardingFunctionRef:
-          extractStringProperty(block.source, 'identityForwardingFunctionRef') ?? null,
+        executeFunctionRef: extractStringProperty(block.source, 'executeFunctionRef') ?? null,
         identityForwardingTransport:
           extractStringProperty(block.source, 'identityForwardingTransport') ?? null,
       })

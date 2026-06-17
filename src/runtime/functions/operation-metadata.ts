@@ -44,6 +44,8 @@ type OperationMetadataCarrier = {
   id?: string
   name?: string
   kind?: OperationKind
+  executeFunctionRef?: string
+  identityForwardingFunctionRef?: string
 }
 
 export type OperationDescriptor<
@@ -292,12 +294,11 @@ export function projectOperationRef<
     operationId: metadata.id,
     projection,
     ...(functionRef ? { functionRef } : {}),
-    ...(projection === 'preview' && 'identityForwardingFunctionRef' in operation
+    ...(projection === 'preview' &&
+    (operation.executeFunctionRef ?? operation.identityForwardingFunctionRef)
       ? {
           executeFunctionRef:
-            typeof operation.identityForwardingFunctionRef === 'string'
-              ? operation.identityForwardingFunctionRef
-              : undefined,
+            operation.executeFunctionRef ?? operation.identityForwardingFunctionRef,
         }
       : {}),
   }) as ValidateOperationProjectionRef<TOperation, TProjection, TRef>

@@ -53,6 +53,7 @@ type AnyBuilder = (definition: {
   trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
   publicReadTables?: readonly string[]
   identityForwardingFunctionRef?: string
+  executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   crossTenant?: unknown
   publicWrite?: unknown
@@ -267,6 +268,7 @@ type HandlerDefinition<
    * signed identity-forwarding envelopes against this exact Convex function ref.
    */
   identityForwardingFunctionRef?: string
+  executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
   publicReadTables?: readonly string[]
@@ -503,6 +505,7 @@ function createStructuredBuilder<
   ): ReturnType<TBuilder> {
     const forwardingTarget =
       definition.identityForwardingFunctionRef ??
+      definition.executeFunctionRef ??
       getOperationProjectionMetadata(definition)?.functionRef ??
       definition.id
     const built = builder({

@@ -24,7 +24,7 @@ type PageOperationCtx = {
 
 export const publishPageOp = operation.destructive({
   id: 'pages.publish',
-  identityForwardingFunctionRef: 'features/pages/domain:publish',
+  executeFunctionRef: 'features/pages/domain:publish',
   identityForwardingTransport: 'bridge',
   args: publishPage.args,
   returns: v.object({
@@ -93,6 +93,6 @@ export const publishPageOp = operation.destructive({
 
 export const previewPublish = query.authenticated({
   ...previewOf(publishPageOp),
-  identityForwardingFunctionRef: 'features/pages/operations:previewPublish',
+  executeFunctionRef: 'features/pages/operations:previewPublish',
   identityForwardingTransport: 'bridge',
 })

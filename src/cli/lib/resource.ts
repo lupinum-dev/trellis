@@ -289,7 +289,7 @@ export const remove${ctx.singularPascal}Op = operation.destructive({
   args: delete${ctx.singularPascal}.args,
   permission: ${ctx.singularCamel}DeletePermission,
   safety: 'destructive-write',
-  identityForwardingFunctionRef: 'features/${ctx.tableName}/domain:remove',
+  executeFunctionRef: 'features/${ctx.tableName}/domain:remove',
   load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')

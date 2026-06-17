@@ -197,21 +197,21 @@
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "denies duplicate webhook events",
       "evidenceFor": ["backend-owned delivery idempotency", "duplicate event rejection"],
-      "line": 201
+      "line": 196
     },
     {
       "id": "example03-webhook-forged-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when the delegation workspace is forged",
       "evidenceFor": ["backend delegation revalidation", "forged workspace rejection"],
-      "line": 315
+      "line": 307
     },
     {
       "id": "example03-webhook-expired-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when delegation evidence is expired",
       "evidenceFor": ["backend delegation revalidation", "expired delegation rejection"],
-      "line": 348
+      "line": 337
     },
     {
       "id": "example07-webhook-route-retry",
@@ -382,7 +382,7 @@
   "delegationBindings": [
     {
       "file": "examples/03-team-workspace/convex/todos.test.ts",
-      "line": 294,
+      "line": 289,
       "serviceId": "todo-sync-webhook",
       "purpose": "todo-sync-webhook",
       "grantSource": "workspace-service-policy",
@@ -394,7 +394,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/todos.test.ts",
-      "line": 330,
+      "line": 322,
       "serviceId": "todo-sync-webhook",
       "purpose": "todo-sync-webhook",
       "grantSource": "workspace-service-policy",
@@ -2530,7 +2530,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": "mcp"
     },
     {
@@ -2544,7 +2544,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2558,7 +2558,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2572,7 +2572,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "notes:add",
+      "executeFunctionRef": "notes:add",
       "identityForwardingTransport": "mcp"
     },
     {
@@ -2586,7 +2586,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "posts:create",
+      "executeFunctionRef": "posts:create",
       "identityForwardingTransport": "mcp"
     },
     {
@@ -2600,7 +2600,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2614,7 +2614,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2628,7 +2628,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "posts:removeWithConfirmation",
+      "executeFunctionRef": "posts:removeWithConfirmation",
       "identityForwardingTransport": null
     },
     {
@@ -2642,7 +2642,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2656,7 +2656,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": "mcp"
     },
     {
@@ -2670,7 +2670,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2684,7 +2684,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2698,7 +2698,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2712,7 +2712,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2726,7 +2726,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2740,7 +2740,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2754,7 +2754,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2768,7 +2768,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2782,7 +2782,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2796,7 +2796,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2810,7 +2810,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2824,7 +2824,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2838,7 +2838,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2852,7 +2852,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/todos/webhooks:processTodoSyncWebhookMutation",
+      "executeFunctionRef": "features/todos/webhooks:processTodoSyncWebhookMutation",
       "identityForwardingTransport": "webhook"
     },
     {
@@ -2866,7 +2866,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2880,7 +2880,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2894,7 +2894,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2908,7 +2908,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2922,7 +2922,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2936,7 +2936,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2950,7 +2950,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2964,7 +2964,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2978,7 +2978,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -2992,7 +2992,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/projects/domain:archive",
+      "executeFunctionRef": "features/projects/domain:archive",
       "identityForwardingTransport": null
     },
     {
@@ -3006,7 +3006,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3020,7 +3020,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3034,7 +3034,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3048,7 +3048,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3062,7 +3062,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3076,7 +3076,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3090,7 +3090,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3104,7 +3104,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/tasks/domain:remove",
+      "executeFunctionRef": "features/tasks/domain:remove",
       "identityForwardingTransport": null
     },
     {
@@ -3118,7 +3118,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3132,7 +3132,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3146,7 +3146,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3160,7 +3160,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3174,7 +3174,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3188,7 +3188,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3202,7 +3202,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3216,7 +3216,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3230,7 +3230,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3244,7 +3244,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/articles/domain:revokeShareToken",
+      "executeFunctionRef": "features/articles/domain:revokeShareToken",
       "identityForwardingTransport": null
     },
     {
@@ -3258,7 +3258,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3272,7 +3272,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3286,7 +3286,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3300,7 +3300,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3314,7 +3314,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3328,7 +3328,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3342,7 +3342,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3356,7 +3356,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3370,7 +3370,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3384,7 +3384,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3398,7 +3398,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3412,7 +3412,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3426,7 +3426,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3440,7 +3440,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3454,7 +3454,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3468,7 +3468,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3482,7 +3482,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3496,7 +3496,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3510,7 +3510,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3524,7 +3524,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3538,7 +3538,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3552,7 +3552,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/runbooks/domain:create",
+      "executeFunctionRef": "features/runbooks/domain:create",
       "identityForwardingTransport": null
     },
     {
@@ -3566,7 +3566,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3580,7 +3580,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3594,7 +3594,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/runbooks/domain:remove",
+      "executeFunctionRef": "features/runbooks/domain:remove",
       "identityForwardingTransport": null
     },
     {
@@ -3608,7 +3608,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/runbooks/domain:bulkRemove",
+      "executeFunctionRef": "features/runbooks/domain:bulkRemove",
       "identityForwardingTransport": null
     },
     {
@@ -3622,7 +3622,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/runbooks/webhooks:createRunbookFromWebhookMutation",
+      "executeFunctionRef": "features/runbooks/webhooks:createRunbookFromWebhookMutation",
       "identityForwardingTransport": "webhook"
     },
     {
@@ -3636,7 +3636,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3650,7 +3650,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3664,7 +3664,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3678,7 +3678,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:listStudio",
+      "executeFunctionRef": "features/pages/domain:listStudio",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3692,7 +3692,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:listDraft",
+      "executeFunctionRef": "features/pages/domain:listDraft",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3706,7 +3706,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:create",
+      "executeFunctionRef": "features/pages/domain:create",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3720,7 +3720,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:save",
+      "executeFunctionRef": "features/pages/domain:save",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3734,7 +3734,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:listPublished",
+      "executeFunctionRef": "features/pages/domain:listPublished",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3748,7 +3748,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:getPublished",
+      "executeFunctionRef": "features/pages/domain:getPublished",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3762,7 +3762,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "identityForwardingFunctionRef": "features/pages/domain:publish",
+      "executeFunctionRef": "features/pages/domain:publish",
       "identityForwardingTransport": "bridge"
     },
     {
@@ -3776,7 +3776,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3790,7 +3790,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3804,7 +3804,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3818,7 +3818,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3832,7 +3832,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3846,7 +3846,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3860,7 +3860,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3874,7 +3874,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3888,7 +3888,7 @@
       "hasPublicWrite": true,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3902,7 +3902,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3916,7 +3916,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3930,7 +3930,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3944,7 +3944,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3958,7 +3958,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3972,7 +3972,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "identityForwardingFunctionRef": null,
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     }
   ],
