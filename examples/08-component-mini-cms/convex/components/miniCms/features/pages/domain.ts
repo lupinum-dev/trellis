@@ -88,7 +88,7 @@ export const listPublishedPagesOp = operation.query({
   },
 })
 
-export const listPublished = query.public(listPublishedPagesOp)
+export const listPublished = query.public({ ...listPublishedPagesOp, reads: ['pages'] })
 
 export const getPublishedPageOp = operation.query({
   id: 'pages.get-published',
@@ -107,7 +107,7 @@ export const getPublishedPageOp = operation.query({
   },
 })
 
-export const getPublished = query.public(getPublishedPageOp)
+export const getPublished = query.public({ ...getPublishedPageOp, reads: ['pages'] })
 
 export const listStudioPagesOp = operation.query({
   id: 'pages.list-studio',

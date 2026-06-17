@@ -34,7 +34,7 @@ export const getCurrentUserOp = operation.query({
   },
 })
 
-export const getCurrentUser = query.public(getCurrentUserOp)
+export const getCurrentUser = query.public({ ...getCurrentUserOp, reads: ['users'] })
 
 export const listWorkspaceUsersForMcpKeysOp = operation.query({
   id: 'users.list-for-mcp-keys',

@@ -13,6 +13,8 @@ export type AppIdentity = {
   authKey: string
   role: Role
   workspaceId?: Id<'organizations'>
+  email?: string
+  displayName?: string
 } | null
 
 type InternalHarnessCtx =
@@ -37,6 +39,8 @@ async function loadActorByAuthKey(ctx: InternalHarnessCtx, authKey: string): Pro
     userId: user._id,
     authKey: user.authKey,
     role: user.role,
+    email: user.email,
+    displayName: user.displayName,
     ...(user.organizationId ? { workspaceId: user.organizationId } : {}),
   }
 }
@@ -54,6 +58,8 @@ async function loadActorByUserId(ctx: InternalHarnessCtx, userId: string): Promi
     userId: user._id,
     authKey: user.authKey,
     role: user.role,
+    email: user.email,
+    displayName: user.displayName,
     ...(user.organizationId ? { workspaceId: user.organizationId } : {}),
   }
 }

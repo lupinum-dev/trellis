@@ -8,6 +8,7 @@ import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'conv
 
 import type { DataModel, Id } from '../_generated/dataModel'
 import type { MembershipRole } from '../features/memberships'
+import { getMemberships } from './agency'
 
 export type AppIdentity = {
   kind: 'user'
@@ -15,6 +16,9 @@ export type AppIdentity = {
   authKey: string
   role: MembershipRole
   workspaceId: Id<'workspaces'>
+  email?: string | null
+  displayName?: string | null
+  agencyDashboard: boolean
 }
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel> | GenericActionCtx<DataModel>
@@ -39,6 +43,7 @@ export async function getAppIdentity(ctx: Ctx): Promise<AppIdentity | null> {
     )
     .first()
   if (!membership) return null
+  const memberships = await getMemberships(ctx.db, user._id)
 
   return {
     kind: 'user',
@@ -46,5 +51,10 @@ export async function getAppIdentity(ctx: Ctx): Promise<AppIdentity | null> {
     authKey: user.authKey,
     role: membership.role,
     workspaceId: user.workspaceId,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
+    agencyDashboard: memberships.some((candidate) =>
+      ['agency_admin', 'agency_manager'].includes(candidate.role),
+    ),
   }
 }

@@ -15,6 +15,8 @@ export type AppIdentity = {
   authKey: string
   role: Role
   workspaceId?: Id<'workspaces'>
+  email?: string | null
+  displayName?: string | null
 }
 
 async function loadActorByAuthKey(
@@ -38,6 +40,8 @@ async function loadActorByAuthKey(
     authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
   }
 }
 

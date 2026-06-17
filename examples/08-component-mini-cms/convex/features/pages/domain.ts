@@ -85,6 +85,7 @@ async function bridgeForwardingArgs(
 const bridgeApi = (anyApi as any).features.pages.bridge
 
 export const listPublished = query.public({
+  reads: [],
   args: listPublishedPagesSchema.args,
   returns: publishedPageListValidator,
   handler: async (ctx) =>
@@ -95,6 +96,7 @@ export const listPublished = query.public({
 })
 
 export const getPublished = query.public({
+  reads: [],
   args: getPublishedPageSchema.args,
   returns: v.union(publishedPageValidator, v.null()),
   handler: async (ctx, args) =>
@@ -105,6 +107,7 @@ export const getPublished = query.public({
 })
 
 export const listStudio = query.public({
+  reads: [],
   args: listStudioPagesSchema.args,
   returns: studioPageListValidator,
   handler: async (ctx) =>
@@ -115,6 +118,7 @@ export const listStudio = query.public({
 })
 
 export const listDraft = query.public({
+  reads: [],
   args: listDraftPagesSchema.args,
   returns: studioPageListValidator,
   handler: async (ctx) =>
@@ -167,6 +171,7 @@ export const publishAction = action.public({
 })
 
 export const previewPublish = query.public({
+  reads: [],
   args: publishPageSchema.args,
   returns: publishPreviewResultValidator,
   handler: async (ctx, args) =>

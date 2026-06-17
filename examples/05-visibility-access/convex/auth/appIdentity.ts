@@ -18,23 +18,34 @@ type KnowledgeBaseActor = {
   role: UserRole
   workspaceId: Id<'workspaces'>
   managerId: Id<'users'> | undefined
+  email?: string | null
+  displayName?: string | null
 }
 
-const appIdentity = defineAppIdentity
-  .fromAuth<DataModel>()
-  .extend({
-    fields: async (_ctx, user) => ({
-      role: user.role as UserRole,
-      workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
-      managerId: user.managerId as Id<'users'> | undefined,
-    }),
-  })
-  .filter((value): value is KnowledgeBaseActor => !!value.workspaceId)
+const appIdentity = defineAppIdentity.fromAuth<DataModel>().extend({
+  fields: async (_ctx, user) => ({
+    role: user.role as UserRole,
+    workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+    managerId: user.managerId as Id<'users'> | undefined,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
+  }),
+})
 
 export type AppIdentity = KnowledgeBaseActor
 
 export async function getAppIdentity(
   ctx: Parameters<typeof appIdentity.resolve>[0],
 ): Promise<AppIdentity | null> {
-  return await appIdentity.resolve(ctx)
+  const resolved = await appIdentity.resolve(ctx)
+  if (!resolved?.workspaceId) return null
+
+  return {
+    ...resolved,
+    userId: resolved.userId as Id<'users'>,
+    workspaceId: resolved.workspaceId,
+    managerId: resolved.managerId,
+    email: resolved.email ?? null,
+    displayName: resolved.displayName ?? null,
+  }
 }

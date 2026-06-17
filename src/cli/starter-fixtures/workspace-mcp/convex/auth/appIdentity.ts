@@ -15,15 +15,12 @@ type BaseAppIdentity = {
   authKey: string
 }
 
-export type AppIdentity = BaseAppIdentity & {
-  role: Role
-  workspaceId: Id<'workspaces'>
-}
-
 export type AccessIdentity = BaseAppIdentity & {
   role: Role
   workspaceId?: Id<'workspaces'>
 }
+
+export type AppIdentity = AccessIdentity
 
 async function loadActorByAuthKey(
   ctx: WorkspaceCtx,
@@ -88,13 +85,7 @@ export async function getAppIdentityFromCaller(
   const delegatedUserId = getSubjectValue(actingFor?.subject, 'user')
 
   if (delegatedUserId) {
-    const appIdentity = requireAccessIdentity(
-      delegatedUserId,
-      await loadActorByUserId(ctx, delegatedUserId),
-    )
-    return appIdentity?.workspaceId
-      ? { ...appIdentity, workspaceId: appIdentity.workspaceId }
-      : null
+    return requireAccessIdentity(delegatedUserId, await loadActorByUserId(ctx, delegatedUserId))
   }
 
   switch (caller.kind) {
@@ -103,13 +94,7 @@ export async function getAppIdentityFromCaller(
     case 'agent':
       return null
     case 'user': {
-      const appIdentity = requireAccessIdentity(
-        caller.authKey,
-        await loadActorByAuthKey(ctx, caller.authKey),
-      )
-      return appIdentity?.workspaceId
-        ? { ...appIdentity, workspaceId: appIdentity.workspaceId }
-        : null
+      return requireAccessIdentity(caller.authKey, await loadActorByAuthKey(ctx, caller.authKey))
     }
   }
 }
@@ -121,6 +106,5 @@ export async function getAccessIdentity(ctx: WorkspaceCtx): Promise<AccessIdenti
 }
 
 export async function getAppIdentity(ctx: WorkspaceCtx): Promise<AppIdentity | null> {
-  const appIdentity = await getAccessIdentity(ctx)
-  return appIdentity?.workspaceId ? { ...appIdentity, workspaceId: appIdentity.workspaceId } : null
+  return await getAccessIdentity(ctx)
 }

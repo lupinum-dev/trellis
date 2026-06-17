@@ -12,9 +12,6 @@ export const { mutation, query, unsafe } = defineTrellis(
   { query: generatedQuery, mutation: generatedMutation },
   {
     appIdentity: getAppIdentity,
-    public: {
-      readTables: ['users', 'memberships', 'workspaces', 'projects'],
-    },
     isolation: {
       tables: isolatedTables,
       sharedTables: explicitlySharedTables,

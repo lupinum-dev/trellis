@@ -171,7 +171,10 @@ export const viewSharedArticleOp = operation.query({
   },
 })
 
-export const viewShared = query.public(viewSharedArticleOp)
+export const viewShared = query.public({
+  ...viewSharedArticleOp,
+  reads: ['shareTokens', 'articles'],
+})
 
 export const createArticleOp = operation.mutation({
   id: 'articles.create',

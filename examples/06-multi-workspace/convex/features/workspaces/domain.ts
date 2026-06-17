@@ -57,7 +57,10 @@ export const listAccessibleWorkspacesOp = operation.query({
   },
 })
 
-export const listAccessibleWorkspaces = query.public(listAccessibleWorkspacesOp)
+export const listAccessibleWorkspaces = query.public({
+  ...listAccessibleWorkspacesOp,
+  reads: ['memberships', 'workspaces'],
+})
 
 export const createWorkspaceOp = operation.mutation({
   id: 'workspaces.create',

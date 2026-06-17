@@ -94,7 +94,7 @@ interface DebugInfo {
   context?: Record<string, unknown>
 }
 
-export const getAccessContext = query.public({
+export const getAccessContext = query.session({
   args: {},
   handler: async (ctx) => {
     // #region agent log
@@ -106,34 +106,19 @@ export const getAccessContext = query.public({
       return null
     }
 
-    // Look up user in our database
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_key', (q) => q.eq('authKey', identity.tokenIdentifier))
-      .first()
-
-    // #region agent log
-    debugInfo.hasUser = !!user
-    debugInfo.userId = user?._id
-    debugInfo.workspaceId = user?.organizationId
-    debugInfo.role = user?.role
-    // #endregion
-
-    // Missing user row means the Trellis auth bootstrap has not populated the app user table yet.
-    if (!user) {
-      // #region agent log
-      debugInfo.reason = 'user row missing after auth sync'
-      // Return debug info for debugging
-      return { _debug: debugInfo } as { _debug: DebugInfo }
-      // #endregion
-    }
-
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity) {
       return { _debug: { ...debugInfo, reason: 'appIdentity resolution failed' } } as {
         _debug: DebugInfo
       }
     }
+
+    // #region agent log
+    debugInfo.hasUser = true
+    debugInfo.userId = appIdentity.userId
+    debugInfo.workspaceId = appIdentity.workspaceId
+    debugInfo.role = appIdentity.role
+    // #endregion
 
     // Return permission context even if no tenant is assigned yet.
     const context: {
@@ -145,11 +130,11 @@ export const getAccessContext = query.public({
       workspaceId?: string
       can: Record<string, boolean>
     } = {
-      role: user.role,
-      userId: user._id,
-      authKey: user.authKey,
-      displayName: user.displayName,
-      email: user.email,
+      role: appIdentity.role,
+      userId: appIdentity.userId,
+      authKey: appIdentity.authKey,
+      displayName: appIdentity.displayName,
+      email: appIdentity.email,
       can: {
         'org.settings': can(appIdentity, canManageOrgSettings),
         'org.billing': can(appIdentity, canViewBilling),
@@ -164,8 +149,8 @@ export const getAccessContext = query.public({
     }
 
     // Only include workspaceId if user has one
-    if (user.organizationId) {
-      context.workspaceId = user.organizationId
+    if (appIdentity.workspaceId) {
+      context.workspaceId = appIdentity.workspaceId
     }
 
     // #region agent log

@@ -36,6 +36,10 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   runtime internals. Doctor/public-surface inventory now recognizes operation
   projections declared as `query.public({ ...operation, reads })`, and module
   validation recognizes `query.session` as a real query export.
+- D005: Session/access context resolves through the Trellis runtime
+  `ctx.appIdentity()` instead of calling DB-backed helpers with the handler
+  context. This keeps `query.session` handlers DB-less while preserving normal
+  app identity resolution.
 
 ## Progress
 
@@ -60,6 +64,13 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     capability objects.
   - Convex function path validation now includes `session`, `authenticated`,
     and `workspace` lanes.
+- 2026-06-17: Migrated maintained examples and harness off global public reads:
+  - example/harness access context now uses `query.session` or a DB-less
+    session handler.
+  - public data queries declare local `reads`; bridge/probe wrappers declare
+    `reads: []`.
+  - starter workspace identities now model signed-in actors separately from
+    workspace lane enforcement.
 
 ## Blockers
 
@@ -73,3 +84,7 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` passed.
 - 2026-06-17: `pnpm run build:cli` passed.
 - 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/module-validation.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/auth-access-context.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts` passed.
+- 2026-06-17: `pnpm run build:module` passed.
+- 2026-06-17: `pnpm --dir examples/04-saas-platform typecheck:tests`, `pnpm --dir examples/05-visibility-access typecheck:tests`, and `pnpm --dir examples/06-multi-workspace typecheck:tests` passed.
+- 2026-06-17: `pnpm --dir examples/03-team-workspace test`, `pnpm --dir examples/07-mcp-reference test`, and `pnpm --dir examples/08-component-mini-cms test` passed.
+- 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts tests/unit/phase0-starter-manifest.test.ts` passed.

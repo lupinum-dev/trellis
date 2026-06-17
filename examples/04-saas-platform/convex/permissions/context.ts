@@ -1,27 +1,15 @@
 import { defineAccessContext } from '@lupinum/trellis/auth'
 
-import { getAppIdentity } from '../auth/appIdentity'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getAccessContext = query.public(
+export const getAccessContext = query.session(
   defineAccessContext({
-    resolve: getAppIdentity,
+    resolve: async (ctx) => await ctx.appIdentity(),
     permissions,
-    extend: async (ctx, appIdentity) => {
-      const user = await ctx.db.get('users', appIdentity.userId)
-
-      if (!user) {
-        return {
-          email: null,
-          displayName: null,
-        }
-      }
-
-      return {
-        email: user.email ?? null,
-        displayName: user.displayName ?? null,
-      }
-    },
+    extend: async (_ctx, appIdentity) => ({
+      email: appIdentity.email ?? null,
+      displayName: appIdentity.displayName ?? null,
+    }),
   }),
 )

@@ -16,6 +16,8 @@ export type AppIdentity = Omit<DefaultAppIdentity, 'role' | 'userId' | 'workspac
   userId: Id<'users'>
   role: Role
   workspaceId?: Id<'workspaces'>
+  email?: string | null
+  displayName?: string | null
 }
 
 async function loadActorByAuthKey(ctx: TeamTodoCtx, authKey: string): Promise<AppIdentity | null> {
@@ -36,6 +38,8 @@ async function loadActorByAuthKey(ctx: TeamTodoCtx, authKey: string): Promise<Ap
     authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+    email: user.email,
+    displayName: user.displayName,
   }
 }
 
@@ -53,6 +57,8 @@ async function loadActorByUserId(ctx: TeamTodoCtx, userId: string): Promise<AppI
     authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+    email: user.email,
+    displayName: user.displayName,
   }
 }
 

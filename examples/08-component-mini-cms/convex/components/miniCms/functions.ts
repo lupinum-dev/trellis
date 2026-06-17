@@ -43,9 +43,6 @@ export const { action, mutation, query, transportMutation } = defineTrellis(
   {
     caller,
     appIdentity: getAppIdentityFromCaller,
-    public: {
-      readTables: ['pages'],
-    },
     identityForwardingKey: process.env.CONVEX_IDENTITY_FORWARDING_KEY,
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations',

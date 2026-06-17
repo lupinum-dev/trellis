@@ -10,15 +10,14 @@ type McpReferenceCtx =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-export type AppIdentity = DefaultAppIdentity & {
-  role: Role
-  workspaceId: Id<'workspaces'>
-}
-
 export type AccessIdentity = DefaultAppIdentity & {
   role: Role
   workspaceId?: Id<'workspaces'>
+  email?: string | null
+  displayName?: string | null
 }
+
+export type AppIdentity = AccessIdentity
 
 type ForwardedIdentityCtx = McpReferenceCtx & {
   caller: () => Promise<McpReferencePrincipal>
@@ -50,6 +49,8 @@ async function loadUserActorByAuthKey(
     authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
   }
 }
 
@@ -70,6 +71,8 @@ async function loadUserActorByUserId(
     authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
   }
 }
 
@@ -80,11 +83,6 @@ function getDelegatedUserId(actingFor: ActingFor | null): string | null {
 function getAuthKeyFromPrincipal(caller: McpReferencePrincipal): string | null {
   if (caller.kind !== 'user') return null
   return caller.authKey
-}
-
-function requireTenantActor(appIdentity: AccessIdentity | null): AppIdentity | null {
-  if (!appIdentity?.workspaceId) return null
-  return { ...appIdentity, workspaceId: appIdentity.workspaceId }
 }
 
 async function resolveAccessIdentityFromCaller(
@@ -128,8 +126,7 @@ export async function getAppIdentityFromCaller(
   caller: McpReferencePrincipal,
   actingFor: ActingFor | null,
 ): Promise<AppIdentity | null> {
-  const appIdentity = await resolveAccessIdentityFromCaller(ctx, caller, actingFor)
-  return requireTenantActor(appIdentity)
+  return await resolveAccessIdentityFromCaller(ctx, caller, actingFor)
 }
 
 export async function getAccessIdentity(ctx: McpReferenceCtx): Promise<AccessIdentity | null> {
@@ -149,6 +146,5 @@ export async function getAccessIdentity(ctx: McpReferenceCtx): Promise<AccessIde
 }
 
 export async function getAppIdentity(ctx: McpReferenceCtx): Promise<AppIdentity | null> {
-  const appIdentity = await getAccessIdentity(ctx)
-  return requireTenantActor(appIdentity)
+  return await getAccessIdentity(ctx)
 }

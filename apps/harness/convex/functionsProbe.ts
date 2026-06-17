@@ -121,6 +121,7 @@ export const publicWithoutActor = query.unsafe({
 })
 
 export const structuredPublicActorEcho = query.public({
+  reads: [],
   args: {},
   handler: async (ctx) => ({
     appIdentity: await ctx.appIdentity(),
@@ -170,6 +171,7 @@ export const structuredEnvelopeProbe = query.authenticated({
 })
 
 export const structuredDelegationProbe = query.public({
+  reads: [],
   args: {},
   identityForwardingFunctionRef: 'functionsProbe:structuredDelegationProbe',
   handler: async (ctx) => ({
@@ -191,6 +193,7 @@ export const resetActorResolverCalls = mutation.unsafe({
 })
 
 export const actorMemoization = query.public({
+  reads: [],
   args: {},
   identityForwardingFunctionRef: 'functionsProbe:actorMemoization',
   handler: async (ctx) => {
@@ -208,6 +211,7 @@ export const actorMemoization = query.public({
 })
 
 export const identityForwardingStateProbe = query.public({
+  reads: [],
   args: {},
   identityForwardingFunctionRef: 'functionsProbe:identityForwardingStateProbe',
   handler: async (ctx) => ({
@@ -217,6 +221,7 @@ export const identityForwardingStateProbe = query.public({
 })
 
 export const echoedArgs = query.public({
+  reads: [],
   args: {
     title: v.string(),
   },
@@ -247,6 +252,7 @@ export const getEnvelopeProbeState = query.unsafe({
 })
 
 export const unsafeForwardedCallerProbe = unsafeArgPrincipalRuntime.query.public({
+  reads: [],
   args: {},
   handler: async (ctx) => ({
     caller: await ctx.caller(),

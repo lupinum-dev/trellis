@@ -20,8 +20,5 @@ export const { action, internalMutation, internalQuery, mutation, query, unsafe 
   {
     caller,
     appIdentity: getAppIdentityFromCaller,
-    public: {
-      readTables: ['pages'],
-    },
   },
 )

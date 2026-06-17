@@ -45,9 +45,6 @@ export const { mutation, query, unsafe } = defineTrellis<
     caller,
     actingFor,
     appIdentity: getAppIdentityFromCaller,
-    public: {
-      readTables: ['notes', 'users'],
-    },
     isolation: {
       tables: ['posts', 'comments', 'mcpKeys', 'expWorkspaces', 'expRunbooks'],
       sharedTables: ['users'],

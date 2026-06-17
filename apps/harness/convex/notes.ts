@@ -17,6 +17,7 @@ function withTitle<T extends { title?: string | null }>(note: T) {
 }
 
 export const list = query.public({
+  reads: ['notes'],
   args: listNotesArgs.args,
   handler: async (ctx) => {
     const notes = await ctx.db.query('notes').order('desc').take(50)
@@ -25,6 +26,7 @@ export const list = query.public({
 })
 
 export const search = query.public({
+  reads: ['notes'],
   args: searchNotes.args,
   handler: async (ctx, args) => {
     if (!args.query.trim()) return []

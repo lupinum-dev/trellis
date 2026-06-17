@@ -93,6 +93,7 @@ type LoadedRunbook = { runbook: Doc<'runbooks'> }
 type ReadDb = Pick<QueryCtx['db'], 'get' | 'query'>
 
 export const listPublic = query.public({
+  reads: ['runbooks'],
   args: listRunbooks.args,
   crossTenant: {
     reason: 'Expose the public runbook catalog without a workspace appIdentity.',
@@ -117,6 +118,7 @@ export const listPublic = query.public({
 })
 
 export const searchPublic = query.public({
+  reads: ['runbooks'],
   args: searchRunbooks.args,
   crossTenant: {
     reason: 'Search the public runbook catalog across workspaces.',
@@ -164,6 +166,7 @@ export const listWorkspaceRunbooksOp = operation.query({
 export const listWorkspace = query.workspace(listWorkspaceRunbooksOp)
 
 export const get = query.public({
+  reads: ['runbooks'],
   args: getRunbook.args,
   crossTenant: {
     reason: 'Read public runbooks before the caller resolves to a workspace appIdentity.',
