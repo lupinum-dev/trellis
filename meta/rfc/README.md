@@ -20,6 +20,7 @@ material.
 - [0009: Generated App Engine Policy](./0009-generated-app-engine-policy.md)
 - [0010: Inventory-Backed Explain Commands](./0010-inventory-backed-explain-commands.md)
 - [0011: Hard-Cut Operation Ladder Release](./0011-hard-cut-operation-ladder-release.md)
+- [0012: Type-Safe App Framework For Secure Nuxt And Convex Apps](./0012-type-safe-app-framework.md)
 
 ## Template
 
