@@ -580,3 +580,8 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   drift from remaining work so future RFC slices do not chase completed
   beginner docs, access-context, workspace-id, test-helper, or MCP operation-ref
   cleanup.
+- 2026-06-18: Moved the beginner personal auth identity path onto
+  `defineAppIdentity.fromAuth()` in the personal starter, Example 02, and the
+  signed-in getting-started guide. Added a source policy so those beginner
+  surfaces do not reintroduce hand-rolled `getAuth` plus `users.by_auth_key`
+  lookup.

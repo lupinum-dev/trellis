@@ -121,6 +121,14 @@ export const securitySourcePolicies = [
     pattern: /\bquery\.public\s*\([\s\S]{0,500}?\bdefineAccessContext\s*\(/g,
   },
   {
+    id: 'no-beginner-handrolled-auth-identity',
+    kind: 'line',
+    filePathPattern:
+      /^(?:apps\/docs\/content\/docs\/01\.getting-started\/4\.build-a-signed-in-todo-app\.md|examples\/02-auth-todo\/convex\/auth\/appIdentity\.ts|src\/cli\/starter-fixtures\/personal\/convex\/auth\/appIdentity\.ts)$/,
+    policy: 'beginner personal auth identity must use defineAppIdentity.fromAuth',
+    pattern: /import\s*\{[^}]*\bgetAuth\b[^}]*\}\s*from ['"]@lupinum\/trellis\/auth['"]/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',
