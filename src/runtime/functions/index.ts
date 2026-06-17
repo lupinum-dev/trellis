@@ -81,7 +81,7 @@ import {
   type TrellisOperationProjectionMetadata,
   type OperationPreviewEnvelope,
 } from './define-operation.js'
-import { createPublicSafeDb, type PublicAccessOptions } from './public-db.js'
+import { createPublicSafeDb } from './public-db.js'
 import {
   assertServiceTargetAllowed,
   getWorkspaceId,
@@ -431,7 +431,6 @@ export interface DefineTrellisOptions<
     caller: TCaller,
     actingFor: TActingFor | null,
   ) => Promise<TActor | null>
-  public?: PublicAccessOptions
   isolation?: IsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TCaller>
   observability?: TrellisObservabilityOptions
@@ -502,21 +501,6 @@ function validateIsolationOptions<DataModel extends GenericDataModel>(
 
   if (options.field !== undefined && options.field.trim().length === 0) {
     throw new Error('isolation.field must be a non-empty string when provided.')
-  }
-}
-
-function validatePublicAccessOptions(options: PublicAccessOptions | undefined): void {
-  if (!options?.readTables) return
-
-  const seen = new Set<string>()
-  for (const table of options.readTables) {
-    if (typeof table !== 'string' || table.trim().length === 0) {
-      throw new Error('public.readTables must only contain non-empty table names.')
-    }
-    if (seen.has(table)) {
-      throw new Error(`public.readTables contains a duplicate table: "${table}".`)
-    }
-    seen.add(table)
   }
 }
 
@@ -2110,12 +2094,13 @@ function createQueryCustomization<
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       const scopedDb = dbRules ? wrapDatabaseReader(baseCtx, serviceDb, dbRules) : serviceDb
-      if (extra.trellisBackendLane === 'public' && !extra.publicReadTables) {
+      const publicReadTables = extra.publicReadTables
+      if (extra.trellisBackendLane === 'public' && !publicReadTables) {
         throw new Error('public query handlers require `reads` with explicit table names.')
       }
       const db =
         extra.trellisBackendLane === 'public'
-          ? createPublicSafeDb(scopedDb, options.public, extra.publicReadTables)
+          ? createPublicSafeDb(scopedDb, publicReadTables ?? [])
           : extra.trellisBackendLane === 'session'
             ? undefined
             : scopedDb
@@ -2197,10 +2182,7 @@ function createMutationCustomization<
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       const scopedDb = dbRules ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules) : serviceDb
-      let db =
-        extra.trellisBackendLane === 'public'
-          ? createPublicSafeDb(scopedDb, options.public)
-          : scopedDb
+      let db = extra.trellisBackendLane === 'public' ? createPublicSafeDb(scopedDb, []) : scopedDb
       let crossTenantDb = crossTenantRules
         ? wrapDatabaseWriter(baseCtx, serviceDb, crossTenantRules)
         : serviceDb
@@ -2653,7 +2635,6 @@ function buildUnsafeFunctions<
   ActionVisibility
 > {
   rejectRemovedCustomRlsOption(options)
-  validatePublicAccessOptions(options.public)
   validateIsolationOptions(options.isolation)
 
   if (!!builders.internalQuery !== !!builders.internalMutation) {

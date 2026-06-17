@@ -166,21 +166,24 @@ function sliceBalancedBlock(source, openIndex) {
   return source.slice(openIndex)
 }
 
-function collectPublicReadTables(repoRoot, files) {
+function collectPublicReads(repoRoot, files) {
   const rows = []
   for (const file of files) {
-    if (
-      !file.endsWith('/convex/functions.ts') &&
-      !file.endsWith('/convex/components/miniCms/functions.ts')
-    ) {
-      continue
-    }
+    if (!file.includes('/convex/')) continue
     const source = read(repoRoot, file)
-    const readTables = extractStringList(source, 'readTables')
-    if (readTables.length === 0) continue
-    rows.push({ file, readTables })
+    for (const block of localExportBlocks(source)) {
+      if (!/\bquery\.public\s*\(/.test(block.source)) continue
+      rows.push({
+        file,
+        line: block.line,
+        exportName: block.name,
+        reads: extractStringList(block.source, 'reads'),
+      })
+    }
   }
-  return rows
+  return rows.sort((a, b) =>
+    `${a.file}:${a.line}:${a.exportName}`.localeCompare(`${b.file}:${b.line}:${b.exportName}`),
+  )
 }
 
 function collectBackendFunctions(repoRoot, files) {
@@ -575,7 +578,7 @@ export function collectSecurityContract(repoRoot) {
     serverRoutes: collectServerRoutes(repoRoot, files),
     delegationBindings: collectDelegationBindings(repoRoot, files),
     webhookVerifier: collectWebhookVerifierMetadata(repoRoot),
-    publicReadTables: collectPublicReadTables(repoRoot, files),
+    publicReads: collectPublicReads(repoRoot, files),
     serviceSubjects: collectServiceSubjects(repoRoot, files),
     backendFunctions: collectBackendFunctions(repoRoot, files),
     operations: collectOperations(repoRoot, files),

@@ -39,9 +39,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         isolation: {
           tables: ['tasks'] as never[],
           field: 'workspaceId',
@@ -138,9 +135,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         isolation: {
           tables: ['tasks'] as never[],
           field: 'workspaceId',
@@ -216,9 +210,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         services: {
           sync: {
             metadata: {
@@ -290,9 +281,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         services: {
           sync: {
             metadata: {
@@ -359,9 +347,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         services: {
           sync: {
             metadata: {
@@ -431,9 +416,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         services: {
           sync: {
             metadata: {
@@ -501,9 +483,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks'] as never[],
-        },
         services: {
           sync: {
             metadata: {
@@ -573,9 +552,6 @@ describe('defineTrellis service access', () => {
       },
       {
         caller: serviceCaller,
-        public: {
-          readTables: ['tasks', 'comments'] as never[],
-        },
         isolation: {
           tables: ['tasks'] as never[],
           field: 'workspaceId',

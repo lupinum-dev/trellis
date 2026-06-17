@@ -1,13 +1,9 @@
 import type { GenericDataModel, TableNamesInDataModel } from 'convex/server'
 
-export type PublicAccessOptions = {
-  readTables?: string[]
-}
-
 function createPublicDbError(table?: string): Error {
   return new Error(
     table
-      ? `Public handlers cannot access table "${table}". Add an explicit public.readTables entry or move this handler behind authentication.`
+      ? `Public handlers cannot access table "${table}". Add this table to the handler's \`reads\` list or move this handler behind authentication.`
       : 'Public handlers cannot write through ctx.db. Use an operation-backed public write contract.',
   )
 }
@@ -18,10 +14,9 @@ function assertPublicReadTableAccess(tables: ReadonlySet<string>, table: string)
 
 export function createPublicSafeDb<TDb extends object, DataModel extends GenericDataModel>(
   db: TDb,
-  options: PublicAccessOptions | undefined,
-  handlerReadTables?: readonly string[],
+  readTablesInput: readonly string[],
 ): TDb {
-  const readTables = new Set<string>((handlerReadTables ?? options?.readTables ?? []).map(String))
+  const readTables = new Set<string>(readTablesInput.map(String))
 
   return new Proxy(
     {},

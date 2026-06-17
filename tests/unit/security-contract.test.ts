@@ -164,12 +164,13 @@ describe('security contract generator', () => {
         }),
       ]),
     )
-    expect(contract.publicReadTables).toEqual(
+    expect(contract.publicReads).toEqual(
       expect.arrayContaining([
-        {
-          file: 'examples/01-public-todo/convex/functions.ts',
-          readTables: ['todos'],
-        },
+        expect.objectContaining({
+          exportName: 'list',
+          file: 'examples/01-public-todo/convex/features/todos/domain.ts',
+          reads: ['todos'],
+        }),
       ]),
     )
     expect(contract.scope.omittedUntilPhaseB).not.toContain('service-subject contract metadata')

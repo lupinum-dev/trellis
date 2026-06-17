@@ -159,17 +159,10 @@ describe('defineTrellis', () => {
 
   it('limits public handler ctx.db to explicitly declared read tables', async () => {
     const builder = ((definition: unknown) => definition) as never
-    const runtime = defineTrellis(
-      {
-        query: builder,
-        mutation: builder,
-      },
-      {
-        public: {
-          readTables: ['catalog'] as never[],
-        },
-      },
-    )
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
 
     const definition = runtime.query.public({
       reads: ['catalog'] as never[],
@@ -244,9 +237,9 @@ describe('defineTrellis', () => {
       catalogRows: [{ _id: catalogId, title: 'public' }],
       catalogRow: { _id: catalogId, title: 'public' },
       blockedRead:
-        'Public handlers cannot access table "privateUsers". Add an explicit public.readTables entry or move this handler behind authentication.',
+        'Public handlers cannot access table "privateUsers". Add this table to the handler\'s `reads` list or move this handler behind authentication.',
       blockedGet:
-        'Public handlers cannot access table "privateUsers". Add an explicit public.readTables entry or move this handler behind authentication.',
+        'Public handlers cannot access table "privateUsers". Add this table to the handler\'s `reads` list or move this handler behind authentication.',
       blockedWrite:
         'Public handlers cannot write through ctx.db. Use an operation-backed public write contract.',
     })
@@ -354,17 +347,10 @@ describe('defineTrellis', () => {
 
   it('allows operation-backed public writes only through ctx.publicWrite', async () => {
     const builder = ((definition: unknown) => definition) as never
-    const runtime = defineTrellis(
-      {
-        query: builder,
-        mutation: builder,
-      },
-      {
-        public: {
-          readTables: ['todos'] as never[],
-        },
-      },
-    )
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
     const capture = createObservationCapture()
     const definition = runtime.mutation.public(
       appOperation.publicMutation({
@@ -660,21 +646,19 @@ describe('defineTrellis', () => {
   })
 
   it('rejects duplicate public read table declarations', () => {
-    const builder = (() => null) as never
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
 
     expect(() =>
-      defineTrellis(
-        {
-          query: builder,
-          mutation: builder,
-        },
-        {
-          public: {
-            readTables: ['catalog', 'catalog'] as never[],
-          },
-        },
-      ),
-    ).toThrow(/public\.readTables contains a duplicate table: "catalog"/)
+      runtime.query.public({
+        reads: ['catalog', 'catalog'] as never[],
+        args: {},
+        handler: async () => null,
+      } as never),
+    ).toThrow(/public backend handler `reads` contains a duplicate table: "catalog"/)
   })
 
   it('exposes named read-only cross-tenant capabilities without a generic ctx.db escape', async () => {
