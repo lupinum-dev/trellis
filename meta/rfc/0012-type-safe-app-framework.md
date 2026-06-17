@@ -356,22 +356,22 @@ async TypeScript functions.
 
 ### Evaluation Matrix
 
-| System | Steal | Reject | Why |
-| --- | --- | --- | --- |
-| Convex | generated function refs, validators, function-first auth, realtime data | replacing Convex execution model | Trellis should be Convex-native |
-| Convex Helpers | custom builders, ctx enrichment, db wrapping | generic helper soup in app code | Trellis should productize the pattern |
-| tRPC | named procedures, middleware, context refinement | router/RPC contract replacing Convex API refs | lanes should feel familiar and typed |
-| Blitz | resolver pipeline, validation+auth composition | framework-specific zero-API routing model | Trellis already has Convex as transport |
-| Redwood | backend `requireAuth`, clear API-side enforcement | GraphQL directive/service split | backend enforcement must remain primary |
-| Supabase | defense in depth, explicit data policy | Postgres RLS clone | Convex handlers are the policy unit |
-| ZenStack | policy near data model as an alternative to study | model-level policy DSL | would create a second source of truth |
-| CASL | ability vocabulary, UI/API consistency | required ability engine | app guards should stay plain functions |
-| Hono RPC | server contract drives client types | second RPC layer | Convex generated refs already solve this |
-| VueUse | composable naming, SSR awareness, options objects | generic composable sprawl | Trellis composables should be few and app-shaped |
-| TanStack Query | mutation state vocabulary | query cache clone | Convex owns live query semantics |
-| NestJS | handler-aware guards | decorators/controllers | Trellis should stay function-builder based |
-| Next.js | server mutation authorization guidance | page-level auth as sufficient | every backend handler must enforce auth |
-| Effect | typed requirements idea | full effect/layer runtime | too much abstraction for Convex apps |
+| System         | Steal                                                                   | Reject                                        | Why                                              |
+| -------------- | ----------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| Convex         | generated function refs, validators, function-first auth, realtime data | replacing Convex execution model              | Trellis should be Convex-native                  |
+| Convex Helpers | custom builders, ctx enrichment, db wrapping                            | generic helper soup in app code               | Trellis should productize the pattern            |
+| tRPC           | named procedures, middleware, context refinement                        | router/RPC contract replacing Convex API refs | lanes should feel familiar and typed             |
+| Blitz          | resolver pipeline, validation+auth composition                          | framework-specific zero-API routing model     | Trellis already has Convex as transport          |
+| Redwood        | backend `requireAuth`, clear API-side enforcement                       | GraphQL directive/service split               | backend enforcement must remain primary          |
+| Supabase       | defense in depth, explicit data policy                                  | Postgres RLS clone                            | Convex handlers are the policy unit              |
+| ZenStack       | policy near data model as an alternative to study                       | model-level policy DSL                        | would create a second source of truth            |
+| CASL           | ability vocabulary, UI/API consistency                                  | required ability engine                       | app guards should stay plain functions           |
+| Hono RPC       | server contract drives client types                                     | second RPC layer                              | Convex generated refs already solve this         |
+| VueUse         | composable naming, SSR awareness, options objects                       | generic composable sprawl                     | Trellis composables should be few and app-shaped |
+| TanStack Query | mutation state vocabulary                                               | query cache clone                             | Convex owns live query semantics                 |
+| NestJS         | handler-aware guards                                                    | decorators/controllers                        | Trellis should stay function-builder based       |
+| Next.js        | server mutation authorization guidance                                  | page-level auth as sufficient                 | every backend handler must enforce auth          |
+| Effect         | typed requirements idea                                                 | full effect/layer runtime                     | too much abstraction for Convex apps             |
 
 Design conclusion:
 
@@ -420,9 +420,7 @@ for all public handlers.
 
 ```ts
 const purpose =
-  kind === 'mutation' && functionRef.endsWith('TransportExecute')
-    ? 'operation-execute'
-    : kind
+  kind === 'mutation' && functionRef.endsWith('TransportExecute') ? 'operation-execute' : kind
 const replayMode =
   purpose === 'operation-execute'
     ? 'operation-confirmation'
@@ -798,12 +796,12 @@ But app authors should define one operation.
 
 Relationship to the current operation API:
 
-| Current Trellis | Proposed shape | Same runtime invariant | Changed authoring surface |
-| --- | --- | --- | --- |
-| `defineOperation(...)` | `operation.destructive(...)` | one operation owns preview and execute semantics | operation builder is attached to the runtime |
-| `mutation.workspace(op)` or equivalent projection | generated/returned execute projection | execute reruns lane, guard, token, drift, and audit checks | app code no longer manually exports execute |
-| `previewOf(op)` | generated/returned preview projection | preview is side-effect-free and produces confirmation material | app code no longer manually exports preview |
-| `_confirmationToken` in execute args | confirmation passed through operation composable/test client | token is still bound and redeemed by runtime | normal UI/test code does not hand-shape token args |
+| Current Trellis                                   | Proposed shape                                               | Same runtime invariant                                         | Changed authoring surface                          |
+| ------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- | -------------------------------------------------- |
+| `defineOperation(...)`                            | `operation.destructive(...)`                                 | one operation owns preview and execute semantics               | operation builder is attached to the runtime       |
+| `mutation.workspace(op)` or equivalent projection | generated/returned execute projection                        | execute reruns lane, guard, token, drift, and audit checks     | app code no longer manually exports execute        |
+| `previewOf(op)`                                   | generated/returned preview projection                        | preview is side-effect-free and produces confirmation material | app code no longer manually exports preview        |
+| `_confirmationToken` in execute args              | confirmation passed through operation composable/test client | token is still bound and redeemed by runtime                   | normal UI/test code does not hand-shape token args |
 
 The proposal is a syntax and source-of-truth change first. It must preserve the
 existing destructive operation security invariants.
@@ -1259,9 +1257,7 @@ Before:
 ```ts
 const functionRef = getFunctionRef(fn)
 const purpose =
-  kind === 'mutation' && functionRef.endsWith('TransportExecute')
-    ? 'operation-execute'
-    : kind
+  kind === 'mutation' && functionRef.endsWith('TransportExecute') ? 'operation-execute' : kind
 const replayMode =
   purpose === 'operation-execute'
     ? 'operation-confirmation'
@@ -1311,11 +1307,13 @@ Advanced transport tests still need lower-level controls. The proposed split is:
 await ctx.asUser('admin-1').mutation(api.members.inviteMember, args)
 
 // Explicit transport/replay boundary test.
-await ctx.transport({
-  caller,
-  transport: 'mcp',
-  replay: 'domain-idempotency',
-}).mutation(api.posts.comment, args)
+await ctx
+  .transport({
+    caller,
+    transport: 'mcp',
+    replay: 'domain-idempotency',
+  })
+  .mutation(api.posts.comment, args)
 ```
 
 `asUser`, `asService`, and `operation` should be the default app-test API.
@@ -1611,7 +1609,7 @@ This is the right unit of reasoning.
 The proposal is not magic. It is explicit:
 
 ```ts
-lane + id + args + returns + reads/writes + guard + handler
+lane + id + args + returns + reads / writes + guard + handler
 ```
 
 That is more understandable than:
@@ -1901,7 +1899,7 @@ The added lines are acceptable because they express real security intent.
 7. What should be the stable audit schema for handler ids?
 8. How strict should doctor be during the migration window?
 9. Should service replay intent use app-facing words like `rejectDuplicate`,
-    `idempotent`, and `allowDuplicate` instead of protocol words?
+   `idempotent`, and `allowDuplicate` instead of protocol words?
 10. How should handler ids survive package/component embedding without global
     collisions?
 
@@ -2130,7 +2128,7 @@ async function submit() {
 <template>
   <main>
     <form @submit.prevent="submit">
-      <input v-model="title">
+      <input v-model="title" />
       <button :disabled="createTodo.pending">Create</button>
     </form>
 

@@ -19,8 +19,9 @@ function assertPublicReadTableAccess(tables: ReadonlySet<string>, table: string)
 export function createPublicSafeDb<TDb extends object, DataModel extends GenericDataModel>(
   db: TDb,
   options: PublicAccessOptions | undefined,
+  handlerReadTables?: readonly string[],
 ): TDb {
-  const readTables = new Set<string>((options?.readTables ?? []).map(String))
+  const readTables = new Set<string>((handlerReadTables ?? options?.readTables ?? []).map(String))
 
   return new Proxy(
     {},

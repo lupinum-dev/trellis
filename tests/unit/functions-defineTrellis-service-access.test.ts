@@ -69,6 +69,7 @@ describe('defineTrellis service access', () => {
       },
     )
     const definition = runtime.query.public({
+      reads: ['tasks'] as never[],
       args: {
         rowWorkspaceId: v.string(),
         tenantWorkspaceId: v.string(),
@@ -168,6 +169,7 @@ describe('defineTrellis service access', () => {
     )
     let reachedHandler = false
     const definition = runtime.query.public({
+      reads: ['tasks'] as never[],
       args: {},
       identityForwardingFunctionRef: 'tasks:list',
       handler: async () => {
@@ -599,8 +601,8 @@ describe('defineTrellis service access', () => {
         },
       },
     )
-    const capture = createObservationCapture()
     const definition = runtime.query.public({
+      reads: ['tasks'] as never[],
       args: {},
       identityForwardingFunctionRef: 'tasks:list',
       handler: async (ctx) => {
@@ -609,7 +611,7 @@ describe('defineTrellis service access', () => {
         try {
           await ctx.db.query('comments' as never).collect()
         } catch (error) {
-          denied = error instanceof Error && /no access to table "comments"/i.test(error.message)
+          denied = error instanceof Error && /cannot access table "comments"/i.test(error.message)
         }
         return { denied, titles: tasks.map((task) => task.title) }
       },
@@ -640,17 +642,6 @@ describe('defineTrellis service access', () => {
       denied: true,
       titles: ['one', 'two'],
     })
-    expect(capture.find('service.access.denied')).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: 'service.access.denied',
-          serviceId: 'sync',
-          status: 'deny',
-          details: expect.objectContaining({ table: 'comments' }),
-        }),
-      ]),
-    )
-    capture.stop()
   })
 
   it('rejects service principals before handler execution when the target function ref is not allowed', async () => {

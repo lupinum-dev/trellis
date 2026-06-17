@@ -161,6 +161,7 @@ export type AppIdentityAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
 type UnsafeDefinition = {
   permit: TrellisUnsafePermit
+  id?: string
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
 }
@@ -222,6 +223,11 @@ function stripTransportReservedArgs<TArgs extends Record<string, unknown>>(args:
   return stripForwardedIdentityFields(stripObservationEnvelope(args)) as TArgs
 }
 
+function omitDb<TCtx extends { db?: unknown }>(ctx: TCtx): Omit<TCtx, 'db'> {
+  const { db: _db, ...rest } = ctx
+  return rest
+}
+
 export type FunctionsCtxExtension<TCaller, TActingFor, TActor> = {
   caller: CallerAccessor<TCaller>
   actingFor: ActingForAccessor<TActingFor>
@@ -272,6 +278,13 @@ type PublicQueryCtxWithRuntime<
   db: PublicSafeDb<DataModel>
 }
 
+type SessionQueryCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+> = Omit<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, 'db'>
+
 type PublicMutationCtxWithRuntime<
   DataModel extends GenericDataModel,
   TCaller,
@@ -321,9 +334,11 @@ type ActionCustomizationCtx<
 > = GenericActionCtx<DataModel> & FunctionsCtxExtension<TCaller, TActingFor, TActor>
 
 type IdentityForwardingCustomizationExtra = {
+  id?: string
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   trellisBackendLane?: TrellisBackendLane
+  publicReadTables?: readonly string[]
   crossTenant?: StructuredCrossTenantCapability<object, Record<string, unknown>, unknown>
   publicWrite?: StructuredPublicWriteCapability<object, Record<string, unknown>, unknown>
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -1046,6 +1061,7 @@ type PublicStructuredQueryBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
+  TReadTable extends string = string,
 > = <
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
@@ -1067,7 +1083,38 @@ type PublicStructuredQueryBuilder<
       TPublicWrite
     >,
     'guard'
-  > & { guard?: never },
+  > & { guard?: never; reads: readonly TReadTable[] },
+) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type SessionStructuredQueryBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TCrossTenant = undefined,
+  TPublicWrite = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['caller']>>,
+      Awaited<ReturnType<TCtx['actingFor']>>,
+      TActor,
+      typeof open,
+      TArgsValidator,
+      TLoaded,
+      TResult,
+      TCrossTenant,
+      TPublicWrite
+    >,
+    'guard'
+  > & { guard?: never; reads?: never },
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type AuthenticatedStructuredQueryBuilder<
@@ -2063,10 +2110,15 @@ function createQueryCustomization<
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       const scopedDb = dbRules ? wrapDatabaseReader(baseCtx, serviceDb, dbRules) : serviceDb
+      if (extra.trellisBackendLane === 'public' && !extra.publicReadTables) {
+        throw new Error('public query handlers require `reads` with explicit table names.')
+      }
       const db =
         extra.trellisBackendLane === 'public'
-          ? createPublicSafeDb(scopedDb, options.public)
-          : scopedDb
+          ? createPublicSafeDb(scopedDb, options.public, extra.publicReadTables)
+          : extra.trellisBackendLane === 'session'
+            ? undefined
+            : scopedDb
       const crossTenantDb = crossTenantRules
         ? wrapDatabaseReader(baseCtx, serviceDb, crossTenantRules)
         : serviceDb
@@ -2078,11 +2130,15 @@ function createQueryCustomization<
         observe: baseCtx.observe,
         operationMetadata: extra[trellisOperationMetadataKey],
       })
+      const ctxBase =
+        extra.trellisBackendLane === 'session'
+          ? omitDb(baseCtx)
+          : (baseCtx as unknown as QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>)
       const finalCtx: QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor> = {
-        ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>),
-        db: decorateDb(db, rawDb),
+        ...ctxBase,
+        ...(db === undefined ? {} : { db: decorateDb(db, rawDb) }),
         ...(crossTenant === undefined ? {} : { crossTenant }),
-      }
+      } as QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>
       const replayClaim = await claimTrustedReplayJti(ctx, ctxWithIdentityForwarding, options)
 
       return {
@@ -2337,7 +2393,11 @@ function createFullArgsCustomBuilder<
         returns,
         handler: async (ctx: unknown, rawArgs: Record<string, unknown>) => {
           const added = await customInput(ctx as TCtx, rawArgs, extra as TExtra)
-          const finalCtx = { ...(ctx as object), ...added.ctx }
+          const baseCtx =
+            (extra as IdentityForwardingCustomizationExtra).trellisBackendLane === 'session'
+              ? omitDb(ctx as { db?: unknown })
+              : (ctx as object)
+          const finalCtx = { ...baseCtx, ...added.ctx }
           const finalArgs = { ...rawArgs, ...added.args }
           try {
             const result = await (
@@ -2363,7 +2423,11 @@ function createFullArgsCustomBuilder<
       handler: async (ctx: unknown, allArgs: Record<string, unknown>) => {
         const added = await customInput(ctx as TCtx, allArgs, extra as TExtra)
         const appArgs = omitKeys(allArgs, inputKeys)
-        const finalCtx = { ...(ctx as object), ...added.ctx }
+        const baseCtx =
+          (extra as IdentityForwardingCustomizationExtra).trellisBackendLane === 'session'
+            ? omitDb(ctx as { db?: unknown })
+            : (ctx as object)
+        const finalCtx = { ...baseCtx, ...added.ctx }
         const finalArgs = { ...appArgs, ...added.args }
         try {
           const result = await (
@@ -2425,6 +2489,12 @@ type QueryWithBackendLanes<
 > = {
   public: PublicStructuredQueryBuilder<
     PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor,
+    TableNamesInDataModel<DataModel>
+  >
+  session: SessionStructuredQueryBuilder<
+    SessionQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor
   >
@@ -3399,6 +3469,12 @@ function buildTrellisRuntime<
     public: PublicStructuredQueryBuilder<
       PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
       QueryVisibility,
+      TActor,
+      TableNamesInDataModel<DataModel>
+    >
+    session: SessionStructuredQueryBuilder<
+      SessionQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      QueryVisibility,
       TActor
     >
     authenticated: AuthenticatedStructuredQueryBuilder<
@@ -3443,6 +3519,12 @@ function buildTrellisRuntime<
       ) as unknown as {
         public: PublicStructuredQueryBuilder<
           PublicQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          InternalQueryVisibility,
+          TActor,
+          TableNamesInDataModel<DataModel>
+        >
+        session: SessionStructuredQueryBuilder<
+          SessionQueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
           InternalQueryVisibility,
           TActor
         >

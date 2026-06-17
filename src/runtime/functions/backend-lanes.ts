@@ -3,7 +3,13 @@ import { isOpenGuard, isPermissionDefinition, open } from '../auth/index.js'
 
 export const trellisBackendLaneMetadataKey = Symbol.for('trellis.backendLane')
 
-export type TrellisBackendLane = 'public' | 'authenticated' | 'workspace' | 'protected' | 'unsafe'
+export type TrellisBackendLane =
+  | 'public'
+  | 'session'
+  | 'authenticated'
+  | 'workspace'
+  | 'protected'
+  | 'unsafe'
 
 export function stampBackendLane<TResult>(value: TResult, lane: TrellisBackendLane): TResult {
   if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
@@ -34,6 +40,31 @@ function hasOwn(value: object, key: PropertyKey): boolean {
 
 function getOwnGuard(definition: object): unknown {
   return hasOwn(definition, 'guard') ? (definition as { guard?: unknown }).guard : undefined
+}
+
+function getOwnReads(definition: object): unknown {
+  return hasOwn(definition, 'reads') ? (definition as { reads?: unknown }).reads : undefined
+}
+
+function readPublicReadTables(value: unknown, lane: 'public'): string[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) {
+    throw new Error(`${lane} backend handlers must provide \`reads\` as an array.`)
+  }
+
+  const seen = new Set<string>()
+  const tables: string[] = []
+  for (const table of value) {
+    if (typeof table !== 'string' || table.trim().length === 0) {
+      throw new Error(`${lane} backend handler \`reads\` must contain non-empty table names.`)
+    }
+    if (seen.has(table)) {
+      throw new Error(`${lane} backend handler \`reads\` contains a duplicate table: "${table}".`)
+    }
+    seen.add(table)
+    tables.push(table)
+  }
+  return tables
 }
 
 function getOwnPermission(definition: object): unknown {
@@ -80,15 +111,56 @@ function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown
         'public backend handlers must not provide `guard`; use protected(...) instead.',
       )
     }
+    if (!definition || typeof definition !== 'object') {
+      throw new Error('public backend handlers require a definition object.')
+    }
+    const reads = readPublicReadTables(getOwnReads(definition), 'public')
 
     return stampBackendLane(
       protectedBuilder(
         cloneDefinitionWithExtras(definition as object, {
           guard: open,
           trellisBackendLane: 'public',
+          ...(reads ? { publicReadTables: reads } : {}),
         }) as never,
       ),
       'public',
+    )
+  }) as unknown as TBuilder
+}
+
+function createSessionLaneBuilder<TBuilder extends (definition: never) => unknown>(
+  protectedBuilder: TBuilder,
+): TBuilder {
+  return ((definition: unknown) => {
+    if (
+      definition &&
+      typeof definition === 'object' &&
+      Object.prototype.hasOwnProperty.call(definition, 'guard')
+    ) {
+      throw new Error(
+        'session backend handlers must not provide `guard`; use protected(...) instead.',
+      )
+    }
+    if (
+      definition &&
+      typeof definition === 'object' &&
+      Object.prototype.hasOwnProperty.call(definition, 'reads')
+    ) {
+      throw new Error('session backend handlers must not provide `reads`; use public(...) instead.')
+    }
+    if (!definition || typeof definition !== 'object') {
+      throw new Error('session backend handlers require a definition object.')
+    }
+
+    return stampBackendLane(
+      protectedBuilder(
+        cloneDefinitionWithExtras(definition as object, {
+          guard: open,
+          trellisBackendLane: 'session',
+        }) as never,
+      ),
+      'session',
     )
   }) as unknown as TBuilder
 }
@@ -171,6 +243,7 @@ export function attachBackendQueryLanes<
   unsafeBuilder?: TUnsafeBuilder,
 ): {
   public: (definition: never) => unknown
+  session: (definition: never) => unknown
   authenticated: (definition: never) => unknown
   workspace: (definition: never) => unknown
   protected: TProtectedBuilder
@@ -178,12 +251,14 @@ export function attachBackendQueryLanes<
 } {
   const lanes: {
     public: (definition: never) => unknown
+    session: (definition: never) => unknown
     authenticated: (definition: never) => unknown
     workspace: (definition: never) => unknown
     protected: TProtectedBuilder
     unsafe?: TUnsafeBuilder
   } = {
     public: createPublicLaneBuilder(protectedBuilder),
+    session: createSessionLaneBuilder(protectedBuilder),
     authenticated: createAuthenticatedLaneBuilder(protectedBuilder),
     workspace: createWorkspaceLaneBuilder(protectedBuilder),
     protected: createProtectedLaneBuilder(protectedBuilder),

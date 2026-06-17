@@ -36,11 +36,24 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 ## Progress
 
 - 2026-06-17: Finalized RFC 0012 as a greenfield clean-cut proposal.
+- 2026-06-17: Started Phase 0 runtime slice. The first code increment will add
+  handler-local `reads` metadata for `query.public` and a narrow `query.session`
+  lane, using the existing public DB facade instead of adding a second policy
+  engine.
+- 2026-06-17: Implemented initial runtime support:
+  - `query.session` lane exists and rejects `reads`.
+  - session handlers do not receive raw `ctx.db`.
+  - `query.public` runtime requires handler-local `reads`.
+  - `reads` are passed into the existing public DB facade.
+  - focused unit tests migrated for the new public read boundary.
 
 ## Blockers
 
-- None yet.
+- Maintained examples/starters/docs still use global `public.readTables` and
+  public access context. These must migrate before the full repo gate can pass.
 
 ## Verification Log
 
 - RFC-only changes: no tests run yet.
+- 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/auth-access-context.test.ts` passed.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` passed.

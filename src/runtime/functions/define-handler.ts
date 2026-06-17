@@ -47,9 +47,11 @@ type RuntimeContext<TCaller, TActingFor, TActor> = {
 }
 
 type AnyBuilder = (definition: {
+  id?: string
   args: PropertyValidators
   returns?: GenericValidator
-  trellisBackendLane?: 'public' | 'authenticated' | 'workspace' | 'protected'
+  trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
+  publicReadTables?: readonly string[]
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   crossTenant?: unknown
@@ -200,6 +202,7 @@ type HandlerDefinition<
   TCrossTenant = undefined,
   TPublicWrite = undefined,
 > = {
+  id?: string
   args: TArgsValidator
   returns?: GenericValidator
   guard: TGuard
@@ -265,7 +268,8 @@ type HandlerDefinition<
    */
   identityForwardingFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
-  trellisBackendLane?: 'public' | 'authenticated' | 'workspace' | 'protected'
+  trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
+  publicReadTables?: readonly string[]
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
@@ -501,11 +505,13 @@ function createStructuredBuilder<
       definition.identityForwardingFunctionRef ??
       getOperationProjectionMetadata(definition)?.functionRef
     const built = builder({
+      ...(definition.id ? { id: definition.id } : {}),
       args: definition.args,
       returns: definition.returns,
       ...(definition.trellisBackendLane
         ? { trellisBackendLane: definition.trellisBackendLane }
         : {}),
+      ...(definition.publicReadTables ? { publicReadTables: definition.publicReadTables } : {}),
       ...(functionRef ? { identityForwardingFunctionRef: functionRef } : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }

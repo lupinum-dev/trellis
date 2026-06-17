@@ -97,6 +97,7 @@ describe('defineTrellis', () => {
     const rawDb = memory.db
 
     const definition = runtime.query.public({
+      reads: [] as never[],
       args: {},
       handler: async (ctx) => {
         const db = ctx.db as object & Record<PropertyKey, unknown>
@@ -171,6 +172,7 @@ describe('defineTrellis', () => {
     )
 
     const definition = runtime.query.public({
+      reads: ['catalog'] as never[],
       args: {
         catalogId: v.string(),
         privateId: v.string(),
@@ -250,7 +252,7 @@ describe('defineTrellis', () => {
     })
   })
 
-  it('denies public handler ctx.db reads by default', async () => {
+  it('requires public query handlers to declare reads before ctx.db is exposed', async () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({
       query: builder,
@@ -290,9 +292,64 @@ describe('defineTrellis', () => {
         },
         {},
       ),
-    ).resolves.toBe(
-      'Public handlers cannot access table "catalog". Add an explicit public.readTables entry or move this handler behind authentication.',
-    )
+    ).rejects.toThrow('public query handlers require `reads` with explicit table names.')
+  })
+
+  it('runs session query handlers without exposing ctx.db', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const definition = runtime.query.session({
+      args: {},
+      handler: async (ctx) => ({
+        hasDb: 'db' in (ctx as object),
+        hasAppIdentity: typeof ctx.appIdentity === 'function',
+      }),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, never>,
+      ) => Promise<{ hasDb: boolean; hasAppIdentity: boolean }>
+    }
+
+    const memory = createMemoryDb()
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        {},
+      ),
+    ).resolves.toEqual({
+      hasDb: false,
+      hasAppIdentity: true,
+    })
+  })
+
+  it('rejects reads on session query handlers', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.session({
+        reads: ['users'] as never[],
+        args: {},
+        handler: async () => null,
+      } as never),
+    ).toThrow('session backend handlers must not provide `reads`; use public(...) instead.')
   })
 
   it('allows operation-backed public writes only through ctx.publicWrite', async () => {
@@ -636,6 +693,7 @@ describe('defineTrellis', () => {
     )
     const capture = createObservationCapture()
     const definition = runtime.query.public({
+      reads: [] as never[],
       args: {
         id: v.string(),
       },
@@ -969,7 +1027,7 @@ describe('defineTrellis', () => {
       handler: async (_ctx, input: { title: string }) => ({ title: input.title }),
     })
 
-    const definition = runtime.query.public(listTodosOp as never) as {
+    const definition = runtime.query.public({ ...listTodosOp, reads: [] } as never) as {
       args: { fields: { title: typeof args.title } }
       handler: (
         ctx: {
