@@ -149,7 +149,7 @@ const file = [
       ],
       [
         'Escape hatches',
-        "`unsafe`, `publicWrite`, `crossTenant`, `actingFor`, raw `auth: 'none'`, public table reads",
+        "`unsafe`, `publicWrite`, `crossTenant`, `actingFor`, raw `auth: 'none'`, handler-local public reads",
         'A reviewed exception is narrower and better proven than the normal lane.',
       ],
     ],

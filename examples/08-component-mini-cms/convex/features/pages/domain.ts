@@ -85,6 +85,7 @@ async function bridgeForwardingArgs(
 const bridgeApi = (anyApi as any).features.pages.bridge
 
 export const listPublished = query.public({
+  id: 'features/pages/domain:listPublished',
   reads: [],
   args: listPublishedPagesSchema.args,
   returns: publishedPageListValidator,
@@ -96,6 +97,7 @@ export const listPublished = query.public({
 })
 
 export const getPublished = query.public({
+  id: 'features/pages/domain:getPublished',
   reads: [],
   args: getPublishedPageSchema.args,
   returns: v.union(publishedPageValidator, v.null()),
@@ -107,6 +109,7 @@ export const getPublished = query.public({
 })
 
 export const listStudio = query.public({
+  id: 'features/pages/domain:listStudio',
   reads: [],
   args: listStudioPagesSchema.args,
   returns: studioPageListValidator,
@@ -118,6 +121,7 @@ export const listStudio = query.public({
 })
 
 export const listDraft = query.public({
+  id: 'features/pages/domain:listDraft',
   reads: [],
   args: listDraftPagesSchema.args,
   returns: studioPageListValidator,
@@ -129,6 +133,7 @@ export const listDraft = query.public({
 })
 
 export const create = mutation.public({
+  id: 'features/pages/domain:create',
   args: createPageSchema.args,
   returns: v.string(),
   handler: async (ctx, args) =>
@@ -139,6 +144,7 @@ export const create = mutation.public({
 })
 
 export const save = mutation.public({
+  id: 'features/pages/domain:save',
   args: saveDraftSchema.args,
   returns: v.null(),
   handler: async (ctx, args) =>
@@ -149,6 +155,7 @@ export const save = mutation.public({
 })
 
 export const publish = mutation.public({
+  id: 'features/pages/domain:publish',
   args: publishPageSchema.args,
   returns: publishResultValidator,
   handler: async (ctx, args) =>
@@ -161,6 +168,7 @@ export const publish = mutation.public({
 if (!action) throw new Error('Component mini CMS bridge requires an action builder.')
 
 export const publishAction = action.public({
+  id: 'features/pages/domain:publishAction',
   args: publishPageSchema.args,
   returns: publishResultValidator,
   handler: async (ctx, args) =>
@@ -171,6 +179,7 @@ export const publishAction = action.public({
 })
 
 export const previewPublish = query.public({
+  id: 'features/pages/domain:previewPublish',
   reads: [],
   args: publishPageSchema.args,
   returns: publishPreviewResultValidator,

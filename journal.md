@@ -148,6 +148,16 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     operation id, avoiding a second app-authored preview id;
   - maintained harness and canonical examples were migrated to explicit stable
     ids so type tests exercise the intended authoring shape.
+- 2026-06-17: Cleaned up the remaining authoring-shape drift:
+  - workspace starter permission-context fixtures now register
+    `defineAccessContext(...)` through `query.session({ ...definition, id })`;
+  - Example 03 access context and Example 08 bridge-facing host wrappers carry
+    stable handler ids;
+  - docs snippets now show mandatory `id` metadata, public `reads`, and
+    `query.session(...)` for access context instead of the removed public access
+    context wording;
+  - generated API-surface docs now describe handler-local public reads instead
+    of the removed global public table list.
 
 ## Blockers
 
@@ -226,3 +236,14 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run security:contract`, `pnpm run check:security:contract`,
   `pnpm run format:check`, and `git diff --check` passed after making
   structured lane handler ids mandatory.
+- 2026-06-17: Initial
+  `pnpm exec vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts`
+  failed because the built CLI fixture directory was missing. After
+  `pnpm run build:cli`, the same unit command passed.
+- 2026-06-17: `pnpm --dir examples/03-team-workspace test`,
+  `pnpm --dir examples/08-component-mini-cms test`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`, `pnpm run test:types`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:docs:links`,
+  `pnpm run format:check`, `pnpm run security:contract`,
+  `pnpm run check:security:contract`, and `git diff --check` passed after
+  cleaning up remaining starter/example/docs authoring-shape drift.

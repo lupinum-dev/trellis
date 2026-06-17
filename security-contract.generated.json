@@ -607,19 +607,19 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 109,
+      "line": 111,
       "exportName": "listStudio",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 120,
+      "line": 123,
       "exportName": "listDraft",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 173,
+      "line": 181,
       "exportName": "previewPublish",
       "reads": []
     },
@@ -631,7 +631,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 98,
+      "line": 99,
       "exportName": "getPublished",
       "reads": []
     },
@@ -2231,7 +2231,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 109,
+      "line": 111,
       "exportName": "listStudio",
       "functionType": "query",
       "lane": "public",
@@ -2243,7 +2243,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 120,
+      "line": 123,
       "exportName": "listDraft",
       "functionType": "query",
       "lane": "public",
@@ -2255,7 +2255,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 131,
+      "line": 135,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "public",
@@ -2267,7 +2267,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 141,
+      "line": 146,
       "exportName": "save",
       "functionType": "mutation",
       "lane": "public",
@@ -2279,7 +2279,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 151,
+      "line": 157,
       "exportName": "publish",
       "functionType": "mutation",
       "lane": "public",
@@ -2291,7 +2291,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 163,
+      "line": 170,
       "exportName": "publishAction",
       "functionType": "action",
       "lane": "public",
@@ -2303,7 +2303,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 173,
+      "line": 181,
       "exportName": "previewPublish",
       "functionType": "query",
       "lane": "public",
@@ -2327,7 +2327,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 98,
+      "line": 99,
       "exportName": "getPublished",
       "functionType": "query",
       "lane": "public",
