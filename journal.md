@@ -145,9 +145,7 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   - `defineOperation(...)` omits the direct-handler forwarding field from its
     accepted operation shape;
   - operation preview projection metadata is sourced only from
-    `executeFunctionRef`;
-  - the remaining operation-code reference to `identityForwardingFunctionRef`
-    is the type-level `Omit` that blocks the old field from operations.
+    `executeFunctionRef`.
 - 2026-06-17: Removed the old direct-handler authoring field from structured
   handlers:
   - service/direct-handler tests now use stable `id` as the callable verifier
@@ -283,6 +281,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   - example tests now fail policy on `ctx.raw.withIdentity(...)`;
   - raw identity remains available inside Trellis testing helpers and low-level
     protocol tests, not production-copyable examples.
+- 2026-06-18: Removed the last runtime-code reference to the deleted
+  `identityForwardingFunctionRef` operation field. The operation type now omits
+  only the current `guard` field because structured handlers no longer expose
+  the old forwarding field.
 
 ## Blockers
 

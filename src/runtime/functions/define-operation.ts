@@ -101,7 +101,7 @@ export type OperationDefinition<
     TCrossTenant,
     TPublicWrite
   > extends infer THandlerDefinition
-    ? Omit<THandlerDefinition, 'guard' | 'identityForwardingFunctionRef'> & {
+    ? Omit<THandlerDefinition, 'guard'> & {
         guard?: TGuard
         id?: string
         name?: string
