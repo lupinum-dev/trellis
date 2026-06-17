@@ -1582,7 +1582,53 @@ describe('defineTrellis', () => {
         },
         args,
       ),
-    ).rejects.toThrow(/identityForwardingFunctionRef metadata/)
+    ).rejects.toThrow(/`id` metadata/)
+  })
+
+  it('uses handler id metadata for identity forwarding verification', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const definition = runtime.query.public({
+      id: 'posts:create',
+      reads: [],
+      args: {
+        title: v.string(),
+      },
+      handler: async () => ({ ok: true }),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: Record<string, never>
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Hello' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'posts:create',
+      operation: 'query',
+      jti: 'handler-id-forwarding-target',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: {},
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).resolves.toEqual({ ok: true })
   })
 
   it('uses projected operation function-ref metadata for identity forwarding verification', async () => {

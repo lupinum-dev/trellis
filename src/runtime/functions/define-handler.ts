@@ -501,9 +501,10 @@ function createStructuredBuilder<
       TPublicWrite
     >,
   ): ReturnType<TBuilder> {
-    const functionRef =
+    const forwardingTarget =
       definition.identityForwardingFunctionRef ??
-      getOperationProjectionMetadata(definition)?.functionRef
+      getOperationProjectionMetadata(definition)?.functionRef ??
+      definition.id
     const built = builder({
       ...(definition.id ? { id: definition.id } : {}),
       args: definition.args,
@@ -512,7 +513,7 @@ function createStructuredBuilder<
         ? { trellisBackendLane: definition.trellisBackendLane }
         : {}),
       ...(definition.publicReadTables ? { publicReadTables: definition.publicReadTables } : {}),
-      ...(functionRef ? { identityForwardingFunctionRef: functionRef } : {}),
+      ...(forwardingTarget ? { identityForwardingFunctionRef: forwardingTarget } : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),

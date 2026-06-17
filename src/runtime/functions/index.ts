@@ -1475,13 +1475,10 @@ async function createContextWithRuntime<
     Object.prototype.hasOwnProperty.call(rawAppArgs, '_trellisForwarding') &&
     !extra?.identityForwardingFunctionRef
   ) {
-    throw deny(
-      'Signed identity forwarding requires exact identityForwardingFunctionRef metadata on the target handler.',
-      {
-        source: 'identity-forwarding',
-        category: 'auth',
-      },
-    )
+    throw deny('Signed identity forwarding requires exact `id` metadata on the target handler.', {
+      source: 'identity-forwarding',
+      category: 'auth',
+    })
   }
   const ctxWithIdentityForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
   setIdentityForwardingContext(ctxWithIdentityForwarding, rawAppArgs, {
@@ -2862,7 +2859,9 @@ function buildStructuredMutationRuntime<
           }
         : projectionMetadata?.functionRef
           ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
-          : {}),
+          : definition.id
+            ? { identityForwardingFunctionRef: definition.id }
+            : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
@@ -3248,7 +3247,9 @@ function buildStructuredTransportMutationRuntime<
           }
         : projectionMetadata?.functionRef
           ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
-          : {}),
+          : definition.id
+            ? { identityForwardingFunctionRef: definition.id }
+            : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),

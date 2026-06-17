@@ -12,5 +12,5 @@ export const getAccessContext = query.session({
       displayName: appIdentity.displayName ?? null,
     }),
   }),
-  identityForwardingFunctionRef: 'permissions/context:getAccessContext',
+  id: 'permissions/context:getAccessContext',
 })

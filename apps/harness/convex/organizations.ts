@@ -20,7 +20,7 @@ export const list = query.authenticated({
 
 export const create = mutation.authenticated({
   args: createOrganizationArgs.args,
-  identityForwardingFunctionRef: 'organizations:create',
+  id: 'organizations:create',
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
 

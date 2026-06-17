@@ -90,6 +90,14 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   replay target, key id, and transport options. Example 03 no longer needs a
   local function-ref extractor or direct identity-forwarding envelope signing
   for its webhook delegation tests.
+- 2026-06-17: Started stable handler-id migration:
+  - direct structured handlers can now use `id` as the signed forwarding target;
+  - runtime errors point authors at `id` instead of
+    `identityForwardingFunctionRef`;
+  - maintained direct handler examples/harness probes were migrated to `id`.
+    Operation definitions still retain execute-target metadata for now because
+    their existing `id` is the operation id, not the Convex execute function
+    target.
 
 ## Blockers
 
@@ -124,3 +132,7 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm --dir examples/03-team-workspace test`, and
   `pnpm exec vitest run --project=unit tests/unit/package-subpath-exports.test.ts`
   passed for the expanded testing helper.
+- 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`, and
+  `pnpm --dir examples/07-mcp-reference test` passed for the direct-handler
+  stable `id` forwarding slice.

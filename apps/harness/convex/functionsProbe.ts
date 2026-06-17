@@ -173,7 +173,7 @@ export const structuredEnvelopeProbe = query.authenticated({
 export const structuredDelegationProbe = query.public({
   reads: [],
   args: {},
-  identityForwardingFunctionRef: 'functionsProbe:structuredDelegationProbe',
+  id: 'functionsProbe:structuredDelegationProbe',
   handler: async (ctx) => ({
     actingFor: await ctx.actingFor(),
   }),
@@ -195,7 +195,7 @@ export const resetActorResolverCalls = mutation.unsafe({
 export const actorMemoization = query.public({
   reads: [],
   args: {},
-  identityForwardingFunctionRef: 'functionsProbe:actorMemoization',
+  id: 'functionsProbe:actorMemoization',
   handler: async (ctx) => {
     const before = actorResolverCalls
     const first = await ctx.appIdentity()
@@ -213,7 +213,7 @@ export const actorMemoization = query.public({
 export const identityForwardingStateProbe = query.public({
   reads: [],
   args: {},
-  identityForwardingFunctionRef: 'functionsProbe:identityForwardingStateProbe',
+  id: 'functionsProbe:identityForwardingStateProbe',
   handler: async (ctx) => ({
     identityForwarding: getIdentityForwarding(ctx),
     forwardedCaller: getForwardedCaller(ctx),
@@ -225,7 +225,7 @@ export const echoedArgs = query.public({
   args: {
     title: v.string(),
   },
-  identityForwardingFunctionRef: 'functionsProbe:echoedArgs',
+  id: 'functionsProbe:echoedArgs',
   handler: async (_ctx, args) => args,
 })
 
