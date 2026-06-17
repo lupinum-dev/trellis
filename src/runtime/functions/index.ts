@@ -135,6 +135,7 @@ export type {
   OperationIdOf,
   OperationKind,
   OperationProjectionRef,
+  OperationShape,
   TrellisOperationMetadata,
   TrellisOperationProjectionMetadata,
   ValidateOperationDefinition,

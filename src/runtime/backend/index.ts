@@ -67,6 +67,7 @@ export type {
   OperationPreviewIssue,
   OperationProjectionRef,
   OperationPreviewsById,
+  OperationShape,
   OperationsById,
   CallerAccessor,
   CallerDefinition,
