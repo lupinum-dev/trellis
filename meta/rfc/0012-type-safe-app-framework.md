@@ -50,13 +50,13 @@ export const listPosts = query.public({
   },
 })
 
-export const getAccessContext = query.session({
-  id: 'access:get',
-  ...defineAccessContext({
+export const getAccessContext = query.session(
+  defineAccessContext({
+    id: 'access:get',
     resolve: (ctx) => ctx.appIdentity(),
     permissions,
   }),
-})
+)
 
 export const deletePost = operation.destructive({
   id: 'posts:delete',
@@ -612,13 +612,13 @@ Session means access discovery. It is callable before the app knows whether the
 caller is a member of anything.
 
 ```ts
-export const getAccessContext = query.session({
-  id: 'access:get',
-  ...defineAccessContext({
+export const getAccessContext = query.session(
+  defineAccessContext({
+    id: 'access:get',
     resolve: (ctx) => ctx.appIdentity(),
     permissions,
   }),
-})
+)
 ```
 
 Rules:
@@ -1088,13 +1088,13 @@ export const getAccessContext = query.public({
 After:
 
 ```ts
-export const getAccessContext = query.session({
-  id: 'members:getAccessContext',
-  ...defineAccessContext({
+export const getAccessContext = query.session(
+  defineAccessContext({
+    id: 'members:getAccessContext',
     resolve: (ctx) => ctx.appIdentity(),
     permissions,
   }),
-})
+)
 ```
 
 Why better:
@@ -1179,13 +1179,13 @@ After:
 ```ts
 export const listProjects = query.authenticated({
   id: 'projects:listProjects',
-  reads: ['projects'],
   args: {},
   returns: v.array(projectValidator),
   handler: async (ctx) => {
+    const identity = await ctx.appIdentity()
     return await ctx.db
       .query('projects')
-      .withIndex('by_owner', (q) => q.eq('ownerId', ctx.identity.userId))
+      .withIndex('by_owner', (q) => q.eq('ownerId', identity.userId))
       .collect()
   },
 })
@@ -1336,10 +1336,13 @@ export const getAccessContext = callerQuery.public({
 After:
 
 ```ts
-export const getAccessContext = callerQuery.session({
-  id: 'members:getAccessContext',
-  ...getAccessContextDefinition,
-})
+export const getAccessContext = callerQuery.session(
+  defineAccessContext({
+    id: 'members:getAccessContext',
+    resolve: (ctx) => ctx.appIdentity(),
+    permissions,
+  }),
+)
 ```
 
 ### Public Content

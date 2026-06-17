@@ -93,6 +93,7 @@ type LoadedRunbook = { runbook: Doc<'runbooks'> }
 type ReadDb = Pick<QueryCtx['db'], 'get' | 'query'>
 
 export const listPublic = query.public({
+  id: 'runbooks.list-public',
   reads: ['runbooks'],
   args: listRunbooks.args,
   crossTenant: {
@@ -118,6 +119,7 @@ export const listPublic = query.public({
 })
 
 export const searchPublic = query.public({
+  id: 'runbooks.search-public',
   reads: ['runbooks'],
   args: searchRunbooks.args,
   crossTenant: {
@@ -166,6 +168,7 @@ export const listWorkspaceRunbooksOp = operation.query({
 export const listWorkspace = query.workspace(listWorkspaceRunbooksOp)
 
 export const get = query.public({
+  id: 'runbooks.get-public',
   reads: ['runbooks'],
   args: getRunbook.args,
   crossTenant: {

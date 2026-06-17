@@ -168,6 +168,12 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     definition with stable id metadata;
   - maintained examples, starter fixtures, docs, and type tests no longer need
     `query.session({ ...defineAccessContext(...), id })` spread wrappers.
+- 2026-06-18: Simplified the Example 07 app-test forwarding path:
+  - ordinary app tests now use `ctx.asCaller(...).query/mutation(...)` helpers
+    for user, delegated service, and delegated MCP access-context calls instead
+    of constructing signed identity-forwarding envelopes by hand;
+  - direct public runbook handlers now declare stable ids, keeping the example
+    aligned with the mandatory structured-handler id rule.
 
 ## Blockers
 
@@ -265,3 +271,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run check:docs:links`, `pnpm run check:security:contract`,
   `pnpm run format:check`, and `git diff --check` passed after moving stable
   access-context ids into `defineAccessContext(...)`.
+- 2026-06-18: Initial `pnpm --dir examples/07-mcp-reference test` failed while
+  migrating the test helpers because direct public runbook handlers lacked ids
+  and the delegated MCP access-context helper used an unsupported transport.
+  After fixing both, `pnpm --dir examples/07-mcp-reference test` passed.
+- 2026-06-18: Initial `pnpm run check:security:contract` failed because the new
+  Example 07 handler ids changed generated metadata. After
+  `pnpm run security:contract`, `pnpm run check:security:contract`,
+  `pnpm run format:check`, and `git diff --check` passed.

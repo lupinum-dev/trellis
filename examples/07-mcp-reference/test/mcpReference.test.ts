@@ -2,10 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 
-import {
-  createIdentityForwardingEnvelopeArgs,
-  requireDelegationBinding,
-} from '@lupinum/trellis/backend'
+import { requireDelegationBinding } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -22,7 +19,6 @@ import { modules } from '../convex/test.setup'
 const api = anyApi as any
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 const IDENTITY_FORWARDING_KEY = 'mcp-reference-test-identity-forwarding-key'
-const functionNameSymbol = Symbol.for('functionName')
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
@@ -32,50 +28,57 @@ function createCtx() {
   })
 }
 
-function getFunctionRef(ref: unknown): string {
-  if (typeof ref === 'string') return ref
-  if (typeof ref === 'object' && ref !== null) {
-    const record = ref as Record<string | symbol, unknown>
-    if (typeof record[functionNameSymbol] === 'string') return record[functionNameSymbol]
-    if (typeof record._path === 'string') return record._path
-    if (typeof record.functionPath === 'string') return record.functionPath
-  }
-
-  throw new Error('Expected generated Convex function ref in MCP reference test.')
+function forwardedUser(ctx: ReturnType<typeof createCtx>, user: { authKey: string }) {
+  return ctx.asCaller(
+    {
+      kind: 'user',
+      authKey: user.authKey,
+      subject: `auth:${user.authKey}`,
+    },
+    {
+      replayMode: 'domain-idempotency',
+      transport: 'server',
+    },
+  )
 }
 
-function withSignedForwarding(
-  args: Record<string, unknown>,
-  options: {
-    caller: Record<string, unknown>
-    actingFor?: Record<string, unknown>
-    ref: unknown
-    operation: 'query' | 'mutation' | 'action'
-    transport?: 'server' | 'webhook' | 'mcp' | 'bridge'
-    replayMode?: 'domain-idempotency' | 'jti-redemption' | 'operation-confirmation'
-  },
+function webhookService(
+  ctx: ReturnType<typeof createCtx>,
+  actingFor: { subject: string } & Record<string, unknown>,
 ) {
-  const principalSubject = options.caller.subject
-  if (typeof principalSubject !== 'string' || !principalSubject) {
-    throw new Error('Signed test forwarding requires a canonical caller subject.')
-  }
+  return ctx.asCaller(
+    {
+      kind: 'service',
+      serviceId: 'runbook-webhook',
+      subject: 'service:runbook-webhook',
+    },
+    {
+      actingFor,
+      transport: 'webhook',
+      purpose: 'mutation',
+      replayMode: 'domain-idempotency',
+    },
+  )
+}
 
-  return createIdentityForwardingEnvelopeArgs({
-    args,
-    key: IDENTITY_FORWARDING_KEY,
-    keyId: 'default',
-    issuer: 'trellis://server',
-    audience: 'trellis://convex',
-    jti: `mcp-reference-${options.operation}-${principalSubject}`,
-    caller: options.caller as { subject: string } & Record<string, unknown>,
-    ...(options.actingFor ? { actingFor: options.actingFor } : {}),
-    transport: options.transport ?? 'server',
-    purpose: options.operation,
-    ...(options.replayMode ? { replayMode: options.replayMode } : {}),
-    functionRef: getFunctionRef(options.ref),
-    operation: options.operation,
-    ttlMs: options.operation === 'query' ? 60_000 : 30_000,
-  })
+function mcpAgent(
+  ctx: ReturnType<typeof createCtx>,
+  keyId: string,
+  actingFor: { subject: string } & Record<string, unknown>,
+) {
+  return ctx.asCaller(
+    {
+      kind: 'agent',
+      agentId: keyId,
+      provider: 'mcp',
+      subject: `agent:${keyId}`,
+    },
+    {
+      actingFor,
+      transport: 'server',
+      purpose: 'query',
+    },
+  )
 }
 
 function mcpKeyDelegation(input: { keyId: string; userId: string; workspaceId: string }) {
@@ -262,27 +265,15 @@ describe('mcp reference example', () => {
       hash: 'hash_record_access',
     })
 
-    const accessContext = await ctx.raw.query(
-      api.permissions.context.getAccessContext,
-      withSignedForwarding(
-        {},
-        {
-          ref: api.permissions.context.getAccessContext,
-          operation: 'query',
-          caller: {
-            kind: 'agent',
-            agentId: keyId,
-            subject: `agent:${keyId}`,
-            provider: 'mcp',
-          },
-          actingFor: mcpKeyDelegation({
-            keyId,
-            userId: team.users.member.id,
-            workspaceId: team.id,
-          }),
-        },
-      ),
-    )
+    const accessContext = await mcpAgent(
+      ctx,
+      keyId,
+      mcpKeyDelegation({
+        keyId,
+        userId: team.users.member.id,
+        workspaceId: team.id,
+      }),
+    ).query(api.permissions.context.getAccessContext, {})
 
     expect(accessContext).toMatchObject({
       role: 'member',
@@ -341,53 +332,23 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.domain.create,
-        withSignedForwarding(
-          {
-            title: 'Viewer should fail',
-            summary: 'No permission',
-            content: '# Nope',
-            visibility: 'draft',
-            tags: [],
-          },
-          {
-            ref: api.features.runbooks.domain.create,
-            operation: 'mutation',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'user',
-              authKey: team.users.viewer.authKey,
-              subject: `auth:${team.users.viewer.authKey}`,
-            },
-          },
-        ),
-      ),
+      forwardedUser(ctx, team.users.viewer).mutation(api.features.runbooks.domain.create, {
+        title: 'Viewer should fail',
+        summary: 'No permission',
+        content: '# Nope',
+        visibility: 'draft',
+        tags: [],
+      }),
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.domain.create,
-        withSignedForwarding(
-          {
-            title: 'Member may create',
-            summary: 'Allowed',
-            content: '# Allowed',
-            visibility: 'draft',
-            tags: ['ops'],
-          },
-          {
-            ref: api.features.runbooks.domain.create,
-            operation: 'mutation',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'user',
-              authKey: team.users.member.authKey,
-              subject: `auth:${team.users.member.authKey}`,
-            },
-          },
-        ),
-      ),
+      forwardedUser(ctx, team.users.member).mutation(api.features.runbooks.domain.create, {
+        title: 'Member may create',
+        summary: 'Allowed',
+        content: '# Allowed',
+        visibility: 'draft',
+        tags: ['ops'],
+      }),
     ).resolves.toBeTruthy()
   })
 
@@ -402,102 +363,60 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            deliveryId: 'delivery_viewer',
-            workspaceId: team.id,
-            title: 'Webhook viewer should fail',
-            summary: 'No permission',
-            content: '# Nope',
-            visibility: 'workspace',
-            tags: ['webhook'],
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: runbookWebhookDelegation({
-              userId: team.users.viewer.id,
-              workspaceId: team.id,
-              deliveryId: 'delivery_viewer',
-            }),
-          },
-        ),
-      ),
+      webhookService(
+        ctx,
+        runbookWebhookDelegation({
+          userId: team.users.viewer.id,
+          workspaceId: team.id,
+          deliveryId: 'delivery_viewer',
+        }),
+      ).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        deliveryId: 'delivery_viewer',
+        workspaceId: team.id,
+        title: 'Webhook viewer should fail',
+        summary: 'No permission',
+        content: '# Nope',
+        visibility: 'workspace',
+        tags: ['webhook'],
+      }),
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            deliveryId: 'delivery_member',
-            workspaceId: team.id,
-            title: 'Webhook member may create',
-            summary: 'Allowed',
-            content: '# Allowed',
-            visibility: 'workspace',
-            tags: ['webhook'],
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: runbookWebhookDelegation({
-              userId: team.users.member.id,
-              workspaceId: team.id,
-              deliveryId: 'delivery_member',
-            }),
-          },
-        ),
-      ),
+      webhookService(
+        ctx,
+        runbookWebhookDelegation({
+          userId: team.users.member.id,
+          workspaceId: team.id,
+          deliveryId: 'delivery_member',
+        }),
+      ).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        deliveryId: 'delivery_member',
+        workspaceId: team.id,
+        title: 'Webhook member may create',
+        summary: 'Allowed',
+        content: '# Allowed',
+        visibility: 'workspace',
+        tags: ['webhook'],
+      }),
     ).resolves.toBeTruthy()
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            deliveryId: 'delivery_member',
-            workspaceId: team.id,
-            title: 'Webhook duplicate',
-            summary: 'Duplicate',
-            content: '# Duplicate',
-            visibility: 'workspace',
-            tags: ['webhook'],
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: runbookWebhookDelegation({
-              userId: team.users.member.id,
-              workspaceId: team.id,
-              deliveryId: 'delivery_member',
-            }),
-          },
-        ),
-      ),
+      webhookService(
+        ctx,
+        runbookWebhookDelegation({
+          userId: team.users.member.id,
+          workspaceId: team.id,
+          deliveryId: 'delivery_member',
+        }),
+      ).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        deliveryId: 'delivery_member',
+        workspaceId: team.id,
+        title: 'Webhook duplicate',
+        summary: 'Duplicate',
+        content: '# Duplicate',
+        visibility: 'workspace',
+        tags: ['webhook'],
+      }),
     ).rejects.toThrow(/Duplicate webhook delivery/)
   })
 
@@ -511,36 +430,22 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            deliveryId: 'delivery_public_denied',
-            workspaceId: team.id,
-            title: 'Public webhook should fail',
-            summary: 'Denied',
-            content: '# Denied',
-            visibility: 'public',
-            tags: ['webhook'],
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: runbookWebhookDelegation({
-              userId: team.users.member.id,
-              workspaceId: team.id,
-              deliveryId: 'delivery_public_denied',
-            }),
-          },
-        ),
-      ),
+      webhookService(
+        ctx,
+        runbookWebhookDelegation({
+          userId: team.users.member.id,
+          workspaceId: team.id,
+          deliveryId: 'delivery_public_denied',
+        }),
+      ).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        deliveryId: 'delivery_public_denied',
+        workspaceId: team.id,
+        title: 'Public webhook should fail',
+        summary: 'Denied',
+        content: '# Denied',
+        visibility: 'public',
+        tags: ['webhook'],
+      }),
     ).rejects.toThrow(/Only owners and admins can create public runbooks/)
 
     await ctx.raw.run(async (innerCtx) => {
@@ -575,87 +480,39 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            ...baseArgs,
-            deliveryId: 'delivery_wrong_service',
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: {
-              ...validDelegation,
-              serviceId: 'other-service',
-              grantId: 'delivery:delivery_wrong_service',
-            },
-          },
-        ),
-      ),
+      webhookService(ctx, {
+        ...validDelegation,
+        serviceId: 'other-service',
+        grantId: 'delivery:delivery_wrong_service',
+      }).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        ...baseArgs,
+        deliveryId: 'delivery_wrong_service',
+      }),
     ).rejects.toThrow(/serviceId does not match/i)
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            ...baseArgs,
-            deliveryId: 'delivery_wrong_purpose',
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: {
-              ...validDelegation,
-              purpose: 'runbook-webhook:delete',
-              grantId: 'delivery:delivery_wrong_purpose',
-            },
-          },
-        ),
-      ),
+      webhookService(ctx, {
+        ...validDelegation,
+        purpose: 'runbook-webhook:delete',
+        grantId: 'delivery:delivery_wrong_purpose',
+      }).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        ...baseArgs,
+        deliveryId: 'delivery_wrong_purpose',
+      }),
     ).rejects.toThrow(/purpose does not match/i)
 
     await expect(
-      ctx.raw.mutation(
-        api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-        withSignedForwarding(
-          {
-            ...baseArgs,
-            deliveryId: 'delivery_expired',
-          },
-          {
-            ref: api.features.runbooks.webhooks.createRunbookFromWebhookMutation,
-            operation: 'mutation',
-            transport: 'webhook',
-            replayMode: 'domain-idempotency',
-            caller: {
-              kind: 'service',
-              serviceId: 'runbook-webhook',
-              subject: 'service:runbook-webhook',
-            },
-            actingFor: expiredRunbookWebhookDelegation({
-              userId: team.users.member.id,
-              workspaceId: team.id,
-              deliveryId: 'delivery_expired',
-            }),
-          },
-        ),
-      ),
+      webhookService(
+        ctx,
+        expiredRunbookWebhookDelegation({
+          userId: team.users.member.id,
+          workspaceId: team.id,
+          deliveryId: 'delivery_expired',
+        }),
+      ).mutation(api.features.runbooks.webhooks.createRunbookFromWebhookMutation, {
+        ...baseArgs,
+        deliveryId: 'delivery_expired',
+      }),
     ).rejects.toThrow(/expiresAt must be in the future/i)
   })
 

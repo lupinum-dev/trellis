@@ -228,7 +228,7 @@
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "applies the same create permission rules to delegated service principals",
       "evidenceFor": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
-      "line": 394
+      "line": 355
     },
     {
       "id": "example07-webhook-forged-binding",
@@ -239,7 +239,7 @@
         "wrong service rejection",
         "wrong purpose rejection"
       ],
-      "line": 555
+      "line": 460
     }
   ],
   "serverRoutes": [
@@ -442,10 +442,10 @@
     },
     {
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
-      "line": 82,
-      "serviceId": null,
-      "purpose": "mcp-session",
-      "grantSource": "mcp-key-binding",
+      "line": 101,
+      "serviceId": "runbook-webhook",
+      "purpose": "runbook-webhook:create",
+      "grantSource": "workspace-service-policy",
       "hasGrantId": true,
       "hasExpiresAt": true,
       "hasReason": false,
@@ -454,10 +454,10 @@
     },
     {
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
-      "line": 98,
-      "serviceId": "runbook-webhook",
-      "purpose": "runbook-webhook:create",
-      "grantSource": "workspace-service-policy",
+      "line": 85,
+      "serviceId": null,
+      "purpose": "mcp-session",
+      "grantSource": "mcp-key-binding",
       "hasGrantId": true,
       "hasExpiresAt": true,
       "hasReason": false,
@@ -571,13 +571,13 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 120,
+      "line": 121,
       "exportName": "searchPublic",
       "reads": ["runbooks"]
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 168,
+      "line": 170,
       "exportName": "get",
       "reads": ["runbooks"]
     },
@@ -1943,7 +1943,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 120,
+      "line": 121,
       "exportName": "searchPublic",
       "functionType": "query",
       "lane": "public",
@@ -1955,7 +1955,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 166,
+      "line": 168,
       "exportName": "listWorkspace",
       "functionType": "query",
       "lane": "workspace",
@@ -1967,7 +1967,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 168,
+      "line": 170,
       "exportName": "get",
       "functionType": "query",
       "lane": "public",
@@ -1979,7 +1979,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 232,
+      "line": 235,
       "exportName": "getWorkspace",
       "functionType": "query",
       "lane": "workspace",
@@ -1991,7 +1991,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 265,
+      "line": 268,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2003,7 +2003,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 306,
+      "line": 309,
       "exportName": "update",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2015,7 +2015,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 308,
+      "line": 311,
       "exportName": "previewRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2027,7 +2027,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 309,
+      "line": 312,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2039,7 +2039,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 310,
+      "line": 313,
       "exportName": "previewBulkRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2051,7 +2051,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 311,
+      "line": 314,
       "exportName": "bulkRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2063,7 +2063,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 335,
+      "line": 338,
       "exportName": "workspaceOverview",
       "functionType": "query",
       "lane": "workspace",
@@ -3515,7 +3515,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 149,
+      "line": 151,
       "exportName": "listWorkspaceRunbooksOp",
       "type": "query",
       "id": "runbooks.list-workspace",
@@ -3529,7 +3529,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 215,
+      "line": 218,
       "exportName": "getWorkspaceRunbookOp",
       "type": "query",
       "id": "runbooks.get-workspace",
@@ -3543,7 +3543,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 234,
+      "line": 237,
       "exportName": "createRunbookOp",
       "type": "mutation",
       "id": "runbooks.create",
@@ -3557,7 +3557,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 267,
+      "line": 270,
       "exportName": "updateRunbookOp",
       "type": "mutation",
       "id": "runbooks.update",
@@ -3571,7 +3571,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 313,
+      "line": 316,
       "exportName": "workspaceOverviewOp",
       "type": "query",
       "id": "runbooks.workspace-overview",
