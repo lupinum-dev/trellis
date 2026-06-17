@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.3.1
+
+Hardening patch for the 0.3 transport-proof release.
+
+### Security
+
+- Moves trusted JTI claiming after service allowlists, rule resolution, and
+  replay-mode validation, and keeps failed trusted writes retryable only when
+  their envelope metadata still matches.
+- Makes `authenticated` handlers reject callers whose app identity resolves to
+  null, matching the non-null `appIdentity()` type.
+- Requires configured service principals to use verified forwarding envelopes
+  unless their service metadata explicitly declares `replayMode: 'none'`.
+- Signs domain idempotency key and target metadata into forwarding envelopes and
+  rejects target mismatches. Domain handlers still own the transactional
+  idempotent write.
+- Requires replay metadata for forwarded MCP mutations and actions.
+
+### Fixes
+
+- Restores nested identity-forwarding contexts instead of clearing outer
+  forwarding state.
+- Makes table-restricted DB facades fail closed for ID-only write methods when
+  table membership cannot be proven from an explicit table boundary.
+- Updates generated security-contract wording from proof claims to named test
+  evidence, and shares banned-export policy from one source.
+
+### Release
+
+- Publishes `@lupinum/trellis@0.3.1` and
+  `@lupinum/trellis-bridge@0.3.1`.
+- Keeps `@lupinum/trellis-eslint` private.
+
 ## v0.3.0
 
 Hard-cut security foundation release.

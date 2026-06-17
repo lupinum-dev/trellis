@@ -8,6 +8,7 @@ import {
   getForwardedActingFor,
   getIdentityForwarding,
   setIdentityForwardingContext,
+  withVerifiedIdentityForwardingContext,
   withIdentityForwarding,
 } from '../../src/runtime/identity-forwarding'
 import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity-forwarding/shared'
@@ -142,6 +143,38 @@ describe('identity forwarding helpers', () => {
 
     clearIdentityForwardingContext(ctx)
     expect(getIdentityForwarding(ctx)).toBeNull()
+  })
+
+  it('restores previous identity forwarding context after scoped verification', async () => {
+    const ctx: Record<string, unknown> = {}
+    setIdentityForwardingContext(
+      ctx,
+      signedArgs({
+        caller: { kind: 'user', userId: 'outer', subject: 'user:outer' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      },
+    )
+    const innerArgs = signedArgs({
+      caller: { kind: 'user', userId: 'inner', subject: 'user:inner' },
+      functionRef: 'tasks:update',
+    })
+
+    await expect(
+      withVerifiedIdentityForwardingContext(
+        ctx,
+        innerArgs,
+        {
+          expectedFunctionRef: 'tasks:update',
+          now: Date.UTC(2026, 4, 9, 12, 0, 1),
+        },
+        async (innerCtx) => getIdentityForwarding(innerCtx),
+      ),
+    ).resolves.toEqual({ principalSubject: 'user:inner' })
+
+    expect(getIdentityForwarding(ctx)).toEqual({ principalSubject: 'user:outer' })
   })
 
   it('stores forwarded identity from a signed forwarding envelope without public identity args', () => {

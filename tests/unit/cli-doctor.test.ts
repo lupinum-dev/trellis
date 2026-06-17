@@ -1412,7 +1412,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           dependencies: {
             '@example/cms-integration': '1.0.0',
             convex: '^1.38.0',
-            nuxt: '^4.4.6',
+            nuxt: '4.4.8',
           },
         },
         null,
@@ -1482,7 +1482,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           dependencies: {
             '@example/cms-integration': '1.0.0',
             convex: '^1.38.0',
-            nuxt: '^4.4.6',
+            nuxt: '4.4.8',
           },
         },
         null,
@@ -1536,7 +1536,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           dependencies: {
             '@lupinum/trellis': 'workspace:*',
             convex: '^1.38.0',
-            nuxt: '^4.4.6',
+            nuxt: '4.4.8',
           },
         },
         null,
@@ -1811,7 +1811,7 @@ export const appInventory = defineAppInventory({
         {
           dependencies: {
             '@nuxtjs/mcp-toolkit': '^0.17.2',
-            nuxt: '^4.4.7',
+            nuxt: '4.4.8',
           },
         },
         null,

@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "phase": "0.3.0-phase-a",
+  "version": 2,
+  "phase": "0.3.1-hardening",
   "generatedBy": "scripts/generate-security-contract.mjs",
   "scope": {
     "includedRoots": ["apps/harness", "examples", "src/cli/starter-fixtures"],
@@ -186,7 +186,7 @@
       "id": "example03-webhook-route-retry",
       "file": "examples/03-team-workspace/server/api/webhook.post.test.ts",
       "testName": "does not route-consume valid deliveries when backend dispatch fails",
-      "proves": [
+      "evidenceFor": [
         "route retry after backend dispatch failure",
         "route does not own delivery consume"
       ],
@@ -196,28 +196,28 @@
       "id": "example03-webhook-domain-duplicate",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "denies duplicate webhook events",
-      "proves": ["backend-owned delivery idempotency", "duplicate event rejection"],
+      "evidenceFor": ["backend-owned delivery idempotency", "duplicate event rejection"],
       "line": 201
     },
     {
       "id": "example03-webhook-forged-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when the delegation workspace is forged",
-      "proves": ["backend delegation revalidation", "forged workspace rejection"],
+      "evidenceFor": ["backend delegation revalidation", "forged workspace rejection"],
       "line": 315
     },
     {
       "id": "example03-webhook-expired-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when delegation evidence is expired",
-      "proves": ["backend delegation revalidation", "expired delegation rejection"],
+      "evidenceFor": ["backend delegation revalidation", "expired delegation rejection"],
       "line": 348
     },
     {
       "id": "example07-webhook-route-retry",
       "file": "examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts",
       "testName": "does not route-consume valid deliveries when backend dispatch fails",
-      "proves": [
+      "evidenceFor": [
         "route retry after backend dispatch failure",
         "route does not own delivery consume"
       ],
@@ -227,14 +227,14 @@
       "id": "example07-webhook-domain-duplicate",
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "applies the same create permission rules to delegated service principals",
-      "proves": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
+      "evidenceFor": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
       "line": 394
     },
     {
       "id": "example07-webhook-forged-binding",
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "rejects delegated service principals with forged binding fields",
-      "proves": [
+      "evidenceFor": [
         "backend delegation revalidation",
         "wrong service rejection",
         "wrong purpose rejection"
@@ -2075,10 +2075,10 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 115,
+      "line": 122,
       "exportName": "createWorkspaceMutation",
       "functionType": "mutation",
-      "lane": "authenticated",
+      "lane": "unsafe",
       "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
@@ -3643,7 +3643,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 16,
+      "line": 17,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",

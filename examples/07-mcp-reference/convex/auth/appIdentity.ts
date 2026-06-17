@@ -61,7 +61,7 @@ async function loadUserActorByUserId(
     throw new Error('MCP reference appIdentity resolution requires a query or mutation context.')
   }
 
-  const user = await ctx.db.get(userId as Id<'users'>)
+  const user = await ctx.db.get('users', userId as Id<'users'>)
   if (!user) return null
 
   return {

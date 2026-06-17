@@ -36,7 +36,7 @@ export const listAccessibleWorkspacesOp = operation.query({
 
           return Promise.all(
             memberships.map(async (membership) => {
-              const workspace = await reader.get(membership.workspaceId)
+              const workspace = await reader.get('workspaces', membership.workspaceId)
               return {
                 workspaceId: membership.workspaceId,
                 role: membership.role,

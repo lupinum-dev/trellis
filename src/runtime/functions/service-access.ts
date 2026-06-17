@@ -15,7 +15,6 @@ import {
 } from '../observability/index.js'
 import type { ActingFor } from './define-acting-for.js'
 import { trellisOperationMetadataKey } from './define-operation.js'
-import { getTableFromId } from './public-db.js'
 
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
 
@@ -258,14 +257,26 @@ export function wrapServiceDb<TDb extends object, DataModel extends GenericDataM
         }
       }
 
-      if (prop === 'get' || prop === 'patch' || prop === 'replace' || prop === 'delete') {
-        return (id: unknown, ...args: unknown[]) => {
-          const table = getTableFromId(id)
-          if (!table) {
-            throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      if (prop === 'get') {
+        return (table: TableNamesInDataModel<DataModel>, id: unknown) => {
+          assertServiceTableAccess(access, String(table), observe)
+          return original.call(target, table, id)
+        }
+      }
+
+      if (prop === 'patch' || prop === 'replace' || prop === 'delete') {
+        return (tableOrId: unknown, idOrValue?: unknown, maybeValue?: unknown) => {
+          if (prop === 'delete' && typeof tableOrId === 'string' && idOrValue !== undefined) {
+            assertServiceTableAccess(access, tableOrId, observe)
+            return original.call(target, tableOrId, idOrValue)
           }
-          assertServiceTableAccess(access, table, observe)
-          return original.call(target, id, ...args)
+          if (prop !== 'delete' && typeof tableOrId === 'string' && maybeValue !== undefined) {
+            assertServiceTableAccess(access, tableOrId, observe)
+            return original.call(target, tableOrId, idOrValue, maybeValue)
+          }
+          throw new Error(
+            `Service "${access.serviceId}" cannot use id-only ${String(prop)} through a table-restricted DB facade.`,
+          )
         }
       }
 
@@ -497,17 +508,15 @@ export async function assertServiceTargetAllowed<DataModel extends GenericDataMo
     })
   }
 
-  if (envelope) {
-    const actualReplayMode = envelope.replayMode ?? 'none'
-    if (service.metadata.replayMode !== actualReplayMode) {
-      throw deny(
-        `Service "${caller.serviceId}" requires replay mode "${service.metadata.replayMode}", not "${actualReplayMode}".`,
-        {
-          source: 'service-access',
-          category: 'auth',
-        },
-      )
-    }
+  const actualReplayMode = envelope?.replayMode ?? 'none'
+  if (service.metadata.replayMode !== actualReplayMode) {
+    throw deny(
+      `Service "${caller.serviceId}" requires replay mode "${service.metadata.replayMode}", not "${actualReplayMode}".`,
+      {
+        source: 'service-access',
+        category: 'auth',
+      },
+    )
   }
 
   if (targetFunctionRef && allowedFunctionRefs.includes(targetFunctionRef)) return

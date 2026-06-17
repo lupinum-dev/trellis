@@ -46,7 +46,7 @@ export const getAnyPost = query.authenticated({
       const readDb = db as DatabaseReader
 
       return {
-        getPost: async (id: string) => await readDb.get(id as never),
+        getPost: async (id: string) => await readDb.get('posts' as never, id as never),
       }
     },
   },

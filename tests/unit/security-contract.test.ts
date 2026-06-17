@@ -12,8 +12,8 @@ describe('security contract generator', () => {
   it('collects the Phase A security contract from source-controlled facts', () => {
     const contract = collectSecurityContract(process.cwd())
 
-    expect(contract.version).toBe(1)
-    expect(contract.phase).toBe('0.3.0-phase-a')
+    expect(contract.version).toBe(2)
+    expect(contract.phase).toBe('0.3.1-hardening')
     expect(contract.publicPackageExports).toContain('./server')
     expect(contract.bannedPublicExports).toContainEqual({
       entry: '@lupinum/trellis/server',
@@ -56,17 +56,17 @@ describe('security contract generator', () => {
         expect.objectContaining({
           id: 'example03-webhook-route-retry',
           file: 'examples/03-team-workspace/server/api/webhook.post.test.ts',
-          proves: expect.arrayContaining(['route retry after backend dispatch failure']),
+          evidenceFor: expect.arrayContaining(['route retry after backend dispatch failure']),
         }),
         expect.objectContaining({
           id: 'example07-webhook-domain-duplicate',
           file: 'examples/07-mcp-reference/test/mcpReference.test.ts',
-          proves: expect.arrayContaining(['backend-owned delivery idempotency']),
+          evidenceFor: expect.arrayContaining(['backend-owned delivery idempotency']),
         }),
         expect.objectContaining({
           id: 'example07-webhook-forged-binding',
           file: 'examples/07-mcp-reference/test/mcpReference.test.ts',
-          proves: expect.arrayContaining(['wrong purpose rejection']),
+          evidenceFor: expect.arrayContaining(['wrong purpose rejection']),
         }),
       ]),
     )

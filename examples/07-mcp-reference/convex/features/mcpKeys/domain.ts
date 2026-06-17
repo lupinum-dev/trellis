@@ -44,7 +44,7 @@ async function getBoundUser(ctx: Ctx, boundUserId: Id<'users'>): Promise<BoundUs
 }
 
 async function getBoundUserFromDb(db: ReadDb, boundUserId: Id<'users'>): Promise<BoundUser | null> {
-  const user = await db.get(boundUserId)
+  const user = await db.get('users', boundUserId)
 
   return user ?? null
 }
@@ -144,7 +144,7 @@ export const revokeMcpKeyOp = operation.mutation({
     const appIdentity = await ctx.appIdentity()
     requireAuth(appIdentity)
 
-    const rawKey = await ctx.db.get(args.id)
+    const rawKey = await ctx.db.get('mcpKeys', args.id)
     if (!rawKey || rawKey.boundWorkspaceId !== ctx.workspaceId) {
       throw deny('MCP key not found.')
     }
@@ -158,7 +158,7 @@ export const revokeMcpKeyOp = operation.mutation({
       throw deny('You cannot revoke an MCP key for that user.')
     }
 
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch('mcpKeys', args.id, {
       status: 'revoked',
       revokedAt: Date.now(),
     })
@@ -228,7 +228,7 @@ export const touchMcpKeyOp = operation.publicMutation({
           const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
           if (now - lastUsedAt < TOUCH_DEBOUNCE_MS) return
 
-          await writer.patch(key._id, {
+          await writer.patch('mcpKeys', key._id, {
             lastUsedAt: now,
           })
         },

@@ -4,15 +4,6 @@ export type PublicAccessOptions = {
   readTables?: string[]
 }
 
-export function getTableFromId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const separator = value.lastIndexOf(';')
-  if (separator !== -1) return value.slice(separator + 1)
-
-  const convexTestId = value.match(/^\d+([a-z_]\w*)$/i)
-  return convexTestId?.[1] ?? null
-}
-
 function createPublicDbError(table?: string): Error {
   return new Error(
     table
@@ -45,13 +36,13 @@ export function createPublicSafeDb<TDb extends object, DataModel extends Generic
         }
 
         if (prop === 'get') {
-          return (id: unknown, ...args: unknown[]) => {
-            const table = getTableFromId(id)
-            if (!table) {
-              throw new Error(`Could not determine table from Convex id "${String(id)}".`)
-            }
-            assertPublicReadTableAccess(readTables, table)
-            return (db as { get: (id: unknown, ...args: unknown[]) => unknown }).get(id, ...args)
+          return (table: TableNamesInDataModel<DataModel>, id: unknown) => {
+            assertPublicReadTableAccess(readTables, String(table))
+            return (
+              db as {
+                get: (table: TableNamesInDataModel<DataModel>, id: unknown) => unknown
+              }
+            ).get(table, id)
           }
         }
 

@@ -47,8 +47,8 @@ export const toggleTodoOp = operation.publicMutation({
     reason: 'Public todo demo allows anonymous todo completion updates.',
     tables: ['todos'],
     access: ({ db, args }) => ({
-      loadTodo: async () => await db.get(args.id),
-      setCompleted: async (completed: boolean) => await db.patch(args.id, { completed }),
+      loadTodo: async () => await db.get('todos', args.id),
+      setCompleted: async (completed: boolean) => await db.patch('todos', args.id, { completed }),
     }),
   },
   load: async (ctx) => {
@@ -70,7 +70,7 @@ export const removeTodoOp = operation.publicMutation({
     reason: 'Public todo demo allows anonymous todo deletion.',
     tables: ['todos'],
     access: ({ db, args }) => ({
-      removeTodo: async () => await db.delete(args.id),
+      removeTodo: async () => await db.delete('todos', args.id),
     }),
   },
   handler: async (ctx) => {

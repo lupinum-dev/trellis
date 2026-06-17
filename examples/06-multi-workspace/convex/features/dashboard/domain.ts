@@ -24,7 +24,7 @@ export const portfolio = query.public({
 
           return Promise.all(
             agencyMemberships.map(async (membership) => {
-              const workspace = await reader.get(membership.workspaceId)
+              const workspace = await reader.get('workspaces', membership.workspaceId)
               const projects = await reader
                 .query('projects')
                 .withIndex('by_workspace', (q: any) => q.eq('workspaceId', membership.workspaceId))

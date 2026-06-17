@@ -17,6 +17,7 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   transportProof: {
     mcp: (input: Record<string, unknown>) => ({ transport: 'mcp', ...input }),
   },
+  jtiRedemption: (input: { jti: string }) => ({ mode: 'jti-redemption', jti: input.jti }),
 }))
 
 vi.mock('#imports', () => ({
@@ -141,7 +142,12 @@ describe('createMcpConvexCaller', () => {
       identityForwardingKeyEnvAliases: ['GINKO_CONVEX_IDENTITY_FORWARDING_KEY'],
     })
 
-    await convex.action({ _path: 'todos:sync' } as never, {} as never)
+    await convex.action({ _path: 'todos:sync' } as never, {} as never, {
+      replay: {
+        mode: 'jti-redemption',
+        jti: 'canonical-alias-call',
+      },
+    })
 
     expect(serverConvexActionMock).toHaveBeenCalledWith(
       event,
@@ -152,6 +158,10 @@ describe('createMcpConvexCaller', () => {
           transport: 'mcp',
           caller,
           identityForwardingKey: 'canonical-forwarding-key',
+          replay: {
+            mode: 'jti-redemption',
+            jti: 'canonical-alias-call',
+          },
         },
       },
     )
@@ -171,7 +181,12 @@ describe('createMcpConvexCaller', () => {
       ],
     })
 
-    await convex.action({ _path: 'todos:sync' } as never, {} as never)
+    await convex.action({ _path: 'todos:sync' } as never, {} as never, {
+      replay: {
+        mode: 'jti-redemption',
+        jti: 'ordered-alias-call',
+      },
+    })
 
     expect(serverConvexActionMock).toHaveBeenCalledWith(
       event,
@@ -182,8 +197,26 @@ describe('createMcpConvexCaller', () => {
           transport: 'mcp',
           caller,
           identityForwardingKey: 'integration-forwarding-key',
+          replay: {
+            mode: 'jti-redemption',
+            jti: 'ordered-alias-call',
+          },
         },
       },
+    )
+  })
+
+  it('requires replay metadata for forwarded MCP writes', async () => {
+    const event = { __is_event__: true } as never
+    const convex = mcpApi.createMcpConvexCaller(event, {
+      caller: { kind: 'agent', agentId: 'agent-1', subject: 'agent:agent-1' },
+    })
+
+    await expect(convex.mutation({ _path: 'todos:create' } as never, {} as never)).rejects.toThrow(
+      /requires replay metadata/,
+    )
+    await expect(convex.action({ _path: 'todos:sync' } as never, {} as never)).rejects.toThrow(
+      /requires replay metadata/,
     )
   })
 

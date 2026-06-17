@@ -15,7 +15,7 @@
   "dependencies": {
     "@lupinum/trellis": "workspace:*",
     "convex": "1.38.0",
-    "nuxt": "^4.4.6"
+    "nuxt": "4.4.8"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",

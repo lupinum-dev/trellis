@@ -11,6 +11,8 @@ import {
   getIdentityForwardingPayload,
   isIdentityForwardingContextCarrier,
   identityForwardingContextKey,
+  identityForwardingEnvelopeContextKey,
+  identityForwardingPayloadContextKey,
   identityForwardingValidators,
   type IdentityForwardingEnvelopeContextOptions,
   type IdentityForwardingIdentity,
@@ -84,12 +86,19 @@ export async function withVerifiedIdentityForwardingContext<TCtx extends object,
   }
 
   const identityForwarding = extractIdentityForwardingFromArgs(args, options)
+  const previousIdentity = ctx[identityForwardingContextKey]
+  const previousPayload = ctx[identityForwardingPayloadContextKey]
+  const previousEnvelope = ctx[identityForwardingEnvelopeContextKey]
   Object.assign(ctx, createIdentityForwardingContextDelta(identityForwarding, args))
 
   try {
     return await run(ctx)
   } finally {
-    Object.assign(ctx, createIdentityForwardingContextDelta(null))
+    Object.assign(ctx, {
+      [identityForwardingContextKey]: previousIdentity,
+      [identityForwardingPayloadContextKey]: previousPayload,
+      [identityForwardingEnvelopeContextKey]: previousEnvelope,
+    })
   }
 }
 

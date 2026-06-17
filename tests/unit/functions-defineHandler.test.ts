@@ -382,7 +382,7 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
-  it('requires an authenticated caller but not a resolved appIdentity for authRequired handlers', async () => {
+  it('requires an authenticated caller and resolved appIdentity for authRequired handlers', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
@@ -406,10 +406,7 @@ describe('buildStructuredFunctions', () => {
         },
         {},
       ),
-    ).resolves.toEqual({
-      caller: { kind: 'user', userId: 'alice' },
-      appIdentity: null,
-    })
+    ).rejects.toThrow(/Forbidden: authRequired \[caller:authenticated appIdentity:missing\]/)
 
     await expect(
       query.handler(
@@ -466,7 +463,7 @@ describe('buildStructuredFunctions', () => {
     expect(appIdentity).not.toHaveBeenCalled()
   })
 
-  it('lets authRequired reach load while authorize still fails without appIdentity', async () => {
+  it('rejects authRequired before load when appIdentity resolves null', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
@@ -495,7 +492,7 @@ describe('buildStructuredFunctions', () => {
         },
         {},
       ),
-    ).rejects.toThrow(/Forbidden: todo\.preview \[caller:authenticated appIdentity:missing\]/)
+    ).rejects.toThrow(/Forbidden: authRequired \[caller:authenticated appIdentity:missing\]/)
 
     await expect(
       mutation.handler(

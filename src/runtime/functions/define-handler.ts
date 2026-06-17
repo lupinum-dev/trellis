@@ -549,6 +549,26 @@ function createStructuredBuilder<
               `Forbidden: ${formatGuardFailure(authRequiredGuard.label, caller, null)}`,
             )
           }
+          const appIdentity = await actorAccessor()
+          if (appIdentity == null) {
+            await observe?.({
+              name: 'guard.denied',
+              status: 'deny',
+              reasonCode: 'guard.auth_required',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'guard.auth_required',
+                  decision: 'guard',
+                  message: authRequiredGuard.label,
+                  suggestedAction: 'sign_in',
+                }),
+              },
+            })
+            requireAuth(
+              appIdentity,
+              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, caller, appIdentity)}`,
+            )
+          }
 
           await observe?.({
             name: 'guard.allowed',

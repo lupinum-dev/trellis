@@ -302,6 +302,14 @@ function getReplayJti(replay: TrustedTransportReplay | undefined): string | unde
   return undefined
 }
 
+function getReplayKey(replay: TrustedTransportReplay | undefined): string | undefined {
+  return replay?.mode === 'domain-idempotency' ? replay.key : undefined
+}
+
+function getReplayTarget(replay: TrustedTransportReplay | undefined): string | undefined {
+  return replay?.mode === 'domain-idempotency' ? replay.target : undefined
+}
+
 function assertReplayMatchesPurpose(
   replay: TrustedTransportReplay | undefined,
   purpose: IdentityForwardingPurpose,
@@ -461,6 +469,12 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
       purpose,
       ...(getReplayJti(authProof.replay) ? { jti: getReplayJti(authProof.replay) } : {}),
       ...(authProof.replay ? { replayMode: authProof.replay.mode } : {}),
+      ...(getReplayKey(authProof.replay) ? { replayKey: getReplayKey(authProof.replay) } : {}),
+      ...(authProof.replay?.mode === 'domain-idempotency'
+        ? { replayTarget: getReplayTarget(authProof.replay) ?? functionPath }
+        : getReplayTarget(authProof.replay)
+          ? { replayTarget: getReplayTarget(authProof.replay) }
+          : {}),
       key: identityForwardingKey,
       transport: authProof.transport,
     }) as FunctionLikeArgs<Fn>

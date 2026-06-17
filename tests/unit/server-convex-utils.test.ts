@@ -488,11 +488,56 @@ describe('server Convex fetch helpers', () => {
       }),
     ).toMatchObject({
       sub: 'user:user_admin',
+      replayKey: 'webhook-delivery-1',
+      replayTarget: 'tasks:create',
       caller: {
         kind: 'user',
         userId: 'user_admin',
         subject: 'user:user_admin',
       },
+    })
+  })
+
+  it('transport proof domain idempotency defaults the signed replay target to the function path', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
+
+    await serverConvexMutation(
+      createEvent(),
+      { _path: 'tasks:create' } as never,
+      { title: 'From webhook' } as never,
+      {
+        auth: transportProof.server({
+          caller: {
+            kind: 'user',
+            userId: 'user_admin',
+            subject: 'user:user_admin',
+          },
+          replay: domainIdempotency({ key: 'webhook-delivery-default-target' }),
+        }),
+      },
+    )
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body))
+
+    expect(
+      verifyIdentityForwardingEnvelope(body.args._trellisForwarding, {
+        keys: { default: 'identity-forwarding-key-with-enough-entropy' },
+        expectedIssuer: 'trellis://server',
+        expectedAudience: 'trellis://convex',
+        functionRef: 'tasks:create',
+        args: body.args,
+      }),
+    ).toMatchObject({
+      replayKey: 'webhook-delivery-default-target',
+      replayTarget: 'tasks:create',
     })
   })
 

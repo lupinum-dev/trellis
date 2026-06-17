@@ -75,15 +75,25 @@ export function createMemoryDb() {
         tables[table].push({ _id: id, ...value })
         return id
       },
-      patch: async (id: string, value: MemoryRow) => {
+      patch: async (arg0: string, arg1: string | MemoryRow, arg2?: MemoryRow) => {
+        const id = arg2 === undefined ? arg0 : (arg1 as string)
+        const value = arg2 ?? (arg1 as MemoryRow)
         const match = findRow(id)
         if (match) {
-          Object.assign(match.row, value)
+          for (const [key, nextValue] of Object.entries(value)) {
+            if (nextValue === undefined) {
+              Reflect.deleteProperty(match.row, key)
+            } else {
+              match.row[key] = nextValue
+            }
+          }
           return null
         }
         throw new Error(`Missing row "${id}"`)
       },
-      replace: async (id: string, value: MemoryRow) => {
+      replace: async (arg0: string, arg1: string | MemoryRow, arg2?: MemoryRow) => {
+        const id = arg2 === undefined ? arg0 : (arg1 as string)
+        const value = arg2 ?? (arg1 as MemoryRow)
         const match = findRow(id)
         if (match) {
           match.rows[match.rows.indexOf(match.row)] = { _id: id, ...value }
@@ -91,7 +101,8 @@ export function createMemoryDb() {
         }
         throw new Error(`Missing row "${id}"`)
       },
-      delete: async (id: string) => {
+      delete: async (arg0: string, arg1?: string) => {
+        const id = arg1 ?? arg0
         const match = findRow(id)
         if (match) {
           match.rows.splice(match.rows.indexOf(match.row), 1)

@@ -177,7 +177,7 @@ describe('defineTrellis', () => {
       },
       handler: async (ctx, args) => {
         const catalogRows = await ctx.db.query('catalog' as never).collect()
-        const catalogRow = await ctx.db.get(args.catalogId as never)
+        const catalogRow = await ctx.db.get('catalog' as never, args.catalogId as never)
         let blockedRead = 'allowed'
         try {
           await ctx.db.query('privateUsers' as never).collect()
@@ -186,7 +186,7 @@ describe('defineTrellis', () => {
         }
         let blockedGet = 'allowed'
         try {
-          await ctx.db.get(args.privateId as never)
+          await ctx.db.get('privateUsers' as never, args.privateId as never)
         } catch (error) {
           blockedGet = error instanceof Error ? error.message : String(error)
         }
@@ -389,6 +389,69 @@ describe('defineTrellis', () => {
     expect(capture.find('db.cross_tenant.used')).toEqual([])
   })
 
+  it('requires table-explicit writes through publicWrite DB capabilities', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const definition = runtime.mutation.public(
+      appOperation.publicMutation({
+        id: 'todos.publicWriteExplicitTable',
+        args: { id: v.string() },
+        publicWrite: {
+          reason: 'Public todo demo updates one explicit table.',
+          tables: ['todos'],
+          access: ({ db }) => ({
+            updateAllowed: async (id: string) =>
+              await (
+                db as { patch: (table: string, id: string, value: object) => Promise<unknown> }
+              ).patch('todos', id, { completed: true }),
+            updateIdOnly: async (id: string) =>
+              await (db as { patch: (id: string, value: object) => Promise<unknown> }).patch(id, {
+                completed: false,
+              }),
+          }),
+        },
+        handler: async (ctx, args: { id: string }) => {
+          await ctx.publicWrite.updateAllowed(args.id)
+          let idOnlyDenied = false
+          try {
+            await ctx.publicWrite.updateIdOnly(args.id)
+          } catch (error) {
+            idOnlyDenied =
+              error instanceof Error &&
+              /cannot use id-only patch through a table-restricted DB facade/i.test(error.message)
+          }
+          return idOnlyDenied
+        },
+      }),
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string },
+      ) => Promise<boolean>
+    }
+    const memory = createMemoryDb()
+    const id = await memory.db.insert('todos', { title: 'public', completed: false })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { id },
+      ),
+    ).resolves.toBe(true)
+    await expect(memory.db.get(id)).resolves.toMatchObject({ completed: true })
+  })
+
   it('requires publicWrite to be operation-backed', async () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({
@@ -580,7 +643,7 @@ describe('defineTrellis', () => {
         reason: 'Resolve visible task across workspace boundaries.',
         tables: ['tasks'],
         access: ({ db }) => ({
-          getTask: async (id: string) => await db.get(id),
+          getTask: async (id: string) => await db.get('tasks', id),
           listComments: async () => await db.query('comments' as never).collect(),
           insertTask: async () =>
             await (db as { insert: (table: string, value: unknown) => Promise<unknown> }).insert(
@@ -753,6 +816,69 @@ describe('defineTrellis', () => {
         workspaceId: 'ws_2',
       }),
     )
+  })
+
+  it('allows table-explicit cross-tenant writes and rejects id-only updates', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+    const updateTaskOp = appOperation.mutation({
+      id: 'tasks.cross-tenant-update',
+      args: { id: v.string() },
+      crossTenant: {
+        mode: 'write',
+        reason: 'Operation-backed task maintenance updates one task table.',
+        tables: ['tasks'],
+        access: ({ db }) => ({
+          updateAllowed: async (id: string) =>
+            await (
+              db as { patch: (table: string, id: string, value: object) => Promise<unknown> }
+            ).patch('tasks', id, { title: 'updated' }),
+          updateIdOnly: async (id: string) =>
+            await (db as { patch: (id: string, value: object) => Promise<unknown> }).patch(id, {
+              title: 'id-only',
+            }),
+        }),
+      },
+      handler: async (ctx, args: { id: string }) => {
+        await ctx.crossTenant.updateAllowed(args.id)
+        try {
+          await ctx.crossTenant.updateIdOnly(args.id)
+          return false
+        } catch (error) {
+          return (
+            error instanceof Error &&
+            /cannot use id-only patch through a table-restricted DB facade/i.test(error.message)
+          )
+        }
+      },
+    } as never)
+    const definition = runtime.mutation.public(updateTaskOp as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string },
+      ) => Promise<boolean>
+    }
+    const memory = createMemoryDb()
+    const id = await memory.db.insert('tasks', { title: 'original', workspaceId: 'ws_2' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { id },
+      ),
+    ).resolves.toBe(true)
+    await expect(memory.db.get(id)).resolves.toMatchObject({ title: 'updated' })
   })
 
   it('does not expose callable root backend builders', () => {
@@ -1235,6 +1361,42 @@ describe('defineTrellis', () => {
       kind: 'user',
       authKey: 'alice',
     })
+  })
+
+  it('requires resolved app identity on the authenticated lane', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: defineCaller({
+          resolve: async () => ({
+            kind: 'user' as const,
+            subject: 'auth:alice' as const,
+            authKey: 'alice',
+          }),
+        }),
+        appIdentity: async () => null,
+      },
+    )
+    let reachedHandler = false
+
+    const definition = runtime.query.authenticated({
+      args: {},
+      handler: async () => {
+        reachedHandler = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (ctx: { db: ReturnType<typeof createMemoryDb>['db'] }, args: unknown) => unknown
+    }
+
+    await expect(definition.handler({ db: createMemoryDb().db }, {})).rejects.toThrow(
+      /Forbidden: authRequired/,
+    )
+    expect(reachedHandler).toBe(false)
   })
 
   it('requires a resolved workspace identity on the workspace lane before load runs', async () => {
@@ -1931,6 +2093,56 @@ describe('defineTrellis', () => {
     expect(executed).toBe(false)
   })
 
+  it('rejects transport-owned replay modes on trusted action forwarding before handler execution', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+      action: builder,
+    })
+
+    let executed = false
+    const definition = runtime.action.public({
+      args: {
+        title: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:sync',
+      handler: async () => {
+        executed = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Wrong replay mode' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:sync',
+      operation: 'action',
+      replayMode: 'jti-redemption',
+      jti: 'trusted-action-jti-redemption',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/trusted action forwarding only supports domain-owned idempotency/i)
+    expect(executed).toBe(false)
+  })
+
   it('claims and completes trusted JTI redemption before allowing a mutation handler', async () => {
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
@@ -2066,6 +2278,73 @@ describe('defineTrellis', () => {
       jti: 'trusted-jti-failed',
       state: 'completed',
     })
+  })
+
+  it('clears completed metadata when trusted JTI redemption fails after handler success', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        trustedReplay: {
+          table: 'trustedReplay' as never,
+        },
+        onSuccess: {
+          mutation: async () => {
+            throw new Error('post success hook failed')
+          },
+        },
+      },
+    )
+
+    const definition = runtime.mutation.public({
+      args: {
+        title: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:create',
+      handler: async () => ({ ok: true }),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const memory = createMemoryDb()
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Hook failure' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      replayMode: 'jti-redemption',
+      jti: 'trusted-jti-onsuccess-failed',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/post success hook failed/)
+
+    expect(memory.tables.trustedReplay).toHaveLength(1)
+    expect(memory.tables.trustedReplay[0]).toMatchObject({
+      jti: 'trusted-jti-onsuccess-failed',
+      state: 'failed',
+      failure: { message: 'post success hook failed' },
+    })
+    expect(memory.tables.trustedReplay[0]).not.toHaveProperty('completedAt')
   })
 
   it('rejects failed trusted JTI redemption retry when the envelope metadata changes', async () => {

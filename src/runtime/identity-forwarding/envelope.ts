@@ -25,6 +25,8 @@ export interface IdentityForwardingEnvelopePayload {
   readonly transport: IdentityForwardingTransport
   readonly purpose: IdentityForwardingPurpose
   readonly replayMode?: IdentityForwardingReplayMode
+  readonly replayKey?: string
+  readonly replayTarget?: string
   readonly functionRef: string
   readonly argsHash: string
   readonly issuedAt: number
@@ -284,6 +286,8 @@ export function createIdentityForwardingEnvelope(
     transport: options.transport,
     purpose: options.purpose,
     ...(options.replayMode ? { replayMode: options.replayMode } : {}),
+    ...(options.replayKey ? { replayKey: options.replayKey } : {}),
+    ...(options.replayTarget ? { replayTarget: options.replayTarget } : {}),
     functionRef: options.functionRef,
     argsHash: hashForwardingArgs(options.args),
     issuedAt: now,
@@ -369,6 +373,14 @@ export function verifyIdentityForwardingEnvelope(
     throw new IdentityForwardingEnvelopeError('Forwarding envelope purpose mismatch.', 'purpose')
   }
   if (payload.replayMode !== undefined && !identityForwardingReplayModes.has(payload.replayMode)) {
+    throw new IdentityForwardingEnvelopeError('Malformed forwarding envelope payload.', 'malformed')
+  }
+  if (
+    (payload.replayKey !== undefined &&
+      (typeof payload.replayKey !== 'string' || payload.replayKey.trim().length === 0)) ||
+    (payload.replayTarget !== undefined &&
+      (typeof payload.replayTarget !== 'string' || payload.replayTarget.trim().length === 0))
+  ) {
     throw new IdentityForwardingEnvelopeError('Malformed forwarding envelope payload.', 'malformed')
   }
   if (options.expectedTransport !== undefined && payload.transport !== options.expectedTransport) {

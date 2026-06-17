@@ -54,13 +54,13 @@ export const toggleTodoOp = operation.publicMutation({
       const writer = db as MutationCtx['db']
       return {
         toggle: async (id: Id<'todos'>, completed: boolean) => {
-          await writer.patch(id, { completed })
+          await writer.patch('todos', id, { completed })
         },
       }
     },
   },
   load: async (ctx, args: TodoIdArgs) => {
-    const todo = await ctx.db.get(args.id)
+    const todo = await ctx.db.get('todos', args.id)
     requireRecord(todo, 'Todo')
     return { todo }
   },
@@ -81,7 +81,7 @@ export const removeTodoOp = operation.publicMutation({
       const writer = db as MutationCtx['db']
       return {
         remove: async (id: Id<'todos'>) => {
-          await writer.delete(id)
+          await writer.delete('todos', id)
         },
       }
     },

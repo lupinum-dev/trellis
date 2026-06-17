@@ -111,7 +111,7 @@ describe('organizations', () => {
           { replayMode: 'jti-redemption', jti: 'organizations-create-missing-user' },
         ),
       ),
-    ).rejects.toThrow('User not found')
+    ).rejects.toThrow('appIdentity:missing')
 
     const organizations = await t.run(async (ctx) => await ctx.db.query('organizations').collect())
     expect(organizations).toEqual([])

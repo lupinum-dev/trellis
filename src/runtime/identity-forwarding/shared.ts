@@ -44,6 +44,8 @@ export type IdentityForwardingEnvelopeState = {
   jti: string
   purpose: IdentityForwardingPurpose
   replayMode?: IdentityForwardingReplayMode
+  replayKey?: string
+  replayTarget?: string
   transport: IdentityForwardingTransport
   functionRef: string
   argsHash: string
@@ -91,6 +93,8 @@ export type CreateIdentityForwardingArgsOptions = {
   purpose?: IdentityForwardingPurpose
   transport?: IdentityForwardingTransport
   replayMode?: IdentityForwardingReplayMode
+  replayKey?: string
+  replayTarget?: string
   key?: string
   keyId?: string
   issuer?: string
@@ -373,6 +377,8 @@ export function extractIdentityForwardingFromArgs(
         jti: payload.jti,
         purpose: payload.purpose,
         ...(payload.replayMode ? { replayMode: payload.replayMode } : {}),
+        ...(payload.replayKey ? { replayKey: payload.replayKey } : {}),
+        ...(payload.replayTarget ? { replayTarget: payload.replayTarget } : {}),
         transport: payload.transport,
         functionRef: payload.functionRef,
         argsHash: payload.argsHash,
@@ -436,6 +442,7 @@ export function createIdentityForwardingEnvelopeArgs(
 
   const purpose = options.purpose ?? options.operation
   const key = options.key ?? getRequiredIdentityForwardingKey()
+  const jti = options.jti ?? crypto.randomUUID()
   const keyId =
     options.keyId ??
     nonBlankString(process.env.CONVEX_IDENTITY_FORWARDING_KEY_ID) ??
@@ -451,13 +458,19 @@ export function createIdentityForwardingEnvelopeArgs(
       keyId,
       iss: options.issuer ?? identityForwardingAlphaIssuer,
       aud: options.audience ?? identityForwardingAlphaAudience,
-      jti: options.jti ?? crypto.randomUUID(),
+      jti,
       sub: principalSubject,
       caller: options.caller,
       ...(options.actingFor !== undefined ? { actingFor: options.actingFor } : {}),
       transport: options.transport ?? 'server',
       purpose,
       ...(options.replayMode ? { replayMode: options.replayMode } : {}),
+      ...(options.replayKey || options.replayMode === 'domain-idempotency'
+        ? { replayKey: options.replayKey ?? jti }
+        : {}),
+      ...(options.replayTarget || options.replayMode === 'domain-idempotency'
+        ? { replayTarget: options.replayTarget ?? options.functionRef }
+        : {}),
       functionRef: options.functionRef,
       args,
       ...(options.now !== undefined ? { now: options.now } : {}),

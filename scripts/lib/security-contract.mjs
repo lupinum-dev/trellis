@@ -15,7 +15,7 @@ const sourceRoots = ['apps/harness', 'examples', 'src/cli/starter-fixtures']
 const sourceExtensions = /\.(?:ts|tsx|vue)$/
 const ignoredPathFragments = ['/_generated/', '/node_modules/', '/.nuxt/', '/.output/', '/dist/']
 
-const bannedPublicExports = [
+export const bannedPublicExports = [
   {
     entry: '@lupinum/trellis/server',
     symbols: [
@@ -483,43 +483,49 @@ const maintainedExampleProofExpectations = [
     id: 'example03-webhook-route-retry',
     file: 'examples/03-team-workspace/server/api/webhook.post.test.ts',
     testName: 'does not route-consume valid deliveries when backend dispatch fails',
-    proves: ['route retry after backend dispatch failure', 'route does not own delivery consume'],
+    evidenceFor: [
+      'route retry after backend dispatch failure',
+      'route does not own delivery consume',
+    ],
   },
   {
     id: 'example03-webhook-domain-duplicate',
     file: 'examples/03-team-workspace/convex/todos.test.ts',
     testName: 'denies duplicate webhook events',
-    proves: ['backend-owned delivery idempotency', 'duplicate event rejection'],
+    evidenceFor: ['backend-owned delivery idempotency', 'duplicate event rejection'],
   },
   {
     id: 'example03-webhook-forged-binding',
     file: 'examples/03-team-workspace/convex/todos.test.ts',
     testName: 'rejects signed service forwarding when the delegation workspace is forged',
-    proves: ['backend delegation revalidation', 'forged workspace rejection'],
+    evidenceFor: ['backend delegation revalidation', 'forged workspace rejection'],
   },
   {
     id: 'example03-webhook-expired-binding',
     file: 'examples/03-team-workspace/convex/todos.test.ts',
     testName: 'rejects signed service forwarding when delegation evidence is expired',
-    proves: ['backend delegation revalidation', 'expired delegation rejection'],
+    evidenceFor: ['backend delegation revalidation', 'expired delegation rejection'],
   },
   {
     id: 'example07-webhook-route-retry',
     file: 'examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts',
     testName: 'does not route-consume valid deliveries when backend dispatch fails',
-    proves: ['route retry after backend dispatch failure', 'route does not own delivery consume'],
+    evidenceFor: [
+      'route retry after backend dispatch failure',
+      'route does not own delivery consume',
+    ],
   },
   {
     id: 'example07-webhook-domain-duplicate',
     file: 'examples/07-mcp-reference/test/mcpReference.test.ts',
     testName: 'applies the same create permission rules to delegated service principals',
-    proves: ['backend-owned delivery idempotency', 'duplicate delivery rejection'],
+    evidenceFor: ['backend-owned delivery idempotency', 'duplicate delivery rejection'],
   },
   {
     id: 'example07-webhook-forged-binding',
     file: 'examples/07-mcp-reference/test/mcpReference.test.ts',
     testName: 'rejects delegated service principals with forged binding fields',
-    proves: [
+    evidenceFor: [
       'backend delegation revalidation',
       'wrong service rejection',
       'wrong purpose rejection',
@@ -550,8 +556,8 @@ export function collectSecurityContract(repoRoot) {
   const sourcePolicyViolations = findSecuritySourcePolicyViolations(repoRoot)
 
   return {
-    version: 1,
-    phase: '0.3.0-phase-a',
+    version: 2,
+    phase: '0.3.1-hardening',
     generatedBy: 'scripts/generate-security-contract.mjs',
     scope: {
       includedRoots: sourceRoots,

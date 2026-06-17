@@ -34,6 +34,16 @@ export type McpConvexCallerOptions = {
   replay?: TrustedTransportReplay
 }
 
+function requireWriteCallOptions(
+  callOptions: McpConvexCallerOptions | undefined,
+  operation: 'mutation' | 'action',
+): McpConvexCallerOptions {
+  if (!callOptions?.replay) {
+    throw new Error(`createMcpConvexCaller().${operation}() requires replay metadata.`)
+  }
+  return callOptions
+}
+
 function hasForwardableSubject(caller: unknown): caller is ForwardedMcpCaller {
   return (
     typeof caller === 'object' &&
@@ -150,7 +160,7 @@ export function createMcpConvexCaller<TCaller>(
       callOptions?: McpConvexCallerOptions,
     ): Promise<FunctionLikeReturnType<Mutation>> =>
       await serverConvexMutation(event, fn, args ?? ({} as FunctionLikeArgs<Mutation>), {
-        auth: proof(callOptions),
+        auth: proof(requireWriteCallOptions(callOptions, 'mutation')),
       }),
     action: async <Action extends AnyActionFunction>(
       fn: Action,
@@ -158,7 +168,7 @@ export function createMcpConvexCaller<TCaller>(
       callOptions?: McpConvexCallerOptions,
     ): Promise<FunctionLikeReturnType<Action>> =>
       await serverConvexAction(event, fn, args ?? ({} as FunctionLikeArgs<Action>), {
-        auth: proof(callOptions),
+        auth: proof(requireWriteCallOptions(callOptions, 'action')),
       }),
   }
 }

@@ -81,7 +81,7 @@ import {
   type TrellisOperationProjectionMetadata,
   type OperationPreviewEnvelope,
 } from './define-operation.js'
-import { createPublicSafeDb, getTableFromId, type PublicAccessOptions } from './public-db.js'
+import { createPublicSafeDb, type PublicAccessOptions } from './public-db.js'
 import {
   assertServiceTargetAllowed,
   getWorkspaceId,
@@ -648,6 +648,9 @@ function isTrustedWritePurpose(purpose: string): boolean {
 function assertTrustedReplayModeMatchesPurpose(envelope: {
   purpose: string
   replayMode?: string
+  replayKey?: string
+  replayTarget?: string
+  functionRef?: string
 }): void {
   if (
     envelope.replayMode === 'operation-confirmation' &&
@@ -660,6 +663,35 @@ function assertTrustedReplayModeMatchesPurpose(envelope: {
         category: 'auth',
       },
     )
+  }
+  if (
+    envelope.replayMode === 'domain-idempotency' &&
+    (typeof envelope.replayKey !== 'string' || typeof envelope.replayTarget !== 'string')
+  ) {
+    throw deny('Trusted domain-idempotency forwarding requires a signed replay key and target.', {
+      source: 'identity-forwarding',
+      category: 'auth',
+    })
+  }
+  if (
+    envelope.replayTarget !== undefined &&
+    envelope.functionRef !== undefined &&
+    envelope.replayTarget !== envelope.functionRef
+  ) {
+    throw deny('Trusted domain-idempotency forwarding target does not match the function ref.', {
+      source: 'identity-forwarding',
+      category: 'auth',
+    })
+  }
+  if (
+    envelope.purpose === 'action' &&
+    envelope.replayMode !== undefined &&
+    envelope.replayMode !== 'domain-idempotency'
+  ) {
+    throw deny('Trusted action forwarding only supports domain-owned idempotency replay.', {
+      source: 'identity-forwarding',
+      category: 'auth',
+    })
   }
 }
 
@@ -787,8 +819,10 @@ async function patchTrustedReplayClaim<DataModel extends GenericDataModel>(
   await replayDb.patch(claim.id, {
     state,
     updatedAt: now,
-    ...(state === 'completed' ? { completedAt: now } : { failedAt: now }),
-    ...(details ? { failure: details } : {}),
+    ...(state === 'completed'
+      ? { completedAt: now, failedAt: undefined, failure: undefined }
+      : { failedAt: now, completedAt: undefined }),
+    ...(state === 'failed' && details ? { failure: details } : {}),
   })
 }
 
@@ -1329,8 +1363,8 @@ type RuntimeBundle<
   caller: CallerAccessor<TCaller>
   actingFor: ActingForAccessor<TActingFor>
   appIdentity: AppIdentityAccessor<TActor>
+  ctxWithIdentityForwarding: TCtx & Record<PropertyKey, unknown>
   baseCtx: TCtx & FunctionsCtxExtension<TCaller, TActingFor, TActor>
-  replayClaim: TrustedReplayClaim<DataModel> | null
 }
 
 function resolveCaller<DataModel extends GenericDataModel, TCaller>(
@@ -1426,7 +1460,6 @@ async function createContextWithRuntime<
       : {}),
   })
   await assertNoOperationExecuteEnvelopeReplay(ctx, ctxWithIdentityForwarding, options)
-  const replayClaim = await claimTrustedReplayJti(ctx, ctxWithIdentityForwarding, options)
   const identityForwarding = getIdentityForwarding(ctxWithIdentityForwarding)
   if (!identityForwarding && hasForwardedIdentityFields(rawAppArgs)) {
     throw deny(
@@ -1506,12 +1539,12 @@ async function createContextWithRuntime<
     caller,
     actingFor,
     appIdentity,
+    ctxWithIdentityForwarding,
     baseCtx: {
       ...ctxWithCaller,
       appIdentity,
       observe,
     } as TCtx & FunctionsCtxExtension<TCaller, TActingFor, TActor>,
-    replayClaim,
   }
 }
 
@@ -1621,11 +1654,7 @@ function createCrossTenantDb<TDb extends object>(input: {
     )
 
   const reader = {
-    get: async (id: unknown, ...args: unknown[]) => {
-      const table = getTableFromId(id)
-      if (!table) {
-        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
-      }
+    get: async (table: string, id: unknown) => {
       assertCapabilityTableAccess(
         input.tables,
         table,
@@ -1634,10 +1663,7 @@ function createCrossTenantDb<TDb extends object>(input: {
         input.capability,
         input.eventName,
       )
-      return await (input.db as { get: (id: unknown, ...args: unknown[]) => unknown }).get(
-        id,
-        ...args,
-      )
+      return await (input.db as { get: (table: string, id: unknown) => unknown }).get(table, id)
     },
     normalizeId: (table: string, id: unknown) => {
       assertCapabilityTableAccess(
@@ -1679,59 +1705,65 @@ function createCrossTenantDb<TDb extends object>(input: {
         value,
       )
     },
-    patch: async (id: unknown, value: unknown) => {
+    patch: async (tableOrId: unknown, idOrValue: unknown, maybeValue?: unknown) => {
       if (input.mode !== 'write') throw readOnlyWriteError()
-      const table = getTableFromId(id)
-      if (!table) {
-        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      if (maybeValue !== undefined && typeof tableOrId === 'string') {
+        assertCapabilityTableAccess(
+          input.tables,
+          tableOrId,
+          input.reason,
+          input.observe,
+          input.capability,
+          input.eventName,
+        )
+        return await (
+          input.db as { patch: (table: string, id: unknown, value: unknown) => unknown }
+        ).patch(tableOrId, idOrValue, maybeValue)
       }
-      assertCapabilityTableAccess(
-        input.tables,
-        table,
-        input.reason,
-        input.observe,
-        input.capability,
-        input.eventName,
-      )
-      return await (input.db as { patch: (id: unknown, value: unknown) => unknown }).patch(
-        id,
-        value,
+      void idOrValue
+      throw new Error(
+        `${input.capability} capability cannot use id-only patch through a table-restricted DB facade.`,
       )
     },
-    replace: async (id: unknown, value: unknown) => {
+    replace: async (tableOrId: unknown, idOrValue: unknown, maybeValue?: unknown) => {
       if (input.mode !== 'write') throw readOnlyWriteError()
-      const table = getTableFromId(id)
-      if (!table) {
-        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      if (maybeValue !== undefined && typeof tableOrId === 'string') {
+        assertCapabilityTableAccess(
+          input.tables,
+          tableOrId,
+          input.reason,
+          input.observe,
+          input.capability,
+          input.eventName,
+        )
+        return await (
+          input.db as { replace: (table: string, id: unknown, value: unknown) => unknown }
+        ).replace(tableOrId, idOrValue, maybeValue)
       }
-      assertCapabilityTableAccess(
-        input.tables,
-        table,
-        input.reason,
-        input.observe,
-        input.capability,
-        input.eventName,
-      )
-      return await (input.db as { replace: (id: unknown, value: unknown) => unknown }).replace(
-        id,
-        value,
+      void idOrValue
+      throw new Error(
+        `${input.capability} capability cannot use id-only replace through a table-restricted DB facade.`,
       )
     },
-    delete: async (id: unknown) => {
+    delete: async (tableOrId: unknown, maybeId?: unknown) => {
       if (input.mode !== 'write') throw readOnlyWriteError()
-      const table = getTableFromId(id)
-      if (!table) {
-        throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+      if (maybeId !== undefined && typeof tableOrId === 'string') {
+        assertCapabilityTableAccess(
+          input.tables,
+          tableOrId,
+          input.reason,
+          input.observe,
+          input.capability,
+          input.eventName,
+        )
+        return await (input.db as { delete: (table: string, id: unknown) => unknown }).delete(
+          tableOrId,
+          maybeId,
+        )
       }
-      assertCapabilityTableAccess(
-        input.tables,
-        table,
-        input.reason,
-        input.observe,
-        input.capability,
-        input.eventName,
+      throw new Error(
+        `${input.capability} capability cannot use id-only delete through a table-restricted DB facade.`,
       )
-      return await (input.db as { delete: (id: unknown) => unknown }).delete(id)
     },
   }
 
@@ -2013,7 +2045,7 @@ function createQueryCustomization<
       if (extra.publicWrite) {
         throw new Error('publicWrite capabilities are only valid on public mutation handlers.')
       }
-      const { baseCtx, replayClaim } = await createContextWithRuntime(
+      const { baseCtx, ctxWithIdentityForwarding } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -2050,6 +2082,7 @@ function createQueryCustomization<
         db: decorateDb(db, rawDb),
         ...(crossTenant === undefined ? {} : { crossTenant }),
       }
+      const replayClaim = await claimTrustedReplayJti(ctx, ctxWithIdentityForwarding, options)
 
       return {
         ctx: finalCtx,
@@ -2090,7 +2123,7 @@ function createMutationCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx, replayClaim } = await createContextWithRuntime(
+      const { baseCtx, ctxWithIdentityForwarding } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -2149,6 +2182,7 @@ function createMutationCustomization<
         ...(crossTenant === undefined ? {} : { crossTenant }),
         ...(publicWrite === undefined ? {} : { publicWrite }),
       }
+      const replayClaim = await claimTrustedReplayJti(ctx, ctxWithIdentityForwarding, options)
 
       return {
         ctx: finalCtx,
@@ -2189,7 +2223,7 @@ function createActionCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx, replayClaim } = await createContextWithRuntime(
+      const { baseCtx, ctxWithIdentityForwarding } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -2204,6 +2238,7 @@ function createActionCustomization<
         TActingFor,
         TActor
       >
+      const replayClaim = await claimTrustedReplayJti(ctx, ctxWithIdentityForwarding, options)
 
       return {
         ctx: finalCtx,

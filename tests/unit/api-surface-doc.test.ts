@@ -10,7 +10,7 @@ describe('generated API surface docs', () => {
       'utf8',
     )
 
-    expect(apiSurface).toContain('## Which Surface Do I Use?')
+    expect(apiSurface).toContain('## Which API do I use?')
     expect(apiSurface).toContain('| `@lupinum/trellis/backend`')
     expect(apiSurface).toContain('| `useConvexQuery`')
     expect(apiSurface).toContain('| `useConvexUpload`')

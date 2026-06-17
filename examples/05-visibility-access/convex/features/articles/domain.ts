@@ -152,7 +152,7 @@ export const viewSharedArticleOp = operation.query({
         resolveSharedArticle: async (args: ViewSharedArticleArgs) => {
           const grant = await resolveShareToken(reader, args.shareToken)
           if (grant.articleId !== args.id) throw deny('Token does not match this article.')
-          const article = await reader.get(args.id)
+          const article = await reader.get('articles', args.id)
           requireRecord(article, 'Article')
           return { article, grant }
         },

@@ -9,7 +9,7 @@ export const getAccessContext = query.public({
     resolve: getAccessIdentity,
     permissions,
     extend: async (ctx, appIdentity) => {
-      const user = await ctx.db.get(appIdentity.userId)
+      const user = await ctx.db.get('users', appIdentity.userId)
 
       return {
         email: user?.email ?? null,

@@ -6,7 +6,11 @@ import { defineOperation } from '../../src/runtime/functions/define-operation'
 import { getForwardedCaller } from '../../src/runtime/identity-forwarding'
 import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity-forwarding/shared'
 import { createObservationCapture } from '../../src/runtime/testing'
-import { createMemoryDb, destructiveTestPermission } from '../support/unit/define-trellis-testkit'
+import {
+  allowAll,
+  createMemoryDb,
+  destructiveTestPermission,
+} from '../support/unit/define-trellis-testkit'
 
 describe('defineTrellis service access', () => {
   const originalIdentityForwardingKey = process.env.CONVEX_IDENTITY_FORWARDING_KEY
@@ -49,7 +53,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -147,7 +151,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -220,7 +224,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -294,7 +298,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -363,7 +367,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: '',
               auditTable: 'tasks' as never,
@@ -433,7 +437,7 @@ describe('defineTrellis service access', () => {
             metadata: {
               source: 'verifiedWebhook',
               purpose: 'sync-test',
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -505,7 +509,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -581,7 +585,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:list'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -672,7 +676,7 @@ describe('defineTrellis service access', () => {
               purpose: 'sync-test',
               allowedOperations: ['sync.test'],
               allowedFunctionRefs: ['tasks:create'],
-              replayMode: 'domain-idempotency',
+              replayMode: 'none',
               actingFor: false,
               auditEvent: 'sync.test',
               auditTable: 'tasks' as never,
@@ -716,6 +720,243 @@ describe('defineTrellis service access', () => {
       ),
     ).rejects.toThrow(/not allowed to call function.*tasks:delete/)
     expect(reachedHandler).toBe(false)
+  })
+
+  it('rejects direct service principals when service metadata requires forwarded replay', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async () => ({
+        kind: 'service' as const,
+        serviceId: 'sync',
+        subject: 'service:sync' as const,
+      }),
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        services: {
+          sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedOperations: ['sync.test'],
+              allowedFunctionRefs: ['tasks:create'],
+              replayMode: 'domain-idempotency',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.id',
+            },
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'global',
+            },
+          },
+        },
+      },
+    )
+    let reachedHandler = false
+    const definition = runtime.mutation.public({
+      args: { title: v.string() },
+      identityForwardingFunctionRef: 'tasks:create',
+      handler: async () => {
+        reachedHandler = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { title: string },
+      ) => Promise<{ ok: true }>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        { title: 'Direct bypass' },
+      ),
+    ).rejects.toThrow(/requires replay mode.*domain-idempotency.*none/)
+    expect(reachedHandler).toBe(false)
+  })
+
+  it('allows service table-explicit writes and rejects id-only updates', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async () => ({
+        kind: 'service' as const,
+        serviceId: 'sync',
+        subject: 'service:sync' as const,
+      }),
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        appIdentity: async () => ({ kind: 'service-test' }),
+        services: {
+          sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedOperations: ['sync.test'],
+              allowedFunctionRefs: ['tasks:update'],
+              replayMode: 'none',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.id',
+            },
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'global',
+            },
+          },
+        },
+      },
+    )
+    const definition = runtime.mutation.protected({
+      args: { id: v.string() },
+      guard: allowAll,
+      identityForwardingFunctionRef: 'tasks:update',
+      handler: async (ctx, args) => {
+        await (
+          ctx.db as { patch: (table: string, id: string, value: object) => Promise<unknown> }
+        ).patch('tasks', args.id, { title: 'updated' })
+        try {
+          await (ctx.db as { patch: (id: string, value: object) => Promise<unknown> }).patch(
+            args.id,
+            { title: 'id-only' },
+          )
+          return false
+        } catch (error) {
+          return (
+            error instanceof Error &&
+            /cannot use id-only patch through a table-restricted DB facade/i.test(error.message)
+          )
+        }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string },
+      ) => Promise<boolean>
+    }
+    const memory = createMemoryDb()
+    const id = await memory.db.insert('tasks', { title: 'original' })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { id },
+      ),
+    ).resolves.toBe(true)
+    await expect(memory.db.get(id)).resolves.toMatchObject({ title: 'updated' })
+  })
+
+  it('does not claim trusted replay JTI before service target preflight succeeds', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const serviceCaller = defineCaller({
+      resolve: async (ctx) =>
+        getForwardedCaller<{
+          kind: 'service'
+          serviceId: string
+          subject: `service:${string}`
+        }>(ctx)!,
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: serviceCaller,
+        trustedReplay: {
+          table: 'trustedReplay' as never,
+        },
+        services: {
+          sync: {
+            metadata: {
+              source: 'verifiedWebhook',
+              purpose: 'sync-test',
+              allowedFunctionRefs: ['tasks:allowed'],
+              replayMode: 'jti-redemption',
+              actingFor: false,
+              auditEvent: 'sync.test',
+              auditTable: 'tasks' as never,
+              auditCorrelationId: 'args.id',
+            },
+            access: {
+              tables: ['tasks'] as never[],
+              tenant: 'global',
+            },
+          },
+        },
+      },
+    )
+    let reachedHandler = false
+    const definition = runtime.mutation.public({
+      args: { title: v.string() },
+      identityForwardingFunctionRef: 'tasks:denied',
+      handler: async () => {
+        reachedHandler = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<{ ok: true }>
+    }
+    const memory = createMemoryDb()
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Denied target' },
+      caller: { kind: 'service', serviceId: 'sync', subject: 'service:sync' },
+      functionRef: 'tasks:denied',
+      operation: 'mutation',
+      replayMode: 'jti-redemption',
+      jti: 'service-preflight-denied',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/not allowed to call function.*tasks:denied/)
+    expect(reachedHandler).toBe(false)
+    expect(memory.tables.trustedReplay ?? []).toHaveLength(0)
   })
 
   it('rejects service principals before handler execution when the target operation id is not allowed', async () => {
