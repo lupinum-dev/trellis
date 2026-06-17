@@ -229,11 +229,21 @@ export const ${ctx.singularCamel}Permissions = [
 `.trimStart()
 }
 
-function resourceCreateFields(ctx: ResourceGeneratorContext): string {
+function resourceCreateFields(
+  ctx: ResourceGeneratorContext,
+  options: { tenantSource?: 'appIdentity' | 'ctx' } = {},
+): string {
+  const tenantSource = options.tenantSource ?? 'appIdentity'
   return [
     `${ctx.ownerField}: appIdentity.userId`,
     `name: args.name`,
-    ...(ctx.tenantField ? [`${ctx.tenantField}: appIdentity.workspaceId!`] : []),
+    ...(ctx.tenantField
+      ? [
+          `${ctx.tenantField}: ${
+            tenantSource === 'ctx' ? `ctx.${ctx.tenantField}` : `appIdentity.${ctx.tenantField}!`
+          }`,
+        ]
+      : []),
     'createdAt: now',
     ...(ctx.hasUpdatedAt ? ['updatedAt: now'] : []),
   ].join(',\n      ')
@@ -248,15 +258,21 @@ function resourcePermissionProperty(ctx: ResourceGeneratorContext, permission: s
 }
 
 function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
-  const createFields = resourceCreateFields(ctx)
+  const createFields = resourceCreateFields(ctx, {
+    tenantSource: ctx.tenantField ? 'ctx' : 'appIdentity',
+  })
   const lane = resourceBackendLane(ctx)
   const operationOwnerCheck = ctx.tenantField
     ? `${ctx.singularCamel}.${ctx.tenantField} === appIdentity.workspaceId`
     : `${ctx.singularCamel}.${ctx.ownerField} === appIdentity.userId`
+  const operationImport = ctx.tenantField
+    ? 'operation, operationEffect, operationIssue, operationPreview, previewOf, workspaceScope'
+    : 'operation, operationEffect, operationIssue, operationPreview, previewOf'
+  const scopeProperty = ctx.tenantField ? `  scope: workspaceScope(),\n` : ''
 
   return `
 import { requireAuth, requireRecord } from '@lupinum/trellis/auth'
-import { operation, operationEffect, operationIssue, operationPreview, previewOf } from '@lupinum/trellis/app'
+import { ${operationImport} } from '@lupinum/trellis/app'
 
 import {
   create${ctx.singularPascal},
@@ -273,7 +289,7 @@ export const create${ctx.singularPascal}Op = operation.mutation({
   name: 'create${ctx.singularPascal}',
   args: create${ctx.singularPascal}.args,
   permission: ${ctx.singularCamel}CreatePermission,
-  handler: async (ctx, args) => {
+${scopeProperty}  handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     requireAuth(appIdentity)
     const now = Date.now()
@@ -290,7 +306,7 @@ export const remove${ctx.singularPascal}Op = operation.destructive({
   permission: ${ctx.singularCamel}DeletePermission,
   safety: 'destructive-write',
   executeFunctionRef: 'features/${ctx.tableName}/domain:remove',
-  load: async (ctx, args) => {
+${scopeProperty}  load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')
     return { ${ctx.singularCamel} }

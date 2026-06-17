@@ -58,6 +58,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - D010: Raw identity-forwarding envelope construction is not an app-surface
   escape hatch. Production-copyable examples, starters, and docs should fail
   source policy if they import or call `createIdentityForwardingEnvelopeArgs`.
+- D011: Generated MCP workspace resource operations should use
+  `workspaceScope()` and `ctx.workspaceId`. `appIdentity.workspaceId` remains an
+  authorization fact, not the value copied into generated tenant writes.
 
 ## Progress
 
@@ -237,6 +240,13 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
     the copied beginner path;
   - docs unit coverage now keeps those beginner pages on the app operation
     builder.
+- 2026-06-18: Tightened generated MCP workspace resource operations:
+  - generated create/remove operations now import and declare
+    `workspaceScope()`;
+  - generated tenant inserts use `ctx.workspaceId` instead of
+    `appIdentity.workspaceId!`;
+  - the 0.2 implementation note no longer lists generic resource generation as
+    backend-first drift.
 
 ## Blockers
 
@@ -394,3 +404,7 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - 2026-06-18: `rg -n "defineOperation\\(" apps/docs/content/docs` only returns
   reference/advanced mentions after updating beginner destructive-operation
   examples to `operation.destructive(...)`.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/cli-add-resource.test.ts`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`, and
+  `pnpm run check:security:source-policy` passed after moving generated MCP
+  workspace resource operations onto `workspaceScope()`.

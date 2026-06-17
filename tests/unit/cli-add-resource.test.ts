@@ -232,6 +232,18 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('createProjectOp')
     await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('workspaceScope')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('scope: workspaceScope()')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('workspaceId: ctx.workspaceId')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).not.resolves.toContain('workspaceId: appIdentity.workspaceId!')
+    await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
     ).resolves.toContain('mutation.workspace(createProjectOp)')
     await expect(
