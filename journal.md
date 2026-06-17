@@ -533,5 +533,5 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm run check:docs:links`, `pnpm run check:publish-surface`,
   `pnpm run check:security:source-policy`, `pnpm run format:check`, and
   `git diff --check` passed after exposing `defineTrellis` from
-  `@lupinum/trellis/app` and moving starter/getting-started setup imports to
-  that beginner entrypoint.
+  `@lupinum/trellis/app` and moving starter/getting-started/permissions setup
+  imports to that beginner entrypoint.
