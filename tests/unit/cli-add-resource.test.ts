@@ -202,6 +202,15 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
     ).resolves.toContain(".withIndex('by_workspace'")
     await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("q.eq('workspaceId', ctx.workspaceId)")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain('workspaceId: ctx.workspaceId')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).not.resolves.toContain('workspaceId: appIdentity.workspaceId!')
+    await expect(
       readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
     ).resolves.toContain(
       "check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member')",

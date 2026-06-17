@@ -407,14 +407,11 @@ function getObserve(ctx: object): RuntimeContext<unknown, unknown, unknown>['obs
     : undefined
 }
 
-function hasWorkspaceId(value: unknown): value is { workspaceId: unknown } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'workspaceId' in value &&
-    (value as { workspaceId?: unknown }).workspaceId !== undefined &&
-    (value as { workspaceId?: unknown }).workspaceId !== null
-  )
+function readWorkspaceId(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null || !('workspaceId' in value)) return null
+
+  const workspaceId = (value as { workspaceId?: unknown }).workspaceId
+  return typeof workspaceId === 'string' && workspaceId.trim().length > 0 ? workspaceId : null
 }
 
 function normalizeAuthorize<
@@ -634,31 +631,38 @@ function createStructuredBuilder<
           )
         }
 
-        if (definition.trellisBackendLane === 'workspace') {
+        const workspaceId =
+          definition.trellisBackendLane === 'workspace'
+            ? readWorkspaceId(await actorAccessor())
+            : null
+
+        if (definition.trellisBackendLane === 'workspace' && workspaceId === null) {
           const appIdentity = await actorAccessor()
-          if (!hasWorkspaceId(appIdentity)) {
-            await observe?.({
-              name: 'guard.denied',
-              status: 'deny',
-              reasonCode: 'guard.workspace_required',
-              details: {
-                explanation: createDenialExplanation({
-                  reasonCode: 'guard.workspace_required',
-                  decision: 'guard',
-                  message: 'Workspace handlers require a resolved appIdentity.workspaceId.',
-                  suggestedAction: 'switch_tenant',
-                }),
-              },
-            })
-            deny('Forbidden: workspace required')
-          }
+          await observe?.({
+            name: 'guard.denied',
+            status: 'deny',
+            reasonCode: 'guard.workspace_required',
+            details: {
+              appIdentity,
+              explanation: createDenialExplanation({
+                reasonCode: 'guard.workspace_required',
+                decision: 'guard',
+                message: 'Workspace handlers require a resolved appIdentity.workspaceId.',
+                suggestedAction: 'switch_tenant',
+              }),
+            },
+          })
+          deny('Forbidden: workspace required')
         }
 
-        const handlerCtx = createHandlerContext<TCtx, TCaller, TActingFor, TActor, TGuard>(
+        const baseHandlerCtx = createHandlerContext<TCtx, TCaller, TActingFor, TActor, TGuard>(
           ctx,
           caller as CallerForGuard<TCaller, TGuard>,
           delegationAccessor,
           actorAccessor as () => Promise<AppIdentityForGuard<TActor, TGuard>>,
+        )
+        const handlerCtx = (
+          workspaceId === null ? baseHandlerCtx : { ...baseHandlerCtx, workspaceId }
         ) as CtxWithCapabilities<
           NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
           TCrossTenant,

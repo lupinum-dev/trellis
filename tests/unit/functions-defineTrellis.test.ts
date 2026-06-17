@@ -1350,6 +1350,58 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/Forbidden: workspace.read/)
   })
 
+  it('injects trusted workspaceId into workspace lane handler context', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const workspaceRead = definePermission({
+      key: 'workspace.read',
+      check: (appIdentity: { workspaceId?: string }) => appIdentity.workspaceId === 'workspace-1',
+    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        caller: defineCaller({
+          resolve: async () => ({
+            kind: 'user' as const,
+            subject: 'auth:alice' as const,
+            authKey: 'alice',
+          }),
+        }),
+        appIdentity: async (_ctx, args) => ({
+          userId: 'alice',
+          workspaceId: typeof args.workspaceId === 'string' ? args.workspaceId : undefined,
+        }),
+      },
+    )
+
+    const definition = runtime.query.workspace({
+      id: 'todos.workspaceContext',
+      args: { workspaceId: v.string() },
+      permission: workspaceRead,
+      handler: async (ctx) => ({
+        appIdentity: await ctx.appIdentity(),
+        workspaceId: ctx.workspaceId,
+      }),
+    }) as {
+      handler: (ctx: { db: ReturnType<typeof createMemoryDb>['db'] }, args: unknown) => unknown
+    }
+
+    await expect(
+      definition.handler({ db: createMemoryDb().db }, { workspaceId: 'workspace-1' }),
+    ).resolves.toEqual({
+      appIdentity: {
+        userId: 'alice',
+        workspaceId: 'workspace-1',
+      },
+      workspaceId: 'workspace-1',
+    })
+    await expect(
+      definition.handler({ db: createMemoryDb().db }, { workspaceId: 'workspace-2' }),
+    ).rejects.toThrow(/Forbidden: workspace.read/)
+  })
+
   it('rejects metadata-only permission keys on workspace lanes', () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({

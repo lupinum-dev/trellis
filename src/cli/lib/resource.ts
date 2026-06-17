@@ -342,9 +342,11 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
       ? "appIdentity.role === 'owner' || appIdentity.role === 'admin' || appIdentity.userId === loaded.ownerId"
       : `appIdentity.userId === loaded.${ctx.ownerField}`
   const listQuery = ctx.tenantField
-    ? `.withIndex('by_workspace', (q) => q.eq('${ctx.tenantField}', appIdentity.workspaceId!))`
+    ? `.withIndex('by_workspace', (q) => q.eq('${ctx.tenantField}', ctx.${ctx.tenantField}))`
     : `.withIndex('by_${ctx.ownerField === 'authorId' ? 'author' : 'owner'}', (q) => q.eq('${ctx.ownerField}', appIdentity.userId))`
-  const createFields = resourceCreateFields(ctx)
+  const createFields = resourceCreateFields(ctx, {
+    tenantSource: ctx.tenantField ? 'ctx' : 'appIdentity',
+  })
   const patchFields = [
     `name: args.name`,
     ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : []),

@@ -63,6 +63,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   authorization fact, not the value copied into generated tenant writes.
 - D012: Generated app tests should use Trellis test principals (`asUser`,
   seeded tenant users, or `asService`) instead of raw Convex identity helpers.
+- D013: Workspace lanes own trusted tenant context projection. Workspace
+  handlers should read `ctx.workspaceId`; `appIdentity.workspaceId` remains the
+  identity fact used to authorize and derive that context, not the field copied
+  throughout generated resource code.
 
 ## Progress
 
@@ -253,6 +257,13 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   - generated personal resource tests now call `ctx.asUser({ authKey })`;
   - new app test templates no longer copy `ctx.raw.withIdentity(...)` for
     ordinary user calls.
+- 2026-06-18: Promoted workspace lanes to a typed tenant context:
+  - workspace lane handlers now receive trusted `ctx.workspaceId` after
+    `appIdentity.workspaceId` is resolved and authorized;
+  - generated workspace resource list/create handlers use `ctx.workspaceId`
+    instead of repeating `appIdentity.workspaceId!`;
+  - runtime and CLI generator tests cover the lane projection and generated
+    tenant field usage.
 
 ## Blockers
 
@@ -417,3 +428,6 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/cli-add-resource.test.ts`
   and `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after moving
   generated personal resource tests onto `ctx.asUser(...)`.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/cli-add-resource.test.ts`
+  and `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after promoting
+  workspace lanes to a typed `ctx.workspaceId` context.
