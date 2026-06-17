@@ -554,3 +554,8 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `git diff --check` passed after moving maintained example root
   `defineTrellis` imports to `@lupinum/trellis/app` and adding a source policy
   to prevent app setup from drifting back to the backend barrel.
+- 2026-06-18: `pnpm run check:docs:api-surface`,
+  `pnpm run check:docs:links`, `pnpm run format:check`, and
+  `git diff --check` passed after updating workspace-lane docs to show
+  `ctx.workspaceId` as the handler-local tenant source instead of copying
+  `appIdentity.workspaceId` into writes.
