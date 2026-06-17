@@ -31,19 +31,12 @@ function webhookService(
   ctx: ReturnType<typeof createCtx>,
   actingFor: { subject: string } & Record<string, unknown>,
 ) {
-  return ctx.asCaller(
-    {
-      kind: 'service',
-      serviceId: 'todo-sync-webhook',
-      subject: 'service:todo-sync-webhook',
-    },
-    {
-      actingFor,
-      transport: 'webhook',
-      purpose: 'mutation',
-      replayMode: 'domain-idempotency',
-    },
-  )
+  return ctx.asService('todo-sync-webhook', {
+    actingFor,
+    transport: 'webhook',
+    purpose: 'mutation',
+    replayMode: 'domain-idempotency',
+  })
 }
 
 async function createTodoFromWebhook(

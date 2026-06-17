@@ -62,6 +62,10 @@ const _forwardedClient = defaultCtx.asCaller({ kind: 'user', userId: 'owner-1' }
 type _forwardedClientSurface = Assert<
   IsEqual<keyof typeof _forwardedClient, 'action' | 'mutation' | 'query'>
 >
+const _forwardedUserClient = defaultCtx.asUser({ userId: 'owner-1' })
+type _forwardedUserClientSurface = Assert<
+  IsEqual<keyof typeof _forwardedUserClient, 'action' | 'mutation' | 'query'>
+>
 const _forwardedWriteClient = defaultCtx.asCaller(
   { kind: 'user', userId: 'owner-1' },
   { replayMode: 'domain-idempotency', transport: 'mcp', jti: 'test-jti' },
@@ -83,6 +87,18 @@ const _forwardedServiceClient = defaultCtx.asCaller(
 )
 type _forwardedServiceClientSurface = Assert<
   IsEqual<keyof typeof _forwardedServiceClient, 'action' | 'mutation' | 'query'>
+>
+const _forwardedNamedServiceClient = defaultCtx.asService('webhook', {
+  actingFor: { subject: subject.user('owner-1'), reason: 'type-test' },
+  purpose: 'mutation',
+  replayMode: 'domain-idempotency',
+  replayKey: 'event-1',
+  replayTarget: 'features/items:webhook',
+  transport: 'webhook',
+  keyId: 'default',
+})
+type _forwardedNamedServiceClientSurface = Assert<
+  IsEqual<keyof typeof _forwardedNamedServiceClient, 'action' | 'mutation' | 'query'>
 >
 
 const _organizationCtx = createTestContext({

@@ -29,12 +29,8 @@ function createCtx() {
 }
 
 function forwardedUser(ctx: ReturnType<typeof createCtx>, user: { authKey: string }) {
-  return ctx.asCaller(
-    {
-      kind: 'user',
-      authKey: user.authKey,
-      subject: `auth:${user.authKey}`,
-    },
+  return ctx.asUser(
+    { authKey: user.authKey, subject: `auth:${user.authKey}` },
     {
       replayMode: 'domain-idempotency',
       transport: 'server',
@@ -46,19 +42,12 @@ function webhookService(
   ctx: ReturnType<typeof createCtx>,
   actingFor: { subject: string } & Record<string, unknown>,
 ) {
-  return ctx.asCaller(
-    {
-      kind: 'service',
-      serviceId: 'runbook-webhook',
-      subject: 'service:runbook-webhook',
-    },
-    {
-      actingFor,
-      transport: 'webhook',
-      purpose: 'mutation',
-      replayMode: 'domain-idempotency',
-    },
-  )
+  return ctx.asService('runbook-webhook', {
+    actingFor,
+    transport: 'webhook',
+    purpose: 'mutation',
+    replayMode: 'domain-idempotency',
+  })
 }
 
 function mcpAgent(

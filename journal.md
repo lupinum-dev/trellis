@@ -43,6 +43,9 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - D006: Global `public.readTables` is deleted from the runtime authoring
   surface. Public read authority has one source of truth: handler-local
   `query.public({ reads })` metadata.
+- D007: `ctx.asUser(...)` and `ctx.asService(...)` are convenience vocabulary
+  on top of the existing `ctx.asCaller(...)` trusted test transport. They do
+  not introduce a second forwarding implementation.
 
 ## Progress
 
@@ -174,6 +177,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     of constructing signed identity-forwarding envelopes by hand;
   - direct public runbook handlers now declare stable ids, keeping the example
     aligned with the mandatory structured-handler id rule.
+- 2026-06-18: Added test-client vocabulary for common principals:
+  - `createTestContext(...)` now exposes typed `asUser(...)` and
+    `asService(...)` helpers backed by the existing trusted forwarding path;
+  - Example 03 and Example 07 delegated webhook tests now read as service calls
+    instead of generic caller construction.
 
 ## Blockers
 
@@ -279,3 +287,12 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   Example 07 handler ids changed generated metadata. After
   `pnpm run security:contract`, `pnpm run check:security:contract`,
   `pnpm run format:check`, and `git diff --check` passed.
+- 2026-06-18: `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after
+  adding `asUser(...)`/`asService(...)` type coverage.
+- 2026-06-18: Initial `pnpm --dir examples/03-team-workspace test` failed
+  because the example imports `@lupinum/trellis/testing` from the built package
+  surface and `dist` had not been rebuilt. `pnpm run test:types` rebuilt the
+  module and passed; rerunning `pnpm --dir examples/03-team-workspace test` and
+  `pnpm --dir examples/07-mcp-reference test` then passed.
+- 2026-06-18: `pnpm run check:docs:api-surface` and
+  `pnpm run check:publish-surface` passed for the testing helper surface.

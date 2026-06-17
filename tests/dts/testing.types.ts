@@ -5,3 +5,5 @@ const testContext = createTestContext({ schema: {} as never })
 
 expectTypeOf(testContext).toHaveProperty('seed')
 expectTypeOf(testContext).toHaveProperty('asCaller')
+expectTypeOf(testContext).toHaveProperty('asUser')
+expectTypeOf(testContext).toHaveProperty('asService')

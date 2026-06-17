@@ -193,6 +193,12 @@ type SeededTenantUsers<
   [K in keyof TUsers]: SeededTenantUser<TSchema, TUsers[K]['role'], TUserTable>
 }
 
+export type TestUserCaller = ({ authKey: string } | { userId: string } | { subject: string }) &
+  Record<string, unknown>
+
+export type TestServiceCaller = ({ serviceId: string } | { subject: string }) &
+  Record<string, unknown>
+
 export type ConvexTestConfigOptions = UserConfig
 
 export interface CreateTestContextOptions<
@@ -240,6 +246,11 @@ export interface TestContext<
     users: SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
   }>
   asCaller: (caller: Record<string, unknown>, options?: TestCallerOptions) => TestClient<TSchema>
+  asUser: (caller: TestUserCaller, options?: TestCallerOptions) => TestClient<TSchema>
+  asService: (
+    service: string | TestServiceCaller,
+    options?: TestCallerOptions,
+  ) => TestClient<TSchema>
 }
 
 const DEFAULT_CONVEX_TEST_TSCONFIG = {
@@ -612,12 +623,30 @@ export function createTestContext<
     return createPrincipalClient(raw, caller, identityForwardingKey, options)
   }
 
+  function asUser(caller: TestUserCaller, options?: TestCallerOptions): TestClient<TSchema> {
+    return asCaller({ ...caller, kind: 'user' }, options)
+  }
+
+  function asService(
+    service: string | TestServiceCaller,
+    options?: TestCallerOptions,
+  ): TestClient<TSchema> {
+    const caller =
+      typeof service === 'string'
+        ? { kind: 'service', serviceId: service, subject: subject.service(service) }
+        : { ...service, kind: 'service' }
+
+    return asCaller(caller, options)
+  }
+
   return {
     raw,
     seed,
     readAll,
     seedTenant,
     asCaller,
+    asUser,
+    asService,
   }
 }
 
