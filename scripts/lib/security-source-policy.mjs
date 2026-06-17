@@ -132,7 +132,7 @@ const fileSpecificPolicies = {
       kind: 'line',
       policy: 'backend barrel must not export raw identity-forwarding primitives',
       pattern:
-        /\b(createIdentityForwardingEnvelope|verifyIdentityForwardingEnvelope|setIdentityForwardingContext|clearIdentityForwardingContext|withIdentityForwarding)\b/,
+        /\b(createIdentityForwardingEnvelope|createIdentityForwardingEnvelopeArgs|verifyIdentityForwardingEnvelope|setIdentityForwardingContext|clearIdentityForwardingContext|withIdentityForwarding)\b/,
     },
   ],
   'src/runtime/mcp/index.ts': [

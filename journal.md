@@ -73,6 +73,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - D015: Maintained example tests should not call `ctx.raw.withIdentity(...)`
   directly. Use `ctx.asAuthUser(...)` for Convex auth identity, `ctx.asUser(...)`
   for trusted user forwarding, and `ctx.asCaller(...)` for custom principals.
+- D016: Raw identity-forwarding envelope construction is protocol internals and
+  focused test machinery, not a backend barrel API. App-facing code should use
+  `createTestContext(...)`, bridge helpers, MCP callers, or server helpers
+  instead of importing raw envelope builders from `@lupinum/trellis/backend`.
 
 ## Progress
 
@@ -285,6 +289,14 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `identityForwardingFunctionRef` operation field. The operation type now omits
   only the current `guard` field because structured handlers no longer expose
   the old forwarding field.
+- 2026-06-18: Removed raw forwarding envelope construction from the backend
+  barrel:
+  - `@lupinum/trellis/backend` no longer exports
+    `createIdentityForwardingEnvelopeArgs`;
+  - the harness test helper now imports the raw protocol helper from internal
+    source instead of teaching the backend barrel path;
+  - source policy and backend export tests keep raw envelope construction out
+    of the backend entrypoint.
 
 ## Blockers
 
@@ -467,3 +479,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm exec tsc -p tsconfig.types.json --noEmit`, and
   `pnpm run check:security:source-policy` passed after banning raw Convex
   identity helpers in maintained example tests.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/backend-index-exports.test.ts`,
+  `pnpm exec vitest run apps/harness/convex/functions.test.ts apps/harness/convex/organizations.test.ts`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm run check:security:source-policy`, `pnpm run check:publish-surface`,
+  and `pnpm run check:docs:api-surface` passed after removing raw forwarding
+  envelope construction from the backend barrel.

@@ -21,4 +21,10 @@ describe('backend entrypoint exports', () => {
     expect(backendApi).not.toHaveProperty('defineComponentBridgeManifest')
     expect(backendApi).not.toHaveProperty('renderComponentBridgeFiles')
   })
+
+  it('does not expose raw identity-forwarding envelope construction', () => {
+    expect(backendApi).not.toHaveProperty('createIdentityForwardingEnvelopeArgs')
+    expect(backendApi).not.toHaveProperty('createIdentityForwardingEnvelope')
+    expect(backendApi).not.toHaveProperty('verifyIdentityForwardingEnvelope')
+  })
 })

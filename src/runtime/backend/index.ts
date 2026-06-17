@@ -32,7 +32,6 @@ export {
   IdentityForwardingEnvelopeError,
 } from '../identity-forwarding/envelope.js'
 export {
-  createIdentityForwardingEnvelopeArgs,
   extractSubject,
   getForwardedActingFor,
   getForwardedCaller,
