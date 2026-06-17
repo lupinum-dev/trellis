@@ -61,10 +61,12 @@ const postId = await team.users.alice.mutation(api.posts.create, {
 await expect(team.users.bob.mutation(api.posts.publish, { id: postId })).rejects.toThrow()
 ```
 
-Use `asCaller(...)` to exercise identity-forwarding paths in tests. It is
-test-only and deliberately explicit; do not hide it behind app factories. For
-forwarded writes, pass the replay behavior the backend expects. For MCP-only
-handlers, pass `transport: 'mcp'`. Forwarded reads can omit replay metadata.
+Use `asUser(...)` and `asService(...)` to exercise ordinary trusted user and
+service paths in tests. Use `asCaller(...)` for custom principal shapes such as
+MCP agents. These helpers are test-only and deliberately explicit; do not hide
+them behind app factories. For forwarded writes, pass the replay behavior the
+backend expects. For MCP-only handlers, pass `transport: 'mcp'`. Forwarded reads
+can omit replay metadata.
 
 Keep `convex/test.setup.ts` in consumer apps when they need the generated server
 mock path.

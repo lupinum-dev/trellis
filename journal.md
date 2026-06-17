@@ -182,6 +182,12 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     `asService(...)` helpers backed by the existing trusted forwarding path;
   - Example 03 and Example 07 delegated webhook tests now read as service calls
     instead of generic caller construction.
+- 2026-06-18: Aligned testing docs and agent guidance with named test
+  principals:
+  - ordinary trusted user/service tests teach `asUser(...)` and
+    `asService(...)`;
+  - `asCaller(...)` remains documented for custom principal shapes such as MCP
+    agents.
 
 ## Blockers
 
@@ -296,3 +302,7 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm --dir examples/07-mcp-reference test` then passed.
 - 2026-06-18: `pnpm run check:docs:api-surface` and
   `pnpm run check:publish-surface` passed for the testing helper surface.
+- 2026-06-18: `pnpm run check:docs:links`,
+  `pnpm run check:docs:api-surface`, `pnpm run format:check`, and
+  `git diff --check` passed after updating the testing docs for named
+  principal helpers.
