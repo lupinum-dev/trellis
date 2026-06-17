@@ -144,12 +144,14 @@ type TestClient<TSchema extends AnySchemaDefinition> = Pick<
   'query' | 'mutation' | 'action'
 >
 
-type TestCallerOptions = {
+export type TestCallerOptions = {
   actingFor?: { subject: Subject } & Record<string, unknown>
   purpose?: IdentityForwardingPurpose
   replayMode?: IdentityForwardingReplayMode
   replayKey?: string
   replayTarget?: string
+  signedArgs?: Record<string, unknown>
+  targetFunctionRef?: string
   transport?: IdentityForwardingTransport
   keyId?: string
   jti?: string
@@ -350,14 +352,16 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     principalMode: 'plain' | 'trusted',
   ) {
     if (principalMode === 'trusted') {
-      return createIdentityForwardingEnvelopeArgs({
-        args,
+      const signedArgs = options.signedArgs ?? args
+      const forwardingArgs = createIdentityForwardingEnvelopeArgs({
+        args: signedArgs,
         caller: {
           ...caller,
           subject: principalSubject,
         },
         ...(options.actingFor ? { actingFor: options.actingFor } : {}),
-        functionRef: getFunctionName(fn as unknown as AnyConvexFunction),
+        functionRef:
+          options.targetFunctionRef ?? getFunctionName(fn as unknown as AnyConvexFunction),
         operation: kind,
         ...(options.purpose ? { purpose: options.purpose } : {}),
         key: effectiveIdentityForwardingKey,
@@ -368,6 +372,13 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         ...(options.replayTarget ? { replayTarget: options.replayTarget } : {}),
         ...(options.jti ? { jti: options.jti } : {}),
       })
+
+      if (options.signedArgs === undefined) return forwardingArgs
+
+      return {
+        ...(args ?? {}),
+        ...forwardingArgs,
+      }
     }
 
     return {

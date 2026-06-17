@@ -100,6 +100,18 @@ const _forwardedNamedServiceClient = defaultCtx.asService('webhook', {
 type _forwardedNamedServiceClientSurface = Assert<
   IsEqual<keyof typeof _forwardedNamedServiceClient, 'action' | 'mutation' | 'query'>
 >
+const _forwardedBridgeClient = defaultCtx.asCaller(
+  { kind: 'agent', agentId: 'bridge-1', subject: subject.agent('bridge-1') },
+  {
+    transport: 'bridge',
+    purpose: 'query',
+    signedArgs: {},
+    targetFunctionRef: 'features/pages/domain:listDraft',
+  },
+)
+type _forwardedBridgeClientSurface = Assert<
+  IsEqual<keyof typeof _forwardedBridgeClient, 'action' | 'mutation' | 'query'>
+>
 
 const _organizationCtx = createTestContext({
   schema,

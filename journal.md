@@ -46,6 +46,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - D007: `ctx.asUser(...)` and `ctx.asService(...)` are convenience vocabulary
   on top of the existing `ctx.asCaller(...)` trusted test transport. They do
   not introduce a second forwarding implementation.
+- D008: Bridge/component tests may use `ctx.asCaller(..., { targetFunctionRef,
+signedArgs })` when the internal Convex bridge wrapper differs from the
+  trusted public handler id or signs a narrower payload. This is an advanced
+  testing override, not a replacement for normal `asUser(...)`/`asService(...)`
+  app tests.
 
 ## Progress
 
@@ -192,6 +197,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   surfaces:
   - production-copyable source now rejects `identityForwardingFunctionRef`;
   - production-copyable source now rejects global `readTables` authoring.
+- 2026-06-18: Simplified Example 08 bridge tests:
+  - component mini CMS tests no longer import
+    `createIdentityForwardingEnvelopeArgs`;
+  - `ctx.asCaller(...)` now supports advanced bridge target and signed-args
+    overrides so tests can exercise the bridge without constructing envelopes.
 
 ## Blockers
 
@@ -315,4 +325,13 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   failed due expected generated policy-contract drift; after
   `pnpm run security:contract`, `pnpm run check:security:contract`,
   `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`,
+  `pnpm run format:check`, and `git diff --check` passed.
+- 2026-06-18: Initial `pnpm --dir examples/08-component-mini-cms test` failed
+  while moving bridge tests to `ctx.asCaller(...)`: first because the built
+  package surface was stale, then because bridge wrappers validate a public
+  target id and sign an empty bridge payload. After adding `targetFunctionRef`
+  and `signedArgs`, `pnpm run build:module`,
+  `pnpm --dir examples/08-component-mini-cms test`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`, `pnpm run test:types`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:security:contract`,
   `pnpm run format:check`, and `git diff --check` passed.

@@ -2,7 +2,6 @@
 
 import { readFileSync } from 'node:fs'
 
-import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -34,29 +33,6 @@ function createCtx() {
   const ctx = createTestContext({ schema, modules, identityForwardingKey: IDENTITY_FORWARDING_KEY })
   ctx.raw.registerComponent('miniCms', componentSchema, componentModules)
   return ctx
-}
-
-function bridgeArgs(
-  appArgs: Record<string, unknown>,
-  options: {
-    caller: typeof bridgePrincipal | typeof previewPrincipal
-    purpose: 'query' | 'mutation'
-    functionRef: string
-  },
-) {
-  const args = {
-    ...appArgs,
-    ...createIdentityForwardingEnvelopeArgs({
-      args: {},
-      caller: options.caller,
-      key: IDENTITY_FORWARDING_KEY,
-      transport: 'bridge',
-      purpose: options.purpose,
-      functionRef: options.functionRef,
-    }),
-  }
-  expect(args).not.toHaveProperty('caller')
-  return args
 }
 
 describe('example 08 component mini cms', () => {
@@ -243,33 +219,26 @@ describe('example 08 component mini cms', () => {
   it('forwards caller unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
 
-    const id = await ctx.raw.mutation(
-      internal.features.pages.bridge.create,
-      bridgeArgs(
-        {
-          slug: 'bridge-owned',
-          title: 'Bridge owned',
-          draftBody: 'Bridge draft',
-        },
-        {
-          caller: bridgePrincipal,
-          purpose: 'mutation',
-          functionRef: 'features/pages/domain:create',
-        },
-      ),
-    )
+    const bridgeMutation = ctx.asCaller(bridgePrincipal, {
+      transport: 'bridge',
+      purpose: 'mutation',
+      signedArgs: {},
+      targetFunctionRef: 'features/pages/domain:create',
+    })
+    const bridgeQuery = ctx.asCaller(bridgePrincipal, {
+      transport: 'bridge',
+      purpose: 'query',
+      signedArgs: {},
+      targetFunctionRef: 'features/pages/domain:listDraft',
+    })
 
-    const drafts = await ctx.raw.query(
-      internal.features.pages.bridge.listDraft,
-      bridgeArgs(
-        {},
-        {
-          caller: bridgePrincipal,
-          purpose: 'query',
-          functionRef: 'features/pages/domain:listDraft',
-        },
-      ),
-    )
+    const id = await bridgeMutation.mutation(internal.features.pages.bridge.create, {
+      slug: 'bridge-owned',
+      title: 'Bridge owned',
+      draftBody: 'Bridge draft',
+    })
+
+    const drafts = await bridgeQuery.query(internal.features.pages.bridge.listDraft, {})
     expect(drafts.find((page: { _id: string }) => page._id === id)).toMatchObject({
       authorId: 'agent:bridge-key',
       slug: 'bridge-owned',
@@ -291,35 +260,29 @@ describe('example 08 component mini cms', () => {
 
   it('returns the publish preview from the component operation', async () => {
     const ctx = createCtx()
+    const previewMutation = ctx.asCaller(previewPrincipal, {
+      transport: 'bridge',
+      purpose: 'mutation',
+      signedArgs: {},
+      targetFunctionRef: 'features/pages/domain:create',
+    })
+    const previewQuery = ctx.asCaller(previewPrincipal, {
+      transport: 'bridge',
+      purpose: 'query',
+      signedArgs: {},
+      targetFunctionRef: 'features/pages/operations:previewPublish',
+    })
 
-    const id = await ctx.raw.mutation(
-      internal.features.pages.bridge.create,
-      bridgeArgs(
-        {
-          slug: 'launch-notes',
-          title: 'Launch notes',
-          draftBody: 'Version one',
-        },
-        {
-          caller: previewPrincipal,
-          purpose: 'mutation',
-          functionRef: 'features/pages/domain:create',
-        },
-      ),
-    )
+    const id = await previewMutation.mutation(internal.features.pages.bridge.create, {
+      slug: 'launch-notes',
+      title: 'Launch notes',
+      draftBody: 'Version one',
+    })
 
-    const preview = await ctx.raw.query(
-      internal.features.pages.bridge.previewPublish,
-      bridgeArgs(
-        { id },
-        {
-          caller: previewPrincipal,
-          purpose: 'query',
-          functionRef: 'features/pages/operations:previewPublish',
-        },
-      ),
-    )
-    expect(preview).toMatchObject({
+    const previewResult = await previewQuery.query(internal.features.pages.bridge.previewPublish, {
+      id,
+    })
+    expect(previewResult).toMatchObject({
       details: {
         summary: 'Publish "Launch notes" at /launch-notes',
         affects: { pages: 1 },
