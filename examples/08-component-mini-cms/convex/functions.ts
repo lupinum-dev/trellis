@@ -1,4 +1,4 @@
-import { defineTrellis } from '@lupinum/trellis/backend'
+import { defineTrellis } from '@lupinum/trellis/app'
 import {
   actionGeneric as generatedAction,
   internalMutationGeneric as generatedInternalMutation,

@@ -99,6 +99,13 @@ export const securitySourcePolicies = [
       /import\s*\{[^}]*\b(?:executeOperationRef|previewOperationRef|transportExecuteOperationRef|projectOperationRef)\b[^}]*\}\s*from ['"]@lupinum\/trellis\/backend['"]/,
   },
   {
+    id: 'no-beginner-define-trellis-from-backend',
+    kind: 'line',
+    filePathPattern: /^(?:apps\/docs\/content\/docs|examples|src\/cli\/starter-fixtures)\//,
+    policy: 'beginner app setup must import defineTrellis from @lupinum/trellis/app',
+    pattern: /import\s*\{[^}]*\bdefineTrellis\b[^}]*\}\s*from ['"]@lupinum\/trellis\/backend['"]/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',

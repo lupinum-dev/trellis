@@ -87,6 +87,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `defineTrellis` remains one implementation from the functions runtime, but
   starter fixtures and getting-started docs should not force day-one users to
   import the backend barrel before they have advanced backend needs.
+- D019: Maintained example root runtime setup should follow the same beginner
+  entrypoint as starters and docs. Keep caller, acting-for, delegation, unsafe,
+  and other advanced primitives on `@lupinum/trellis/backend`, but do not teach
+  `defineTrellis` from the backend barrel in production-copyable app setup.
 
 ## Progress
 
@@ -535,3 +539,18 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `git diff --check` passed after exposing `defineTrellis` from
   `@lupinum/trellis/app` and moving starter/getting-started/permissions setup
   imports to that beginner entrypoint.
+- 2026-06-18: `pnpm --dir examples/01-public-todo test`,
+  `pnpm --dir examples/02-auth-todo test`,
+  `pnpm --dir examples/03-team-workspace test`,
+  `pnpm --dir examples/04-saas-platform test`,
+  `pnpm --dir examples/05-visibility-access test`,
+  `pnpm --dir examples/06-multi-workspace test`,
+  `pnpm --dir examples/07-mcp-reference test`,
+  `pnpm --dir examples/08-component-mini-cms test`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:docs:links`,
+  `pnpm run check:publish-surface`, `pnpm run check:security:source-policy`,
+  `pnpm run check:security:contract`, `pnpm run format:check`, and
+  `git diff --check` passed after moving maintained example root
+  `defineTrellis` imports to `@lupinum/trellis/app` and adding a source policy
+  to prevent app setup from drifting back to the backend barrel.

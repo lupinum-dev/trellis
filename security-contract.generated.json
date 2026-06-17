@@ -95,6 +95,12 @@
         "pattern": "/\\bcreateIdentityForwardingEnvelopeArgs\\b/"
       },
       {
+        "id": "no-beginner-define-trellis-from-backend",
+        "kind": "line",
+        "policy": "beginner app setup must import defineTrellis from @lupinum/trellis/app",
+        "pattern": "/import\\s*\\{[^}]*\\bdefineTrellis\\b[^}]*\\}\\s*from ['\"]@lupinum\\/trellis\\/backend['\"]/"
+      },
+      {
         "id": "no-boolean-delegation",
         "kind": "block",
         "policy": "boolean delegation is banned; use backend-revalidated delegation evidence",

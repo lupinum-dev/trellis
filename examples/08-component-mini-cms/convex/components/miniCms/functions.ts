@@ -1,4 +1,5 @@
-import { defineCaller, defineTrellis, getForwardedCaller } from '@lupinum/trellis/backend'
+import { defineTrellis } from '@lupinum/trellis/app'
+import { defineCaller, getForwardedCaller } from '@lupinum/trellis/backend'
 import {
   actionGeneric as generatedAction,
   mutationGeneric as generatedMutation,
