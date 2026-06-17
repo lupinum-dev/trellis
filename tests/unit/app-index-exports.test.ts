@@ -21,6 +21,7 @@ describe('app entrypoint exports', () => {
   })
 
   it('exports the beginner operation ladder API', () => {
+    expect(appApi).toHaveProperty('defineTrellis')
     expect(appApi).toHaveProperty('operation')
     expect(appApi.operation).toHaveProperty('query')
     expect(appApi.operation).toHaveProperty('mutation')

@@ -4,6 +4,7 @@ import type { PermissionKeyHandle } from '../auth/define-permission.js'
 import type { OperationShape } from '../functions/define-operation.js'
 import {
   blockedOperationPreview,
+  defineTrellis,
   defineOperation,
   operationEffect,
   operationIssue,
@@ -257,6 +258,8 @@ export const operation = {
   publicMutation: definePublicMutationOperation,
   destructive: defineDestructiveOperation,
 }
+
+export { defineTrellis }
 
 export {
   blockedOperationPreview,

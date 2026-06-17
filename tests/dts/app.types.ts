@@ -1,5 +1,6 @@
 import {
   blockedOperationPreview,
+  defineTrellis,
   operation,
   operationEffect,
   operationIssue,
@@ -12,6 +13,8 @@ import {
 } from '@lupinum/trellis/app'
 import { v } from 'convex/values'
 import { expectTypeOf } from 'vitest'
+
+expectTypeOf(defineTrellis).toBeFunction()
 
 // Intentional 0.3.0 public type boundary coverage: old protected-lane guard
 // shapes appear only as negative app-operation assertions.

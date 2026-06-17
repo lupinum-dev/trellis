@@ -1,4 +1,4 @@
-import { defineTrellis } from '@lupinum/trellis/backend'
+import { defineTrellis } from '@lupinum/trellis/app'
 
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 

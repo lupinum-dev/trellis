@@ -83,6 +83,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   teach the MCP surface. Bridge forwarding signs bridge envelopes inside
   `@lupinum/trellis-bridge` rather than re-opening raw backend envelope
   construction.
+- D018: Beginner root runtime setup belongs on `@lupinum/trellis/app`.
+  `defineTrellis` remains one implementation from the functions runtime, but
+  starter fixtures and getting-started docs should not force day-one users to
+  import the backend barrel before they have advanced backend needs.
 
 ## Progress
 
@@ -518,3 +522,16 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   passed after adding the source policy that blocks MCP operation-ref imports
   from `@lupinum/trellis/backend` in production-copyable MCP authoring
   surfaces.
+- 2026-06-18: Initial
+  `pnpm exec vitest run --project=unit tests/unit/app-index-exports.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-doctor.test.ts`
+  failed because the CLI fixture dist had not been copied; after
+  `pnpm run build:cli`, it failed only on assertions expecting starter
+  `convex/functions.ts` to import `@lupinum/trellis/backend`. Updating those
+  assertions to the app surface made the same focused unit command pass.
+- 2026-06-18: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm run test:types`, `pnpm run check:docs:api-surface`,
+  `pnpm run check:docs:links`, `pnpm run check:publish-surface`,
+  `pnpm run check:security:source-policy`, `pnpm run format:check`, and
+  `git diff --check` passed after exposing `defineTrellis` from
+  `@lupinum/trellis/app` and moving starter/getting-started setup imports to
+  that beginner entrypoint.
