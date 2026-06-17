@@ -75,6 +75,13 @@ export const securitySourcePolicies = [
     pattern: /\bcreateIdentityForwardingEnvelopeArgs\b/,
   },
   {
+    id: 'no-example-test-raw-convex-identity',
+    kind: 'line',
+    filePathPattern: /^examples\/.*(?:\/test\/.*|\/convex\/.*\.test\.ts)$/,
+    policy: 'maintained example tests must use Trellis test principals, not raw Convex identity',
+    pattern: /\b(?:ctx\.)?raw\.withIdentity\b|\bwithIdentity\s*\(/,
+  },
+  {
     id: 'no-app-surface-raw-forwarding-envelope',
     kind: 'line',
     filePathPattern: /^(?:apps\/docs\/content\/docs|examples|src\/cli\/starter-fixtures)\//,

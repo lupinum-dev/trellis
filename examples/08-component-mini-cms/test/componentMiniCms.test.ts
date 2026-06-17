@@ -53,28 +53,22 @@ describe('example 08 component mini cms', () => {
   it('lets anonymous callers read published pages only', async () => {
     const ctx = createCtx()
 
-    const pageId = await (
-      ctx.raw.withIdentity({
-        subject: 'editor-public',
-        tokenIdentifier: 'editor-public',
-        email: 'editor-public@example.com',
-        name: 'Editor Public',
-      }) as {
-        mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
-      }
-    ).mutation(api.features.pages.domain.create, {
+    const editorPublic = ctx.asAuthUser({
+      authKey: 'editor-public',
+      email: 'editor-public@example.com',
+      displayName: 'Editor Public',
+    }) as {
+      mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
+    }
+
+    const pageId = await editorPublic.mutation(api.features.pages.domain.create, {
       slug: 'welcome',
       title: 'Welcome',
       draftBody: 'Public page body',
     })
 
     await (
-      ctx.raw.withIdentity({
-        subject: 'editor-public',
-        tokenIdentifier: 'editor-public',
-        email: 'editor-public@example.com',
-        name: 'Editor Public',
-      }) as {
+      editorPublic as {
         mutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>
       }
     ).mutation(api.features.pages.domain.publish, { id: pageId })
@@ -101,11 +95,10 @@ describe('example 08 component mini cms', () => {
 
   it('lets authenticated browser users create, save, and publish drafts', async () => {
     const ctx = createCtx()
-    const editor = ctx.raw.withIdentity({
-      subject: 'editor-workflow',
-      tokenIdentifier: 'editor-workflow',
+    const editor = ctx.asAuthUser({
+      authKey: 'editor-workflow',
       email: 'editor-workflow@example.com',
-      name: 'Editor Workflow',
+      displayName: 'Editor Workflow',
     }) as {
       mutation: (fn: unknown, args: Record<string, unknown>) => Promise<any>
       query: (fn: unknown, args: Record<string, unknown>) => Promise<any>
@@ -140,11 +133,10 @@ describe('example 08 component mini cms', () => {
 
   it('publishes through the action-backed operation path used by MCP', async () => {
     const ctx = createCtx()
-    const editor = ctx.raw.withIdentity({
-      subject: 'editor-action-publish',
-      tokenIdentifier: 'editor-action-publish',
+    const editor = ctx.asAuthUser({
+      authKey: 'editor-action-publish',
       email: 'editor-action-publish@example.com',
-      name: 'Editor Action Publish',
+      displayName: 'Editor Action Publish',
     }) as {
       action: (fn: unknown, args: Record<string, unknown>) => Promise<any>
       mutation: (fn: unknown, args: Record<string, unknown>) => Promise<any>
@@ -190,16 +182,15 @@ describe('example 08 component mini cms', () => {
   it('rejects forwarded principals on public root wrappers', async () => {
     const ctx = createCtx()
 
-    const withIdentity = ctx.raw.withIdentity({
-      subject: 'browser-auth-user',
-      tokenIdentifier: 'browser-auth-user',
+    const browserUser = ctx.asAuthUser({
+      authKey: 'browser-auth-user',
       email: 'browser@example.com',
-      name: 'Browser User',
+      displayName: 'Browser User',
     })
 
     await expect(
       (
-        withIdentity as {
+        browserUser as {
           mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
         }
       ).mutation(api.features.pages.domain.create, {

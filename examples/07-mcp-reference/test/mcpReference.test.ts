@@ -165,28 +165,23 @@ describe('mcp reference example', () => {
       updatedAt: Date.now(),
     })
 
-    const workspaceId = await ctx.raw
-      .withIdentity({
-        subject: authKey,
-        tokenIdentifier: authKey,
-        email: 'owner@example.com',
-        name: 'First Owner',
-      })
-      .mutation(api.features.workspaces.domain.createWorkspaceMutation, {
+    const firstOwner = ctx.asAuthUser({
+      authKey,
+      email: 'owner@example.com',
+      displayName: 'First Owner',
+    })
+
+    const workspaceId = await firstOwner.mutation(
+      api.features.workspaces.domain.createWorkspaceMutation,
+      {
         name: 'First Workspace',
         slug: 'first-workspace',
-      })
+      },
+    )
 
     expect(workspaceId).toBeTruthy()
 
-    const accessContext = await ctx.raw
-      .withIdentity({
-        subject: authKey,
-        tokenIdentifier: authKey,
-        email: 'owner@example.com',
-        name: 'First Owner',
-      })
-      .query(api.permissions.context.getAccessContext, {})
+    const accessContext = await firstOwner.query(api.permissions.context.getAccessContext, {})
 
     expect(accessContext).toMatchObject({
       role: 'owner',
@@ -213,12 +208,11 @@ describe('mcp reference example', () => {
       updatedAt: Date.now(),
     })
 
-    const accessContext = await ctx.raw
-      .withIdentity({
-        subject: authKey,
-        tokenIdentifier: authKey,
+    const accessContext = await ctx
+      .asAuthUser({
+        authKey,
         email: 'onboarding@example.com',
-        name: 'Onboarding User',
+        displayName: 'Onboarding User',
       })
       .query(api.permissions.context.getAccessContext, {})
 

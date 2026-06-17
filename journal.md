@@ -70,6 +70,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - D014: Auth-identity tests and trusted-forwarding tests are separate concepts.
   Use `ctx.asAuthUser(...)` for handlers that intentionally read Convex auth
   identity; keep `ctx.asUser(...)` for signed Trellis caller forwarding.
+- D015: Maintained example tests should not call `ctx.raw.withIdentity(...)`
+  directly. Use `ctx.asAuthUser(...)` for Convex auth identity, `ctx.asUser(...)`
+  for trusted user forwarding, and `ctx.asCaller(...)` for custom principals.
 
 ## Progress
 
@@ -270,10 +273,16 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - 2026-06-18: Added explicit auth-identity test vocabulary:
   - `createTestContext(...)` now exposes `asAuthUser(...)` for handlers that
     read Convex auth identity through `getAuth(ctx)`;
-  - Example 02, the Example 03 onboarding test, and Example 06 no longer copy
+  - Example 02, the Example 03 onboarding test, Example 06, Example 07
+    onboarding flows, and Example 08 browser-auth flows no longer copy
     `ctx.raw.withIdentity(...)`;
   - testing docs and agent guidance distinguish Convex auth identity from
     trusted Trellis caller forwarding.
+- 2026-06-18: Added source-policy coverage for raw Convex identity drift in
+  maintained example tests:
+  - example tests now fail policy on `ctx.raw.withIdentity(...)`;
+  - raw identity remains available inside Trellis testing helpers and low-level
+    protocol tests, not production-copyable examples.
 
 ## Blockers
 
@@ -451,3 +460,8 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - 2026-06-18: `pnpm --dir examples/06-multi-workspace test` and
   `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after moving Example
   06 auth-identity callers onto `ctx.asAuthUser(...)`.
+- 2026-06-18: `pnpm --dir examples/07-mcp-reference test`,
+  `pnpm --dir examples/08-component-mini-cms test`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`, and
+  `pnpm run check:security:source-policy` passed after banning raw Convex
+  identity helpers in maintained example tests.
