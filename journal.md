@@ -585,3 +585,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   signed-in getting-started guide. Added a source policy so those beginner
   surfaces do not reintroduce hand-rolled `getAuth` plus `users.by_auth_key`
   lookup.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/api-surface-doc.test.ts tests/unit/cli-explain.test.ts`,
+  `pnpm run check:docs:links`, `pnpm run check:docs:api-surface`,
+  `pnpm run format:check`, and `git diff --check` passed after promoting
+  `trellis explain permission <key>` and `trellis permissions matrix` as the
+  canonical static permission debugging path in authorization and observability
+  docs, with unit docs coverage to keep those commands visible.

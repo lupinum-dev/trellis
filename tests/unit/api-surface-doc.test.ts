@@ -49,4 +49,17 @@ describe('generated API surface docs', () => {
       expect(content).not.toContain('defineOperation({')
     }
   })
+
+  it('documents the canonical permission debugging commands', () => {
+    const docs = [
+      'apps/docs/content/docs/08.permissions/4.authorization-and-can.md',
+      'apps/docs/content/docs/09.observability/3.debugging-decisions.md',
+    ]
+
+    for (const docPath of docs) {
+      const content = readFileSync(resolve(process.cwd(), docPath), 'utf8')
+      expect(content).toContain('permissions matrix')
+      expect(content).toContain('explain permission')
+    }
+  })
 })
