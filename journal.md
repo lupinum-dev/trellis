@@ -566,3 +566,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `git diff --check` passed after moving the functions API reference to the
   app-first `operation.*` wording and adding a source policy that prevents the
   beginner function reference from drifting back to `defineOperation(...)`.
+- 2026-06-18: `pnpm --dir examples/03-team-workspace test`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:docs:links`,
+  `pnpm run format:check`, and `git diff --check` passed after updating
+  remaining workspace-lane docs to use `ctx.workspaceId` and deleting an
+  unused tenant helper from the team-workspace todo example. Search for stale
+  `appIdentity.workspaceId` copy patterns in docs/examples/starters is clean.

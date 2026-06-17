@@ -33,12 +33,6 @@ function requireWorkspaceActor<
   return appIdentity
 }
 
-function requireWorkspaceTenant(appIdentity: { workspaceId?: Id<'workspaces'> | null } | null) {
-  if (!appIdentity?.workspaceId)
-    throw new Error('Current appIdentity is not assigned to a workspace.')
-  return appIdentity.workspaceId
-}
-
 export const listTodosOp = operation.query({
   id: 'todos.list',
   args: listTodos.args,
