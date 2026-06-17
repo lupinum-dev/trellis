@@ -1866,7 +1866,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -1928,7 +1928,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -1979,7 +1979,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -2039,7 +2039,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -2847,7 +2847,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       permission: destructiveTestPermission,
       preview: async (_ctx, args) =>
         operationPreview({
@@ -2938,7 +2938,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       permission: destructiveTestPermission,
       preview: async (_ctx, args) =>
         operationPreview({
@@ -2985,7 +2985,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      identityForwardingFunctionRef: 'tasks:delete',
+      executeFunctionRef: 'tasks:delete',
       permission: destructiveTestPermission,
       preview: async (_ctx, args) =>
         operationPreview({ summary: `Destroy ${args.id}`, confirm: { id: args.id } }),

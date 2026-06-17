@@ -110,6 +110,14 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     existing `identityForwardingFunctionRef` runtime slot. This is intentionally
     scoped as transport internals for this slice; the remaining cleanup is to
     collapse that internal name once the broader forwarding tests are migrated.
+- 2026-06-17: Tightened the operation execute-target cleanup:
+  - `@lupinum/trellis/app` operation shapes now expose `executeFunctionRef`
+    instead of the old forwarding field;
+  - destructive operation runtime tests use `executeFunctionRef` for operation
+    execute targets;
+  - remaining `identityForwardingFunctionRef` references in the touched test
+    file are direct handler or preview handler verifier targets, not operation
+    definitions.
 
 ## Blockers
 
@@ -160,3 +168,6 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm run check` passed end to end after the operation
   `executeFunctionRef` migration and structured-handler forwarding fallback
   fix.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` and
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts`
+  passed after migrating app operation shape/tests to `executeFunctionRef`.

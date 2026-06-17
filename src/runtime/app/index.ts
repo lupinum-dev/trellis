@@ -43,7 +43,7 @@ type WorkspaceScopedContext<TCtx> = Omit<TCtx, 'workspaceId'> & { workspaceId: s
 
 type AppOperationShape = Omit<OperationShape, 'guard'> & {
   guard?: never
-  identityForwardingFunctionRef?: string
+  executeFunctionRef?: string
 }
 
 type WorkspaceScopedOperationDefinition = AppOperationShape & {
