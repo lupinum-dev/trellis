@@ -118,6 +118,13 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   - remaining `identityForwardingFunctionRef` references in the touched test
     file are direct handler or preview handler verifier targets, not operation
     definitions.
+- 2026-06-17: Removed the old operation-definition fallback:
+  - `defineOperation(...)` omits the direct-handler forwarding field from its
+    accepted operation shape;
+  - operation preview projection metadata is sourced only from
+    `executeFunctionRef`;
+  - the remaining operation-code reference to `identityForwardingFunctionRef`
+    is the type-level `Omit` that blocks the old field from operations.
 
 ## Blockers
 
@@ -171,3 +178,6 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` and
   `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts`
   passed after migrating app operation shape/tests to `executeFunctionRef`.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` and
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/security-contract.test.ts`
+  passed after removing the legacy operation-definition fallback.

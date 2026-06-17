@@ -101,7 +101,7 @@ export type OperationDefinition<
     TCrossTenant,
     TPublicWrite
   > extends infer THandlerDefinition
-    ? Omit<THandlerDefinition, 'guard'> & {
+    ? Omit<THandlerDefinition, 'guard' | 'identityForwardingFunctionRef'> & {
         guard?: TGuard
         id?: string
         name?: string
@@ -399,7 +399,6 @@ export function previewOf<
     load?: (...args: any[]) => unknown
     authorize?: unknown
     executeFunctionRef?: string
-    identityForwardingFunctionRef?: string
     [trellisOperationMetadataKey]?: TrellisOperationMetadata
     [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
   },
@@ -476,11 +475,8 @@ export function previewOf(operation: any): any {
           [trellisOperationProjectionMetadataKey]: {
             operationId: metadata.id,
             projection: 'preview' as const,
-            ...((operation.executeFunctionRef ?? operation.identityForwardingFunctionRef)
-              ? {
-                  executeFunctionRef:
-                    operation.executeFunctionRef ?? operation.identityForwardingFunctionRef,
-                }
+            ...(operation.executeFunctionRef
+              ? { executeFunctionRef: operation.executeFunctionRef }
               : {}),
           },
         }
