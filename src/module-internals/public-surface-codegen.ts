@@ -122,6 +122,26 @@ function readPreviewOperationIdentifier(expression: Node | undefined): string | 
   return null
 }
 
+function readExecuteOperationIdentifier(expression: Node | undefined): string | null {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression) return null
+
+  if (Node.isIdentifier(unwrappedExpression)) {
+    return unwrappedExpression.getText()
+  }
+
+  if (Node.isObjectLiteralExpression(unwrappedExpression)) {
+    for (const property of unwrappedExpression.getProperties()) {
+      if (!Node.isSpreadAssignment(property)) continue
+
+      const operationIdentifier = readExecuteOperationIdentifier(property.getExpression())
+      if (operationIdentifier) return operationIdentifier
+    }
+  }
+
+  return null
+}
+
 function readStringProperty(node: ObjectLiteralExpression, name: string): string | undefined {
   const property = node.getProperty(name)
   if (!property || !Node.isPropertyAssignment(property)) return undefined
@@ -245,8 +265,9 @@ function extractProjectionBinding(
   const unwrappedFirstArg = unwrapExpression(firstArg)
   if (!unwrappedFirstArg) return null
 
-  if (Node.isIdentifier(unwrappedFirstArg)) {
-    const operation = operationsByExport.get(unwrappedFirstArg.getText())
+  const previewOperationIdentifier = readPreviewOperationIdentifier(unwrappedFirstArg)
+  if (previewOperationIdentifier) {
+    const operation = operationsByExport.get(previewOperationIdentifier)
     if (!operation) return null
 
     return {
@@ -255,14 +276,14 @@ function extractProjectionBinding(
       exportName: declaration.getName(),
       file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
       line: declaration.getNameNode().getStartLineNumber(),
-      projection: 'execute',
+      projection: 'preview',
     }
   }
 
-  const previewOperationIdentifier = readPreviewOperationIdentifier(unwrappedFirstArg)
-  if (!previewOperationIdentifier) return null
+  const executeOperationIdentifier = readExecuteOperationIdentifier(unwrappedFirstArg)
+  if (!executeOperationIdentifier) return null
 
-  const operation = operationsByExport.get(previewOperationIdentifier)
+  const operation = operationsByExport.get(executeOperationIdentifier)
   if (!operation) return null
 
   return {
@@ -271,7 +292,7 @@ function extractProjectionBinding(
     exportName: declaration.getName(),
     file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
     line: declaration.getNameNode().getStartLineNumber(),
-    projection: 'preview',
+    projection: 'execute',
   }
 }
 

@@ -51,7 +51,7 @@ describe('public surface codegen', () => {
           handler: async () => null,
         })
 
-        export const listTodos = query.public(listTodosOp)
+        export const listTodos = query.public({ ...listTodosOp, reads: ['todos'] })
         export const createTodo = mutation.public(createTodoOp)
         export const removeTodo = mutation.authenticated(removeTodoOp)
         export const previewRemoveTodo = mutation.authenticated(previewOf(removeTodoOp))

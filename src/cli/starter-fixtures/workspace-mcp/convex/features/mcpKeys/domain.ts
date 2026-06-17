@@ -35,7 +35,7 @@ export const validateMcpKeyOp = operation.query({
   },
 })
 
-export const validate = query.public(validateMcpKeyOp)
+export const validate = query.public({ ...validateMcpKeyOp, reads: ['mcpKeys', 'users'] })
 
 export const touchMcpKeyOp = operation.publicMutation({
   id: 'mcpKeys.touch',

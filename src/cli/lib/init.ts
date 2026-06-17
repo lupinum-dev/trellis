@@ -491,19 +491,6 @@ async function enableWorkspaceMcpSchema(cwd: string): Promise<void> {
   await writeFile(path, next, 'utf8')
 }
 
-async function enableWorkspaceMcpPublicReads(cwd: string): Promise<void> {
-  const path = resolve(cwd, 'convex/functions.ts')
-  const source = await readFile(path, 'utf8')
-  if (/readTables:\s*\[[^\]]*'mcpKeys'/.test(source)) return
-
-  const next = source.replace(/readTables:\s*\[\s*'users'\s*\]/, "readTables: ['mcpKeys', 'users']")
-  if (next === source) {
-    throw new Error('Unable to update convex/functions.ts for the requested MCP scaffold.')
-  }
-
-  await writeFile(path, next, 'utf8')
-}
-
 function pascalCase(value: string): string {
   return value
     .replace(/[^a-z0-9]+/gi, ' ')
@@ -666,7 +653,6 @@ export async function getAddTemplateSet(options: {
         await enableNuxtMcpConfig(cwd)
         await addMcpDependency(cwd)
         await enableWorkspaceMcpSchema(cwd)
-        await enableWorkspaceMcpPublicReads(cwd)
         await enableMcpEnvExample(cwd)
       },
     }

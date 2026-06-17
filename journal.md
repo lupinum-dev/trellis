@@ -32,6 +32,10 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - D003: `id` is the canonical Trellis handler subject. Existing
   `identityForwardingFunctionRef` should be removed from normal app authoring,
   not kept as a second field.
+- D004: Static tooling must understand the maintained authoring shape, not just
+  runtime internals. Doctor/public-surface inventory now recognizes operation
+  projections declared as `query.public({ ...operation, reads })`, and module
+  validation recognizes `query.session` as a real query export.
 
 ## Progress
 
@@ -46,6 +50,16 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   - `query.public` runtime requires handler-local `reads`.
   - `reads` are passed into the existing public DB facade.
   - focused unit tests migrated for the new public read boundary.
+- 2026-06-17: Migrated greenfield starter fixtures:
+  - public starter list query now declares `reads: ['todos']`.
+  - workspace and workspace-MCP access context now use `query.session`.
+  - workspace-MCP key validation now declares `reads: ['mcpKeys', 'users']`.
+  - stale CLI patcher for mutating global `public.readTables` was deleted.
+- 2026-06-17: Updated scanner/tooling support for the new starter shape:
+  - public-surface codegen now extracts operation projections from explicit
+    capability objects.
+  - Convex function path validation now includes `session`, `authenticated`,
+    and `workspace` lanes.
 
 ## Blockers
 
@@ -57,3 +71,5 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
 - RFC-only changes: no tests run yet.
 - 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/auth-access-context.test.ts` passed.
 - 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit` passed.
+- 2026-06-17: `pnpm run build:cli` passed.
+- 2026-06-17: `pnpm exec vitest run --project=unit tests/unit/module-validation.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/auth-access-context.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts` passed.

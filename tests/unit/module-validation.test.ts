@@ -187,6 +187,21 @@ describe('module validation', () => {
           handler: async () => []
         })
 
+        export const sessionAccess = query.session({
+          args: {},
+          handler: async () => null
+        })
+
+        export const workspaceList = query.workspace({
+          args: {},
+          handler: async () => []
+        })
+
+        export const authenticatedUpdate = mutation.authenticated({
+          args: {},
+          handler: async () => null
+        })
+
         export const getAccessContext = query.unsafe({
           permit: unsafe.permit({
             kind: 'fixtureAccessContext',
@@ -199,6 +214,12 @@ describe('module validation', () => {
       `,
     })
 
-    expect(collectConvexFunctionPaths(rootDir)).toEqual(['todos.getAccessContext', 'todos.list'])
+    expect(collectConvexFunctionPaths(rootDir)).toEqual([
+      'todos.authenticatedUpdate',
+      'todos.getAccessContext',
+      'todos.list',
+      'todos.sessionAccess',
+      'todos.workspaceList',
+    ])
   })
 })

@@ -73,6 +73,7 @@ export const sharedTables = manifest.sharedTables
 import { query } from '../../functions'
 
 export const listPublished = query.public({
+  reads: ['pages'],
   args: {},
   handler: async () => [],
 })

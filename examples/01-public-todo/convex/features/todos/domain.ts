@@ -16,7 +16,7 @@ export const listTodosOp = operation.query({
   },
 })
 
-export const list = query.public(listTodosOp)
+export const list = query.public({ ...listTodosOp, reads: ['todos'] })
 
 export const createTodoOp = operation.publicMutation({
   id: 'todos.create',
