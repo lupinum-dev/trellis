@@ -270,7 +270,8 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - 2026-06-18: Added explicit auth-identity test vocabulary:
   - `createTestContext(...)` now exposes `asAuthUser(...)` for handlers that
     read Convex auth identity through `getAuth(ctx)`;
-  - Example 02 no longer copies `ctx.raw.withIdentity(...)`;
+  - Example 02 and the Example 03 onboarding test no longer copy
+    `ctx.raw.withIdentity(...)`;
   - testing docs and agent guidance distinguish Convex auth identity from
     trusted Trellis caller forwarding.
 
@@ -444,3 +445,6 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm exec tsc -p tsconfig.types.json --noEmit`, `pnpm run build:module`,
   `pnpm run check:docs:api-surface`, `pnpm run check:security:source-policy`,
   and `pnpm run test:types` passed after adding `asAuthUser(...)`.
+- 2026-06-18: `pnpm --dir examples/03-team-workspace test` and
+  `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after moving the
+  Example 03 onboarding test onto `ctx.asAuthUser(...)`.

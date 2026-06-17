@@ -170,7 +170,7 @@ describe('team todo example', () => {
       })
     })
 
-    const onboardingUser = ctx.raw.withIdentity({ subject: authKey, tokenIdentifier: authKey })
+    const onboardingUser = ctx.asAuthUser({ authKey })
     const permissionCtx = await onboardingUser.query(api.permissions.context.getAccessContext, {})
 
     expect(permissionCtx).toMatchObject({
