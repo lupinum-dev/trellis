@@ -9,12 +9,13 @@ import { projectCreate } from './features/projects'
 import schema from './schema'
 import { modules } from './test.setup'
 type MembershipRole = Doc<'memberships'>['role']
+type AuthUserClient = ReturnType<ReturnType<typeof createCtx>['asAuthUser']>
 type SeededUser = {
   id: Id<'users'>
   authKey: string
   role: MembershipRole
-  query: ReturnType<ReturnType<typeof createCtx>['raw']['withIdentity']>['query']
-  mutation: ReturnType<ReturnType<typeof createCtx>['raw']['withIdentity']>['mutation']
+  query: AuthUserClient['query']
+  mutation: AuthUserClient['mutation']
 }
 
 function createCtx() {
@@ -48,7 +49,7 @@ async function seedWorkspace(
       updatedAt: now,
     })) as Id<'users'>
 
-    const caller = ctx.raw.withIdentity({ subject: authKey, tokenIdentifier: authKey })
+    const caller = ctx.asAuthUser({ authKey })
     seededUsers[key] = {
       id: userId,
       authKey,
@@ -175,7 +176,7 @@ describe('agency example', () => {
       updatedAt: Date.now(),
     })
 
-    const agent = ctx.raw.withIdentity({ subject: 'agent-1', tokenIdentifier: 'agent-1' })
+    const agent = ctx.asAuthUser({ authKey: 'agent-1' })
     const portfolio = await agent.query(api.features.dashboard.domain.portfolio, {})
     expect(portfolio).toHaveLength(2)
     expect(
