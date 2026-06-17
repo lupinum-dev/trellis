@@ -90,6 +90,15 @@ export const securitySourcePolicies = [
     pattern: /\bcreateIdentityForwardingEnvelopeArgs\b/,
   },
   {
+    id: 'no-mcp-operation-refs-from-backend',
+    kind: 'line',
+    filePathPattern:
+      /^(?:apps\/docs\/content\/docs|apps\/harness\/server|examples|src\/cli\/starter-fixtures)\//,
+    policy: 'MCP authoring surfaces must import operation ref helpers from @lupinum/trellis/mcp',
+    pattern:
+      /import\s*\{[^}]*\b(?:executeOperationRef|previewOperationRef|transportExecuteOperationRef|projectOperationRef)\b[^}]*\}\s*from ['"]@lupinum\/trellis\/backend['"]/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',

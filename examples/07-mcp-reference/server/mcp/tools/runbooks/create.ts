@@ -1,4 +1,4 @@
-import { executeOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef } from '@lupinum/trellis/mcp'
 import { createRunbookOp } from '~~/convex/features/runbooks/domain'
 import { runbookCreate } from '~~/convex/features/runbooks/permissions'
 import { createRunbook } from '~~/shared/features/runbooks/contract'

@@ -575,7 +575,7 @@ export default tool.query({
 
 function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { executeOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef } from '@lupinum/trellis/mcp'
 import { api } from '#trellis/api'
 import { create${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
 import { ${ctx.singularCamel}CreatePermission } from '~~/convex/features/${ctx.tableName}'
@@ -599,7 +599,7 @@ export default tool.operation(create${ctx.singularPascal}Op, {
 
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/mcp'
 import { api } from '#trellis/api'
 import { remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
 

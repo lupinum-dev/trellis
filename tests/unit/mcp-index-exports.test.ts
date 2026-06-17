@@ -47,8 +47,12 @@ describe('mcp entrypoint exports', () => {
       'defineMcpPrompt',
       'defineMcpResource',
       'deniedMcpAccessSnapshot',
+      'executeOperationRef',
       'extractToolNames',
       'imageResult',
+      'previewOperationRef',
+      'projectOperationRef',
+      'transportExecuteOperationRef',
       'unsafe',
       'useMcpServer',
       'useMcpSession',
@@ -81,5 +85,9 @@ describe('mcp entrypoint exports', () => {
     expect(mcpApi).toHaveProperty('wrapSuccess')
     expect(mcpApi).toHaveProperty('wrapPreview')
     expect(mcpApi).toHaveProperty('withSummary')
+    expect(mcpApi).toHaveProperty('executeOperationRef')
+    expect(mcpApi).toHaveProperty('previewOperationRef')
+    expect(mcpApi).toHaveProperty('transportExecuteOperationRef')
+    expect(mcpApi).toHaveProperty('projectOperationRef')
   })
 })

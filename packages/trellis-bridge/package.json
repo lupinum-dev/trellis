@@ -49,6 +49,7 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
+    "@noble/hashes": "^2.2.0",
     "consola": "^3.4.2"
   },
   "devDependencies": {

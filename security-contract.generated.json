@@ -79,7 +79,7 @@
         "filePath": "src/runtime/backend/index.ts",
         "kind": "line",
         "policy": "backend barrel must not export raw identity-forwarding primitives",
-        "pattern": "/\\b(createIdentityForwardingEnvelope|verifyIdentityForwardingEnvelope|setIdentityForwardingContext|clearIdentityForwardingContext|withIdentityForwarding)\\b/"
+        "pattern": "/\\b(createIdentityForwardingEnvelope|createIdentityForwardingEnvelopeArgs|verifyIdentityForwardingEnvelope|setIdentityForwardingContext|clearIdentityForwardingContext|withIdentityForwarding)\\b/"
       },
       {
         "id": "mcp-barrel-no-tool-local-safety",
@@ -99,6 +99,12 @@
         "kind": "block",
         "policy": "boolean delegation is banned; use backend-revalidated delegation evidence",
         "pattern": "/delegateToUser\\s*\\([\\s\\S]{0,700}?allow\\s*:\\s*true/g"
+      },
+      {
+        "id": "no-example-test-raw-convex-identity",
+        "kind": "line",
+        "policy": "maintained example tests must use Trellis test principals, not raw Convex identity",
+        "pattern": "/\\b(?:ctx\\.)?raw\\.withIdentity\\b|\\bwithIdentity\\s*\\(/"
       },
       {
         "id": "no-example-test-raw-forwarding-envelope",
@@ -123,6 +129,12 @@
         "kind": "line",
         "policy": "`identityForwardingFunctionRef` is banned; use handler `id` or operation `executeFunctionRef`",
         "pattern": "/\\bidentityForwardingFunctionRef\\b/"
+      },
+      {
+        "id": "no-mcp-operation-refs-from-backend",
+        "kind": "line",
+        "policy": "MCP authoring surfaces must import operation ref helpers from @lupinum/trellis/mcp",
+        "pattern": "/import\\s*\\{[^}]*\\b(?:executeOperationRef|previewOperationRef|transportExecuteOperationRef|projectOperationRef)\\b[^}]*\\}\\s*from ['\"]@lupinum\\/trellis\\/backend['\"]/"
       },
       {
         "id": "no-open-guard-in-protected-lanes",
@@ -252,7 +264,7 @@
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "applies the same create permission rules to delegated service principals",
       "evidenceFor": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
-      "line": 344
+      "line": 338
     },
     {
       "id": "example07-webhook-forged-binding",
@@ -263,7 +275,7 @@
         "wrong service rejection",
         "wrong purpose rejection"
       ],
-      "line": 449
+      "line": 443
     }
   ],
   "serverRoutes": [

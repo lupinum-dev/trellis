@@ -18,7 +18,7 @@
     {
       "kind": "operationRefs",
       "path": "generated/operation-refs.ts",
-      "projectOperationRefImport": "@lupinum/trellis/backend",
+      "projectOperationRefImport": "@lupinum/trellis/mcp",
       "apiImport": "../convex/_generated/api",
       "descriptorImport": "../shared/features/projects/operations",
       "descriptors": ["createProjectDescriptor", "deleteProjectDescriptor"],

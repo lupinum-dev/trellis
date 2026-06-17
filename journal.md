@@ -77,6 +77,12 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   focused test machinery, not a backend barrel API. App-facing code should use
   `createTestContext(...)`, bridge helpers, MCP callers, or server helpers
   instead of importing raw envelope builders from `@lupinum/trellis/backend`.
+- D017: MCP tool authoring should import operation ref helpers from
+  `@lupinum/trellis/mcp`. The backend entrypoint may still expose backend
+  operation primitives, but MCP docs, examples, generators, and fixtures should
+  teach the MCP surface. Bridge forwarding signs bridge envelopes inside
+  `@lupinum/trellis-bridge` rather than re-opening raw backend envelope
+  construction.
 
 ## Progress
 
@@ -485,3 +491,30 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm run check:security:source-policy`, `pnpm run check:publish-surface`,
   and `pnpm run check:docs:api-surface` passed after removing raw forwarding
   envelope construction from the backend barrel.
+- 2026-06-18: Initial
+  `pnpm exec vitest run --project=unit tests/unit/mcp-index-exports.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/cli-add-resource.test.ts`
+  failed because the MCP export assertion order was stale and the generated
+  workspace-MCP fixture imported the full MCP barrel without the plain-unit MCP
+  runtime mocks. After adding the MCP subpath alias/mocks and updating the
+  export assertion, that focused unit command passed.
+- 2026-06-18: Initial `pnpm --dir examples/08-component-mini-cms test` failed
+  because `@lupinum/trellis-bridge` still imported removed raw envelope
+  construction from `@lupinum/trellis/backend`. Bridge forwarding now signs its
+  bridge-specific envelope directly and keeps backend raw envelope construction
+  closed. `pnpm --dir examples/08-component-mini-cms test` and
+  `pnpm exec vitest run --project=unit tests/unit/create-component-bridge.test.ts tests/unit/bridge-package-exports.test.ts`
+  passed after the bridge change.
+- 2026-06-18: `pnpm --dir examples/07-mcp-reference test`,
+  `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm --dir packages/trellis-bridge run build`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:publish-surface`,
+  `pnpm run check:security:source-policy`, `pnpm run check:docs:links`,
+  `pnpm run format:check`, and `git diff --check` passed after exposing
+  operation ref helpers from `@lupinum/trellis/mcp` and moving MCP
+  tools/docs/generators/fixtures to that surface.
+- 2026-06-18: `pnpm run security:contract`,
+  `pnpm run check:security:contract`, and
+  `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`
+  passed after adding the source policy that blocks MCP operation-ref imports
+  from `@lupinum/trellis/backend` in production-copyable MCP authoring
+  surfaces.

@@ -20,6 +20,12 @@ export {
 
 export { defineMcpApp } from './define-mcp-app.js'
 export { createMcpConvexCaller, deniedMcpAccessSnapshot } from './create-mcp-convex-caller.js'
+export {
+  executeOperationRef,
+  previewOperationRef,
+  projectOperationRef,
+  transportExecuteOperationRef,
+} from '../functions/operation-metadata.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
 export { unsafe } from './unsafe-permit.js'
 

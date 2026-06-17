@@ -1,4 +1,4 @@
-import { executeOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef } from '@lupinum/trellis/mcp'
 
 import { api } from '#trellis/api'
 

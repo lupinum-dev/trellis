@@ -20,6 +20,24 @@ vi.mock('nitropack/runtime', () => ({
   useEvent: useEventMock,
 }))
 
+vi.mock('@nuxtjs/mcp-toolkit/server', () => ({
+  completable: vi.fn(),
+  defineMcpHandler: vi.fn(),
+  defineMcpPrompt: vi.fn(),
+  defineMcpResource: vi.fn(),
+  defineMcpTool: vi.fn(),
+  extractToolNames: vi.fn(),
+  imageResult: vi.fn(),
+}))
+
+vi.mock('../../src/runtime/mcp/use-mcp-session', () => ({
+  useMcpSession: vi.fn(),
+}))
+
+vi.mock('../../src/runtime/mcp/use-mcp-server', () => ({
+  useMcpServer: vi.fn(),
+}))
+
 vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: vi.fn(),
   serverConvexMutation: vi.fn(),
@@ -143,7 +161,7 @@ describe('phase0 workspace-mcp fixture', () => {
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
       'utf8',
     )
-    expect(operationRefsSource).toContain("from '@lupinum/trellis/backend'")
+    expect(operationRefsSource).toContain("from '@lupinum/trellis/mcp'")
     expect(operationRefsSource).toContain("from '../convex/_generated/api'")
     expect(operationRefsSource).toContain('createProjectRef')
     expect(operationRefsSource).not.toContain('{} as never')

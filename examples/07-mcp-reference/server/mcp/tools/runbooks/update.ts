@@ -1,4 +1,4 @@
-import { executeOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef } from '@lupinum/trellis/mcp'
 import type { Id } from '~~/convex/_generated/dataModel'
 import { updateRunbookOp } from '~~/convex/features/runbooks/domain'
 import { runbookCreate } from '~~/convex/features/runbooks/permissions'

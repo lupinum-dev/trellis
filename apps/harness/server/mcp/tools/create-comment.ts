@@ -1,4 +1,4 @@
-import { executeOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef } from '@lupinum/trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { createCommentOp } from '../../../convex/comments'

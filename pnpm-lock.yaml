@@ -697,6 +697,9 @@ importers:
 
   packages/trellis-bridge:
     dependencies:
+      '@noble/hashes':
+        specifier: ^2.2.0
+        version: 2.2.0
       consola:
         specifier: ^3.4.2
         version: 3.4.2

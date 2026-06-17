@@ -1,4 +1,4 @@
-import { executeOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef } from '@lupinum/trellis/mcp'
 import { todoCreate } from '~~/convex/features/todos'
 import { createTodoOp } from '~~/convex/features/todos/operations'
 import { createTodo } from '~~/shared/features/todos/contract'

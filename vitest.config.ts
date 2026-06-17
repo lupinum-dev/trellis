@@ -37,6 +37,9 @@ export default defineConfig({
             '@lupinum/trellis/backend': fileURLToPath(
               new URL('./src/runtime/backend/index.ts', import.meta.url),
             ),
+            '@lupinum/trellis/mcp': fileURLToPath(
+              new URL('./src/runtime/mcp/index.ts', import.meta.url),
+            ),
             '@lupinum/trellis/app': fileURLToPath(
               new URL('./src/runtime/app/index.ts', import.meta.url),
             ),

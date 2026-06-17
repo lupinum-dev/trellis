@@ -1,9 +1,11 @@
 import type { Subject } from '@lupinum/trellis/auth'
 import {
-  createIdentityForwardingEnvelopeArgs,
   extractSubject,
   getIdentityForwardingKeyProductionIssue,
+  hashForwardingArgs,
 } from '@lupinum/trellis/backend'
+import { hmac } from '@noble/hashes/hmac.js'
+import { sha256 } from '@noble/hashes/sha2.js'
 import type { FunctionReference } from 'convex/server'
 
 declare const process:
@@ -24,6 +26,7 @@ type ComponentBridgeFunctionRef = FunctionReference<
 >
 
 const functionNameSymbol = Symbol.for('functionName')
+const forwardingHeaderType = 'trellis-forwarding+jws'
 const bridgeForwardingIssuer = 'trellis://server'
 const bridgeForwardingAudience = 'trellis://convex'
 const bridgeForwardingKeyId = 'default'
@@ -36,6 +39,56 @@ const bridgeForwardingTtlsMs = {
 
 type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 export type IdentityForwardingKeyInput = string | ((args?: unknown) => string)
+
+const textEncoder = new TextEncoder()
+const base64UrlAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+
+function utf8Bytes(input: string): Uint8Array {
+  return textEncoder.encode(input)
+}
+
+function base64UrlEncodeBytes(input: Uint8Array): string {
+  let output = ''
+  for (let index = 0; index < input.length; index += 3) {
+    const first = input[index] ?? 0
+    const second = input[index + 1] ?? 0
+    const third = input[index + 2] ?? 0
+    const value = (first << 16) | (second << 8) | third
+
+    output += base64UrlAlphabet[(value >> 18) & 63]
+    output += base64UrlAlphabet[(value >> 12) & 63]
+    if (index + 1 < input.length) output += base64UrlAlphabet[(value >> 6) & 63]
+    if (index + 2 < input.length) output += base64UrlAlphabet[value & 63]
+  }
+  return output
+}
+
+function base64UrlEncode(input: string): string {
+  return base64UrlEncodeBytes(utf8Bytes(input))
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null) return 'null'
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalJson(entry ?? null)).join(',')}]`
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+      .sort()
+      .filter((key) => record[key] !== undefined)
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value)
+}
+
+function signBridgeForwardingInput(input: string, key: string): string {
+  return base64UrlEncodeBytes(hmac(sha256, utf8Bytes(key), utf8Bytes(input)))
+}
 
 function getBridgeReplayMode(operation: BridgeForwardingPurpose) {
   if (operation === 'query') return undefined
@@ -150,31 +203,40 @@ export function createBridgeForwardingEnvelope(
 ): string {
   const subject = resolveBridgeCallerSubject(options.caller)
   const jti = options.jtiPrefix ? `${options.jtiPrefix}-${createBridgeJti()}` : createBridgeJti()
-  const forwardingArgs = createIdentityForwardingEnvelopeArgs({
-    key: options.identityForwardingKey,
-    keyId:
-      (typeof process !== 'undefined' ? process.env?.CONVEX_IDENTITY_FORWARDING_KEY_ID : '') ||
-      bridgeForwardingKeyId,
-    issuer: bridgeForwardingIssuer,
-    audience: bridgeForwardingAudience,
+  const purpose = options.operation
+  const replayMode = getBridgeReplayMode(options.operation)
+  const keyId =
+    (typeof process !== 'undefined' ? process.env?.CONVEX_IDENTITY_FORWARDING_KEY_ID : '') ||
+    bridgeForwardingKeyId
+  const now = Date.now()
+  const signedArgs = options.signedArgs ?? options.args
+  const payload = {
+    v: 1,
+    kid: keyId,
+    iss: bridgeForwardingIssuer,
+    aud: bridgeForwardingAudience,
     jti,
+    sub: subject,
     caller: withResolvedSubject(options.caller, subject),
     transport: 'bridge',
-    operation: options.operation === 'operation-execute' ? 'mutation' : options.operation,
-    purpose: options.operation,
-    ...(getBridgeReplayMode(options.operation)
-      ? { replayMode: getBridgeReplayMode(options.operation) }
-      : {}),
+    purpose,
+    ...(replayMode ? { replayMode } : {}),
     functionRef: options.functionRef,
-    args: options.signedArgs ?? options.args,
-    ttlMs: bridgeForwardingTtlsMs[options.operation],
-  })
-  const envelope = forwardingArgs._trellisForwarding
-  if (typeof envelope !== 'string') {
-    throw new TypeError('createComponentBridge() failed to create a forwarding envelope.')
+    argsHash: hashForwardingArgs(signedArgs),
+    issuedAt: now,
+    expiresAt: now + bridgeForwardingTtlsMs[options.operation],
   }
+  const header = {
+    alg: 'HS256',
+    kid: keyId,
+    typ: forwardingHeaderType,
+    v: 1,
+  }
+  const signingInput = `${base64UrlEncode(canonicalJson(header))}.${base64UrlEncode(
+    canonicalJson(payload),
+  )}`
 
-  return envelope
+  return `${signingInput}.${signBridgeForwardingInput(signingInput, options.identityForwardingKey)}`
 }
 
 function createBridgeIdentityForwardingFields(

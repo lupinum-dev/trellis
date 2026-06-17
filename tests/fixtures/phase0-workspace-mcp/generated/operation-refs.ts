@@ -1,4 +1,4 @@
-import { projectOperationRef } from '@lupinum/trellis/backend'
+import { projectOperationRef } from '@lupinum/trellis/mcp'
 
 import { api } from '../convex/_generated/api'
 import {

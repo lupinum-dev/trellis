@@ -1,4 +1,4 @@
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { removePostDescriptor } from '../../../shared/schemas/post'
