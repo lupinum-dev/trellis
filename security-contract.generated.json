@@ -101,6 +101,18 @@
         "pattern": "/\\bescapeIsolation\\b/"
       },
       {
+        "id": "no-global-public-read-tables",
+        "kind": "line",
+        "policy": "global public read tables are banned; use handler-local `reads`",
+        "pattern": "/\\breadTables\\b/"
+      },
+      {
+        "id": "no-legacy-forwarding-function-ref",
+        "kind": "line",
+        "policy": "`identityForwardingFunctionRef` is banned; use handler `id` or operation `executeFunctionRef`",
+        "pattern": "/\\bidentityForwardingFunctionRef\\b/"
+      },
+      {
         "id": "no-open-guard-in-protected-lanes",
         "kind": "block",
         "policy": "`guard: open` is banned in protected lanes",
@@ -197,21 +209,21 @@
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "denies duplicate webhook events",
       "evidenceFor": ["backend-owned delivery idempotency", "duplicate event rejection"],
-      "line": 196
+      "line": 189
     },
     {
       "id": "example03-webhook-forged-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when the delegation workspace is forged",
       "evidenceFor": ["backend delegation revalidation", "forged workspace rejection"],
-      "line": 307
+      "line": 300
     },
     {
       "id": "example03-webhook-expired-binding",
       "file": "examples/03-team-workspace/convex/todos.test.ts",
       "testName": "rejects signed service forwarding when delegation evidence is expired",
       "evidenceFor": ["backend delegation revalidation", "expired delegation rejection"],
-      "line": 337
+      "line": 330
     },
     {
       "id": "example07-webhook-route-retry",
@@ -228,7 +240,7 @@
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "applies the same create permission rules to delegated service principals",
       "evidenceFor": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
-      "line": 355
+      "line": 344
     },
     {
       "id": "example07-webhook-forged-binding",
@@ -239,7 +251,7 @@
         "wrong service rejection",
         "wrong purpose rejection"
       ],
-      "line": 460
+      "line": 449
     }
   ],
   "serverRoutes": [
@@ -382,7 +394,7 @@
   "delegationBindings": [
     {
       "file": "examples/03-team-workspace/convex/todos.test.ts",
-      "line": 289,
+      "line": 282,
       "serviceId": "todo-sync-webhook",
       "purpose": "todo-sync-webhook",
       "grantSource": "workspace-service-policy",
@@ -394,7 +406,7 @@
     },
     {
       "file": "examples/03-team-workspace/convex/todos.test.ts",
-      "line": 322,
+      "line": 315,
       "serviceId": "todo-sync-webhook",
       "purpose": "todo-sync-webhook",
       "grantSource": "workspace-service-policy",
@@ -442,10 +454,10 @@
     },
     {
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
-      "line": 101,
-      "serviceId": "runbook-webhook",
-      "purpose": "runbook-webhook:create",
-      "grantSource": "workspace-service-policy",
+      "line": 74,
+      "serviceId": null,
+      "purpose": "mcp-session",
+      "grantSource": "mcp-key-binding",
       "hasGrantId": true,
       "hasExpiresAt": true,
       "hasReason": false,
@@ -454,10 +466,10 @@
     },
     {
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
-      "line": 85,
-      "serviceId": null,
-      "purpose": "mcp-session",
-      "grantSource": "mcp-key-binding",
+      "line": 90,
+      "serviceId": "runbook-webhook",
+      "purpose": "runbook-webhook:create",
+      "grantSource": "workspace-service-policy",
       "hasGrantId": true,
       "hasExpiresAt": true,
       "hasReason": false,

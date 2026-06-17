@@ -188,6 +188,10 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     `asService(...)`;
   - `asCaller(...)` remains documented for custom principal shapes such as MCP
     agents.
+- 2026-06-18: Added source-policy acceptance gates for deleted RFC authoring
+  surfaces:
+  - production-copyable source now rejects `identityForwardingFunctionRef`;
+  - production-copyable source now rejects global `readTables` authoring.
 
 ## Blockers
 
@@ -306,3 +310,9 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run check:docs:api-surface`, `pnpm run format:check`, and
   `git diff --check` passed after updating the testing docs for named
   principal helpers.
+- 2026-06-18: `pnpm run check:security:source-policy` passed after adding the
+  deleted-authoring source policies. Initial `pnpm run check:security:contract`
+  failed due expected generated policy-contract drift; after
+  `pnpm run security:contract`, `pnpm run check:security:contract`,
+  `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`,
+  `pnpm run format:check`, and `git diff --check` passed.

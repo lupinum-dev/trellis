@@ -54,6 +54,19 @@ export const securitySourcePolicies = [
     pattern: /auth\s*:\s*['"]trusted['"]/,
   },
   {
+    id: 'no-legacy-forwarding-function-ref',
+    kind: 'line',
+    policy:
+      '`identityForwardingFunctionRef` is banned; use handler `id` or operation `executeFunctionRef`',
+    pattern: /\bidentityForwardingFunctionRef\b/,
+  },
+  {
+    id: 'no-global-public-read-tables',
+    kind: 'line',
+    policy: 'global public read tables are banned; use handler-local `reads`',
+    pattern: /\breadTables\b/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',
