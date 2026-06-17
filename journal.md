@@ -158,6 +158,11 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     context wording;
   - generated API-surface docs now describe handler-local public reads instead
     of the removed global public table list.
+- 2026-06-17: Updated agent-facing reference notes:
+  - backend/auth skill guidance now names `executeFunctionRef` for operation
+    transport projections;
+  - review and sprint planning notes now describe stable handler ids and
+    handler-local public reads instead of removed legacy fields.
 
 ## Blockers
 
@@ -247,3 +252,5 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run format:check`, `pnpm run security:contract`,
   `pnpm run check:security:contract`, and `git diff --check` passed after
   cleaning up remaining starter/example/docs authoring-shape drift.
+- 2026-06-17: `rg -n "identityForwardingFunctionRef|public table reads|configured public read table list|public\\.readTables|readTables" meta/skill library-review-state.md sprint-plan.md apps/docs/content scripts src/cli/starter-fixtures examples --glob '!dist/**' --glob '!node_modules/**'`
+  returned no matches after the agent-facing reference cleanup.

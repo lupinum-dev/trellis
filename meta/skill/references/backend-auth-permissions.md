@@ -188,8 +188,8 @@ For destructive operations, require all of:
 - `preview(...)`
 - `destructiveOperations` configured in `defineTrellis(...)`
 - confirmation and audit tables with the required token/scope/hash indexes
-- `identityForwardingFunctionRef` on execute projections that are exposed to
-  signed server/MCP transport paths
+- `executeFunctionRef` on operation definitions whose execute projections are
+  exposed to signed server/MCP transport paths
 
 Do not model destructive MCP tools as plain generic tools. Project operations
 through the operation-backed MCP path.

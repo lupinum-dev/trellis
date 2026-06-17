@@ -376,8 +376,8 @@ Confirmed evidence:
   `actingFor`, transport, purpose, function ref, args hash, and TTL.
 - Verification supports issuer/audience/purpose/transport/functionRef/args/TTL
   checks and constant-time HMAC signature comparison.
-- Runtime handlers require exact `identityForwardingFunctionRef` metadata before
-  accepting signed forwarding args.
+- Runtime handlers require an exact stable handler `id` or operation
+  `executeFunctionRef` before accepting signed forwarding args.
 - Forwarded public `caller`/`actingFor` fields are stripped from non-trusted
   server calls and only read after verified forwarding context exists.
 - Operation-execute forwarding has extra destructive confirmation coupling,

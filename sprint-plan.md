@@ -341,7 +341,7 @@ Required surfaces:
 - service callers
 - forwarded callers
 - raw server calls with `auth: 'none'`
-- public table reads where configured
+- handler-local public reads where configured
 
 For each surface, document:
 
@@ -595,7 +595,7 @@ Required tiers:
   operation-backed tools.
 - Advanced escape hatches:
   `unsafe`, `publicWrite`, `crossTenant`, `actingFor`, raw `auth: 'none'`,
-  public table reads.
+  handler-local public reads.
 
 Scope:
 
