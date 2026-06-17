@@ -208,6 +208,69 @@ describe('createComponentBridge', () => {
     await expect(customizedB.ctx.caller()).rejects.toThrow(/function-ref/i)
   })
 
+  it('can sign bridge forwarding against an explicit verification payload', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
+    const { createBridgeForwardingArgs, createComponentBridge } =
+      await import('../../packages/trellis-bridge/src/component')
+    const { defineCaller } = await import('../../src/runtime/functions')
+    const { getForwardedCaller } = await import('../../src/runtime/identity-forwarding')
+
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        caller: defineCaller({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async (ctx, args) =>
+            getForwardedCaller<typeof caller>(ctx as never, args as never) ?? caller,
+        }),
+      },
+    )
+
+    const bridgeRef = 'component.query' as never
+    const signedArgs = createBridgeForwardingArgs(
+      { slug: 'docs' },
+      caller,
+      'bridge-secret',
+      'query',
+      bridgeRef,
+      undefined,
+      { signedArgs: {} },
+    )
+
+    expect(signedArgs).toMatchObject({
+      slug: 'docs',
+      _trellisForwarding: expect.any(String),
+    })
+
+    const registered = bridge.internalQuery({
+      component: bridgeRef,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
+      }
+    }
+
+    const customized = await registered.customization.input(
+      {},
+      { _trellisForwarding: signedArgs._trellisForwarding },
+    )
+    await expect(customized.ctx.caller()).resolves.toEqual(caller)
+  })
+
   it('forwards the resolved caller unchanged for internal action bridges', async () => {
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')

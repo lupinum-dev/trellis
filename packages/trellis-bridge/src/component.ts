@@ -9,6 +9,7 @@ export type {
   ComponentBridgeComponent,
   ComponentBridgeMutationRegistrar,
   ComponentBridgeQueryRegistrar,
+  CreateBridgeForwardingArgsOptions,
   CreateBridgeForwardingEnvelopeOptions,
   IdentityForwardingKeyInput,
 } from './create-component-bridge.js'

@@ -37,6 +37,7 @@ import {
 export {
   createBridgeForwardingArgs,
   createBridgeForwardingEnvelope,
+  type CreateBridgeForwardingArgsOptions,
   type CreateBridgeForwardingEnvelopeOptions,
   type IdentityForwardingKeyInput,
 } from './bridge-forwarding.js'
@@ -520,7 +521,7 @@ export function createComponentBridge<
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             caller,
-            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
+            options.identityForwardingKey,
             'query',
             definition.component,
             functionRef,
@@ -553,7 +554,7 @@ export function createComponentBridge<
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             caller,
-            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
+            options.identityForwardingKey,
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
             functionRef,
@@ -589,7 +590,7 @@ export function createComponentBridge<
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             caller,
-            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
+            options.identityForwardingKey,
             definition.forwardingPurpose ?? 'action',
             definition.component,
             functionRef,
@@ -622,7 +623,7 @@ export function createComponentBridge<
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             caller,
-            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
+            options.identityForwardingKey,
             'query',
             definition.component,
             functionRef,
@@ -656,7 +657,7 @@ export function createComponentBridge<
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             caller,
-            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
+            options.identityForwardingKey,
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
             functionRef,
@@ -693,7 +694,7 @@ export function createComponentBridge<
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             caller,
-            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
+            options.identityForwardingKey,
             definition.forwardingPurpose ?? 'action',
             definition.component,
             functionRef,

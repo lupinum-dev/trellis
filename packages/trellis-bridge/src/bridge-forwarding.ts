@@ -130,7 +130,12 @@ export interface CreateBridgeForwardingEnvelopeOptions {
   operation: BridgeForwardingPurpose
   functionRef: string
   args: Record<string, unknown>
+  signedArgs?: Record<string, unknown>
   jtiPrefix?: string
+}
+
+export interface CreateBridgeForwardingArgsOptions {
+  signedArgs?: Record<string, unknown>
 }
 
 /**
@@ -161,7 +166,7 @@ export function createBridgeForwardingEnvelope(
       ? { replayMode: getBridgeReplayMode(options.operation) }
       : {}),
     functionRef: options.functionRef,
-    args: options.args,
+    args: options.signedArgs ?? options.args,
     ttlMs: bridgeForwardingTtlsMs[options.operation],
   })
   const envelope = forwardingArgs._trellisForwarding
@@ -175,22 +180,21 @@ export function createBridgeForwardingEnvelope(
 function createBridgeIdentityForwardingFields(
   args: Record<string, unknown>,
   caller: unknown,
-  identityForwardingKey: IdentityForwardingKeyInput,
+  identityForwardingKey: IdentityForwardingKeyInput | undefined,
   operation: BridgeForwardingPurpose,
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
+  options?: CreateBridgeForwardingArgsOptions,
 ) {
   const functionRef = getBridgeFunctionRef(component, explicitFunctionRef)
-  const key =
-    typeof identityForwardingKey === 'function'
-      ? identityForwardingKey(args)
-      : identityForwardingKey
+  const key = getRequiredBridgeIdentityForwardingKey(identityForwardingKey, args)
 
   return {
     _trellisForwarding: createBridgeForwardingEnvelope({
       identityForwardingKey: key,
       caller,
       args,
+      signedArgs: options?.signedArgs,
       operation,
       functionRef,
     }),
@@ -200,10 +204,11 @@ function createBridgeIdentityForwardingFields(
 export function createBridgeForwardingArgs(
   args: Record<string, unknown>,
   caller: unknown,
-  identityForwardingKey: IdentityForwardingKeyInput,
+  identityForwardingKey: IdentityForwardingKeyInput | undefined,
   operation: BridgeForwardingPurpose,
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
+  options?: CreateBridgeForwardingArgsOptions,
 ): Record<string, unknown> {
   if (
     typeof caller === 'object' &&
@@ -223,6 +228,7 @@ export function createBridgeForwardingArgs(
       operation,
       component,
       explicitFunctionRef,
+      options,
     ),
   }
 }

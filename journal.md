@@ -51,6 +51,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   trusted public handler id or signs a narrower payload. This is an advanced
   testing override, not a replacement for normal `asUser(...)`/`asService(...)`
   app tests.
+- D009: Bridge forwarding issuer, audience, replay mode, TTL, jti, and key
+  validation belong to `@lupinum/trellis-bridge`. App/root wrappers may choose
+  an explicit `signedArgs` verification payload, but they should not construct
+  raw identity-forwarding envelopes.
 
 ## Progress
 
@@ -208,6 +212,14 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
     `createIdentityForwardingEnvelopeArgs`;
   - bridge/component production code remains outside this specific test-policy
     ban until the bridge API can fully own root-wrapper forwarding.
+- 2026-06-18: Moved Example 08 production bridge forwarding onto the bridge
+  helper:
+  - `createBridgeForwardingArgs(...)` now owns default bridge key resolution and
+    accepts an explicit `signedArgs` payload for forwarding-only wrapper
+    verification;
+  - Example 08 no longer imports `createIdentityForwardingEnvelopeArgs` or
+    duplicates bridge issuer, audience, replay, and key policy;
+  - a focused bridge unit test covers the explicit verification-payload path.
 
 ## Blockers
 
@@ -348,3 +360,13 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm run check:security:contract`, and
   `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`
   passed.
+- 2026-06-18: Initial `pnpm --dir examples/08-component-mini-cms test` failed
+  after moving Example 08 onto `createBridgeForwardingArgs(...)` because the
+  app passed the bridge key resolver as a key-input callback. The helper now
+  resolves default bridge keys internally; after that,
+  `pnpm --dir examples/08-component-mini-cms test`, `pnpm run test:types`,
+  `pnpm run build:module`, `pnpm run check:publish-surface`,
+  `pnpm run check:docs:api-surface`, `pnpm run check:security:source-policy`,
+  and `pnpm exec vitest run --project=unit tests/unit/create-component-bridge.test.ts`
+  passed. `pnpm run check:security:contract` drifted from Example 08 line
+  changes and was regenerated with `pnpm run security:contract`.

@@ -625,32 +625,32 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 111,
-      "exportName": "listStudio",
-      "reads": []
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 123,
+      "line": 108,
       "exportName": "listDraft",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 181,
+      "line": 196,
       "exportName": "previewPublish",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 87,
+      "line": 54,
       "exportName": "listPublished",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 99,
+      "line": 72,
       "exportName": "getPublished",
+      "reads": []
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 90,
+      "exportName": "listStudio",
       "reads": []
     },
     {
@@ -2249,19 +2249,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 111,
-      "exportName": "listStudio",
-      "functionType": "query",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 123,
+      "line": 108,
       "exportName": "listDraft",
       "functionType": "query",
       "lane": "public",
@@ -2273,7 +2261,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 135,
+      "line": 126,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "public",
@@ -2285,7 +2273,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 146,
+      "line": 143,
       "exportName": "save",
       "functionType": "mutation",
       "lane": "public",
@@ -2297,7 +2285,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 157,
+      "line": 160,
       "exportName": "publish",
       "functionType": "mutation",
       "lane": "public",
@@ -2309,7 +2297,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 170,
+      "line": 179,
       "exportName": "publishAction",
       "functionType": "action",
       "lane": "public",
@@ -2321,7 +2309,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 181,
+      "line": 196,
       "exportName": "previewPublish",
       "functionType": "query",
       "lane": "public",
@@ -2333,7 +2321,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 87,
+      "line": 54,
       "exportName": "listPublished",
       "functionType": "query",
       "lane": "public",
@@ -2345,8 +2333,20 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 99,
+      "line": 72,
       "exportName": "getPublished",
+      "functionType": "query",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 90,
+      "exportName": "listStudio",
       "functionType": "query",
       "lane": "public",
       "operationBacked": "none",

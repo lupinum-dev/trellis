@@ -1,8 +1,7 @@
-import {
-  createIdentityForwardingEnvelopeArgs,
-  operationPreviewValidator,
-} from '@lupinum/trellis/backend'
+import { createBridgeForwardingArgs } from '@lupinum/trellis-bridge/component'
+import { operationPreviewValidator } from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { MiniCmsPrincipal } from '../../../shared/caller'
@@ -19,9 +18,6 @@ import {
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
 import { action, mutation, query } from '../../functions'
-
-const bridgeForwardingIssuer = 'trellis://server'
-const bridgeForwardingAudience = 'trellis://convex'
 
 const publishedPageListValidator = v.array(publishedPageValidator)
 const studioPageListValidator = v.array(studioPageValidator)
@@ -40,46 +36,17 @@ const publishPreviewResultValidator = operationPreviewValidator({
   }),
 })
 
-function getBridgeReplayMode(operation: 'query' | 'mutation' | 'action' | 'operation-execute') {
-  if (operation === 'query') return undefined
-  if (operation === 'operation-execute') return 'operation-confirmation'
-  return 'jti-redemption'
-}
-
-function getRequiredIdentityForwardingKey(): string {
-  const key = process.env.CONVEX_IDENTITY_FORWARDING_KEY?.trim()
-  if (!key) {
-    throw new Error('Component mini CMS bridge calls require CONVEX_IDENTITY_FORWARDING_KEY.')
-  }
-  return key
-}
-
 async function bridgeForwardingArgs(
   ctx: { caller: () => Promise<MiniCmsPrincipal> },
   args: Record<string, unknown>,
   operation: 'query' | 'mutation' | 'action' | 'operation-execute',
+  component: FunctionReference<'query' | 'mutation' | 'action', 'public' | 'internal'>,
   functionRef: string,
 ): Promise<Record<string, unknown>> {
   const caller = await ctx.caller()
-  if (caller.kind === 'anonymous') return args
-
-  const forwarding = createIdentityForwardingEnvelopeArgs({
-    args: {},
-    caller,
-    key: getRequiredIdentityForwardingKey(),
-    issuer: bridgeForwardingIssuer,
-    audience: bridgeForwardingAudience,
-    transport: 'bridge',
-    operation: operation === 'operation-execute' ? 'mutation' : operation,
-    purpose: operation,
-    ...(getBridgeReplayMode(operation) ? { replayMode: getBridgeReplayMode(operation) } : {}),
-    functionRef,
+  return createBridgeForwardingArgs(args, caller, undefined, operation, component, functionRef, {
+    signedArgs: {},
   })
-
-  return {
-    ...args,
-    ...forwarding,
-  }
 }
 
 const bridgeApi = (anyApi as any).features.pages.bridge
@@ -92,7 +59,13 @@ export const listPublished = query.public({
   handler: async (ctx) =>
     await ctx.runQuery(
       bridgeApi.listPublished,
-      await bridgeForwardingArgs(ctx, {}, 'query', 'features/pages/domain:listPublished'),
+      await bridgeForwardingArgs(
+        ctx,
+        {},
+        'query',
+        bridgeApi.listPublished,
+        'features/pages/domain:listPublished',
+      ),
     ),
 })
 
@@ -104,7 +77,13 @@ export const getPublished = query.public({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       bridgeApi.getPublished,
-      await bridgeForwardingArgs(ctx, args, 'query', 'features/pages/domain:getPublished'),
+      await bridgeForwardingArgs(
+        ctx,
+        args,
+        'query',
+        bridgeApi.getPublished,
+        'features/pages/domain:getPublished',
+      ),
     ),
 })
 
@@ -116,7 +95,13 @@ export const listStudio = query.public({
   handler: async (ctx) =>
     await ctx.runQuery(
       bridgeApi.listStudio,
-      await bridgeForwardingArgs(ctx, {}, 'query', 'features/pages/domain:listStudio'),
+      await bridgeForwardingArgs(
+        ctx,
+        {},
+        'query',
+        bridgeApi.listStudio,
+        'features/pages/domain:listStudio',
+      ),
     ),
 })
 
@@ -128,7 +113,13 @@ export const listDraft = query.public({
   handler: async (ctx) =>
     await ctx.runQuery(
       bridgeApi.listDraft,
-      await bridgeForwardingArgs(ctx, {}, 'query', 'features/pages/domain:listDraft'),
+      await bridgeForwardingArgs(
+        ctx,
+        {},
+        'query',
+        bridgeApi.listDraft,
+        'features/pages/domain:listDraft',
+      ),
     ),
 })
 
@@ -139,7 +130,13 @@ export const create = mutation.public({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       bridgeApi.create,
-      await bridgeForwardingArgs(ctx, args, 'mutation', 'features/pages/domain:create'),
+      await bridgeForwardingArgs(
+        ctx,
+        args,
+        'mutation',
+        bridgeApi.create,
+        'features/pages/domain:create',
+      ),
     ),
 })
 
@@ -150,7 +147,13 @@ export const save = mutation.public({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       bridgeApi.save,
-      await bridgeForwardingArgs(ctx, args, 'mutation', 'features/pages/domain:save'),
+      await bridgeForwardingArgs(
+        ctx,
+        args,
+        'mutation',
+        bridgeApi.save,
+        'features/pages/domain:save',
+      ),
     ),
 })
 
@@ -161,7 +164,13 @@ export const publish = mutation.public({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       bridgeApi.publish,
-      await bridgeForwardingArgs(ctx, args, 'operation-execute', 'features/pages/domain:publish'),
+      await bridgeForwardingArgs(
+        ctx,
+        args,
+        'operation-execute',
+        bridgeApi.publish,
+        'features/pages/domain:publish',
+      ),
     ),
 })
 
@@ -174,7 +183,13 @@ export const publishAction = action.public({
   handler: async (ctx, args) =>
     await ctx.runMutation(
       bridgeApi.publish,
-      await bridgeForwardingArgs(ctx, args, 'operation-execute', 'features/pages/domain:publish'),
+      await bridgeForwardingArgs(
+        ctx,
+        args,
+        'operation-execute',
+        bridgeApi.publish,
+        'features/pages/domain:publish',
+      ),
     ),
 })
 
@@ -186,6 +201,12 @@ export const previewPublish = query.public({
   handler: async (ctx, args) =>
     await ctx.runQuery(
       bridgeApi.previewPublish,
-      await bridgeForwardingArgs(ctx, args, 'query', 'features/pages/operations:previewPublish'),
+      await bridgeForwardingArgs(
+        ctx,
+        args,
+        'query',
+        bridgeApi.previewPublish,
+        'features/pages/operations:previewPublish',
+      ),
     ),
 })
