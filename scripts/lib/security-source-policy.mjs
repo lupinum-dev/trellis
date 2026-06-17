@@ -67,6 +67,14 @@ export const securitySourcePolicies = [
     pattern: /\breadTables\b/,
   },
   {
+    id: 'no-example-test-raw-forwarding-envelope',
+    kind: 'line',
+    filePathPattern: /^examples\/.*(?:\/test\/.*|\/convex\/.*\.test\.ts)$/,
+    policy:
+      'maintained example tests must use Trellis test principals, not raw forwarding envelopes',
+    pattern: /\bcreateIdentityForwardingEnvelopeArgs\b/,
+  },
+  {
     id: 'no-public-mcp-email-resolver',
     kind: 'line',
     policy: 'public MCP email resolvers are banned',
@@ -151,6 +159,8 @@ function lineForIndex(source, index) {
 }
 
 function addLineMatches(violations, filePath, source, policy) {
+  if (policy.filePathPattern && !policy.filePathPattern.test(filePath)) return
+
   const lines = source.split('\n')
   lines.forEach((line, index) => {
     if (!policy.pattern.test(line)) return
@@ -165,6 +175,8 @@ function addLineMatches(violations, filePath, source, policy) {
 }
 
 function addBlockMatches(violations, filePath, source, policy) {
+  if (policy.filePathPattern && !policy.filePathPattern.test(filePath)) return
+
   for (const match of source.matchAll(policy.pattern)) {
     violations.push({
       filePath,

@@ -202,6 +202,12 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
     `createIdentityForwardingEnvelopeArgs`;
   - `ctx.asCaller(...)` now supports advanced bridge target and signed-args
     overrides so tests can exercise the bridge without constructing envelopes.
+- 2026-06-18: Added a source-policy acceptance gate for maintained example
+  tests:
+  - example tests now fail policy if they import or call
+    `createIdentityForwardingEnvelopeArgs`;
+  - bridge/component production code remains outside this specific test-policy
+    ban until the bridge API can fully own root-wrapper forwarding.
 
 ## Blockers
 
@@ -335,3 +341,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm exec tsc -p tsconfig.types.json --noEmit`, `pnpm run test:types`,
   `pnpm run check:docs:api-surface`, `pnpm run check:security:contract`,
   `pnpm run format:check`, and `git diff --check` passed.
+- 2026-06-18: `pnpm run check:security:source-policy` passed after adding the
+  maintained-example-test raw-envelope policy. Initial
+  `pnpm run check:security:contract` failed due expected generated
+  policy-contract drift; after `pnpm run security:contract`,
+  `pnpm run check:security:contract`, and
+  `pnpm exec vitest run --project=unit tests/unit/security-contract.test.ts`
+  passed.

@@ -95,6 +95,12 @@
         "pattern": "/delegateToUser\\s*\\([\\s\\S]{0,700}?allow\\s*:\\s*true/g"
       },
       {
+        "id": "no-example-test-raw-forwarding-envelope",
+        "kind": "line",
+        "policy": "maintained example tests must use Trellis test principals, not raw forwarding envelopes",
+        "pattern": "/\\bcreateIdentityForwardingEnvelopeArgs\\b/"
+      },
+      {
         "id": "no-generic-cross-tenant-escape",
         "kind": "line",
         "policy": "generic cross-tenant escape hatches are banned; use named crossTenant capabilities",
