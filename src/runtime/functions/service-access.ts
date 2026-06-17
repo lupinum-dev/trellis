@@ -46,7 +46,7 @@ type ServiceRuntimeOptions<DataModel extends GenericDataModel, TCaller> = {
 }
 
 export type ServiceTargetMetadata = {
-  identityForwardingFunctionRef?: string
+  identityForwardingTarget?: string
   [trellisOperationMetadataKey]?: { id?: string }
 }
 
@@ -494,7 +494,7 @@ export async function assertServiceTargetAllowed<DataModel extends GenericDataMo
   }
   assertServiceContractConfigured(caller.serviceId, service)
 
-  const targetFunctionRef = extra?.identityForwardingFunctionRef
+  const targetFunctionRef = extra?.identityForwardingTarget
   const targetOperationId = extra?.[trellisOperationMetadataKey]?.id
   const allowedFunctionRefs = service.metadata.allowedFunctionRefs ?? []
   const allowedOperations = service.metadata.allowedOperations ?? []

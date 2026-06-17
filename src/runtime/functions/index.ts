@@ -162,7 +162,7 @@ type ObserveFn = (event: ObservationEventInput) => Promise<void>
 type UnsafeDefinition = {
   permit: TrellisUnsafePermit
   id?: string
-  identityForwardingFunctionRef?: string
+  executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
 }
 type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
@@ -336,7 +336,7 @@ type ActionCustomizationCtx<
 type IdentityForwardingCustomizationExtra = {
   id?: string
   executeFunctionRef?: string
-  identityForwardingFunctionRef?: string
+  identityForwardingTarget?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
   trellisBackendLane?: TrellisBackendLane
   publicReadTables?: readonly string[]
@@ -1472,9 +1472,10 @@ async function createContextWithRuntime<
 ): Promise<RuntimeBundle<DataModel, TCtx, TCaller, TActingFor, TActor>> {
   const rawAppArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
+  const identityForwardingTarget = getIdentityForwardingTarget(extra)
   if (
     Object.prototype.hasOwnProperty.call(rawAppArgs, '_trellisForwarding') &&
-    !extra?.identityForwardingFunctionRef
+    !identityForwardingTarget
   ) {
     throw deny('Signed identity forwarding requires exact `id` metadata on the target handler.', {
       source: 'identity-forwarding',
@@ -1485,9 +1486,7 @@ async function createContextWithRuntime<
   setIdentityForwardingContext(ctxWithIdentityForwarding, rawAppArgs, {
     expectedKeyOverride: options.identityForwardingKey,
     expectedTransport: extra?.identityForwardingTransport ?? 'server',
-    ...(extra?.identityForwardingFunctionRef
-      ? { expectedFunctionRef: extra.identityForwardingFunctionRef }
-      : {}),
+    ...(identityForwardingTarget ? { expectedFunctionRef: identityForwardingTarget } : {}),
   })
   await assertNoOperationExecuteEnvelopeReplay(ctx, ctxWithIdentityForwarding, options)
   const identityForwarding = getIdentityForwarding(ctxWithIdentityForwarding)
@@ -1916,16 +1915,17 @@ function getExecuteFunctionRef(definition: unknown): string | undefined {
     : undefined
 }
 
+function getIdentityForwardingTarget(
+  extra: IdentityForwardingCustomizationExtra | undefined,
+): string | undefined {
+  return extra?.identityForwardingTarget ?? extra?.executeFunctionRef ?? extra?.id
+}
+
 function getDestructivePreviewPath(
-  definition: { id?: string; identityForwardingFunctionRef?: string },
+  definition: { id?: string },
   projectionMetadata: TrellisOperationProjectionMetadata | null,
 ): string {
-  return (
-    definition.identityForwardingFunctionRef ??
-    projectionMetadata?.functionRef ??
-    definition.id ??
-    'preview'
-  )
+  return projectionMetadata?.functionRef ?? definition.id ?? 'preview'
 }
 
 function getStoredConfirmationId(row: StoredToolConfirmationRow): unknown {
@@ -1975,7 +1975,7 @@ async function attachDestructivePreviewConfirmation<
   loaded: unknown
   metadata: TrellisOperationMetadata
   projectionMetadata: TrellisOperationProjectionMetadata | null
-  definition: { id?: string; identityForwardingFunctionRef?: string }
+  definition: { id?: string }
   previewResult: unknown
   options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>
 }): Promise<unknown> {
@@ -2867,12 +2867,12 @@ function buildStructuredMutationRuntime<
       ...definition,
       ...(getExecuteFunctionRef(definition)
         ? {
-            identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
+            identityForwardingTarget: getExecuteFunctionRef(definition)!,
           }
         : projectionMetadata?.functionRef
-          ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
+          ? { identityForwardingTarget: projectionMetadata.functionRef }
           : definition.id
-            ? { identityForwardingFunctionRef: definition.id }
+            ? { identityForwardingTarget: definition.id }
             : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
@@ -3254,12 +3254,12 @@ function buildStructuredTransportMutationRuntime<
       ...definition,
       ...(getExecuteFunctionRef(definition)
         ? {
-            identityForwardingFunctionRef: getExecuteFunctionRef(definition)!,
+            identityForwardingTarget: getExecuteFunctionRef(definition)!,
           }
         : projectionMetadata?.functionRef
-          ? { identityForwardingFunctionRef: projectionMetadata.functionRef }
+          ? { identityForwardingTarget: projectionMetadata.functionRef }
           : definition.id
-            ? { identityForwardingFunctionRef: definition.id }
+            ? { identityForwardingTarget: definition.id }
             : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }

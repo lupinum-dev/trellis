@@ -105,19 +105,12 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     `identityForwardingFunctionRef` for operation definitions;
   - structured handlers now prefer `executeFunctionRef` before falling back to
     projection metadata or handler `id`, so operation ids and Convex execute
-    paths stay separate;
-  - internal verifier plumbing still maps the app-facing field into the
-    existing `identityForwardingFunctionRef` runtime slot. This is intentionally
-    scoped as transport internals for this slice; the remaining cleanup is to
-    collapse that internal name once the broader forwarding tests are migrated.
+    paths stay separate.
 - 2026-06-17: Tightened the operation execute-target cleanup:
   - `@lupinum/trellis/app` operation shapes now expose `executeFunctionRef`
     instead of the old forwarding field;
   - destructive operation runtime tests use `executeFunctionRef` for operation
-    execute targets;
-  - remaining `identityForwardingFunctionRef` references in the touched test
-    file are direct handler or preview handler verifier targets, not operation
-    definitions.
+    execute targets.
 - 2026-06-17: Removed the old operation-definition fallback:
   - `defineOperation(...)` omits the direct-handler forwarding field from its
     accepted operation shape;
@@ -131,9 +124,17 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     target;
   - structured handler definitions no longer expose
     `identityForwardingFunctionRef`;
-  - lower runtime wrappers still pass a computed internal verifier target into
-    the Convex builder, but that slot is no longer part of normal handler
-    authoring.
+  - lower runtime wrappers pass a computed internal verifier target into the
+    Convex builder without exposing it as normal handler authoring.
+- 2026-06-17: Renamed the remaining runtime-internal verifier target from the
+  old public-looking forwarding field to `identityForwardingTarget`:
+  - app authors now have two explicit sources of truth: handler `id` for normal
+    callable targets and operation `executeFunctionRef` for execute targets;
+  - destructive preview confirmation no longer accepts a hidden legacy preview
+    path override and records preview paths from projection metadata or handler
+    `id`;
+  - service access checks read the same internal verifier target as identity
+    forwarding instead of carrying a parallel old field.
 
 ## Blockers
 
@@ -195,3 +196,8 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run check:security:contract`, `pnpm run check:docs:api-surface`,
   `pnpm run check:publish-surface`, and `pnpm run test:types` passed after
   removing the old direct-handler authoring field.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/security-contract.test.ts`,
+  `pnpm run check:security:contract`, `pnpm run check:docs:api-surface`,
+  `pnpm run check:publish-surface`, and `pnpm run test:types` passed after
+  renaming the runtime-internal verifier target to `identityForwardingTarget`.

@@ -61,9 +61,9 @@ type AnyBuilder = (definition: {
 }) => unknown
 
 function getInternalForwardingFunctionRef(definition: unknown): string | undefined {
-  return typeof (definition as { identityForwardingFunctionRef?: unknown })
-    .identityForwardingFunctionRef === 'string'
-    ? (definition as { identityForwardingFunctionRef: string }).identityForwardingFunctionRef
+  return typeof (definition as { identityForwardingTarget?: unknown }).identityForwardingTarget ===
+    'string'
+    ? (definition as { identityForwardingTarget: string }).identityForwardingTarget
     : undefined
 }
 
@@ -517,7 +517,7 @@ function createStructuredBuilder<
         ? { trellisBackendLane: definition.trellisBackendLane }
         : {}),
       ...(definition.publicReadTables ? { publicReadTables: definition.publicReadTables } : {}),
-      ...(forwardingTarget ? { identityForwardingFunctionRef: forwardingTarget } : {}),
+      ...(forwardingTarget ? { identityForwardingTarget: forwardingTarget } : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
