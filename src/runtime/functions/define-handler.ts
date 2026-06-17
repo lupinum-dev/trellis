@@ -60,6 +60,25 @@ type AnyBuilder = (definition: {
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
+export type StructuredHandlerIdRegistry = Set<string>
+
+function registerStructuredHandlerId(
+  registry: StructuredHandlerIdRegistry | undefined,
+  id: string | undefined,
+): void {
+  if (id === undefined) return
+  if (id.trim().length === 0) {
+    throw new Error(
+      'Trellis structured handlers require non-empty `id` metadata when `id` is provided.',
+    )
+  }
+  if (!registry) return
+  if (registry.has(id)) {
+    throw new Error(`Trellis structured handler id "${id}" is registered more than once.`)
+  }
+  registry.add(id)
+}
+
 function getInternalForwardingFunctionRef(definition: unknown): string | undefined {
   return typeof (definition as { identityForwardingTarget?: unknown }).identityForwardingTarget ===
     'string'
@@ -482,7 +501,7 @@ function createStructuredBuilder<
   TActingFor,
   TActor,
   TBuilder extends AnyBuilder,
->(builder: TBuilder) {
+>(builder: TBuilder, handlerIds?: StructuredHandlerIdRegistry) {
   return function structuredBuilder<
     TGuard extends StructuredGuard<TCaller, TActor>,
     TArgsValidator extends PropertyValidators,
@@ -504,6 +523,7 @@ function createStructuredBuilder<
       TPublicWrite
     >,
   ): ReturnType<TBuilder> {
+    registerStructuredHandlerId(handlerIds, definition.id)
     const forwardingTarget =
       getInternalForwardingFunctionRef(definition) ??
       definition.executeFunctionRef ??
@@ -721,8 +741,11 @@ export function buildStructuredBuilder<
   TActingFor,
   TActor,
   TBuilder extends AnyBuilder,
->(builder: TBuilder) {
-  return createStructuredBuilder<TCtx, TCaller, TActingFor, TActor, TBuilder>(builder)
+>(builder: TBuilder, handlerIds?: StructuredHandlerIdRegistry) {
+  return createStructuredBuilder<TCtx, TCaller, TActingFor, TActor, TBuilder>(
+    builder,
+    handlerIds,
+  )
 }
 
 export function buildStructuredFunctions<

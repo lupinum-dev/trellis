@@ -69,6 +69,7 @@ import type {
   StructuredCrossTenantCapability,
   StructuredGuard,
   StructuredHandlerDefinition,
+  StructuredHandlerIdRegistry,
   StructuredLoadedValue,
   StructuredPublicWriteCapability,
 } from './define-handler.js'
@@ -2688,6 +2689,7 @@ function buildStructuredQueryRuntime<
 >(
   builder: unknown,
   options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
+  handlerIds?: StructuredHandlerIdRegistry,
 ): StructuredQueryBuilder<
   QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
   Visibility,
@@ -2699,7 +2701,7 @@ function buildStructuredQueryRuntime<
     TActingFor,
     TActor,
     never
-  >(builder as never)
+  >(builder as never, handlerIds)
 
   return ((definition) => {
     const metadata = getOperationMetadata(definition as never)
@@ -2762,6 +2764,7 @@ function buildStructuredMutationRuntime<
 >(
   builder: unknown,
   options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
+  handlerIds?: StructuredHandlerIdRegistry,
 ): StructuredMutationBuilder<
   MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
   Visibility,
@@ -2773,7 +2776,7 @@ function buildStructuredMutationRuntime<
     TActingFor,
     TActor,
     never
-  >(builder as never)
+  >(builder as never, handlerIds)
 
   return ((definition) => {
     const metadata = getOperationMetadata(definition as never)
@@ -3202,6 +3205,7 @@ function buildStructuredTransportMutationRuntime<
   TActor,
 >(
   builder: unknown,
+  handlerIds?: StructuredHandlerIdRegistry,
 ): TransportMutationWithBackendLanes<
   MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
   Visibility,
@@ -3213,7 +3217,7 @@ function buildStructuredTransportMutationRuntime<
     TActingFor,
     TActor,
     never
-  >(builder as never)
+  >(builder as never, handlerIds)
 
   const transportMutation = ((definition) => {
     const metadata = getOperationMetadata(definition as never)
@@ -3377,10 +3381,12 @@ function buildTrellisRuntime<
   options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor> = {},
 ) {
   const unsafe = buildUnsafeFunctions(builders, options)
+  const handlerIds = new Set<string>()
   const structured = {
     query: buildStructuredQueryRuntime<DataModel, QueryVisibility, TCaller, TActingFor, TActor>(
       unsafe.query,
       options,
+      handlerIds,
     ),
     mutation: buildStructuredMutationRuntime<
       DataModel,
@@ -3388,14 +3394,14 @@ function buildTrellisRuntime<
       TCaller,
       TActingFor,
       TActor
-    >(unsafe.mutation, options),
+    >(unsafe.mutation, options, handlerIds),
     transportMutation: buildStructuredTransportMutationRuntime<
       DataModel,
       MutationVisibility,
       TCaller,
       TActingFor,
       TActor
-    >(unsafe.mutation),
+    >(unsafe.mutation, handlerIds),
   }
 
   const structuredInternal =
@@ -3407,21 +3413,21 @@ function buildTrellisRuntime<
             TCaller,
             TActingFor,
             TActor
-          >(unsafe.internal.query, options),
+          >(unsafe.internal.query, options, handlerIds),
           mutation: buildStructuredMutationRuntime<
             DataModel,
             InternalMutationVisibility,
             TCaller,
             TActingFor,
             TActor
-          >(unsafe.internal.mutation, options),
+          >(unsafe.internal.mutation, options, handlerIds),
           transportMutation: buildStructuredTransportMutationRuntime<
             DataModel,
             InternalMutationVisibility,
             TCaller,
             TActingFor,
             TActor
-          >(unsafe.internal.mutation),
+          >(unsafe.internal.mutation, handlerIds),
         }
       : undefined
 
@@ -3432,7 +3438,7 @@ function buildTrellisRuntime<
         TActingFor,
         TActor,
         typeof unsafe.action
-      >(unsafe.action) as StructuredActionBuilder<
+      >(unsafe.action, handlerIds) as StructuredActionBuilder<
         ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
         ActionVisibility,
         TActor

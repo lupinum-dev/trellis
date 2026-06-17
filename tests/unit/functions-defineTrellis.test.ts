@@ -82,6 +82,46 @@ describe('defineTrellis', () => {
     expect(runtime).not.toHaveProperty('publicQuery')
   })
 
+  it('rejects duplicate structured handler ids within one runtime', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    runtime.query.public({
+      id: 'todos:list',
+      reads: [],
+      args: {},
+      handler: async () => [],
+    } as never)
+
+    expect(() =>
+      runtime.mutation.authenticated({
+        id: 'todos:list',
+        args: {},
+        handler: async () => null,
+      } as never),
+    ).toThrow(/structured handler id "todos:list" is registered more than once/i)
+  })
+
+  it('rejects blank structured handler ids when provided', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.public({
+        id: '  ',
+        reads: [],
+        args: {},
+        handler: async () => [],
+      } as never),
+    ).toThrow(/non-empty `id` metadata/i)
+  })
+
   it('does not attach recoverable raw DB to normal handler-visible ctx.db', async () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(

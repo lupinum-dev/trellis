@@ -135,6 +135,12 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     `id`;
   - service access checks read the same internal verifier target as identity
     forwarding instead of carrying a parallel old field.
+- 2026-06-17: Added runtime-local structured handler id validation:
+  - blank provided ids fail immediately;
+  - duplicate ids fail across query, mutation, action, internal, and transport
+    structured builders within one `defineTrellis(...)` runtime;
+  - the stricter "id required everywhere" cut remains a separate migration
+    because it intentionally touches low-level unit fixtures and docs snippets.
 
 ## Blockers
 
@@ -201,3 +207,8 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run check:security:contract`, `pnpm run check:docs:api-surface`,
   `pnpm run check:publish-surface`, and `pnpm run test:types` passed after
   renaming the runtime-internal verifier target to `identityForwardingTarget`.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/security-contract.test.ts`,
+  `pnpm run check:security:contract`, `pnpm run check:publish-surface`, and
+  `pnpm run test:types` passed after adding runtime-local duplicate handler id
+  validation.
