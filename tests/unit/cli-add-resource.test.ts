@@ -164,6 +164,12 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
     ).resolves.not.toContain('guard:')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+    ).resolves.toContain("ctx.asUser({ authKey: 'owner-1' })")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+    ).not.resolves.toContain('raw.withIdentity')
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       "import { projectsTables } from './features/projects'",
     )

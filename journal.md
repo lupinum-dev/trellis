@@ -61,6 +61,8 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
 - D011: Generated MCP workspace resource operations should use
   `workspaceScope()` and `ctx.workspaceId`. `appIdentity.workspaceId` remains an
   authorization fact, not the value copied into generated tenant writes.
+- D012: Generated app tests should use Trellis test principals (`asUser`,
+  seeded tenant users, or `asService`) instead of raw Convex identity helpers.
 
 ## Progress
 
@@ -247,6 +249,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
     `appIdentity.workspaceId!`;
   - the 0.2 implementation note no longer lists generic resource generation as
     backend-first drift.
+- 2026-06-18: Simplified generated personal resource tests:
+  - generated personal resource tests now call `ctx.asUser({ authKey })`;
+  - new app test templates no longer copy `ctx.raw.withIdentity(...)` for
+    ordinary user calls.
 
 ## Blockers
 
@@ -408,3 +414,6 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm exec tsc -p tsconfig.types.json --noEmit`, and
   `pnpm run check:security:source-policy` passed after moving generated MCP
   workspace resource operations onto `workspaceScope()`.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/cli-add-resource.test.ts`
+  and `pnpm exec tsc -p tsconfig.types.json --noEmit` passed after moving
+  generated personal resource tests onto `ctx.asUser(...)`.

@@ -527,7 +527,7 @@ describe('${ctx.tableName}', () => {
   it('allows the owner to update their own ${ctx.singularCamel}', async () => {
     const ctx = createCtx()
     await seedUser(ctx, 'owner-1')
-    const owner = ctx.raw.withIdentity({ subject: 'owner-1', tokenIdentifier: 'owner-1' })
+    const owner = ctx.asUser({ authKey: 'owner-1' })
     const id = await owner.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
     await owner.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Renamed' })
@@ -540,8 +540,8 @@ describe('${ctx.tableName}', () => {
     const ctx = createCtx()
     await seedUser(ctx, 'owner-1')
     await seedUser(ctx, 'other-1')
-    const owner = ctx.raw.withIdentity({ subject: 'owner-1', tokenIdentifier: 'owner-1' })
-    const other = ctx.raw.withIdentity({ subject: 'other-1', tokenIdentifier: 'other-1' })
+    const owner = ctx.asUser({ authKey: 'owner-1' })
+    const other = ctx.asUser({ authKey: 'other-1' })
     const id = await owner.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
     await expect(
