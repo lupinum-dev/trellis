@@ -46,6 +46,13 @@ function getOwnReads(definition: object): unknown {
   return hasOwn(definition, 'reads') ? (definition as { reads?: unknown }).reads : undefined
 }
 
+function readRequiredHandlerId(value: unknown, lane: TrellisBackendLane): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${lane} backend handlers require non-empty \`id\` metadata.`)
+  }
+  return value
+}
+
 function readPublicReadTables(value: unknown, lane: 'public'): string[] | undefined {
   if (value === undefined) return undefined
   if (!Array.isArray(value)) {
@@ -115,6 +122,7 @@ function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown
       throw new Error('public backend handlers require a definition object.')
     }
     const reads = readPublicReadTables(getOwnReads(definition), 'public')
+    readRequiredHandlerId((definition as { id?: unknown }).id, 'public')
 
     return stampBackendLane(
       protectedBuilder(
@@ -152,6 +160,7 @@ function createSessionLaneBuilder<TBuilder extends (definition: never) => unknow
     if (!definition || typeof definition !== 'object') {
       throw new Error('session backend handlers require a definition object.')
     }
+    readRequiredHandlerId((definition as { id?: unknown }).id, 'session')
 
     return stampBackendLane(
       protectedBuilder(
@@ -181,6 +190,7 @@ function createProtectedLaneBuilder<TBuilder extends (definition: never) => unkn
     if (isOpenGuard(getOwnGuard(definition))) {
       throw new Error('protected backend handlers must not use `guard: open`; use public(...).')
     }
+    readRequiredHandlerId((definition as { id?: unknown }).id, 'protected')
 
     return stampBackendLane(
       protectedBuilder(
@@ -197,7 +207,11 @@ export function createAuthenticatedLaneBuilder<TBuilder extends (definition: nev
   protectedBuilder: TBuilder,
 ): TBuilder {
   return ((definition: unknown) => {
+    if (!definition || typeof definition !== 'object') {
+      throw new Error('authenticated backend handlers require a definition object.')
+    }
     assertSignedInLaneGuard(definition, 'authenticated')
+    readRequiredHandlerId((definition as { id?: unknown }).id, 'authenticated')
 
     return stampBackendLane(
       protectedBuilder(
@@ -215,7 +229,11 @@ function createWorkspaceLaneBuilder<TBuilder extends (definition: never) => unkn
   protectedBuilder: TBuilder,
 ): TBuilder {
   return ((definition: unknown) => {
+    if (!definition || typeof definition !== 'object') {
+      throw new Error('workspace backend handlers require a definition object.')
+    }
     assertSignedInLaneGuard(definition, 'workspace')
+    readRequiredHandlerId((definition as { id?: unknown }).id, 'workspace')
 
     return stampBackendLane(
       protectedBuilder(

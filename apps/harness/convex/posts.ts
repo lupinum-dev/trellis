@@ -97,6 +97,7 @@ function denyTenantMismatch(appIdentity: AppIdentity, post: { organizationId: st
 }
 
 export const list = query.authenticated({
+  id: 'posts:list',
   args: listPostsArgs.args,
   handler: async (ctx, _args) => {
     const appIdentity = await ctx.appIdentity()
@@ -115,6 +116,7 @@ export const list = query.authenticated({
 })
 
 export const get = query.authenticated({
+  id: 'posts:get',
   args: getPostArgs.args,
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()

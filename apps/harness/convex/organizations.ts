@@ -12,6 +12,7 @@ const createOrganizationArgs = defineArgs({
 })
 
 export const list = query.authenticated({
+  id: 'organizations:list',
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('organizations').order('desc').collect()

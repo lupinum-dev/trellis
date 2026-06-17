@@ -141,6 +141,13 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
     structured builders within one `defineTrellis(...)` runtime;
   - the stricter "id required everywhere" cut remains a separate migration
     because it intentionally touches low-level unit fixtures and docs snippets.
+- 2026-06-17: Made structured lane handler ids mandatory:
+  - public, session, protected, authenticated, workspace, transport, and action
+    lane builders now require a non-empty `id` at the type and runtime boundary;
+  - operation previews derive `${operation.id}:preview` from the canonical
+    operation id, avoiding a second app-authored preview id;
+  - maintained harness and canonical examples were migrated to explicit stable
+    ids so type tests exercise the intended authoring shape.
 
 ## Blockers
 
@@ -212,3 +219,10 @@ Goal: implement RFC 0012 as a clean-cut Trellis app-framework refactor.
   `pnpm run check:security:contract`, `pnpm run check:publish-surface`, and
   `pnpm run test:types` passed after adding runtime-local duplicate handler id
   validation.
+- 2026-06-17: `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts`,
+  `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineTrellis-service-access.test.ts tests/unit/security-contract.test.ts`,
+  `pnpm run check:publish-surface`, `pnpm run test:types`,
+  `pnpm run security:contract`, `pnpm run check:security:contract`,
+  `pnpm run format:check`, and `git diff --check` passed after making
+  structured lane handler ids mandatory.

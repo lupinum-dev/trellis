@@ -7,6 +7,7 @@ import { getAgencyActor, getMemberships, requireAnyAgencyRole } from '../../auth
 import { query } from '../../functions'
 
 export const portfolio = query.public({
+  id: 'dashboard:portfolio',
   reads: ['users', 'memberships', 'workspaces', 'projects'],
   args: listAgencyPortfolio.args,
   crossTenant: {

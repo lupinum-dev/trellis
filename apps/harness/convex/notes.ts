@@ -17,6 +17,7 @@ function withTitle<T extends { title?: string | null }>(note: T) {
 }
 
 export const list = query.public({
+  id: 'notes:list',
   reads: ['notes'],
   args: listNotesArgs.args,
   handler: async (ctx) => {
@@ -26,6 +27,7 @@ export const list = query.public({
 })
 
 export const search = query.public({
+  id: 'notes:search',
   reads: ['notes'],
   args: searchNotes.args,
   handler: async (ctx, args) => {

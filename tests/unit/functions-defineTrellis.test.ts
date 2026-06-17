@@ -137,6 +137,7 @@ describe('defineTrellis', () => {
     const rawDb = memory.db
 
     const definition = runtime.query.public({
+      id: 'tests.rawDbNotExposed',
       reads: [] as never[],
       args: {},
       handler: async (ctx) => {
@@ -205,6 +206,7 @@ describe('defineTrellis', () => {
     })
 
     const definition = runtime.query.public({
+      id: 'tests.publicReadTables',
       reads: ['catalog'] as never[],
       args: {
         catalogId: v.string(),
@@ -293,6 +295,7 @@ describe('defineTrellis', () => {
     })
 
     const definition = runtime.query.public({
+      id: 'tests.publicReadsRequired',
       args: {},
       handler: async (ctx) => {
         try {
@@ -336,6 +339,7 @@ describe('defineTrellis', () => {
     })
 
     const definition = runtime.query.session({
+      id: 'tests.sessionDbHidden',
       args: {},
       handler: async (ctx) => ({
         hasDb: 'db' in (ctx as object),
@@ -542,6 +546,7 @@ describe('defineTrellis', () => {
       mutation: builder,
     })
     const definition = runtime.mutation.public({
+      id: 'tests.publicWriteRequiresOperation',
       args: {},
       publicWrite: {
         reason: 'Attempt anonymous write without an operation id.',
@@ -623,6 +628,7 @@ describe('defineTrellis', () => {
       mutation: builder,
     })
     const queryDefinition = runtime.query.public({
+      id: 'tests.publicWriteRejectedOnQuery',
       args: {},
       publicWrite: {
         reason: 'Invalid query write capability.',
@@ -694,6 +700,7 @@ describe('defineTrellis', () => {
 
     expect(() =>
       runtime.query.public({
+        id: 'tests.duplicateReads',
         reads: ['catalog', 'catalog'] as never[],
         args: {},
         handler: async () => null,
@@ -717,6 +724,7 @@ describe('defineTrellis', () => {
     )
     const capture = createObservationCapture()
     const definition = runtime.query.public({
+      id: 'tests.crossTenantReadCapability',
       reads: [] as never[],
       args: {
         id: v.string(),
@@ -809,6 +817,7 @@ describe('defineTrellis', () => {
       mutation: builder,
     })
     const definition = runtime.mutation.public({
+      id: 'tests.crossTenantWriteRequiresOperation',
       args: {},
       crossTenant: {
         mode: 'write',
@@ -1003,19 +1012,23 @@ describe('defineTrellis', () => {
     })
 
     const publicQuery = runtime.query.public({
+      id: 'tests.lane.public',
       args: {},
       handler: async () => ({ ok: true }),
     } as never) as Record<PropertyKey, unknown>
     const protectedMutation = runtime.mutation.protected({
+      id: 'tests.lane.protected',
       args: {},
       guard: allowAll,
       handler: async () => ({ ok: true }),
     } as never) as Record<PropertyKey, unknown>
     const authenticatedQuery = runtime.query.authenticated({
+      id: 'tests.lane.authenticated',
       args: {},
       handler: async () => ({ ok: true }),
     } as never) as Record<PropertyKey, unknown>
     const workspaceQuery = runtime.query.workspace({
+      id: 'tests.lane.workspace',
       args: {},
       permission: workspacePermission,
       handler: async () => ({ ok: true }),
@@ -1364,6 +1377,7 @@ describe('defineTrellis', () => {
 
     expect(() =>
       runtime.query.workspace({
+        id: 'tests.workspaceMissingPermission',
         args: {},
         handler: async () => ({ ok: true }),
       } as never),
@@ -1428,6 +1442,7 @@ describe('defineTrellis', () => {
     )
 
     const definition = runtime.query.authenticated({
+      id: 'tests.authenticatedCallerRequired',
       args: { userId: v.optional(v.string()) },
       handler: async (ctx) => await ctx.caller(),
     } as never) as {
@@ -1466,6 +1481,7 @@ describe('defineTrellis', () => {
     let reachedHandler = false
 
     const definition = runtime.query.authenticated({
+      id: 'tests.authenticatedIdentityRequired',
       args: {},
       handler: async () => {
         reachedHandler = true
@@ -1513,6 +1529,7 @@ describe('defineTrellis', () => {
     }
 
     const definition = runtime.query.workspace({
+      id: 'tests.workspaceIdentityRequired',
       args: { workspaceId: v.optional(v.string()) },
       permission: workspaceRead,
       load,
@@ -1580,49 +1597,22 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/function-ref/)
   })
 
-  it('rejects signed forwarding envelopes when handler metadata does not name the expected function ref', async () => {
-    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+  it('rejects structured lane handlers without stable id metadata', () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({
       query: builder,
       mutation: builder,
     })
 
-    const definition = runtime.query.public({
-      args: {
-        title: v.string(),
-      },
-      handler: async () => ({ ok: true }),
-    } as never) as {
-      handler: (
-        ctx: {
-          auth: { getUserIdentity: () => Promise<null> }
-          db: Record<string, never>
-          observe: (event: Record<string, unknown>) => Promise<void>
+    expect(() =>
+      runtime.query.public({
+        reads: [],
+        args: {
+          title: v.string(),
         },
-        args: Record<string, unknown>,
-      ) => Promise<unknown>
-    }
-
-    const args = createIdentityForwardingEnvelopeArgs({
-      args: { title: 'Hello' },
-      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
-      functionRef: 'posts:create',
-      operation: 'query',
-      jti: 'missing-function-ref-metadata',
-      now: Date.UTC(2026, 4, 9, 12, 0, 0),
-    })
-
-    await expect(
-      definition.handler(
-        {
-          auth: { getUserIdentity: async () => null },
-          db: {},
-          observe: async () => {},
-        },
-        args,
-      ),
-    ).rejects.toThrow(/`id` metadata/)
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/public backend handlers require non-empty `id` metadata/)
   })
 
   it('uses handler id metadata for identity forwarding verification', async () => {
@@ -1903,6 +1893,7 @@ describe('defineTrellis', () => {
 
     let executed = false
     const definition = runtime.mutation.public({
+      id: 'tests.replayAlreadyRedeemed',
       args: {
         id: v.string(),
       },
@@ -1965,6 +1956,7 @@ describe('defineTrellis', () => {
 
     let executed = false
     const definition = runtime.mutation.public({
+      id: 'tests.executeRequiresReplayMode',
       args: {
         id: v.string(),
       },
@@ -2016,6 +2008,7 @@ describe('defineTrellis', () => {
 
     let executed = false
     const definition = runtime.mutation.public({
+      id: 'tests.executeRequiresDestructiveSafety',
       args: {
         id: v.string(),
       },
@@ -2076,6 +2069,7 @@ describe('defineTrellis', () => {
 
     let executed = false
     const definition = runtime.mutation.public({
+      id: 'tests.executeSafetyMisconfigured',
       args: {
         id: v.string(),
       },

@@ -499,31 +499,31 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 173,
+      "line": 176,
       "exportName": "structuredDelegationProbe",
       "reads": []
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 195,
+      "line": 198,
       "exportName": "actorMemoization",
       "reads": []
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 213,
+      "line": 216,
       "exportName": "identityForwardingStateProbe",
       "reads": []
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 223,
+      "line": 226,
       "exportName": "echoedArgs",
       "reads": []
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 254,
+      "line": 257,
       "exportName": "unsafeForwardedCallerProbe",
       "reads": []
     },
@@ -535,7 +535,7 @@
     },
     {
       "file": "apps/harness/convex/notes.ts",
-      "line": 28,
+      "line": 29,
       "exportName": "search",
       "reads": ["notes"]
     },
@@ -719,7 +719,7 @@
     },
     {
       "file": "apps/harness/convex/crossTenant.ts",
-      "line": 61,
+      "line": 62,
       "exportName": "listAllPosts",
       "functionType": "query",
       "lane": "authenticated",
@@ -731,7 +731,7 @@
     },
     {
       "file": "apps/harness/convex/crossTenant.ts",
-      "line": 86,
+      "line": 88,
       "exportName": "getAnyPostRaw",
       "functionType": "query",
       "lane": "unsafe",
@@ -767,7 +767,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 131,
+      "line": 132,
       "exportName": "structuredPostOwner",
       "functionType": "query",
       "lane": "authenticated",
@@ -779,7 +779,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 147,
+      "line": 149,
       "exportName": "structuredEnvelopeProbe",
       "functionType": "query",
       "lane": "authenticated",
@@ -791,7 +791,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 173,
+      "line": 176,
       "exportName": "structuredDelegationProbe",
       "functionType": "query",
       "lane": "public",
@@ -803,7 +803,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 182,
+      "line": 185,
       "exportName": "resetActorResolverCalls",
       "functionType": "mutation",
       "lane": "unsafe",
@@ -815,7 +815,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 195,
+      "line": 198,
       "exportName": "actorMemoization",
       "functionType": "query",
       "lane": "public",
@@ -827,7 +827,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 213,
+      "line": 216,
       "exportName": "identityForwardingStateProbe",
       "functionType": "query",
       "lane": "public",
@@ -839,7 +839,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 223,
+      "line": 226,
       "exportName": "echoedArgs",
       "functionType": "query",
       "lane": "public",
@@ -851,7 +851,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 232,
+      "line": 235,
       "exportName": "onSuccessEnvelopeProbe",
       "functionType": "query",
       "lane": "unsafe",
@@ -863,7 +863,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 243,
+      "line": 246,
       "exportName": "getEnvelopeProbeState",
       "functionType": "query",
       "lane": "unsafe",
@@ -875,7 +875,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 254,
+      "line": 257,
       "exportName": "unsafeForwardedCallerProbe",
       "functionType": "query",
       "lane": "public",
@@ -887,7 +887,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 263,
+      "line": 267,
       "exportName": "unsafeListPosts",
       "functionType": "query",
       "lane": "unsafe",
@@ -899,7 +899,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 271,
+      "line": 275,
       "exportName": "unsafeRenamePost",
       "functionType": "mutation",
       "lane": "unsafe",
@@ -911,7 +911,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 287,
+      "line": 291,
       "exportName": "unsafeListMcpKeys",
       "functionType": "query",
       "lane": "unsafe",
@@ -923,7 +923,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 295,
+      "line": 299,
       "exportName": "createTriggeredNote",
       "functionType": "mutation",
       "lane": "unsafe",
@@ -935,7 +935,7 @@
     },
     {
       "file": "apps/harness/convex/functionsProbe.ts",
-      "line": 308,
+      "line": 312,
       "exportName": "getNote",
       "functionType": "query",
       "lane": "unsafe",
@@ -947,7 +947,7 @@
     },
     {
       "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 106,
+      "line": 107,
       "exportName": "revoke",
       "functionType": "mutation",
       "lane": "workspace",
@@ -971,7 +971,7 @@
     },
     {
       "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 86,
+      "line": 87,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "workspace",
@@ -995,7 +995,7 @@
     },
     {
       "file": "apps/harness/convex/notes.ts",
-      "line": 28,
+      "line": 29,
       "exportName": "search",
       "functionType": "query",
       "lane": "public",
@@ -1007,7 +1007,7 @@
     },
     {
       "file": "apps/harness/convex/notes.ts",
-      "line": 74,
+      "line": 76,
       "exportName": "add",
       "functionType": "mutation",
       "lane": "public",
@@ -1031,7 +1031,7 @@
     },
     {
       "file": "apps/harness/convex/organizations.ts",
-      "line": 21,
+      "line": 22,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -1043,7 +1043,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 117,
+      "line": 118,
       "exportName": "get",
       "functionType": "query",
       "lane": "authenticated",
@@ -1055,7 +1055,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 155,
+      "line": 157,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -1067,7 +1067,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 184,
+      "line": 186,
       "exportName": "update",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1079,7 +1079,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 208,
+      "line": 210,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1091,7 +1091,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 260,
+      "line": 262,
       "exportName": "removeWithConfirmation",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1103,7 +1103,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 265,
+      "line": 267,
       "exportName": "previewRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -1115,7 +1115,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 298,
+      "line": 300,
       "exportName": "publish",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2535,7 +2535,7 @@
     },
     {
       "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 54,
+      "line": 55,
       "exportName": "createMcpKeyOp",
       "type": "mutation",
       "id": "mcp-keys.create",
@@ -2549,7 +2549,7 @@
     },
     {
       "file": "apps/harness/convex/mcpKeys.ts",
-      "line": 88,
+      "line": 89,
       "exportName": "revokeMcpKeyOp",
       "type": "mutation",
       "id": "mcp-keys.revoke",
@@ -2563,7 +2563,7 @@
     },
     {
       "file": "apps/harness/convex/notes.ts",
-      "line": 47,
+      "line": 49,
       "exportName": "addNoteOp",
       "type": "publicMutation",
       "id": "notes.add",
@@ -2577,7 +2577,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 131,
+      "line": 133,
       "exportName": "createPostOp",
       "type": "mutation",
       "id": "posts.create",
@@ -2591,7 +2591,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 157,
+      "line": 159,
       "exportName": "updatePostOp",
       "type": "mutation",
       "id": "posts.update",
@@ -2605,7 +2605,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 186,
+      "line": 188,
       "exportName": "removePostDirectOp",
       "type": "mutation",
       "id": "posts.remove.direct",
@@ -2619,7 +2619,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 210,
+      "line": 212,
       "exportName": "removePostOp",
       "type": "destructive",
       "id": null,
@@ -2633,7 +2633,7 @@
     },
     {
       "file": "apps/harness/convex/posts.ts",
-      "line": 271,
+      "line": 273,
       "exportName": "publishPostOp",
       "type": "mutation",
       "id": "posts.publish",

@@ -121,6 +121,7 @@ export const publicWithoutActor = query.unsafe({
 })
 
 export const structuredPublicActorEcho = query.public({
+  id: 'functionsProbe:structuredPublicActorEcho',
   reads: [],
   args: {},
   handler: async (ctx) => ({
@@ -129,6 +130,7 @@ export const structuredPublicActorEcho = query.public({
 })
 
 export const structuredPostOwner = query.authenticated({
+  id: 'functionsProbe:structuredPostOwner',
   args: {
     id: v.id('posts'),
   },
@@ -145,6 +147,7 @@ export const structuredPostOwner = query.authenticated({
 })
 
 export const structuredEnvelopeProbe = query.authenticated({
+  id: 'functionsProbe:structuredEnvelopeProbe',
   args: {
     title: v.string(),
   },
@@ -252,6 +255,7 @@ export const getEnvelopeProbeState = query.unsafe({
 })
 
 export const unsafeForwardedCallerProbe = unsafeArgPrincipalRuntime.query.public({
+  id: 'functionsProbe:unsafeForwardedCallerProbe',
   reads: [],
   args: {},
   handler: async (ctx) => ({

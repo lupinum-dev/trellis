@@ -95,6 +95,7 @@ interface DebugInfo {
 }
 
 export const getAccessContext = query.session({
+  id: 'auth:getAccessContext',
   args: {},
   handler: async (ctx) => {
     // #region agent log

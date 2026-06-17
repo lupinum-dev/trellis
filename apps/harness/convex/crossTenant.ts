@@ -38,6 +38,7 @@ const getPostArgs = defineArgs({
  * capability exposes the post regardless of the appIdentity's tenant.
  */
 export const getAnyPost = query.authenticated({
+  id: 'crossTenant:getAnyPost',
   args: getPostArgs.args,
   crossTenant: {
     reason: 'Harness cross-scope post lookup.',
@@ -59,6 +60,7 @@ export const getAnyPost = query.authenticated({
  * List all posts across all tenants using an explicit named capability.
  */
 export const listAllPosts = query.authenticated({
+  id: 'crossTenant:listAllPosts',
   args: {},
   crossTenant: {
     reason: 'Harness cross-scope post listing.',

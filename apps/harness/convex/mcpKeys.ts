@@ -36,6 +36,7 @@ function resolveIncomingKeyHash(input: { key?: string; keyHash?: string }): stri
 }
 
 export const list = query.authenticated({
+  id: 'mcpKeys:list',
   args: {},
   handler: async (ctx) => {
     const appIdentity = await ctx.appIdentity()

@@ -417,6 +417,7 @@ export function previewOf<
   >,
   'guard'
 > & {
+  id: string
   guard?: never
   permission?: TDefinition['permission']
 }
@@ -452,6 +453,7 @@ export function previewOf<
   TLoaded,
   TPreview
 > & {
+  id: string
   permission?: PermissionKeyHandle<string>
 }
 export function previewOf(operation: any): any {
@@ -462,6 +464,7 @@ export function previewOf(operation: any): any {
   const metadata = getOperationMetadata(operation)
 
   return {
+    ...(metadata.id ? { id: `${metadata.id}:preview` } : {}),
     args: operation.args,
     returns: operation.previewReturns,
     ...(operation.guard !== undefined ? { guard: operation.guard } : {}),

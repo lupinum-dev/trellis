@@ -742,10 +742,7 @@ export function buildStructuredBuilder<
   TActor,
   TBuilder extends AnyBuilder,
 >(builder: TBuilder, handlerIds?: StructuredHandlerIdRegistry) {
-  return createStructuredBuilder<TCtx, TCaller, TActingFor, TActor, TBuilder>(
-    builder,
-    handlerIds,
-  )
+  return createStructuredBuilder<TCtx, TCaller, TActingFor, TActor, TBuilder>(builder, handlerIds)
 }
 
 export function buildStructuredFunctions<
