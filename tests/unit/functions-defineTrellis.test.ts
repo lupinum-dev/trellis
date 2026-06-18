@@ -13,6 +13,7 @@ import {
 import { createConfirmationToken } from '../../src/runtime/functions/confirmation-token'
 import {
   defineOperation,
+  getOperationProjectionMetadata,
   operationPreview,
   previewOf,
   transportExecuteOperationRef,
@@ -1194,6 +1195,61 @@ describe('defineTrellis', () => {
 
     expect(previewDefinition.args.fields.id).toBe(args.id)
     expect(executeDefinition.args.fields.id).toBe(args.id)
+    expect(getOperationMetadata(previewDefinition)).toMatchObject({
+      id: 'todos.remove',
+      kind: 'destructive',
+      permissionKey: 'todos.remove',
+      safety: 'destructive-write',
+    })
+    expect(getOperationMetadata(executeDefinition)).toEqual(getOperationMetadata(previewDefinition))
+  })
+
+  it('registers canonical app destructive previews through mutation lane helpers', () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+        appIdentity: testAppIdentity,
+      },
+    )
+    const removeTodoPermission = definePermission({
+      key: 'todos.remove',
+      check: true,
+    })
+    const args = { id: v.string() }
+    const removeTodoOp = appOperation.destructive({
+      id: 'todos.remove',
+      args,
+      permission: removeTodoPermission,
+      safety: 'destructive-write',
+      preview: async (_ctx, input: { id: string }) =>
+        operationPreview({
+          summary: `Remove ${input.id}`,
+          confirm: { id: input.id },
+        }),
+      handler: async () => null,
+    })
+
+    const previewDefinition = runtime.mutation.workspace.preview(removeTodoOp as never) as {
+      args: { fields: { id: typeof args.id } }
+    }
+    const executeDefinition = runtime.mutation.workspace(removeTodoOp as never) as {
+      args: { fields: { id: typeof args.id } }
+    }
+
+    expect(previewDefinition.args.fields.id).toBe(args.id)
+    expect(executeDefinition.args.fields.id).toBe(args.id)
+    expect(getOperationProjectionMetadata(previewDefinition)).toMatchObject({
+      operationId: 'todos.remove',
+      projection: 'preview',
+    })
     expect(getOperationMetadata(previewDefinition)).toMatchObject({
       id: 'todos.remove',
       kind: 'destructive',

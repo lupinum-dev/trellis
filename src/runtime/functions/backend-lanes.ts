@@ -1,5 +1,6 @@
 import { authRequired } from '../auth/define-guard.js'
 import { isOpenGuard, isPermissionDefinition, open } from '../auth/index.js'
+import { previewOf } from './define-operation.js'
 
 export const trellisBackendLaneMetadataKey = Symbol.for('trellis.backendLane')
 
@@ -253,12 +254,21 @@ function createUnsafeLaneBuilder<TBuilder extends (definition: never) => unknown
   return ((definition: never) => stampBackendLane(unsafeBuilder(definition), 'unsafe')) as TBuilder
 }
 
+function attachPreviewProjection<TBuilder extends (definition: never) => unknown>(
+  builder: TBuilder,
+): TBuilder & { preview: TBuilder } {
+  return Object.assign(builder, {
+    preview: ((definition: never) => builder(previewOf(definition) as never)) as TBuilder,
+  })
+}
+
 export function attachBackendQueryLanes<
   TProtectedBuilder extends (definition: never) => unknown,
   TUnsafeBuilder extends ((definition: never) => unknown) | undefined,
 >(
   protectedBuilder: TProtectedBuilder,
   unsafeBuilder?: TUnsafeBuilder,
+  options: { preview?: boolean } = {},
 ): {
   public: (definition: never) => unknown
   session: (definition: never) => unknown
@@ -280,6 +290,13 @@ export function attachBackendQueryLanes<
     authenticated: createAuthenticatedLaneBuilder(protectedBuilder),
     workspace: createWorkspaceLaneBuilder(protectedBuilder),
     protected: createProtectedLaneBuilder(protectedBuilder),
+  }
+  if (options.preview) {
+    lanes.public = attachPreviewProjection(lanes.public as never)
+    lanes.session = attachPreviewProjection(lanes.session as never)
+    lanes.authenticated = attachPreviewProjection(lanes.authenticated as never)
+    lanes.workspace = attachPreviewProjection(lanes.workspace as never)
+    lanes.protected = attachPreviewProjection(lanes.protected as never) as TProtectedBuilder
   }
   if (unsafeBuilder) {
     lanes.unsafe = createUnsafeLaneBuilder(unsafeBuilder as never) as TUnsafeBuilder

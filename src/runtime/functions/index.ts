@@ -1179,6 +1179,10 @@ type StructuredMutationBuilder<
   >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
+type MutationPreviewProjectionBuilder<TBuilder> = TBuilder & {
+  preview: TBuilder
+}
+
 type PublicStructuredMutationBuilder<
   TCtx extends {
     caller: () => Promise<unknown>
@@ -2545,25 +2549,33 @@ type MutationWithBackendLanes<
   TActingFor extends ActingFor,
   TActor,
 > = {
-  public: PublicStructuredMutationBuilder<
-    PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-    Visibility,
-    TActor
+  public: MutationPreviewProjectionBuilder<
+    PublicStructuredMutationBuilder<
+      PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      Visibility,
+      TActor
+    >
   >
-  authenticated: AuthenticatedStructuredMutationBuilder<
-    MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-    Visibility,
-    TActor
+  authenticated: MutationPreviewProjectionBuilder<
+    AuthenticatedStructuredMutationBuilder<
+      MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      Visibility,
+      TActor
+    >
   >
-  workspace: AuthenticatedStructuredMutationBuilder<
-    WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
-    Visibility,
-    TActor
+  workspace: MutationPreviewProjectionBuilder<
+    AuthenticatedStructuredMutationBuilder<
+      WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+      Visibility,
+      TActor
+    >
   >
-  protected: StructuredMutationBuilder<
-    MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-    Visibility,
-    TActor
+  protected: MutationPreviewProjectionBuilder<
+    StructuredMutationBuilder<
+      MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      Visibility,
+      TActor
+    >
   >
   unsafe: UnsafeBuilder<MutationBuilder<DataModel, Visibility>>
 }
@@ -3522,23 +3534,30 @@ function buildTrellisRuntime<
   const mutationWithLanes = attachBackendQueryLanes(
     structured.mutation as never,
     explicitUnsafe.mutation as never,
+    { preview: true },
   ) as unknown as {
-    public: PublicStructuredMutationBuilder<
-      PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-      MutationVisibility,
-      TActor
+    public: MutationPreviewProjectionBuilder<
+      PublicStructuredMutationBuilder<
+        PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+        MutationVisibility,
+        TActor
+      >
     >
-    authenticated: AuthenticatedStructuredMutationBuilder<
-      MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-      MutationVisibility,
-      TActor
+    authenticated: MutationPreviewProjectionBuilder<
+      AuthenticatedStructuredMutationBuilder<
+        MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+        MutationVisibility,
+        TActor
+      >
     >
-    workspace: AuthenticatedStructuredMutationBuilder<
-      WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
-      MutationVisibility,
-      TActor
+    workspace: MutationPreviewProjectionBuilder<
+      AuthenticatedStructuredMutationBuilder<
+        WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+        MutationVisibility,
+        TActor
+      >
     >
-    protected: typeof structured.mutation
+    protected: MutationPreviewProjectionBuilder<typeof structured.mutation>
     unsafe: typeof explicitUnsafe.mutation
   }
   const internalQueryWithLanes = structuredInternal?.query
@@ -3575,23 +3594,30 @@ function buildTrellisRuntime<
     ? (attachBackendQueryLanes(
         structuredInternal.mutation as never,
         explicitUnsafe.internalMutation as never,
+        { preview: true },
       ) as unknown as {
-        public: PublicStructuredMutationBuilder<
-          PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-          InternalMutationVisibility,
-          TActor
+        public: MutationPreviewProjectionBuilder<
+          PublicStructuredMutationBuilder<
+            PublicMutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+            InternalMutationVisibility,
+            TActor
+          >
         >
-        authenticated: AuthenticatedStructuredMutationBuilder<
-          MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-          InternalMutationVisibility,
-          TActor
+        authenticated: MutationPreviewProjectionBuilder<
+          AuthenticatedStructuredMutationBuilder<
+            MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+            InternalMutationVisibility,
+            TActor
+          >
         >
-        workspace: AuthenticatedStructuredMutationBuilder<
-          WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
-          InternalMutationVisibility,
-          TActor
+        workspace: MutationPreviewProjectionBuilder<
+          AuthenticatedStructuredMutationBuilder<
+            WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+            InternalMutationVisibility,
+            TActor
+          >
         >
-        protected: typeof structuredInternal.mutation
+        protected: MutationPreviewProjectionBuilder<typeof structuredInternal.mutation>
         unsafe: NonNullable<typeof explicitUnsafe.internalMutation>
       })
     : undefined

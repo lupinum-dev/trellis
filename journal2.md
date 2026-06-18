@@ -298,6 +298,41 @@ loops.
   fixture toward canonical projections while keeping generated handles pointed
   at shared descriptors instead of Convex implementation files.
 
+## Slice 7: Runtime Canonical Mutation Preview Lanes
+
+### Proof
+
+- The phase0 fixture cutover exposed a runtime gap: the scanner understood
+  `mutation.workspace.preview(op)`, but the backend runtime only supported the
+  older `mutation.workspace(previewOf(op))` spelling.
+- Added a focused runtime test proving that `mutation.workspace.preview(op)`
+  preserves args, operation metadata, and projection metadata.
+
+### Implementation
+
+- Added a mutation-lane-only `.preview(op)` helper that delegates to the
+  existing `previewOf(op)` implementation before passing through the same lane
+  builder.
+- Kept query/action lanes unchanged so stored destructive confirmation semantics
+  remain mutation-owned.
+- Updated mutation lane types so public/authenticated/workspace/protected
+  mutation lanes expose the canonical preview helper.
+
+### Verification
+
+- `pnpm vitest run --project=unit tests/unit/functions-defineTrellis.test.ts -t "canonical app destructive previews"`
+  passed.
+- `pnpm vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`
+  passed.
+- `pnpm run lint:src:runtime:functions-mcp`, `pnpm run test:types:public`,
+  `pnpm run test:types:contracts`, `pnpm exec oxfmt --check ...`, and
+  `git diff --check` passed.
+
+### Notes
+
+- This closes the mismatch between the RFC/scanner syntax and runtime support.
+  The phase0 fixture can now be hard-cut to canonical projection exports.
+
 ## Next Slice Candidates
 
 1. Replace one maintained fixture/starter with registry-rendered refs and
