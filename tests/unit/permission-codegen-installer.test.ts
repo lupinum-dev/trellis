@@ -58,7 +58,7 @@ describe('permission codegen installer', () => {
     vi.clearAllMocks()
   })
 
-  it('emits permission and public-surface metadata without operation aliases', () => {
+  it('emits permission metadata without operation or public-surface aliases', () => {
     const rootDir = createFixture({
       'convex/features/projects/permissions.ts': `
         import { definePermission } from '@lupinum/trellis/app'
@@ -67,21 +67,6 @@ describe('permission codegen installer', () => {
           key: 'projects.read',
           description: 'Read projects',
         })
-      `,
-      'shared/features/projects/operations.ts': `
-        import { defineOperationDescriptor } from '@lupinum/trellis/backend'
-
-        export const createProjectDescriptor = defineOperationDescriptor({
-          id: 'projects.create',
-          kind: 'safe',
-          args: {},
-        })
-      `,
-      'convex/features/projects/domain.ts': `
-        import { mutation } from '../../functions'
-        import { createProjectDescriptor } from '../../../shared/features/projects/operations'
-
-        export const createProject = mutation.workspace(createProjectDescriptor)
       `,
     })
     const nuxt = createNuxt(rootDir)
@@ -95,7 +80,7 @@ describe('permission codegen installer', () => {
       '#trellis/permissions': '/virtual/trellis/permissions.ts',
     })
     expect(templateFilenames()).toEqual(
-      expect.arrayContaining(['trellis/permissions.ts', 'trellis/public-surface.json']),
+      expect.arrayContaining(['trellis/permissions.ts', 'trellis/permissions.json']),
     )
     expect(templateFilenames()).not.toEqual(
       expect.arrayContaining([
@@ -103,14 +88,14 @@ describe('permission codegen installer', () => {
         'trellis/operation-runtime.ts',
         'trellis/operation-handles/mcp.ts',
         'trellis/operation-projections.ts',
+        'trellis/public-surface.json',
       ]),
+    )
+    expect(nuxtKitMocks.addTypeTemplate.mock.calls.map(([input]) => input.filename)).not.toEqual(
+      expect.arrayContaining(['types/trellis-public-surface.d.ts']),
     )
 
     const permissionsSource = getTemplate('trellis/permissions.ts').getContents()
     expect(permissionsSource).toContain('projects.read')
-
-    const publicSurfaceSource = getTemplate('trellis/public-surface.json').getContents()
-    expect(publicSurfaceSource).toContain('projects.create')
-    expect(publicSurfaceSource).toContain('createProject')
   })
 })

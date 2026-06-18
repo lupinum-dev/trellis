@@ -7,6 +7,7 @@ import { installCoreTrellis } from './installers/core.js'
 import { installOperationCodegen } from './installers/operation-codegen.js'
 import { installPermissionCodegen } from './installers/permission-codegen.js'
 import { installPermissionTrellis } from './installers/permissions.js'
+import { installPublicSurfaceCodegen } from './installers/public-surface-codegen.js'
 import { validateFinalMcpDefinitionFiles } from './module-internals/mcp-definition-preflight.js'
 import type { McpDefinitionPreflightPaths } from './module-internals/mcp-definition-preflight.js'
 import type { ModuleOptions } from './module-internals/options.js'
@@ -109,6 +110,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     installAdvancedTrellis({ nuxt, resolver })
+    installPublicSurfaceCodegen({ nuxt })
     installOperationCodegen({ nuxt, resolver })
 
     if (permissionQueryPath) {

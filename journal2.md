@@ -3101,11 +3101,66 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   `trellis/public-surface.json`. Splitting always-on public-surface inventory is
   a separate remaining slice.
 
+## Slice 56: Move Public-Surface Inventory Out Of Permission Codegen
+
+### Proof
+
+- After Slice 55, runtime operation handle aliases were no longer gated by
+  `trellis.permissions.codegen`, but public-surface generated types and JSON
+  still were.
+- `installPermissionCodegen(...)` emitted both permission metadata and
+  operation/tool inventory:
+  `.nuxt/types/trellis-public-surface.d.ts` and
+  `.nuxt/trellis/public-surface.json`.
+- That kept operation/tool inventory coupled to optional permission-key
+  generation, which conflicts with the RFC distinction between operation surface
+  inventory and permission metadata.
+
+### Implementation
+
+- Added `installPublicSurfaceCodegen(...)` as a dedicated always-on Nuxt
+  installer for public-surface types and JSON.
+- Registered the public-surface installer unconditionally from the main module
+  setup path.
+- Removed public-surface templates and watch conditions from
+  `installPermissionCodegen(...)`, leaving that installer responsible only for
+  permission declarations, permission metadata, and the `#trellis/permissions`
+  runtime alias.
+- Updated docs so permission codegen no longer claims ownership of public
+  operation/tool inventory.
+- Added focused installer tests proving public-surface output is generated
+  without permission codegen and permission codegen no longer emits
+  public-surface artifacts.
+
+### Verification
+
+- Formatter check passed for the public-surface installer, permission installer,
+  module setup, focused tests, and touched docs:
+  `pnpm exec oxfmt --check src/installers/public-surface-codegen.ts src/installers/permission-codegen.ts src/module.ts tests/unit/public-surface-codegen-installer.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/module-auto-imports.test.ts tests/unit/module-validation.test.ts apps/docs/content/docs/10.configuration/4.permissions-options.md apps/docs/content/docs/13.api-reference/8.type-primitives.md`.
+- Focused public-surface, permission, module, and generated type tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen-installer.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/module-auto-imports.test.ts tests/unit/module-validation.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/public-surface-codegen.test.ts`
+  reported 6 passing test files and 21 passing tests.
+- Module build passed: `pnpm run build:module`.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Docs links passed: `pnpm run check:docs:links`.
+- Starter fixture doctor gate passed:
+  `pnpm run check:starter-fixtures:doctor` reported public, personal, workspace,
+  and workspace-mcp starter doctor passes with 0 warnings and 0 failures.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This is another ownership split, not a compatibility path. Runtime operation
+  handles, public-surface inventory, and permission metadata now have separate
+  installers.
+- The next proof gap is a prepared Nuxt fixture or typecheck that imports
+  generated operation handles while leaving permission codegen disabled.
+
 ## Next Slice Candidates
 
 1. Update RFC 0013 status and acceptance notes now that several implementation
    slices are complete, while keeping remaining release gates explicit.
-2. Split public-surface inventory generation from optional permission codegen so
-   operation/tool inventory is not gated by `trellis.permissions.codegen`.
-3. Add a Nuxt-level prepared fixture/typecheck that imports
+2. Add a Nuxt-level prepared fixture/typecheck that imports
    `#trellis/operations/mcp` without enabling permission codegen.
+3. Audit whether `trellis explain app --json` should consume the always-on
+   public-surface inventory artifact instead of only static CLI inventory.

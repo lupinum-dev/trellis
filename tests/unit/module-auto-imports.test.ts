@@ -5,12 +5,16 @@ import { installAuthTrellis } from '../../src/installers/auth'
 import { installCoreTrellis } from '../../src/installers/core'
 import { installOperationCodegen } from '../../src/installers/operation-codegen'
 import { installPermissionTrellis } from '../../src/installers/permissions'
+import { installPublicSurfaceCodegen } from '../../src/installers/public-surface-codegen'
 
 const nuxtKitMocks = vi.hoisted(() => ({
   addImports: vi.fn(),
   addServerImports: vi.fn(),
   addPlugin: vi.fn(),
   addTemplate: vi.fn(({ filename }: { filename: string }) => ({
+    dst: `/virtual/${filename}`,
+  })),
+  addTypeTemplate: vi.fn(({ filename }: { filename: string }) => ({
     dst: `/virtual/${filename}`,
   })),
   addComponentsDir: vi.fn(),
@@ -24,6 +28,7 @@ vi.mock('@nuxt/kit', () => ({
   addServerImports: nuxtKitMocks.addServerImports,
   addPlugin: nuxtKitMocks.addPlugin,
   addTemplate: nuxtKitMocks.addTemplate,
+  addTypeTemplate: nuxtKitMocks.addTypeTemplate,
   addComponentsDir: nuxtKitMocks.addComponentsDir,
   addRouteMiddleware: nuxtKitMocks.addRouteMiddleware,
   addServerHandler: nuxtKitMocks.addServerHandler,
@@ -72,6 +77,9 @@ describe('installer auto-import surface', () => {
     installAdvancedTrellis({
       nuxt: nuxt as never,
       resolver: resolver as never,
+    })
+    installPublicSurfaceCodegen({
+      nuxt: nuxt as never,
     })
     installOperationCodegen({
       nuxt: nuxt as never,
