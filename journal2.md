@@ -2084,11 +2084,62 @@ test/helpers.ts` had no matches except the candidate helper row before
 - The next high-value migration slice is public API publish/unpublish coverage,
   because that file contains most remaining direct publish transport calls.
 
+## Slice 40: Remove Ginko Test Transport Execute Helper Path
+
+### Proof
+
+- After Slice 39, all remaining direct test transport execute callers were in
+  `test/component/public-api.test.ts`.
+- Those calls were happy-path publish executions using the current draft version
+  and either `['en']` or `['en', 'de']` locales. None tested stale-version or
+  transport-specific failure behavior.
+- The only remaining transport helper map rows were publish and unpublish, so
+  migrating the public API callers would make the translation map an empty
+  compatibility path.
+
+### Implementation
+
+- In Ginko CMS commit `8f982e1`, migrated public API publish setup from
+  `publishEntryTransportExecute` calls to the generated-operation-backed
+  `publishEntry(...)` helper.
+- Preserved explicit two-locale publishes with `publishEntry(owner, entryId,
+['en', 'de'])`.
+- Deleted the now-empty `destructiveTransportExecuteFunctionRefs` test helper
+  map.
+- Removed the caller helper branch that treated `*TransportExecute` mutation
+  names as `operation-execute`; destructive operation executes now go through
+  generated operation handles instead.
+
+### Verification
+
+- Focused Ginko public API proof passed:
+  `pnpm vitest run test/component/public-api.test.ts` reported 29 passing tests.
+- Ginko operation registry drift check passed:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko package type/build proof passed: `pnpm run typecheck`.
+- Ginko lint and static guards passed: `pnpm run lint`.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Ginko whitespace proof passed: `git diff --check`.
+- Transport invariant check passed:
+  `rg -n "TransportExecute|publishEntryTransportExecute|unpublishEntryTransportExecute" test test/helpers.ts`
+  now reports only negative bridge assertions in `test/shared/mcp-tools.test.ts`.
+
+### Notes
+
+- Direct test calls to transport execute helpers are gone.
+- The test caller no longer contains a transport execute translation map or an
+  `endsWith('TransportExecute')` replay-mode branch.
+- Remaining work has moved from operation-helper migration to removing or
+  replacing production transport execute exports if they are no longer needed by
+  generated/public bridge surfaces.
+
 ## Next Slice Candidates
 
-1. Migrate Ginko public API publish/unpublish tests from transport execute refs
-   to generated operation helpers, then delete the remaining publish/unpublish
-   helper map rows when no callers remain.
+1. Audit Ginko production `*TransportExecute` exports and bridge surfaces. Delete
+   exports that are no longer part of a verified public bridge contract.
 2. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
 3. Make `trellis operations generate` easier to install into generated/consumer
