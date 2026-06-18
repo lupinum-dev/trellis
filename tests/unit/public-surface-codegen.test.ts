@@ -198,6 +198,84 @@ describe('public surface codegen', () => {
     ])
   }, 15_000)
 
+  it('extracts canonical lane preview projections', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/operations.ts': `
+        import { defineOperation, operationPreview } from '@lupinum/trellis/backend'
+        import { mutation, query } from '../../functions'
+        import { taskArchivePermission } from './permissions'
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          name: 'archiveTask',
+          kind: 'destructive',
+          args: {},
+          permission: taskArchivePermission,
+          preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
+          handler: async () => null,
+        })
+
+        export const removeTaskOp = defineOperation({
+          id: 'tasks.remove',
+          kind: 'destructive',
+          args: {},
+          permission: taskArchivePermission,
+          preview: async () => operationPreview({ summary: 'Remove task', confirm: { id: 'task_2' } }),
+          handler: async () => null,
+        })
+
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+        export const previewArchiveTask = mutation.workspace.preview(archiveTaskOp)
+        export const removeTask = mutation.authenticated(removeTaskOp)
+        export const previewRemoveTask = mutation.authenticated.preview(removeTaskOp)
+
+        const workspaceMutation = mutation.workspace
+        const selectedOperation = archiveTaskOp
+        export const aliasArchiveTask = workspaceMutation(archiveTaskOp)
+        export const aliasPreviewArchiveTask = workspaceMutation.preview(archiveTaskOp)
+        export const dynamicArchiveTask = mutation.workspace(selectedOperation)
+        export const queryPreviewArchiveTask = query.workspace.preview(archiveTaskOp)
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.projections).toEqual([
+      {
+        exportName: 'archiveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        operationExportName: 'archiveTaskOp',
+        operationId: 'tasks.archive',
+        projection: 'execute',
+      },
+      {
+        exportName: 'previewArchiveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        operationExportName: 'archiveTaskOp',
+        operationId: 'tasks.archive',
+        projection: 'preview',
+      },
+      {
+        exportName: 'removeTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        operationExportName: 'removeTaskOp',
+        operationId: 'tasks.remove',
+        projection: 'execute',
+      },
+      {
+        exportName: 'previewRemoveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        operationExportName: 'removeTaskOp',
+        operationId: 'tasks.remove',
+        projection: 'preview',
+      },
+    ])
+  }, 15_000)
+
   it('renders additive module augmentation types for generated operation and tool maps', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

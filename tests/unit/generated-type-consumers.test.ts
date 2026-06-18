@@ -216,7 +216,6 @@ describe('generated type consumer verification', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
         declare function defineOperation<T>(value: T): T
-        declare function previewOf<T>(value: T): T
         declare function operationPreview<TConfirm extends Record<string, unknown>>(value: { summary: string; confirm: TConfirm }): {
           allowed: boolean
           summary: string
@@ -226,10 +225,19 @@ describe('generated type consumer verification', () => {
           confirm: TConfirm
         }
 
-        const mutation = <TResult>(_operation: unknown) => ({
+        const workspaceMutation = (<TResult>(_operation: unknown) => ({
+          _type: 'mutation' as const,
+          _result: null as unknown as TResult,
+        })) as {
+          <TResult>(_operation: unknown): { _type: 'mutation'; _result: TResult }
+          preview: <TResult>(_operation: unknown) => { _type: 'mutation'; _result: TResult }
+        }
+        workspaceMutation.preview = <TResult>(_operation: unknown) => ({
           _type: 'mutation' as const,
           _result: null as unknown as TResult,
         })
+        const mutation = { workspace: workspaceMutation }
+
         export const archiveTaskOp = defineOperation({
           id: 'tasks.archive',
           kind: 'destructive',
@@ -239,8 +247,8 @@ describe('generated type consumer verification', () => {
           handler: async () => ({ archived: true as const }),
         })
 
-        export const archiveTask = mutation<{ archived: true }>(archiveTaskOp)
-        export const previewArchiveTask = mutation<ReturnType<typeof operationPreview<{ id: string }>>>(previewOf(archiveTaskOp))
+        export const archiveTask = mutation.workspace<{ archived: true }>(archiveTaskOp)
+        export const previewArchiveTask = mutation.workspace.preview<ReturnType<typeof operationPreview<{ id: string }>>>(archiveTaskOp)
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '../../../../convex/features/tasks/operations'

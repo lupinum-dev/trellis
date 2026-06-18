@@ -68,13 +68,61 @@ loops.
   `execute` / `preview` options remain available for noncanonical package and
   bridge boundaries.
 
+## Slice 2: Canonical Projection Scanner Grammar
+
+### Proof
+
+- Added a scanner fixture for the RFC 0013 canonical forms:
+  `mutation.workspace(op)` and `mutation.workspace.preview(op)`.
+- The first focused run failed because `.preview(op)` was classified as an
+  execute projection. That proved the scanner was only reading the first
+  argument and ignoring the lane callee.
+- Added aliased/dynamic forms in the same fixture. The focused run showed
+  aliased calls such as `workspaceMutation(op)` were also silently extracted as
+  execute projections, which would pollute the derived registry.
+
+### Implementation
+
+- Added a canonical projection-call classifier for direct
+  `mutation|query|action.<lane>(...)` execute projections and direct
+  `mutation.<lane>.preview(...)` preview projections.
+- `extractProjectionBinding(...)` now ignores unsupported aliased or dynamic
+  projection calls instead of treating any exported call with an operation first
+  argument as a projection.
+- Kept existing `previewOf(op)` support only behind canonical lane calls so
+  current released examples/tests continue to scan while the RFC hard-cut path
+  is implemented.
+- Updated the generated-type consumer fixture away from fake `mutation<T>(op)`
+  calls and onto the canonical lane shape.
+
+### Verification
+
+- Initial focused proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts -t "canonical lane preview"`.
+- After implementation, the focused canonical scanner test passed.
+- `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts`
+  passed.
+- `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/cli-explain.test.ts`
+  passed.
+- `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` passed.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- This slice does not yet produce targeted diagnostics for unsupported
+  projection syntax. It prevents false registry facts first; a later registry
+  validation slice should turn ignored unsupported exports into actionable
+  errors when they are intended operation projections.
+- The next structural step is to split scanned operation/projection facts into a
+  registry-oriented model that can drive generated runtime handles.
+
 ## Next Slice Candidates
 
 1. Split public-surface extraction into core operation registry and surface
    inventory.
-2. Teach the scanner the RFC 0013 canonical projection grammar:
-   `mutation.workspace(op)` and `mutation.workspace.preview(op)`.
-3. Generate runtime-filtered handle modules from scanned projection facts.
-4. Add scanner golden tests for rejected dynamic/aliased/re-exported forms.
-5. Replace one maintained MCP example with generated handles after scan-backed
+2. Generate runtime-filtered handle modules from scanned projection facts.
+3. Add scanner/registry diagnostics for rejected dynamic, aliased,
+   conditional, and re-exported forms.
+4. Replace one maintained MCP example with generated handles after scan-backed
    handles exist.

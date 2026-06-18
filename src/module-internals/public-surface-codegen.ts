@@ -142,6 +142,40 @@ function readExecuteOperationIdentifier(expression: Node | undefined): string | 
   return null
 }
 
+type CanonicalProjectionCallKind = 'execute' | 'preview'
+
+const canonicalProjectionRoots = new Set(['mutation', 'query', 'action'])
+const canonicalPreviewProjectionRoots = new Set(['mutation'])
+
+function readCanonicalProjectionCallKind(
+  expression: Node | undefined,
+): CanonicalProjectionCallKind | null {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression || !Node.isCallExpression(unwrappedExpression)) return null
+
+  const callee = unwrapExpression(unwrappedExpression.getExpression())
+  if (!callee || !Node.isPropertyAccessExpression(callee)) return null
+
+  if (callee.getName() === 'preview') {
+    const laneExpression = unwrapExpression(callee.getExpression())
+    if (!laneExpression || !Node.isPropertyAccessExpression(laneExpression)) return null
+
+    const rootExpression = unwrapExpression(laneExpression.getExpression())
+    return rootExpression &&
+      Node.isIdentifier(rootExpression) &&
+      canonicalPreviewProjectionRoots.has(rootExpression.getText())
+      ? 'preview'
+      : null
+  }
+
+  const rootExpression = unwrapExpression(callee.getExpression())
+  return rootExpression &&
+    Node.isIdentifier(rootExpression) &&
+    canonicalProjectionRoots.has(rootExpression.getText())
+    ? 'execute'
+    : null
+}
+
 function readStringProperty(node: ObjectLiteralExpression, name: string): string | undefined {
   const property = node.getProperty(name)
   if (!property || !Node.isPropertyAssignment(property)) return undefined
@@ -264,6 +298,26 @@ function extractProjectionBinding(
   const [firstArg] = initializer.getArguments()
   const unwrappedFirstArg = unwrapExpression(firstArg)
   if (!unwrappedFirstArg) return null
+
+  const projectionCallKind = readCanonicalProjectionCallKind(initializer)
+  if (!projectionCallKind) return null
+
+  if (projectionCallKind === 'preview') {
+    const previewOperationIdentifier = readExecuteOperationIdentifier(unwrappedFirstArg)
+    if (!previewOperationIdentifier) return null
+
+    const operation = operationsByExport.get(previewOperationIdentifier)
+    if (!operation) return null
+
+    return {
+      operationId: operation.id,
+      operationExportName: operation.exportName,
+      exportName: declaration.getName(),
+      file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
+      line: declaration.getNameNode().getStartLineNumber(),
+      projection: 'preview',
+    }
+  }
 
   const previewOperationIdentifier = readPreviewOperationIdentifier(unwrappedFirstArg)
   if (previewOperationIdentifier) {
