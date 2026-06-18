@@ -43,16 +43,14 @@ function createNuxt(rootDir: string) {
   }
 }
 
-function createResolver() {
-  return {
-    resolve: (path: string) => `/resolved${path}`,
-  }
-}
-
 function getTemplate(filename: string): { getContents: () => string } {
   const call = nuxtKitMocks.addTemplate.mock.calls.find(([input]) => input.filename === filename)
   expect(call, filename).toBeDefined()
   return call![0] as { getContents: () => string }
+}
+
+function templateFilenames(): string[] {
+  return nuxtKitMocks.addTemplate.mock.calls.map(([input]) => input.filename)
 }
 
 describe('permission codegen installer', () => {
@@ -60,121 +58,59 @@ describe('permission codegen installer', () => {
     vi.clearAllMocks()
   })
 
-  it('emits registry-derived operation refs and MCP handles', () => {
+  it('emits permission and public-surface metadata without operation aliases', () => {
     const rootDir = createFixture({
+      'convex/features/projects/permissions.ts': `
+        import { definePermission } from '@lupinum/trellis/app'
+
+        export const projectRead = definePermission({
+          key: 'projects.read',
+          description: 'Read projects',
+        })
+      `,
       'shared/features/projects/operations.ts': `
-        import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
-        import { v } from 'convex/values'
+        import { defineOperationDescriptor } from '@lupinum/trellis/backend'
 
         export const createProjectDescriptor = defineOperationDescriptor({
           id: 'projects.create',
           kind: 'safe',
-          args: { name: v.string() },
-        })
-
-        export const deleteProjectDescriptor = defineOperationDescriptor({
-          id: 'projects.delete',
-          kind: 'destructive',
-          args: { id: v.string() },
-          previewReturns: operationPreviewValidator({
-            confirm: v.object({ id: v.string() }),
-          }),
+          args: {},
         })
       `,
       'convex/features/projects/domain.ts': `
         import { mutation } from '../../functions'
-        import { createProjectDescriptor, deleteProjectDescriptor } from '../../../shared/features/projects/operations'
+        import { createProjectDescriptor } from '../../../shared/features/projects/operations'
 
         export const createProject = mutation.workspace(createProjectDescriptor)
-        export const deleteProject = mutation.workspace(deleteProjectDescriptor)
-        export const previewDeleteProject = mutation.workspace.preview(deleteProjectDescriptor)
       `,
     })
     const nuxt = createNuxt(rootDir)
 
     installPermissionCodegen({
       nuxt: nuxt as never,
-      resolver: createResolver() as never,
-      include: [],
+      include: ['convex/features/**/permissions.ts'],
     })
 
-    expect(nuxt.options.alias).toMatchObject({
-      '#trellis/operation-runtime': '/virtual/trellis/operation-runtime.ts',
-      '#trellis/operations/client': '/virtual/trellis/operation-handles/client.ts',
-      '#trellis/operations/mcp': '/virtual/trellis/operation-handles/mcp.ts',
-      '#trellis/operations/server': '/virtual/trellis/operation-handles/server.ts',
-      '#trellis/operations/testing': '/virtual/trellis/operation-handles/testing.ts',
-      '#trellis/operation-projections': '/virtual/trellis/operation-projections.ts',
+    expect(nuxt.options.alias).toEqual({
+      '#trellis/permissions': '/virtual/trellis/permissions.ts',
     })
-
-    const runtimeSource = getTemplate('trellis/operation-runtime.ts').getContents()
-    expect(runtimeSource).toContain(
-      "export { defineOperationHandle, projectOperationRef } from '/resolved./runtime/functions/operation-metadata'",
+    expect(templateFilenames()).toEqual(
+      expect.arrayContaining(['trellis/permissions.ts', 'trellis/public-surface.json']),
+    )
+    expect(templateFilenames()).not.toEqual(
+      expect.arrayContaining([
+        'trellis/operation-refs.ts',
+        'trellis/operation-runtime.ts',
+        'trellis/operation-handles/mcp.ts',
+        'trellis/operation-projections.ts',
+      ]),
     )
 
-    const refsSource = getTemplate('trellis/operation-refs.ts').getContents()
-    expect(refsSource).toContain("import { projectOperationRef } from '#trellis/operation-runtime'")
-    expect(refsSource).toContain("import { api } from '#trellis/api'")
-    expect(refsSource).toContain("from '../../shared/features/projects/operations'")
-    expect(refsSource).toContain('api.features.projects.domain.createProject')
-    expect(refsSource).toContain("{ functionRef: 'projects.create' }")
-    expect(refsSource).toContain("functionRef: 'projects.delete:preview'")
-    expect(refsSource).toContain("executeFunctionRef: 'projects.delete'")
+    const permissionsSource = getTemplate('trellis/permissions.ts').getContents()
+    expect(permissionsSource).toContain('projects.read')
 
-    for (const runtime of ['client', 'server', 'testing', 'mcp'] as const) {
-      const handlesSource = getTemplate(`trellis/operation-handles/${runtime}.ts`).getContents()
-      expect(handlesSource).toContain(
-        "import { defineOperationHandle } from '#trellis/operation-runtime'",
-      )
-      expect(handlesSource).toContain("from '../../../shared/features/projects/operations'")
-      expect(handlesSource).toContain("from '../operation-refs'")
-      expect(handlesSource).toContain("executeOperation: 'mutation'")
-      expect(handlesSource).toContain("previewOperation: 'mutation'")
-      expect(handlesSource).toContain(`runtimes: ['${runtime}']`)
-      expect(handlesSource).toContain("'projects.delete': deleteProjectHandle")
-    }
-
-    const projectionsSource = getTemplate('trellis/operation-projections.ts').getContents()
-    expect(projectionsSource).toContain(
-      "import type { OperationProjectionRegistry } from '@lupinum/trellis/app'",
-    )
-    expect(projectionsSource).toContain("fingerprint: 'sha256:")
-    expect(projectionsSource).toContain("'projects.create': 'projects.create'")
-    expect(projectionsSource).toContain("'projects.delete': 'projects.delete'")
-    expect(projectionsSource).toContain("'projects.delete': 'projects.delete:preview'")
-  })
-
-  it('emits empty operation registry modules when no operations are defined', () => {
-    const rootDir = createFixture({})
-    const nuxt = createNuxt(rootDir)
-
-    installPermissionCodegen({
-      nuxt: nuxt as never,
-      resolver: createResolver() as never,
-      include: [],
-    })
-
-    expect(getTemplate('trellis/operation-refs.ts').getContents())
-      .toBe(`// AUTO-GENERATED. Do not edit.
-export {}
-`)
-    for (const runtime of ['client', 'server', 'testing', 'mcp'] as const) {
-      expect(getTemplate(`trellis/operation-handles/${runtime}.ts`).getContents())
-        .toBe(`// AUTO-GENERATED. Do not edit.
-export const operations = {
-  byId: {},
-} as const
-`)
-    }
-    expect(getTemplate('trellis/operation-projections.ts').getContents())
-      .toBe(`// AUTO-GENERATED. Do not edit.
-import type { OperationProjectionRegistry } from '@lupinum/trellis/app'
-
-export const operationProjectionRegistry = {
-  fingerprint: 'sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
-  executeById: {},
-  previewById: {},
-} as const satisfies OperationProjectionRegistry
-`)
+    const publicSurfaceSource = getTemplate('trellis/public-surface.json').getContents()
+    expect(publicSurfaceSource).toContain('projects.create')
+    expect(publicSurfaceSource).toContain('createProject')
   })
 })

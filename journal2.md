@@ -2980,14 +2980,6 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   component mini-CMS projections. The contract generator and full security gate
   now agree on the current tree.
 
-## Next Slice Candidates
-
-1. Update RFC 0013 status and acceptance notes now that several implementation
-   slices are complete, while keeping remaining release gates explicit.
-2. Start the Nuxt prepare/runtime alias slice for generated operation handles so
-   `#trellis/operations/{client,server,mcp,testing}` is produced by Trellis
-   instead of only fixture/package scripts.
-
 ## Slice 54: Check Operation Projection Registry Outside Nuxt Prepare
 
 ### Proof
@@ -3050,3 +3042,70 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - The next implementation gap is still the full Nuxt prepare lifecycle for
   generating runtime-filtered operation handles and aliases. This slice gives
   source and package consumers a concrete non-Nuxt drift check first.
+
+## Slice 55: Move Operation Handle Generation Into Nuxt Prepare
+
+### Proof
+
+- Trellis already had Nuxt templates for `#trellis/operations/client`,
+  `#trellis/operations/server`, `#trellis/operations/testing`, and
+  `#trellis/operations/mcp`, but the implementation lived inside
+  `installPermissionCodegen(...)`.
+- `installPermissionCodegen(...)` only runs when `trellis.permissions.codegen`
+  is enabled. That made runtime operation handles accidentally depend on
+  optional permission metadata generation.
+- This contradicted the RFC model: operation handles are the normal Nuxt runtime
+  projection path, while permission codegen is an optional typed permission and
+  public-surface metadata layer.
+
+### Implementation
+
+- Extracted operation registry template generation into a dedicated
+  `installOperationCodegen(...)` installer.
+- Registered the operation installer unconditionally from the main Nuxt module
+  setup path, after core/advanced aliases are installed.
+- Kept permission codegen opt-in and removed operation refs, operation handles,
+  operation projection registry aliases, and operation runtime aliases from the
+  permission installer.
+- Made the operation installer use target-specific generation:
+  operation refs render only refs, operation handle templates render their one
+  runtime handle module plus refs, and the Convex projection registry renders
+  only the projection artifact.
+- Preserved the existing builder watch refresh behavior for operation/public
+  surface source changes.
+
+### Verification
+
+- Formatter check passed for the operation installer, permission installer,
+  module setup, and focused tests:
+  `pnpm exec oxfmt --check src/installers/operation-codegen.ts src/installers/permission-codegen.ts src/module.ts tests/unit/operation-codegen-installer.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/module-auto-imports.test.ts tests/unit/module-validation.test.ts`.
+- Focused installer/module tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-codegen-installer.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/module-auto-imports.test.ts tests/unit/module-validation.test.ts`
+  reported 4 passing test files and 11 passing tests.
+- Module build passed: `pnpm run build:module`.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Adjacent module/starter/MCP tests passed:
+  `pnpm vitest run --project=unit tests/unit/module-setup.test.ts tests/unit/api-surface-doc.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/phase0-starter-manifest.test.ts`
+  reported 4 passing test files and 25 passing tests.
+- Starter fixture doctor gate passed:
+  `pnpm run check:starter-fixtures:doctor` reported public, personal, workspace,
+  and workspace-mcp starter doctor passes with 0 warnings and 0 failures.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This is a hard ownership split, not a compatibility layer. Operation aliases
+  no longer depend on `trellis.permissions.codegen`.
+- Permission codegen still owns `.nuxt/types/trellis-permissions.d.ts`,
+  `.nuxt/types/trellis-public-surface.d.ts`, `trellis/permissions.json`, and
+  `trellis/public-surface.json`. Splitting always-on public-surface inventory is
+  a separate remaining slice.
+
+## Next Slice Candidates
+
+1. Update RFC 0013 status and acceptance notes now that several implementation
+   slices are complete, while keeping remaining release gates explicit.
+2. Split public-surface inventory generation from optional permission codegen so
+   operation/tool inventory is not gated by `trellis.permissions.codegen`.
+3. Add a Nuxt-level prepared fixture/typecheck that imports
+   `#trellis/operations/mcp` without enabling permission codegen.

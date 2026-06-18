@@ -20,11 +20,13 @@ vi.mock('@nuxt/kit', () => ({
     resolve: (...segments: string[]) => segments.join('/'),
   }),
   addTemplate: vi.fn(({ filename }: { filename: string }) => ({ dst: filename })),
+  addTypeTemplate: vi.fn(({ filename }: { filename: string }) => ({ dst: filename })),
   addImports: vi.fn(),
   addServerHandler: vi.fn(),
   addServerImports: vi.fn(),
   addComponentsDir: vi.fn(),
   addRouteMiddleware: vi.fn(),
+  updateTemplates: vi.fn(),
   useLogger: () => ({
     warn: loggerWarnMock,
     info: loggerInfoMock,
@@ -60,6 +62,34 @@ describe('module validation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
+
+  it('registers generated operation aliases without enabling permission codegen', async () => {
+    const rootDir = createFixture({})
+    const nuxt = createNuxt(rootDir)
+    const moduleDefinition = (await import('../../src/module')).default as unknown as {
+      setup: (options: Record<string, unknown>, nuxt: ReturnType<typeof createNuxt>) => void
+    }
+
+    moduleDefinition.setup(
+      {
+        auth: false,
+        permissions: {
+          codegen: false,
+        },
+      },
+      nuxt,
+    )
+
+    expect(nuxt.options.alias).toMatchObject({
+      '#trellis/operation-runtime': 'trellis/operation-runtime.ts',
+      '#trellis/operation-projections': 'trellis/operation-projections.ts',
+      '#trellis/operations/client': 'trellis/operation-handles/client.ts',
+      '#trellis/operations/server': 'trellis/operation-handles/server.ts',
+      '#trellis/operations/testing': 'trellis/operation-handles/testing.ts',
+      '#trellis/operations/mcp': 'trellis/operation-handles/mcp.ts',
+    })
+    expect(nuxt.options.alias).not.toHaveProperty('#trellis/permissions')
+  }, 15_000)
 
   it('warns by default when auth-only APIs are used while auth is disabled', async () => {
     const rootDir = createFixture({

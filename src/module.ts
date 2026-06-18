@@ -4,6 +4,7 @@ import { setupConvexDevtools } from './devtools.js'
 import { installAdvancedTrellis } from './installers/advanced.js'
 import { installAuthTrellis } from './installers/auth.js'
 import { installCoreTrellis } from './installers/core.js'
+import { installOperationCodegen } from './installers/operation-codegen.js'
 import { installPermissionCodegen } from './installers/permission-codegen.js'
 import { installPermissionTrellis } from './installers/permissions.js'
 import { validateFinalMcpDefinitionFiles } from './module-internals/mcp-definition-preflight.js'
@@ -108,6 +109,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     installAdvancedTrellis({ nuxt, resolver })
+    installOperationCodegen({ nuxt, resolver })
 
     if (permissionQueryPath) {
       installPermissionTrellis({
@@ -119,7 +121,6 @@ export default defineNuxtModule<ModuleOptions>({
     if (setup.permissionCodegenEnabled) {
       installPermissionCodegen({
         nuxt,
-        resolver,
         include: setup.permissionCodegenInclude,
       })
     }

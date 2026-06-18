@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installAdvancedTrellis } from '../../src/installers/advanced'
 import { installAuthTrellis } from '../../src/installers/auth'
 import { installCoreTrellis } from '../../src/installers/core'
+import { installOperationCodegen } from '../../src/installers/operation-codegen'
 import { installPermissionTrellis } from '../../src/installers/permissions'
 
 const nuxtKitMocks = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const nuxtKitMocks = vi.hoisted(() => ({
   addComponentsDir: vi.fn(),
   addRouteMiddleware: vi.fn(),
   addServerHandler: vi.fn(),
+  updateTemplates: vi.fn(),
 }))
 
 vi.mock('@nuxt/kit', () => ({
@@ -25,6 +27,7 @@ vi.mock('@nuxt/kit', () => ({
   addComponentsDir: nuxtKitMocks.addComponentsDir,
   addRouteMiddleware: nuxtKitMocks.addRouteMiddleware,
   addServerHandler: nuxtKitMocks.addServerHandler,
+  updateTemplates: nuxtKitMocks.updateTemplates,
 }))
 
 function createResolver() {
@@ -67,6 +70,10 @@ describe('installer auto-import surface', () => {
       permissionQueryPath: 'permissions/context.getAccessContext',
     })
     installAdvancedTrellis({
+      nuxt: nuxt as never,
+      resolver: resolver as never,
+    })
+    installOperationCodegen({
       nuxt: nuxt as never,
       resolver: resolver as never,
     })
@@ -143,6 +150,12 @@ describe('installer auto-import surface', () => {
       '#trellis/api': '/virtual/trellis/api.ts',
       '#trellis/server': '/virtual/trellis/server.ts',
       '#trellis/mcp': '/virtual/trellis/mcp.ts',
+      '#trellis/operation-runtime': '/virtual/trellis/operation-runtime.ts',
+      '#trellis/operation-projections': '/virtual/trellis/operation-projections.ts',
+      '#trellis/operations/client': '/virtual/trellis/operation-handles/client.ts',
+      '#trellis/operations/server': '/virtual/trellis/operation-handles/server.ts',
+      '#trellis/operations/testing': '/virtual/trellis/operation-handles/testing.ts',
+      '#trellis/operations/mcp': '/virtual/trellis/operation-handles/mcp.ts',
     })
   })
 })
