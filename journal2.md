@@ -4517,3 +4517,86 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
   left no new tracked changes.
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
+
+## Slice 80: Current-Head Consumer Tarball Proof
+
+### Goal
+
+- Close the journal gap after the full Trellis release gate by recording the
+  real `ginko-cms` and `i18n-cms` consumer proof against the current Trellis
+  hardening head.
+- Keep the proof local-tarball only. Do not treat npm registry resolution as
+  valid evidence for this RFC.
+
+### Proof
+
+- Current Trellis head for this proof is
+  `eca631c docs: record final release verification`.
+- Current Trellis local tarballs exist under `/Users/matthias/Git/workspace/trellis/.pack`:
+  - `lupinum-trellis-0.3.1.tgz`
+  - `lupinum-trellis-bridge-0.3.1.tgz`
+- The CMS package proof directory contains fresh local tarballs for:
+  - `@lupinum/ginko-cms@0.1.3`
+  - `@lupinum/ginko-cms-contract@0.1.1`
+  - `@lupinum/ginko-cms-convex@0.1.2`
+  - `@lupinum/ginko-content@0.1.6`
+  - `@lupinum/trellis@0.3.1`
+  - `@lupinum/trellis-bridge@0.3.1`
+- `i18n-cms/package.json` resolves all six packages through
+  `file:../ginko-cms/.pack/...` dependencies. No npm-registry Trellis, Trellis
+  Bridge, Ginko CMS, Ginko CMS Contract, Ginko CMS Convex, or Ginko Content
+  package is part of this consumer proof.
+
+### Implementation
+
+- No Trellis runtime code changed in this slice.
+- The consumer proof exposed a CMS Studio asset-loading issue, not a Trellis
+  foundation issue:
+  - query-string versioning on `main.js?v=...` split the Vite module graph,
+    because lazy chunks import `./main.js` without the query;
+  - the CMS fix is a content-hashed Studio asset base path plus relative Vite
+    production asset URLs;
+  - the Studio app keeps a dedicated mount-root wrapper because the clean
+    consumer smoke timed out without it.
+- The consumer proof and residual CMS risks were recorded in
+  `/Users/matthias/Git/workspace/ginko-cms/update.md`.
+
+### Verification
+
+- CMS validation after the final Trellis/Ginko Content cutover passed:
+  - `pnpm run check` in `/Users/matthias/Git/workspace/ginko-cms`
+    reported 90 test files passed, 713 tests passed, and 1 skipped.
+  - `pnpm run package:e2e` in `/Users/matthias/Git/workspace/ginko-cms`
+    installed only local tarballs, passed package imports, and reported
+    `trellis doctor` at 33 passed checks, 1 expected missing Convex URL env
+    warning, and 0 failures.
+- Real consumer validation in `/Users/matthias/Git/workspace/i18n-cms` passed
+  with local `file:` tarballs:
+  - `pnpm install --force`
+  - `pnpm run typecheck`
+  - `pnpm run build`
+  - built-server `pnpm run smoke:cms` against `http://127.0.0.1:9999` with the
+    configured test credentials
+  - direct search and sitemap probes
+  - in-app browser proof for public content, German locale switching,
+    localized search, Studio settings/login, MCP key settings visibility, and
+    versioned Studio asset loading with no current browser console errors
+- Focused current-state checks for this journal slice passed:
+  - `git rev-parse --short HEAD` in Trellis returned `eca631c`.
+  - local Trellis tarballs were present in `.pack/`.
+  - local CMS proof tarballs were present in `/Users/matthias/Git/workspace/ginko-cms/.pack`.
+  - a package.json check verified that `i18n-cms` uses `file:` tarball
+    dependencies for all six local Lupinum packages.
+  - `rg` confirmed the current proof is recorded in
+    `/Users/matthias/Git/workspace/ginko-cms/update.md`.
+
+### Notes
+
+- The current evidence supports the Trellis-core judgement: no open
+  Trellis-foundation blocker is known after the current-head consumer proof.
+- Remaining risks are CMS/consumer hygiene, not Trellis blockers:
+  - keep the remaining CMS protected-handler inventory intentional;
+  - keep CMS `unsafeRaw` usage allowlisted;
+  - keep package/browser consumer proof fresh whenever Trellis changes.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
