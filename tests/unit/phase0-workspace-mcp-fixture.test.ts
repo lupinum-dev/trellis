@@ -131,6 +131,9 @@ describe('phase0 workspace-mcp fixture', () => {
       const toolSource = readFileSync(resolve(process.cwd(), toolPath), 'utf8')
       expect(toolSource).not.toContain('/convex/')
       expect(toolSource).not.toContain('convex/features')
+      expect(toolSource).toContain("from '../../../generated/operation-handles/mcp'")
+      expect(toolSource).not.toContain('operation-refs')
+      expect(toolSource).not.toContain('Descriptor')
     }
 
     const publicSurfaceFiles = [
@@ -140,6 +143,10 @@ describe('phase0 workspace-mcp fixture', () => {
         resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/features/projects'),
       ),
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
+      resolve(
+        process.cwd(),
+        'tests/fixtures/phase0-workspace-mcp/generated/operation-handles/mcp.ts',
+      ),
     ]
 
     const mcpRuntimePath = resolve(
@@ -166,6 +173,21 @@ describe('phase0 workspace-mcp fixture', () => {
     expect(operationRefsSource).toContain('createProjectRef')
     expect(operationRefsSource).not.toContain('{} as never')
     expect(operationRefsSource).not.toContain('src/runtime')
+
+    const operationHandlesSource = readFileSync(
+      resolve(
+        process.cwd(),
+        'tests/fixtures/phase0-workspace-mcp/generated/operation-handles/mcp.ts',
+      ),
+      'utf8',
+    )
+    expect(operationHandlesSource).toContain("from '@lupinum/trellis/mcp'")
+    expect(operationHandlesSource).toContain("from '../operation-refs'")
+    expect(operationHandlesSource).toContain('operations = {')
+    expect(operationHandlesSource).toContain("'projects.create': createProjectHandle")
+    expect(operationHandlesSource).not.toContain('/convex/')
+    expect(operationHandlesSource).not.toContain('convex/features')
+    expect(operationHandlesSource).not.toContain('src/runtime')
 
     const generatedApiTypes = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),

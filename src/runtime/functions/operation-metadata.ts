@@ -32,8 +32,18 @@ export type TrellisOperationProjectionMetadata = {
   executeFunctionRef?: string
 }
 
+export type OperationHandleRuntime = 'client' | 'server' | 'mcp' | 'testing' | 'internal'
+
+export type OperationHandleProjection =
+  | 'default-app'
+  | 'internal'
+  | 'service'
+  | 'bridge'
+  | 'component'
+
 export const trellisOperationMetadataKey = Symbol.for('trellis.operation')
 export const trellisOperationProjectionMetadataKey = Symbol.for('trellis.operation.projection')
+export const trellisOperationHandleKey = Symbol.for('trellis.operation.handle')
 
 export type OperationProjectionKind = TrellisOperationProjectionMetadata['projection']
 
@@ -69,6 +79,20 @@ export type OperationDescriptor<
   readonly [trellisOperationMetadataKey]: TrellisOperationMetadata
 }
 
+export type OperationHandle<
+  TDescriptor extends OperationDescriptor = OperationDescriptor,
+  TExecuteRef = unknown,
+  TPreviewRef = unknown,
+> = Omit<TDescriptor, '_type'> & {
+  readonly _type: 'operation-handle'
+  readonly key: TDescriptor['id']
+  readonly projection: OperationHandleProjection
+  readonly runtimes: readonly OperationHandleRuntime[]
+  readonly executeRef: TExecuteRef
+  readonly previewRef?: TPreviewRef
+  readonly [trellisOperationHandleKey]: true
+}
+
 export function isOperationDescriptor(value: unknown): value is OperationDescriptor {
   return (
     typeof value === 'object' &&
@@ -79,6 +103,50 @@ export function isOperationDescriptor(value: unknown): value is OperationDescrip
     (value as { [trellisOperationMetadataKey]?: unknown })[trellisOperationMetadataKey] !==
       undefined
   )
+}
+
+export function isOperationHandle(value: unknown): value is OperationHandle {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { _type?: unknown })._type === 'operation-handle' &&
+    (value as { [trellisOperationHandleKey]?: unknown })[trellisOperationHandleKey] === true
+  )
+}
+
+export function defineOperationHandle<
+  const TDescriptor extends OperationDescriptor,
+  const TExecuteRef,
+  const TPreviewRef = undefined,
+>(
+  descriptor: TDescriptor,
+  options: {
+    executeRef: TExecuteRef
+    previewRef?: TPreviewRef
+    projection?: OperationHandleProjection
+    runtimes?: readonly OperationHandleRuntime[]
+  },
+): OperationHandle<TDescriptor, TExecuteRef, TPreviewRef> {
+  if (descriptor.id.trim().length === 0) {
+    throw new Error('defineOperationHandle(...) requires a descriptor with a non-empty id.')
+  }
+
+  if (descriptor.kind === 'destructive' && options.previewRef === undefined) {
+    throw new Error(
+      `defineOperationHandle(${descriptor.id}) requires a previewRef for destructive operations.`,
+    )
+  }
+
+  return Object.assign({}, descriptor, {
+    _type: 'operation-handle' as const,
+    key: descriptor.id,
+    projection: options.projection ?? 'default-app',
+    runtimes: options.runtimes ?? (['mcp', 'testing'] as const),
+    executeRef: options.executeRef,
+    ...(options.previewRef !== undefined ? { previewRef: options.previewRef } : {}),
+    [trellisOperationMetadataKey]: descriptor[trellisOperationMetadataKey],
+    [trellisOperationHandleKey]: true,
+  }) as OperationHandle<TDescriptor, TExecuteRef, TPreviewRef>
 }
 
 export type OperationMetadataDefinition<

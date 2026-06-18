@@ -38,10 +38,12 @@ export type {
 
 export {
   defineOperationDescriptor,
+  defineOperationHandle,
   defineOperationMetadata,
   executeOperationRef,
   getOperationMetadata,
   getOperationProjectionMetadata,
+  isOperationHandle,
   isOperationDescriptor,
   previewOperationRef,
   projectOperationRef,
@@ -52,6 +54,9 @@ export {
 export type {
   McpWriteSafety,
   OperationDescriptor,
+  OperationHandle,
+  OperationHandleProjection,
+  OperationHandleRuntime,
   OperationMetadataDefinition,
   OperationKind,
   OperationIdOf,

@@ -2,6 +2,7 @@ import { operation as appOperation, operationPreview } from '@lupinum/trellis/ap
 import { defineArgs } from '@lupinum/trellis/args'
 import { definePermission } from '@lupinum/trellis/auth'
 import {
+  defineOperationDescriptor,
   executeOperationRef,
   previewOperationRef,
   type OperationPreviewEnvelope,
@@ -9,6 +10,7 @@ import {
 import {
   createMcpConvexCaller,
   defineMcpApp,
+  defineOperationHandle,
   deniedMcpAccessSnapshot,
   type McpConfirmationRedeemInput,
   type ValidateMcpToolOptions,
@@ -105,6 +107,17 @@ const previewRef = previewOperationRef(
     OperationPreviewEnvelope<{ id: string }>
   >,
 )
+const operationDescriptor = defineOperationDescriptor({
+  id: 'entries.archive',
+  kind: 'destructive',
+  args: _schema.args,
+  permission: publishPermission,
+  safety: 'destructive-write',
+})
+const operationHandle = defineOperationHandle(operationDescriptor, {
+  executeRef,
+  previewRef,
+})
 
 // @ts-expect-error app-backed MCP writes must use operation-backed tools
 runtime.tool.mutation({
@@ -115,6 +128,10 @@ runtime.tool.mutation({
 runtime.tool.operation(operation, {
   execute: executeRef,
   preview: previewRef,
+  permission: publishPermission,
+})
+
+runtime.tool.operation(operationHandle, {
   permission: publishPermission,
 })
 

@@ -2,11 +2,15 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 
 import {
+  renderOperationHandlesModule,
+  type OperationHandleBindingInput,
+} from './operation-handle-codegen.js'
+import {
   renderOperationRefsModule,
   type OperationRefBindingInput,
 } from './operation-ref-codegen.js'
 
-export type StarterGeneratedFile = {
+export type StarterOperationRefsGeneratedFile = {
   kind: 'operationRefs'
   path: string
   projectOperationRefImport: string
@@ -15,6 +19,21 @@ export type StarterGeneratedFile = {
   descriptors: readonly string[]
   refs: readonly OperationRefBindingInput[]
 }
+
+export type StarterOperationHandlesGeneratedFile = {
+  kind: 'operationHandles'
+  path: string
+  defineOperationHandleImport: string
+  descriptorImport: string
+  refsImport: string
+  descriptors: readonly string[]
+  refs: readonly string[]
+  handles: readonly OperationHandleBindingInput[]
+}
+
+export type StarterGeneratedFile =
+  | StarterOperationRefsGeneratedFile
+  | StarterOperationHandlesGeneratedFile
 
 export interface StarterFixtureManifest {
   name: string
@@ -33,6 +52,13 @@ export function renderStarterGeneratedFiles(
   manifest: StarterFixtureManifest,
 ): RenderedStarterFile[] {
   return (manifest.generated ?? []).map((file) => {
+    if (file.kind === 'operationHandles') {
+      return {
+        path: file.path,
+        content: renderOperationHandlesModule(file),
+      }
+    }
+
     return {
       path: file.path,
       content: renderOperationRefsModule(file),

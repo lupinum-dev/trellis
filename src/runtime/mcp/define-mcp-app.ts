@@ -20,8 +20,10 @@ import { defineArgs } from '../convex/shared/define-convex-schema.js'
 import { hashConfirmationToken, hashConfirmationValue } from '../functions/confirmation-token.js'
 import type { ActingFor } from '../functions/define-acting-for.js'
 import {
-  isOperationPreviewEnvelope,
   getOperationMetadata,
+  isOperationHandle,
+  isOperationPreviewEnvelope,
+  type OperationHandle,
   type OperationIdOf,
   type OperationKind,
   type OperationPreviewEnvelope,
@@ -328,6 +330,23 @@ export interface ToolOperationOptions<
   maxItems?: { field: string; limit: number }
 }
 
+export type ToolOperationHandleOptions<
+  TOperation extends OperationHandle,
+  TCaller,
+  TActingFor extends ActingFor,
+  TAccess extends ProjectionAccessSnapshot | null,
+  TRuntime,
+  TExecute extends AnyFunctionRef = TOperation['executeRef'] extends AnyFunctionRef
+    ? TOperation['executeRef']
+    : AnyMutationRef,
+  TPreview extends AnyFunctionRef | undefined = TOperation['previewRef'] extends AnyFunctionRef
+    ? TOperation['previewRef']
+    : undefined,
+> = Omit<
+  ToolOperationOptions<TOperation, TCaller, TActingFor, TAccess, TRuntime, TExecute, TPreview>,
+  'execute' | 'preview'
+>
+
 export type ValidateMcpToolOptions<
   S extends AnyConvexSchema,
   TCaller,
@@ -359,19 +378,31 @@ type ToolFactory<
   ) => McpToolDefinition
   operation: <
     TOperation extends AnyOperationDefinition,
-    TExecute extends AnyFunctionRef = AnyMutationRef,
-    TPreview extends AnyFunctionRef | undefined = undefined,
+    TExecute extends AnyFunctionRef = TOperation extends OperationHandle
+      ? TOperation['executeRef'] extends AnyFunctionRef
+        ? TOperation['executeRef']
+        : AnyMutationRef
+      : AnyMutationRef,
+    TPreview extends AnyFunctionRef | undefined = TOperation extends OperationHandle
+      ? TOperation['previewRef'] extends AnyFunctionRef
+        ? TOperation['previewRef']
+        : undefined
+      : undefined,
   >(
     operation: TOperation,
-    options: ToolOperationOptions<
-      TOperation,
-      TCaller,
-      TActingFor,
-      TAccess,
-      TRuntime,
-      TExecute,
-      TPreview
-    >,
+    options:
+      | ToolOperationOptions<TOperation, TCaller, TActingFor, TAccess, TRuntime, TExecute, TPreview>
+      | (TOperation extends OperationHandle
+          ? ToolOperationHandleOptions<
+              TOperation,
+              TCaller,
+              TActingFor,
+              TAccess,
+              TRuntime,
+              TExecute,
+              TPreview
+            >
+          : never),
   ) => McpToolDefinition
 }
 
@@ -898,7 +929,57 @@ export function defineMcpApp<
       TPreview extends AnyFunctionRef | undefined = undefined,
     >(
       operation: TOperation,
-      options: ToolOperationOptions<
+      input:
+        | ToolOperationOptions<
+            TOperation,
+            TCaller,
+            TActingFor,
+            TAccess,
+            TRuntime,
+            TExecute,
+            TPreview
+          >
+        | (TOperation extends OperationHandle
+            ? ToolOperationHandleOptions<
+                TOperation,
+                TCaller,
+                TActingFor,
+                TAccess,
+                TRuntime,
+                TExecute,
+                TPreview
+              >
+            : never),
+    ): McpToolDefinition => {
+      const inputOptions = input as Partial<
+        ToolOperationOptions<TOperation, TCaller, TActingFor, TAccess, TRuntime, TExecute, TPreview>
+      > &
+        Omit<
+          ToolOperationOptions<
+            TOperation,
+            TCaller,
+            TActingFor,
+            TAccess,
+            TRuntime,
+            TExecute,
+            TPreview
+          >,
+          'execute' | 'preview'
+        >
+      const executeRef =
+        inputOptions.execute ?? (isOperationHandle(operation) ? operation.executeRef : undefined)
+      if (!executeRef) {
+        throw new Error(
+          `tool.operation(${getOperationMetadata(operation).name ?? getOperationMetadata(operation).id ?? 'operation'}) requires an execute ref or generated operation handle.`,
+        )
+      }
+      const previewRef =
+        inputOptions.preview ?? (isOperationHandle(operation) ? operation.previewRef : undefined)
+      const options = {
+        ...inputOptions,
+        execute: executeRef,
+        ...(previewRef !== undefined ? { preview: previewRef } : {}),
+      } as ToolOperationOptions<
         TOperation,
         TCaller,
         TActingFor,
@@ -906,8 +987,7 @@ export function defineMcpApp<
         TRuntime,
         TExecute,
         TPreview
-      >,
-    ): McpToolDefinition => {
+      >
       const metadata = getOperationMetadata(operation)
       if (!metadata.id) {
         throw new Error('tool.operation(...) requires an operation with an `id`.')

@@ -21,7 +21,9 @@ export {
 export { defineMcpApp } from './define-mcp-app.js'
 export { createMcpConvexCaller, deniedMcpAccessSnapshot } from './create-mcp-convex-caller.js'
 export {
+  defineOperationHandle,
   executeOperationRef,
+  isOperationHandle,
   previewOperationRef,
   projectOperationRef,
   transportExecuteOperationRef,
@@ -95,9 +97,16 @@ export type {
   McpConfirmationRedeemInput,
   McpConfirmationStore,
   McpConvexCaller,
+  ToolOperationHandleOptions,
   ToolOperationOptions,
   ValidateMcpToolOptions,
 } from './define-mcp-app.js'
+
+export type {
+  OperationHandle,
+  OperationHandleProjection,
+  OperationHandleRuntime,
+} from '../functions/operation-metadata.js'
 
 export type { CreateMcpConvexCallerOptions } from './create-mcp-convex-caller.js'
 export type { TrellisUnsafePermit } from './unsafe-permit.js'

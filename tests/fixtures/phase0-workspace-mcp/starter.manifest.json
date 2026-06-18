@@ -42,6 +42,32 @@
           "apiPath": ["features", "projects", "domain", "previewDeleteProject"]
         }
       ]
+    },
+    {
+      "kind": "operationHandles",
+      "path": "generated/operation-handles/mcp.ts",
+      "defineOperationHandleImport": "@lupinum/trellis/mcp",
+      "descriptorImport": "../../shared/features/projects/operations",
+      "refsImport": "../operation-refs",
+      "descriptors": ["createProjectDescriptor", "deleteProjectDescriptor"],
+      "refs": ["createProjectRef", "executeDeleteProjectRef", "previewDeleteProjectRef"],
+      "handles": [
+        {
+          "exportName": "createProjectHandle",
+          "operationId": "projects.create",
+          "descriptorName": "createProjectDescriptor",
+          "executeRefName": "createProjectRef",
+          "runtimes": ["mcp", "testing"]
+        },
+        {
+          "exportName": "deleteProjectHandle",
+          "operationId": "projects.delete",
+          "descriptorName": "deleteProjectDescriptor",
+          "executeRefName": "executeDeleteProjectRef",
+          "previewRefName": "previewDeleteProjectRef",
+          "runtimes": ["mcp", "testing"]
+        }
+      ]
     }
   ]
 }

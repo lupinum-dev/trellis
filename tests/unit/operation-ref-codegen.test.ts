@@ -19,9 +19,19 @@ describe('operation ref codegen', () => {
     ) as StarterFixtureManifest
     const rendered = renderStarterGeneratedFiles(manifest)
 
-    const fixture = readFileSync(resolve(fixtureRoot, 'generated/operation-refs.ts'), 'utf8')
+    const operationRefsFixture = readFileSync(
+      resolve(fixtureRoot, 'generated/operation-refs.ts'),
+      'utf8',
+    )
+    const operationHandlesFixture = readFileSync(
+      resolve(fixtureRoot, 'generated/operation-handles/mcp.ts'),
+      'utf8',
+    )
 
-    expect(rendered).toEqual([{ path: 'generated/operation-refs.ts', content: fixture }])
+    expect(rendered).toEqual([
+      { path: 'generated/operation-refs.ts', content: operationRefsFixture },
+      { path: 'generated/operation-handles/mcp.ts', content: operationHandlesFixture },
+    ])
   })
 
   it('renders a fixture-backed workspace-mcp starter file set from the manifest', () => {
@@ -37,6 +47,9 @@ describe('operation ref codegen', () => {
     expect(byPath.has('server/mcp/tools/delete-project.ts')).toBe(true)
     expect(byPath.get('generated/operation-refs.ts')).toBe(
       readFileSync(resolve(fixtureRoot, 'generated/operation-refs.ts'), 'utf8'),
+    )
+    expect(byPath.get('generated/operation-handles/mcp.ts')).toBe(
+      readFileSync(resolve(fixtureRoot, 'generated/operation-handles/mcp.ts'), 'utf8'),
     )
     expect(byPath.has('generated/mcp-tool-refs.ts')).toBe(false)
   })

@@ -1,9 +1,6 @@
-import { executeDeleteProjectRef, previewDeleteProjectRef } from '../../../generated/operation-refs'
-import { deleteProjectDescriptor } from '../../../shared/features/projects/operations'
+import { operations } from '../../../generated/operation-handles/mcp'
 import { tool } from '../runtime'
 
-export default tool.operation(deleteProjectDescriptor, {
-  execute: executeDeleteProjectRef,
-  preview: previewDeleteProjectRef,
+export default tool.operation(operations.projects.delete, {
   confirmationMode: 'transport',
 })

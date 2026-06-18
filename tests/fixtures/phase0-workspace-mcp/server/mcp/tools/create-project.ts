@@ -1,7 +1,4 @@
-import { createProjectRef } from '../../../generated/operation-refs'
-import { createProjectDescriptor } from '../../../shared/features/projects/operations'
+import { operations } from '../../../generated/operation-handles/mcp'
 import { tool } from '../runtime'
 
-export default tool.operation(createProjectDescriptor, {
-  execute: createProjectRef,
-})
+export default tool.operation(operations.projects.create, {})
