@@ -102,6 +102,7 @@ export type {
 } from './define-handler.js'
 export {
   defineOperationDescriptor,
+  defineOperationHandle,
   defineOperationMetadata,
   defineOperation,
   blockedOperationPreview,
@@ -129,6 +130,10 @@ export type {
   McpWriteSafety,
   OperationDescriptor,
   OperationDefinition,
+  OperationHandle,
+  OperationHandleFunctionKind,
+  OperationHandleProjection,
+  OperationHandleRuntime,
   OperationMetadataDefinition,
   OperationPreviewEffect,
   OperationPreviewEnvelope,

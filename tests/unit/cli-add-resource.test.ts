@@ -357,11 +357,9 @@ describe('trellis add entity', () => {
       resolve(cwd, 'generated/operation-projections.ts'),
       'utf8',
     )
-    expect(projectionSource).toContain("'projects.create': 'features/projects/domain:create'")
-    expect(projectionSource).toContain("'projects.remove': 'features/projects/domain:remove'")
-    expect(projectionSource).toContain(
-      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
-    )
+    expect(projectionSource).toContain("'projects.create': 'projects.create'")
+    expect(projectionSource).toContain("'projects.remove': 'projects.remove'")
+    expect(projectionSource).toContain("'projects.remove': 'projects.remove:preview'")
 
     const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
     expect(registry.operations).toContainEqual(
@@ -372,7 +370,7 @@ describe('trellis add entity', () => {
         execute: expect.objectContaining({
           file: 'convex/features/projects/domain.ts',
           functionKind: 'mutation',
-          functionRef: 'features/projects/domain:create',
+          functionRef: 'projects.create',
         }),
       }),
     )
@@ -385,12 +383,12 @@ describe('trellis add entity', () => {
         execute: expect.objectContaining({
           file: 'convex/features/projects/domain.ts',
           functionKind: 'mutation',
-          functionRef: 'features/projects/domain:remove',
+          functionRef: 'projects.remove',
         }),
         preview: expect.objectContaining({
           file: 'convex/features/projects/operations.ts',
           functionKind: 'mutation',
-          functionRef: 'features/projects/operations:previewRemoveProject',
+          functionRef: 'projects.remove:preview',
         }),
       }),
     )
@@ -416,11 +414,9 @@ describe('trellis add entity', () => {
     const projections = rendered.find((file) =>
       file.path.endsWith('/operation-projections.ts'),
     )?.content
-    expect(projections).toContain("'projects.create': 'features/projects/domain:create'")
-    expect(projections).toContain("'projects.remove': 'features/projects/domain:remove'")
-    expect(projections).toContain(
-      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
-    )
+    expect(projections).toContain("'projects.create': 'projects.create'")
+    expect(projections).toContain("'projects.remove': 'projects.remove'")
+    expect(projections).toContain("'projects.remove': 'projects.remove:preview'")
   })
 
   it('scaffolds an author-owned resource slice with the existing author convention', async () => {

@@ -10,6 +10,7 @@ describe('backend entrypoint exports', () => {
   it('exports the canonical backend builder and operation APIs', () => {
     expect(backendApi).toHaveProperty('defineTrellis')
     expect(backendApi).toHaveProperty('defineOperation')
+    expect(backendApi).toHaveProperty('defineOperationHandle')
     expect(backendApi).toHaveProperty('defineCaller')
     expect(backendApi).toHaveProperty('getIdentityForwarding')
     expect(backendApi).toHaveProperty('trellisBackendLaneMetadataKey')

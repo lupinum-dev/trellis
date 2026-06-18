@@ -2,10 +2,10 @@
 import type { OperationProjectionRegistry } from '@lupinum/trellis/app'
 
 export const operationProjectionRegistry = {
-  fingerprint: 'sha256:68b7d076ebf767f55236bf9c3e90912978f4a6c0238ff19fc34e6711d030f973',
+  fingerprint: 'sha256:7b9906df0975a505a50e84de853451135c307d4ee728ef06e6dd43ef30b9a8a8',
   executeById: {
-    'todos.create': 'features/todos/domain:create',
-    'todos.list': 'features/todos/domain:list',
+    'todos.create': 'todos.create',
+    'todos.list': 'todos.list',
   },
   previewById: {},
 } as const satisfies OperationProjectionRegistry

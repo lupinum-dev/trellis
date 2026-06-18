@@ -70,7 +70,7 @@ describe('operation registry codegen', () => {
           exportName: 'archiveTask',
           file: 'convex/features/tasks/operations.ts',
           functionKind: 'mutation',
-          functionRef: 'features/tasks/operations:archiveTask',
+          functionRef: 'tasks.archive',
           line: expect.any(Number),
           projection: 'execute',
         },
@@ -79,7 +79,7 @@ describe('operation registry codegen', () => {
           exportName: 'previewArchiveTask',
           file: 'convex/features/tasks/operations.ts',
           functionKind: 'mutation',
-          functionRef: 'features/tasks/operations:previewArchiveTask',
+          functionRef: 'tasks.archive:preview',
           line: expect.any(Number),
           projection: 'preview',
         },
@@ -95,7 +95,7 @@ describe('operation registry codegen', () => {
           exportName: 'listTasks',
           file: 'convex/features/tasks/operations.ts',
           functionKind: 'query',
-          functionRef: 'features/tasks/operations:listTasks',
+          functionRef: 'tasks.list',
           line: expect.any(Number),
           projection: 'execute',
         },
@@ -276,13 +276,13 @@ describe('operation registry codegen', () => {
       'api.features.tasks.domain.archiveTask',
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "{ functionRef: 'features/tasks/domain:archiveTask' }",
+      "{ functionRef: 'tasks.archive' }",
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "functionRef: 'features/tasks/domain:previewArchiveTask'",
+      "functionRef: 'tasks.archive:preview'",
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "executeFunctionRef: 'features/tasks/domain:archiveTask'",
+      "executeFunctionRef: 'tasks.archive'",
     )
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
       "from '../../../shared/features/tasks/operations'",
@@ -312,10 +312,10 @@ describe('operation registry codegen', () => {
       "fingerprint: 'sha256:",
     )
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
-      "'tasks.archive': 'features/tasks/domain:archiveTask'",
+      "'tasks.archive': 'tasks.archive'",
     )
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
-      "'tasks.archive': 'features/tasks/domain:previewArchiveTask'",
+      "'tasks.archive': 'tasks.archive:preview'",
     )
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
       'satisfies OperationProjectionRegistry',
@@ -363,7 +363,7 @@ describe('operation registry codegen', () => {
           exportName: 'archiveTask',
           file: 'convex/features/tasks/domain.ts',
           functionKind: 'mutation',
-          functionRef: 'features/tasks/domain:archiveTask',
+          functionRef: 'tasks.archive',
           line: expect.any(Number),
           projection: 'execute',
         },
@@ -381,6 +381,7 @@ describe('operation registry codegen', () => {
           id: 'ginko-cms.publish-entry',
           name: 'publish-entry',
           kind: 'destructive',
+          executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
           args: {},
           handler: async () => ({ published: true }),
           preview: async () => ({ confirmation: { token: 'confirm', expiresAt: 1 } }),
@@ -449,7 +450,7 @@ describe('operation registry codegen', () => {
           exportName: 'previewPublishEntryOperation',
           file: 'src/entries/publish.ts',
           functionKind: 'mutation',
-          functionRef: 'entries/publish:previewPublishEntryOperation',
+          functionRef: 'editor:previewPublishEntryOperation',
           line: expect.any(Number),
           projection: 'preview',
         },
@@ -458,9 +459,13 @@ describe('operation registry codegen', () => {
     expect(byPath.get('src/generated/operation-refs.ts')).toContain(
       'api.entries.publish.publishEntryOperationExecute',
     )
+    expect(byPath.get('src/generated/operation-refs.ts')).toContain(
+      'const __publishEntryOperationDescriptor = {',
+    )
     expect(byPath.get('src/generated/operation-refs.ts')).not.toContain(
       'publishEntryTransportExecute',
     )
+    expect(byPath.get('src/generated/operation-refs.ts')).not.toContain("from '../entries/publish'")
     expect(byPath.get('src/generated/operation-handles/testing.ts')).toContain(
       "id: 'ginko-cms.publish-entry'",
     )

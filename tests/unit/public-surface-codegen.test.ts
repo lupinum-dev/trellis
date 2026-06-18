@@ -94,6 +94,7 @@ describe('public surface codegen', () => {
         operationExportName: 'createTodoOp',
         operationId: 'todos.create',
         projection: 'execute',
+        targetFunctionRef: 'todos.create',
       },
       {
         exportName: 'listTodos',
@@ -103,6 +104,7 @@ describe('public surface codegen', () => {
         operationExportName: 'listTodosOp',
         operationId: 'todos.list',
         projection: 'execute',
+        targetFunctionRef: 'todos.list',
       },
       {
         exportName: 'removeTodo',
@@ -112,6 +114,7 @@ describe('public surface codegen', () => {
         operationExportName: 'removeTodoOp',
         operationId: 'todos.remove',
         projection: 'execute',
+        targetFunctionRef: 'todos.remove',
       },
       {
         exportName: 'previewRemoveTodo',
@@ -121,6 +124,7 @@ describe('public surface codegen', () => {
         operationExportName: 'removeTodoOp',
         operationId: 'todos.remove',
         projection: 'preview',
+        targetFunctionRef: 'todos.remove:preview',
       },
     ])
   }, 15_000)
@@ -181,6 +185,7 @@ describe('public surface codegen', () => {
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
         projection: 'execute',
+        targetFunctionRef: 'tasks.archive',
       },
       {
         exportName: 'previewArchiveTask',
@@ -190,6 +195,7 @@ describe('public surface codegen', () => {
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
         projection: 'preview',
+        targetFunctionRef: 'tasks.archive:preview',
       },
     ])
 
@@ -256,6 +262,7 @@ describe('public surface codegen', () => {
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
         projection: 'execute',
+        targetFunctionRef: 'tasks.archive',
       },
       {
         exportName: 'previewArchiveTask',
@@ -265,6 +272,7 @@ describe('public surface codegen', () => {
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
         projection: 'preview',
+        targetFunctionRef: 'tasks.archive:preview',
       },
       {
         exportName: 'removeTask',
@@ -274,6 +282,7 @@ describe('public surface codegen', () => {
         operationExportName: 'removeTaskOp',
         operationId: 'tasks.remove',
         projection: 'execute',
+        targetFunctionRef: 'tasks.remove',
       },
       {
         exportName: 'previewRemoveTask',
@@ -283,6 +292,7 @@ describe('public surface codegen', () => {
         operationExportName: 'removeTaskOp',
         operationId: 'tasks.remove',
         projection: 'preview',
+        targetFunctionRef: 'tasks.remove:preview',
       },
     ])
   }, 15_000)
@@ -331,6 +341,7 @@ describe('public surface codegen', () => {
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
         projection: 'execute',
+        targetFunctionRef: 'tasks.archive',
       },
     ])
     expect(metadata.diagnostics).toEqual([
@@ -403,6 +414,7 @@ describe('public surface codegen', () => {
         operationExportName: 'removeTaskOp',
         operationId: 'tasks.remove',
         projection: 'execute',
+        targetFunctionRef: 'tasks.remove',
       },
     ])
     expect(metadata.diagnostics).toEqual([

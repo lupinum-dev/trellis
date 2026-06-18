@@ -1411,10 +1411,79 @@ loops.
   generator contract and package-root options first, before adding a durable
   command/config surface.
 
+## Slice 28: Generated Forwarding Target Metadata
+
+### Proof
+
+- Materialized the generated testing operation handles in Ginko CMS and replaced
+  the first publish test path with
+  `owner.operation(operations.byId['ginko-cms.publish-entry']).preview/execute(...)`.
+- The first consumer run failed with
+  `Invalid identity forwarding envelope: function-ref.` The generated refs were
+  stamping Convex api source paths such as
+  `entries/publish:previewPublishEntryOperation`, while the backend handler
+  expected the handler identity target
+  `editor:previewPublishEntryOperation`.
+- Confirmed the same split exists for normal generated refs: `apiPath` is the
+  Convex invocation path, but `functionRef` must be the backend forwarding
+  target derived from operation/projection metadata.
+
+### Implementation
+
+- Extended public-surface operation metadata with app-authored
+  `executeFunctionRef` and projection metadata with a derived
+  `targetFunctionRef`.
+- The scanner now derives projection targets from, in order:
+  explicit projection `id` overrides, preview defaults
+  `${operation.id}:preview`, app-authored operation `executeFunctionRef`, and
+  finally the operation id.
+- Updated operation registry generation to keep `apiPath` for Convex invocation
+  while using the derived target as stamped projection `functionRef`.
+- Updated generated projection registries and starter/example fixtures so
+  execute maps point at operation ids and preview maps point at
+  `<operation-id>:preview` unless source metadata declares a more explicit
+  target.
+- Kept generated-metadata refs free of backend implementation imports and
+  exported `defineOperationHandle` plus operation-handle types from backend
+  barrels so generated testing handles can avoid the MCP entrypoint.
+
+### Verification
+
+- Focused Trellis codegen and boundary tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/testing.test.ts tests/unit/backend-index-exports.test.ts`.
+- Trellis build passed after the backend type export update:
+  `pnpm run build:module`.
+- Trellis lint/type/surface gates passed:
+  `pnpm run lint:src:core`, `pnpm run lint:tests`,
+  `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run lint:src:runtime:rest`,
+  `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm run check:publish-surface`, and
+  `pnpm run check:docs:api-surface`.
+- Formatting and whitespace checks passed:
+  `pnpm run format:check` and `git diff --check`.
+- Ginko CMS consumer proof passed with generated testing handles imported from
+  `@lupinum/trellis/backend`:
+  `pnpm vitest run test/component/entries/publish.test.ts` passed 10 tests.
+
+### Notes
+
+- This fixes the Trellis-owned forwarding-target gap exposed by Ginko without
+  adding a CMS compatibility shim.
+- Ginko still has broader test-helper transport maps because many tests still
+  call old transport execute refs. The next consumer slice should migrate more
+  destructive publish/unpublish tests to generated operation handles, then
+  delete the corresponding map entries.
+- The large `cli-doctor` suite was not used as evidence for this slice because
+  it failed before assertions on a missing built starter-fixture directory when
+  run directly in this worktree. The targeted generator and boundary tests cover
+  the changed contract.
+
 ## Next Slice Candidates
 
-1. Materialize generated testing operation handles in Ginko CMS and delete the
-   first transport-map path from its test helpers.
+1. Continue the Ginko CMS destructive test migration from transport execute refs
+   to generated testing operation handles, then delete the corresponding helper
+   maps.
 2. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
    runtime-specific generated modules.
 3. Define the bridge-generated operation handle shape needed to replace

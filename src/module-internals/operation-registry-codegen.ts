@@ -3,7 +3,6 @@ import { posix } from 'node:path'
 
 import type { OperationHandleBindingInput } from './operation-handle-codegen.js'
 import { renderOperationHandlesModule } from './operation-handle-codegen.js'
-import { renderConvexFunctionRef } from './operation-ref-codegen.js'
 import type { OperationRefBindingInput } from './operation-ref-codegen.js'
 import type {
   OperationDefinitionMetadata,
@@ -104,7 +103,7 @@ function toRegistryProjection(
     projection: projection.projection,
     functionKind: projection.functionKind,
     apiPath,
-    functionRef: renderConvexFunctionRef(apiPath),
+    functionRef: projection.targetFunctionRef,
   }
 }
 
@@ -220,7 +219,11 @@ function renderOperationRefsModuleFromRegistry(
   registry: OperationRegistry,
   options: Pick<
     OperationRegistryGeneratedFilesOptions,
-    'apiImport' | 'operationRefsPath' | 'projectOperationRefImport'
+    | 'apiImport'
+    | 'descriptorMode'
+    | 'operationDescriptorTypeImport'
+    | 'operationRefsPath'
+    | 'projectOperationRefImport'
   >,
 ): string {
   if (registry.operations.length === 0) {
@@ -234,14 +237,31 @@ function renderOperationRefsModuleFromRegistry(
     renderImport(['api'], options.apiImport),
   ]
 
-  for (const descriptorImport of descriptorImportsFor(
-    registry.operations,
-    options.operationRefsPath,
-  )) {
-    lines.push(renderImport(descriptorImport.names, descriptorImport.from))
+  const usesGeneratedMetadata = options.descriptorMode === 'generated-metadata'
+
+  if (!usesGeneratedMetadata) {
+    for (const descriptorImport of descriptorImportsFor(
+      registry.operations,
+      options.operationRefsPath,
+    )) {
+      lines.push(renderImport(descriptorImport.names, descriptorImport.from))
+    }
   }
 
   lines.push('')
+
+  if (usesGeneratedMetadata) {
+    registry.operations.forEach((operation, index) => {
+      lines.push(
+        ...renderOperationMetadataDescriptor(
+          operation,
+          options.operationDescriptorTypeImport ?? '@lupinum/trellis/backend',
+        ),
+      )
+      if (index < registry.operations.length - 1) lines.push('')
+    })
+    lines.push('')
+  }
 
   const refs = buildOperationRefBindingsFromRegistry(registry)
   const projectionByRefName = new Map<string, OperationRegistryProjection>()
@@ -271,7 +291,7 @@ function renderOperationRefsModuleFromRegistry(
 
     lines.push(
       `export const ${ref.exportName} = projectOperationRef(`,
-      `  ${ref.descriptorName},`,
+      `  ${usesGeneratedMetadata ? operationMetadataDescriptorName(ref.descriptorName) : ref.descriptorName},`,
       `  '${ref.projection}',`,
       `  ${renderGeneratedApiPath(ref.apiPath, 'Operation ref')},`,
     )
@@ -299,6 +319,37 @@ function renderStringMap(name: string, entries: readonly (readonly [string, stri
   }
 
   return [`  ${name}: {`, ...entries.map(([key, value]) => `    '${key}': '${value}',`), '  },']
+}
+
+function renderStringLiteral(value: string): string {
+  return `'${value.replaceAll("'", "\\'")}'`
+}
+
+function operationMetadataDescriptorName(operationExportName: string): string {
+  return `__${operationExportName}Descriptor`
+}
+
+function renderOperationMetadataDescriptor(
+  operation: OperationRegistryOperation,
+  operationDescriptorTypeImport: string,
+): string[] {
+  const lines = [
+    `const ${operationMetadataDescriptorName(operation.exportName)} = {`,
+    `  _type: 'operation-descriptor',`,
+    `  id: ${renderStringLiteral(operation.id)},`,
+  ]
+
+  if (operation.name) {
+    lines.push(`  name: ${renderStringLiteral(operation.name)},`)
+  }
+
+  lines.push(
+    `  kind: '${operation.kind}',`,
+    `  args: {},`,
+    `} as unknown as import('${operationDescriptorTypeImport}').OperationDescriptor<${renderStringLiteral(operation.id)}>`,
+  )
+
+  return lines
 }
 
 function operationRegistryFingerprint(registry: OperationRegistry): string {

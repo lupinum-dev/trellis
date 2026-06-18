@@ -2,17 +2,17 @@
 import type { OperationProjectionRegistry } from '@lupinum/trellis/app'
 
 export const operationProjectionRegistry = {
-  fingerprint: 'sha256:5f9e05540a49205698254c9e7768a1c90a5ee8e42da3c48d26e34898e2fb4bd1',
+  fingerprint: 'sha256:ae936269ffa500ed8f32ff3245d71283b250690e781a84ab4149eb1f54f62a5a',
   executeById: {
-    'todos.create': 'features/todos/domain:create',
-    'todos.get': 'features/todos/domain:get',
-    'todos.list': 'features/todos/domain:list',
-    'todos.process-sync-webhook': 'features/todos/webhooks:processTodoSyncWebhookMutation',
-    'todos.remove': 'features/todos/domain:remove',
-    'todos.set-completed': 'features/todos/domain:setCompleted',
-    'workspaces.create': 'features/workspaces/domain:createWorkspaceMutation',
+    'todos.create': 'todos.create',
+    'todos.get': 'todos.get',
+    'todos.list': 'todos.list',
+    'todos.process-sync-webhook': 'todos.process-sync-webhook',
+    'todos.remove': 'todos.remove',
+    'todos.set-completed': 'todos.set-completed',
+    'workspaces.create': 'workspaces.create',
   },
   previewById: {
-    'todos.remove': 'features/todos/domain:previewRemove',
+    'todos.remove': 'todos.remove:preview',
   },
 } as const satisfies OperationProjectionRegistry

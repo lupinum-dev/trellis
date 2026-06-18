@@ -11,14 +11,14 @@ export const projectsCreateExecuteRef = projectOperationRef(
   createProjectDescriptor,
   'execute',
   api.features.projects.domain.createProject,
-  { functionRef: 'features/projects/domain:createProject' },
+  { functionRef: 'projects.create' },
 )
 
 export const projectsDeleteExecuteRef = projectOperationRef(
   deleteProjectDescriptor,
   'execute',
   api.features.projects.domain.deleteProject,
-  { functionRef: 'features/projects/domain:deleteProject' },
+  { functionRef: 'projects.delete' },
 )
 
 export const projectsDeletePreviewRef = projectOperationRef(
@@ -26,7 +26,7 @@ export const projectsDeletePreviewRef = projectOperationRef(
   'preview',
   api.features.projects.domain.previewDeleteProject,
   {
-    functionRef: 'features/projects/domain:previewDeleteProject',
-    executeFunctionRef: 'features/projects/domain:deleteProject',
+    functionRef: 'projects.delete:preview',
+    executeFunctionRef: 'projects.delete',
   },
 )

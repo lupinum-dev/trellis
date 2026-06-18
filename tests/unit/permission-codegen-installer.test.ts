@@ -117,9 +117,9 @@ describe('permission codegen installer', () => {
     expect(refsSource).toContain("import { api } from '#trellis/api'")
     expect(refsSource).toContain("from '../../shared/features/projects/operations'")
     expect(refsSource).toContain('api.features.projects.domain.createProject')
-    expect(refsSource).toContain("{ functionRef: 'features/projects/domain:createProject' }")
-    expect(refsSource).toContain("functionRef: 'features/projects/domain:previewDeleteProject'")
-    expect(refsSource).toContain("executeFunctionRef: 'features/projects/domain:deleteProject'")
+    expect(refsSource).toContain("{ functionRef: 'projects.create' }")
+    expect(refsSource).toContain("functionRef: 'projects.delete:preview'")
+    expect(refsSource).toContain("executeFunctionRef: 'projects.delete'")
 
     for (const runtime of ['client', 'server', 'testing', 'mcp'] as const) {
       const handlesSource = getTemplate(`trellis/operation-handles/${runtime}.ts`).getContents()
@@ -139,15 +139,9 @@ describe('permission codegen installer', () => {
       "import type { OperationProjectionRegistry } from '@lupinum/trellis/app'",
     )
     expect(projectionsSource).toContain("fingerprint: 'sha256:")
-    expect(projectionsSource).toContain(
-      "'projects.create': 'features/projects/domain:createProject'",
-    )
-    expect(projectionsSource).toContain(
-      "'projects.delete': 'features/projects/domain:deleteProject'",
-    )
-    expect(projectionsSource).toContain(
-      "'projects.delete': 'features/projects/domain:previewDeleteProject'",
-    )
+    expect(projectionsSource).toContain("'projects.create': 'projects.create'")
+    expect(projectionsSource).toContain("'projects.delete': 'projects.delete'")
+    expect(projectionsSource).toContain("'projects.delete': 'projects.delete:preview'")
   })
 
   it('emits empty operation registry modules when no operations are defined', () => {

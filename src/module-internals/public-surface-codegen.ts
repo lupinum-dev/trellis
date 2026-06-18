@@ -34,6 +34,7 @@ export interface OperationDefinitionMetadata {
   id: string
   name?: string
   kind: 'safe' | 'destructive'
+  executeFunctionRef?: string
 }
 
 export interface OperationProjectionBindingMetadata {
@@ -44,6 +45,7 @@ export interface OperationProjectionBindingMetadata {
   line: number
   projection: 'execute' | 'preview'
   functionKind: 'query' | 'mutation' | 'action'
+  targetFunctionRef: string
 }
 
 export interface ToolDefinitionMetadata {
@@ -339,6 +341,38 @@ function readStringProperty(node: ObjectLiteralExpression, name: string): string
   return undefined
 }
 
+function readExplicitIdOverride(expression: Node | undefined): string | undefined {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression) return undefined
+
+  if (Node.isObjectLiteralExpression(unwrappedExpression)) {
+    return readStringProperty(unwrappedExpression, 'id')
+  }
+
+  if (Node.isCallExpression(unwrappedExpression) && isObjectAssignCall(unwrappedExpression)) {
+    const args = unwrappedExpression.getArguments()
+    for (let index = args.length - 1; index >= 0; index -= 1) {
+      const explicitId = readExplicitIdOverride(args[index])
+      if (explicitId) return explicitId
+    }
+  }
+
+  return undefined
+}
+
+function deriveProjectionTargetFunctionRef(
+  operation: OperationDefinitionMetadata,
+  projection: 'execute' | 'preview',
+  projectionExpression: Node,
+): string {
+  const explicitId = readExplicitIdOverride(projectionExpression)
+  if (explicitId) return explicitId
+
+  if (projection === 'preview') return `${operation.id}:preview`
+
+  return operation.executeFunctionRef ?? operation.id
+}
+
 function readNestedStringProperty(
   node: ObjectLiteralExpression,
   parentName: string,
@@ -432,6 +466,9 @@ function extractOperationDefinitions(
         operationDefinition.kind ??
         (readStringProperty(definition, 'kind') as 'safe' | 'destructive' | undefined) ??
         'safe',
+      ...(readStringProperty(definition, 'executeFunctionRef')
+        ? { executeFunctionRef: readStringProperty(definition, 'executeFunctionRef') }
+        : {}),
     })
   }
 
@@ -503,6 +540,7 @@ function extractProjectionBinding(
       line: declaration.getNameNode().getStartLineNumber(),
       projection: 'preview',
       functionKind: projectionCall.functionKind,
+      targetFunctionRef: deriveProjectionTargetFunctionRef(operation, 'preview', unwrappedFirstArg),
     }
   }
 
@@ -519,6 +557,7 @@ function extractProjectionBinding(
       line: declaration.getNameNode().getStartLineNumber(),
       projection: 'preview',
       functionKind: projectionCall.functionKind,
+      targetFunctionRef: deriveProjectionTargetFunctionRef(operation, 'preview', unwrappedFirstArg),
     }
   }
 
@@ -536,6 +575,7 @@ function extractProjectionBinding(
     line: declaration.getNameNode().getStartLineNumber(),
     projection: 'execute',
     functionKind: projectionCall.functionKind,
+    targetFunctionRef: deriveProjectionTargetFunctionRef(operation, 'execute', unwrappedFirstArg),
   }
 }
 
