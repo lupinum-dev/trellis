@@ -3833,8 +3833,7 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   `pnpm vitest run --project=unit tests/unit/operation-descriptor.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/mcp-descriptor-boundary.test.ts`
   reported 4 passing test files and 90 passing tests.
 - Module build passed: `pnpm run build:module`.
-- Full release gate passed: `pnpm run release:verify` completed with exit code
-  0. The gate included format, lint, publish surface, compatibility matrix,
+- Full release gate passed: `pnpm run release:verify` completed with exit code 0. The gate included format, lint, publish surface, compatibility matrix,
   type contracts, security tests, example doctor checks, starter fixture
   doctor/typecheck/build checks, full repo tests, e2e, generated Convex drift,
   pack workspace-ref checks, production audit, and final build.
@@ -3927,7 +3926,7 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - `pnpm run build` passed and prerendered 211 routes, including localized
   content routes, sitemap output, and content payload/API routes.
 - `TMPDIR=/tmp GINKO_CMS_TEST_EMAIL=... GINKO_CMS_TEST_PASSWORD=...
-  pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
+pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
   dev-server Vite IPC socket path issue observed under the default macOS temp
   directory.
 - Built-server smoke passed against
@@ -3967,12 +3966,76 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - The built-server/browser proof is now stronger than the dev-server proof; the
   dev-server-specific IPC issue should not drive library design.
 
+## Slice 71: Inventory-Backed Explain Feature And File Views
+
+### Proof
+
+- RFC 0013 names `trellis explain feature tasks` and
+  `trellis explain file convex/features/tasks/domain.ts` as agent/developer
+  affordances that must be projections from existing inventory, not a new
+  handwritten manifest.
+- Added failing CLI proof tests for:
+  - JSON and human-readable `trellis explain feature tasks`
+  - unknown feature diagnostics with available feature names
+  - JSON `trellis explain file ...` for relative and absolute paths
+  - human-readable file-level operation/projection output
+- The initial focused run failed because the CLI rejected `feature` and `file`
+  as invalid explain topics. That proved the tests exercised the missing RFC
+  surface instead of only changing output snapshots.
+
+### Implementation
+
+- Extended `trellis explain` topic validation to accept `feature` and `file`.
+- Built feature reports by joining `inventory.features` to existing permission,
+  operation, projection, and MCP tool inventory by export name and operation id.
+- Built file reports by normalizing absolute or relative paths and filtering
+  existing feature, permission, permission-inventory, operation, projection, and
+  MCP tool facts by source path.
+- Kept missing feature refs visible as `missingPermissionRefs` and
+  `missingOperationRefs` so explain can expose drift without becoming another
+  source of truth.
+- Did not add a new manifest, cache, registry, or scanner. Both new views are
+  derived from the same inventory paths already used by app, operation, tool,
+  and permission explain output.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts -t "explains a feature|human-readable feature|unknown feature|file-level inventory|human-readable file"`.
+- CLI build passed: `pnpm run build:cli`.
+- Focused proof rerun passed with 6 tests passing:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts -t "explains a feature|human-readable feature|unknown feature|file-level inventory|human-readable file"`.
+- Full explain suite passed with 26 tests passing:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts`.
+- Source lint passed: `pnpm run lint:src:core`.
+- Focused test lint passed: `pnpm exec eslint tests/unit/cli-explain.test.ts`.
+- Formatter check passed for the touched source and test files:
+  `pnpm exec oxfmt --check src/cli/commands/explain.ts tests/unit/cli-explain.test.ts`.
+- Final CLI rebuild passed after formatting: `pnpm run build:cli`.
+- Final focused rerun against rebuilt `dist/cli.mjs` passed with 4 selected
+  tests passing:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts -t "explains a feature|file-level inventory|human-readable file"`.
+
+### Notes
+
+- `trellis explain file` intentionally returns a successful empty report with
+  `matched: false` for files that have no Trellis inventory facts. That keeps
+  the command useful for agent inspection without requiring a separate file
+  existence scanner.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
-1. Decide whether to clean the non-blocking unprefixed German docs router
-   warnings in Ginko Content or in the consumer navigation composition.
-2. If another `i18n-cms` pass exposes a real Trellis issue, fix Trellis
-   directly, rerun the
-   focused Trellis proof, regenerate local tarballs, and rerun CMS consumer
-   validation.
-3. Keep Trellis frozen unless a consumer proof exposes a foundation issue.
+1. Experiment with the RFC server-route adapter shape before committing API:
+   prove how Nitro imports, generated operation handles, Convex function refs,
+   and transport proof options resolve from a fixture.
+2. Audit `trellis add entity project --workspace --mcp` against the RFC
+   product-grade starter criteria, then either hard-cut the generator output or
+   write failing proof tests for the missing pieces.
+3. Close the backend-only destructive exposure requirement with explicit
+   metadata, doctor/explain visibility, and filtered handle generation, if the
+   current operation registry cannot already prove it.
+4. After the remaining RFC slices are implemented, rerun full
+   `pnpm run release:verify`, regenerate local tarballs, and rerun the CMS and
+   i18n consumer proofs.

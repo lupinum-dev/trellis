@@ -204,6 +204,95 @@ type ExplainPermissionReport = {
   }
 }
 
+type ExplainFeatureReport = {
+  schemaVersion: 1
+  cwd: string
+  feature: {
+    name: string
+    exportName: string
+    file: string
+    source: { path: string; line: number }
+    tenantTables: string[]
+    sharedTables: string[]
+    permissions: Array<{
+      key: string
+      exportName: string
+      label?: string
+      description?: string
+      source: { path: string; line: number }
+    }>
+    operations: Array<{
+      id: string
+      exportName: string
+      kind: 'safe' | 'destructive'
+      source: { path: string; line: number }
+      projections: Array<{
+        operationId: string
+        exportName: string
+        projection: 'preview' | 'execute'
+        source: { path: string; line: number }
+      }>
+      mcpTools: Array<{
+        name: string
+        source: 'tool' | 'operation' | 'defineMcpTool'
+        sourceLocation: { path: string; line: number }
+      }>
+    }>
+    missingPermissionRefs: string[]
+    missingOperationRefs: string[]
+  }
+}
+
+type ExplainFeatureMissingReport = {
+  schemaVersion: 1
+  cwd: string
+  error: {
+    code: 'feature-not-found' | 'no-features'
+    message: string
+    availableFeatureNames: string[]
+  }
+}
+
+type ExplainFileReport = {
+  schemaVersion: 1
+  cwd: string
+  file: {
+    path: string
+    matched: boolean
+    features: Array<{
+      name: string
+      exportName: string
+      source: { path: string; line: number }
+    }>
+    permissions: Array<{
+      key: string
+      exportName: string
+      source: { path: string; line: number }
+    }>
+    permissionInventories: Array<{
+      exportName: string
+      source: { path: string; line: number }
+    }>
+    operations: Array<{
+      id: string
+      exportName: string
+      kind: 'safe' | 'destructive'
+      source: { path: string; line: number }
+    }>
+    projections: Array<{
+      operationId: string
+      exportName: string
+      projection: 'preview' | 'execute'
+      source: { path: string; line: number }
+    }>
+    mcpTools: Array<{
+      name: string
+      source: 'tool' | 'operation' | 'defineMcpTool'
+      sourceLocation: { path: string; line: number }
+    }>
+  }
+}
+
 type ExplainPermissionMissingReport = {
   schemaVersion: 1
   cwd: string
@@ -855,6 +944,193 @@ describe('CLI explain', () => {
     expect(result.stdout).toContain('execute: archiveTask')
     expect(result.stdout).toContain('tasksFeature (tasks)')
   })
+
+  it('explains a feature as versioned JSON from existing inventory', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'feature', 'tasks', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainFeatureReport>(result.stdout)
+    const serialized = JSON.stringify(report)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      feature: {
+        name: 'tasks',
+        exportName: 'tasksFeature',
+        file: 'convex/features/tasks/feature.ts',
+        source: {
+          path: 'convex/features/tasks/feature.ts',
+          line: expect.any(Number),
+        },
+        tenantTables: [],
+        sharedTables: [],
+        permissions: [
+          expect.objectContaining({
+            key: 'tasks.archive',
+            exportName: 'taskArchivePermission',
+            source: {
+              path: 'convex/features/tasks/permissions.ts',
+              line: expect.any(Number),
+            },
+          }),
+        ],
+        operations: [
+          expect.objectContaining({
+            id: 'tasks.archive',
+            exportName: 'archiveTaskOp',
+            kind: 'destructive',
+            projections: expect.arrayContaining([
+              expect.objectContaining({
+                operationId: 'tasks.archive',
+                exportName: 'archiveTask',
+                projection: 'execute',
+              }),
+              expect.objectContaining({
+                operationId: 'tasks.archive',
+                exportName: 'previewArchiveTask',
+                projection: 'preview',
+              }),
+            ]),
+            mcpTools: [
+              expect.objectContaining({
+                name: 'archive-task',
+                source: 'operation',
+              }),
+            ],
+          }),
+        ],
+        missingPermissionRefs: [],
+        missingOperationRefs: [],
+      },
+    })
+    expect(serialized).not.toContain('task_1')
+  }, 30_000)
+
+  it('renders a human-readable feature explanation', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'feature', 'tasks', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).toBe(0)
+    expect(result.stdout).toContain('Feature tasks')
+    expect(result.stdout).toContain('Export: tasksFeature')
+    expect(result.stdout).toContain('Permissions:')
+    expect(result.stdout).toContain('tasks.archive')
+    expect(result.stdout).toContain('Operations:')
+    expect(result.stdout).toContain('tasks.archive (destructive)')
+    expect(result.stdout).toContain('MCP tools: archive-task')
+  }, 30_000)
+
+  it('fails clearly for an unknown feature and lists available names', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'feature', 'missing', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<ExplainFeatureMissingReport>(result.stdout)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report).toEqual({
+      schemaVersion: 1,
+      cwd: appRoot,
+      error: {
+        code: 'feature-not-found',
+        message: 'Feature "missing" was not found in inventory.',
+        availableFeatureNames: ['tasks'],
+      },
+    })
+  })
+
+  it('explains file-level inventory facts for a relative path', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(
+      ['explain', 'file', 'convex/features/tasks/operations.ts', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainFileReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      file: {
+        path: 'convex/features/tasks/operations.ts',
+        matched: true,
+        operations: [
+          expect.objectContaining({
+            id: 'tasks.archive',
+            exportName: 'archiveTaskOp',
+            kind: 'destructive',
+          }),
+        ],
+        projections: expect.arrayContaining([
+          expect.objectContaining({
+            operationId: 'tasks.archive',
+            exportName: 'archiveTask',
+            projection: 'execute',
+          }),
+          expect.objectContaining({
+            operationId: 'tasks.archive',
+            exportName: 'previewArchiveTask',
+            projection: 'preview',
+          }),
+        ]),
+      },
+    })
+  }, 30_000)
+
+  it('explains file-level inventory facts for an absolute path', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+    const absolutePath = resolve(appRoot, 'server/mcp/tools/archive-task.ts')
+
+    const result = runCli(['explain', 'file', absolutePath, '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainFileReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      file: {
+        path: 'server/mcp/tools/archive-task.ts',
+        matched: true,
+        mcpTools: [
+          expect.objectContaining({
+            name: 'archive-task',
+            source: 'operation',
+          }),
+        ],
+      },
+    })
+  }, 30_000)
+
+  it('renders a human-readable file explanation', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(
+      ['explain', 'file', 'convex/features/tasks/operations.ts', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).toBe(0)
+    expect(result.stdout).toContain('File convex/features/tasks/operations.ts')
+    expect(result.stdout).toContain('Operations:')
+    expect(result.stdout).toContain('tasks.archive (archiveTaskOp, destructive)')
+    expect(result.stdout).toContain('Projections:')
+    expect(result.stdout).toContain('execute: archiveTask')
+    expect(result.stdout).toContain('preview: previewArchiveTask')
+  }, 30_000)
 
   it('fails clearly for an unknown MCP tool and lists available names', () => {
     const appRoot = createPublicApp()

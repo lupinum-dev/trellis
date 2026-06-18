@@ -1,4 +1,4 @@
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 
 import { defineCommand } from 'citty'
 
@@ -194,6 +194,79 @@ interface ExplainPermissionMissingReport {
   }
 }
 
+interface ExplainFeatureReport {
+  schemaVersion: 1
+  cwd: string
+  feature: {
+    name: string
+    exportName: string
+    file: string
+    source: TrellisCliInventorySourceLocation
+    tenantTables: string[]
+    sharedTables: string[]
+    permissions: Array<{
+      key: string
+      exportName: string
+      label?: string
+      description?: string
+      source: TrellisCliInventorySourceLocation
+    }>
+    operations: Array<{
+      id: string
+      exportName: string
+      kind: 'safe' | 'destructive'
+      source: TrellisCliInventorySourceLocation
+      projections: TrellisCliInventoryPublicSurfaceProjection[]
+      mcpTools: TrellisCliInventoryPublicSurfaceTool[]
+    }>
+    missingPermissionRefs: string[]
+    missingOperationRefs: string[]
+  }
+}
+
+interface ExplainFeatureMissingReport {
+  schemaVersion: 1
+  cwd: string
+  error: {
+    code: 'feature-not-found' | 'no-features'
+    message: string
+    availableFeatureNames: string[]
+  }
+}
+
+interface ExplainFileReport {
+  schemaVersion: 1
+  cwd: string
+  file: {
+    path: string
+    matched: boolean
+    features: Array<{
+      name: string
+      exportName: string
+      source: TrellisCliInventorySourceLocation
+    }>
+    permissions: Array<{
+      key: string
+      exportName: string
+      label?: string
+      description?: string
+      source: TrellisCliInventorySourceLocation
+    }>
+    permissionInventories: Array<{
+      exportName: string
+      source: TrellisCliInventorySourceLocation
+    }>
+    operations: Array<{
+      id: string
+      exportName: string
+      kind: 'safe' | 'destructive'
+      source: TrellisCliInventorySourceLocation
+    }>
+    projections: TrellisCliInventoryPublicSurfaceProjection[]
+    mcpTools: TrellisCliInventoryPublicSurfaceTool[]
+  }
+}
+
 function readPrivacy(value: unknown): ExplainAppPrivacy {
   const privacy = value === undefined ? 'public' : String(value)
   if (privacy === 'public' || privacy === 'developer' || privacy === 'internal') return privacy
@@ -218,6 +291,37 @@ function findTool(
   toolName: string,
 ): TrellisCliInventoryPublicSurfaceTool | null {
   return inventory.publicSurface.tools.find((tool) => tool.name === toolName) ?? null
+}
+
+function findFeature(
+  inventory: TrellisCliInventory,
+  featureId: string,
+): TrellisCliInventoryFeature | null {
+  return (
+    inventory.features.find(
+      (feature) => feature.name === featureId || feature.exportName === featureId,
+    ) ?? null
+  )
+}
+
+function findOperationByExportName(
+  inventory: TrellisCliInventory,
+  exportName: string,
+): TrellisCliInventoryPublicSurfaceOperation | null {
+  return (
+    inventory.publicSurface.operations.find((operation) => operation.exportName === exportName) ??
+    null
+  )
+}
+
+function findPermissionByExportName(
+  inventory: TrellisCliInventory,
+  exportName: string,
+): TrellisCliInventoryPermission | null {
+  return (
+    inventory.permissions.definitions.find((permission) => permission.exportName === exportName) ??
+    null
+  )
 }
 
 function findOperationProjections(
@@ -270,6 +374,28 @@ function findPermissionInventories(
       file: permissionInventory.file,
       source: permissionInventory.source,
     }))
+}
+
+function findOperationMcpTools(
+  inventory: TrellisCliInventory,
+  operation: TrellisCliInventoryPublicSurfaceOperation,
+): TrellisCliInventoryPublicSurfaceTool[] {
+  return inventory.publicSurface.tools.filter(
+    (tool) => tool.source === 'operation' && tool.operationId === operation.id,
+  )
+}
+
+function normalizePathSeparators(path: string): string {
+  return path.replaceAll('\\', '/')
+}
+
+function normalizeExplainFilePath(cwd: string, path: string): string {
+  if (isAbsolute(path)) return normalizePathSeparators(relative(cwd, path))
+  return normalizePathSeparators(relative(cwd, resolve(cwd, path)))
+}
+
+function isSameInventoryPath(left: string, right: string): boolean {
+  return normalizePathSeparators(left) === normalizePathSeparators(right)
 }
 
 function createAppFeatureReport(
@@ -493,6 +619,134 @@ function createPermissionReport(
   }
 }
 
+function createFeatureReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  feature: TrellisCliInventoryFeature,
+): ExplainFeatureReport {
+  const permissions = feature.permissionRefs
+    .map((permissionRef) => findPermissionByExportName(inventory, permissionRef))
+    .filter((permission): permission is TrellisCliInventoryPermission => permission !== null)
+    .map((permission) => ({
+      key: permission.key,
+      exportName: permission.exportName,
+      ...(permission.label ? { label: permission.label } : {}),
+      ...(permission.description ? { description: permission.description } : {}),
+      source: permission.source,
+    }))
+  const operations = feature.operationRefs
+    .map((operationRef) => findOperationByExportName(inventory, operationRef))
+    .filter(
+      (operation): operation is TrellisCliInventoryPublicSurfaceOperation => operation !== null,
+    )
+    .map((operation) => ({
+      id: operation.id,
+      exportName: operation.exportName,
+      kind: operation.kind,
+      source: operation.source,
+      projections: findOperationProjections(inventory, operation.id),
+      mcpTools: findOperationMcpTools(inventory, operation),
+    }))
+
+  return {
+    schemaVersion: 1,
+    cwd,
+    feature: {
+      name: feature.name,
+      exportName: feature.exportName,
+      file: feature.file,
+      source: feature.source,
+      tenantTables: feature.tenantTables,
+      sharedTables: feature.sharedTables,
+      permissions,
+      operations,
+      missingPermissionRefs: feature.permissionRefs.filter(
+        (permissionRef) => findPermissionByExportName(inventory, permissionRef) === null,
+      ),
+      missingOperationRefs: feature.operationRefs.filter(
+        (operationRef) => findOperationByExportName(inventory, operationRef) === null,
+      ),
+    },
+  }
+}
+
+function createFileReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  path: string,
+): ExplainFileReport {
+  const normalizedPath = normalizeExplainFilePath(cwd, path)
+  const features = inventory.features
+    .filter(
+      (feature) =>
+        isSameInventoryPath(feature.file, normalizedPath) ||
+        isSameInventoryPath(feature.source.path, normalizedPath),
+    )
+    .map((feature) => ({
+      name: feature.name,
+      exportName: feature.exportName,
+      source: feature.source,
+    }))
+  const permissions = inventory.permissions.definitions
+    .filter(
+      (permission) =>
+        isSameInventoryPath(permission.file, normalizedPath) ||
+        isSameInventoryPath(permission.source.path, normalizedPath),
+    )
+    .map((permission) => ({
+      key: permission.key,
+      exportName: permission.exportName,
+      ...(permission.label ? { label: permission.label } : {}),
+      ...(permission.description ? { description: permission.description } : {}),
+      source: permission.source,
+    }))
+  const permissionInventories = inventory.permissions.inventories
+    .filter(
+      (permissionInventory) =>
+        isSameInventoryPath(permissionInventory.file, normalizedPath) ||
+        isSameInventoryPath(permissionInventory.source.path, normalizedPath),
+    )
+    .map((permissionInventory) => ({
+      exportName: permissionInventory.exportName,
+      source: permissionInventory.source,
+    }))
+  const operations = inventory.publicSurface.operations
+    .filter((operation) => isSameInventoryPath(operation.source.path, normalizedPath))
+    .map((operation) => ({
+      id: operation.id,
+      exportName: operation.exportName,
+      kind: operation.kind,
+      source: operation.source,
+    }))
+  const projections = inventory.publicSurface.projections.filter((projection) =>
+    isSameInventoryPath(projection.source.path, normalizedPath),
+  )
+  const mcpTools = inventory.publicSurface.tools.filter((tool) =>
+    isSameInventoryPath(tool.sourceLocation.path, normalizedPath),
+  )
+
+  return {
+    schemaVersion: 1,
+    cwd,
+    file: {
+      path: normalizedPath,
+      matched:
+        features.length > 0 ||
+        permissions.length > 0 ||
+        permissionInventories.length > 0 ||
+        operations.length > 0 ||
+        projections.length > 0 ||
+        mcpTools.length > 0,
+      features,
+      permissions,
+      permissionInventories,
+      operations,
+      projections,
+      mcpTools,
+    },
+  }
+}
+
 function createMissingReport(
   cwd: string,
   inventory: TrellisCliInventory,
@@ -510,6 +764,27 @@ function createMissingReport(
           ? 'No operations were found in inventory.'
           : `Operation "${operationId}" was not found in inventory.`,
       availableOperationIds,
+    },
+  }
+}
+
+function createMissingFeatureReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  featureId: string,
+): ExplainFeatureMissingReport {
+  const availableFeatureNames = inventory.features.map((feature) => feature.name)
+
+  return {
+    schemaVersion: 1,
+    cwd,
+    error: {
+      code: availableFeatureNames.length === 0 ? 'no-features' : 'feature-not-found',
+      message:
+        availableFeatureNames.length === 0
+          ? 'No features were found in inventory.'
+          : `Feature "${featureId}" was not found in inventory.`,
+      availableFeatureNames,
     },
   }
 }
@@ -693,6 +968,136 @@ function renderPermissionReport(report: ExplainPermissionReport): void {
   }
 }
 
+function renderFeatureReport(report: ExplainFeatureReport): void {
+  const { feature } = report
+
+  process.stdout.write(`Feature ${feature.name}\n`)
+  process.stdout.write(`Export: ${feature.exportName}\n`)
+  process.stdout.write(`Source: ${formatLocation(feature.source)}\n`)
+  process.stdout.write(
+    `Tenant tables: ${feature.tenantTables.length > 0 ? feature.tenantTables.join(', ') : 'none'}\n`,
+  )
+  process.stdout.write(
+    `Shared tables: ${feature.sharedTables.length > 0 ? feature.sharedTables.join(', ') : 'none'}\n`,
+  )
+
+  process.stdout.write('Permissions:\n')
+  if (feature.permissions.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const permission of feature.permissions) {
+      process.stdout.write(
+        `  ${permission.key}: ${permission.exportName} at ${formatLocation(permission.source)}\n`,
+      )
+    }
+  }
+
+  process.stdout.write('Operations:\n')
+  if (feature.operations.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const operation of feature.operations) {
+      process.stdout.write(`  ${operation.id} (${operation.kind})\n`)
+      process.stdout.write(
+        `    Projections: ${
+          operation.projections.length > 0
+            ? operation.projections
+                .map((projection) => `${projection.projection}:${projection.exportName}`)
+                .join(', ')
+            : 'none'
+        }\n`,
+      )
+      process.stdout.write(
+        `    MCP tools: ${
+          operation.mcpTools.length > 0
+            ? operation.mcpTools.map((tool) => tool.name).join(', ')
+            : 'none'
+        }\n`,
+      )
+    }
+  }
+
+  if (feature.missingPermissionRefs.length > 0) {
+    process.stdout.write(`Missing permission refs: ${feature.missingPermissionRefs.join(', ')}\n`)
+  }
+  if (feature.missingOperationRefs.length > 0) {
+    process.stdout.write(`Missing operation refs: ${feature.missingOperationRefs.join(', ')}\n`)
+  }
+}
+
+function renderFileReport(report: ExplainFileReport): void {
+  const { file } = report
+
+  process.stdout.write(`File ${file.path}\n`)
+  process.stdout.write(`Trellis inventory: ${file.matched ? 'matched' : 'no facts'}\n`)
+
+  process.stdout.write('Features:\n')
+  if (file.features.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const feature of file.features) {
+      process.stdout.write(
+        `  ${feature.name}: ${feature.exportName} at ${formatLocation(feature.source)}\n`,
+      )
+    }
+  }
+
+  process.stdout.write('Permissions:\n')
+  if (file.permissions.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const permission of file.permissions) {
+      process.stdout.write(
+        `  ${permission.key}: ${permission.exportName} at ${formatLocation(permission.source)}\n`,
+      )
+    }
+  }
+
+  process.stdout.write('Permission inventories:\n')
+  if (file.permissionInventories.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const permissionInventory of file.permissionInventories) {
+      process.stdout.write(
+        `  ${permissionInventory.exportName} at ${formatLocation(permissionInventory.source)}\n`,
+      )
+    }
+  }
+
+  process.stdout.write('Operations:\n')
+  if (file.operations.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const operation of file.operations) {
+      process.stdout.write(
+        `  ${operation.id} (${operation.exportName}, ${operation.kind}) at ${formatLocation(operation.source)}\n`,
+      )
+    }
+  }
+
+  process.stdout.write('Projections:\n')
+  if (file.projections.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const projection of file.projections) {
+      process.stdout.write(
+        `  ${projection.projection}: ${projection.exportName} for ${projection.operationId} at ${formatLocation(projection.source)}\n`,
+      )
+    }
+  }
+
+  process.stdout.write('MCP tools:\n')
+  if (file.mcpTools.length === 0) {
+    process.stdout.write('  none\n')
+  } else {
+    for (const tool of file.mcpTools) {
+      process.stdout.write(
+        `  ${tool.name}: ${tool.source} at ${formatLocation(tool.sourceLocation)}\n`,
+      )
+    }
+  }
+}
+
 function renderMissingReport(report: ExplainOperationMissingReport): void {
   process.stderr.write(`${report.error.message}\n`)
   if (report.error.availableOperationIds.length > 0) {
@@ -717,6 +1122,13 @@ function renderMissingPermissionReport(report: ExplainPermissionMissingReport): 
   process.stderr.write(`Try: ${report.error.suggestedCommand}\n`)
 }
 
+function renderMissingFeatureReport(report: ExplainFeatureMissingReport): void {
+  process.stderr.write(`${report.error.message}\n`)
+  if (report.error.availableFeatureNames.length > 0) {
+    process.stderr.write(`Available features: ${report.error.availableFeatureNames.join(', ')}\n`)
+  }
+}
+
 export const explainCommand = defineCommand({
   meta: {
     name: 'explain',
@@ -726,7 +1138,7 @@ export const explainCommand = defineCommand({
     topic: {
       type: 'positional',
       required: true,
-      description: 'Concept to explain. Supported: app, operation, tool, permission',
+      description: 'Concept to explain. Supported: app, feature, file, operation, tool, permission',
     },
     id: {
       type: 'positional',
@@ -756,9 +1168,16 @@ export const explainCommand = defineCommand({
   },
   async run({ args }) {
     const topic = String(args.topic)
-    if (topic !== 'app' && topic !== 'operation' && topic !== 'tool' && topic !== 'permission') {
+    if (
+      topic !== 'app' &&
+      topic !== 'feature' &&
+      topic !== 'file' &&
+      topic !== 'operation' &&
+      topic !== 'tool' &&
+      topic !== 'permission'
+    ) {
       throw new Error(
-        'Invalid explain topic. Use `trellis explain app`, `trellis explain operation <id>`, `trellis explain tool <name>`, or `trellis explain permission <key>`.',
+        'Invalid explain topic. Use `trellis explain app`, `trellis explain feature <name>`, `trellis explain file <path>`, `trellis explain operation <id>`, `trellis explain tool <name>`, or `trellis explain permission <key>`.',
       )
     }
 
@@ -788,6 +1207,41 @@ export const explainCommand = defineCommand({
     }
 
     const id = String(args.id)
+
+    if (topic === 'file') {
+      const report = createFileReport(cwd, inventory, id)
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+      } else {
+        renderFileReport(report)
+      }
+
+      return 0
+    }
+
+    if (topic === 'feature') {
+      const feature = findFeature(inventory, id)
+
+      if (!feature) {
+        const report = createMissingFeatureReport(cwd, inventory, id)
+        if (args.json) {
+          process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+        } else {
+          renderMissingFeatureReport(report)
+        }
+        process.exitCode = 1
+        return 1
+      }
+
+      const report = createFeatureReport(cwd, inventory, feature)
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+      } else {
+        renderFeatureReport(report)
+      }
+
+      return 0
+    }
 
     if (topic === 'permission') {
       const permission = inventory.permissions.definitions.find((entry) => entry.key === id)
