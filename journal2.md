@@ -1754,6 +1754,62 @@ loops.
 - The next Trellis improvement should make this command easier to install into
   generated/consumer projects, but the real consumer now has a drift gate.
 
+## Slice 34: Shared Ginko Publish Operation Test Helpers
+
+### Proof
+
+- Inspected the remaining direct `TransportExecute` callers and chose
+  `test/component/entries/read.test.ts` as the next safe slice: it had two raw
+  publish transport calls and no rollback/delete coupling.
+- Confirmed `test/component/entries/publish.test.ts` already had local
+  generated-operation helpers for publish, unpublish, and archive. Keeping those
+  local would duplicate the correct operation path as more entry tests migrate.
+- Confirmed `entries/*.test.ts` import through their local `./helpers`, so the
+  generated-operation helper had to be re-exported from
+  `test/component/entries/helpers.ts` rather than only added to root
+  `test/helpers.ts`.
+
+### Implementation
+
+- In Ginko CMS commit `5f1f635`, moved the publish, unpublish, and archive test
+  operation wrappers into root `test/helpers.ts`, backed by
+  `#component/generated/operation-handles/testing`.
+- Re-exported those wrappers from `test/component/entries/helpers.ts`.
+- Removed the duplicated local operation-handle constants and wrappers from
+  `test/component/entries/publish.test.ts`.
+- Migrated `test/component/entries/read.test.ts` from two raw
+  `publishEntryTransportExecute` calls to the shared `publishEntry(...)`
+  generated-operation helper.
+
+### Verification
+
+- Focused Ginko tests passed:
+  `pnpm vitest run test/component/entries/publish.test.ts test/component/entries/read.test.ts`
+  reported 16 passing tests.
+- Ginko operation registry drift check passed:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko package type/build proof passed:
+  `pnpm run typecheck`.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Ginko lint and static guards passed:
+  `pnpm run lint`.
+- Formatting/whitespace checks passed:
+  targeted `oxfmt --check` for the touched files and `git diff --check`.
+
+### Notes
+
+- The raw `TransportExecute` count in Ginko tests dropped from 60 to 58.
+- The remaining publish transport helper map row is still required because
+  public API, versioning, tree, draft, and integration tests still call
+  `publishEntryTransportExecute` directly.
+- The next high-leverage consumer slice is to migrate
+  `test/component/integration.test.ts` or `test/component/entries/tree.test.ts`
+  to the shared publish/unpublish helpers, then continue toward deleting the
+  publish and unpublish map rows once their last callers are gone.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
