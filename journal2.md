@@ -1699,6 +1699,61 @@ loops.
   rows can continue shrinking from real caller removal rather than speculative
   cleanup.
 
+## Slice 33: Ginko Operation Registry Check Gate
+
+### Proof
+
+- Added a first draft Ginko `operations:check` script and wired it into
+  `pnpm run check`.
+- The first full Ginko check failed before reaching the new operation check:
+  `format:check` reported
+  `packages/convex/src/generated/operation-handles/testing.ts`.
+- Formatting that generated file showed Trellis was emitting long
+  `defineOperationHandle(descriptor, { ... })` calls that `oxfmt` split across
+  multiple lines. That would make generated files either format-clean or
+  drift-clean, but not both.
+- Also caught a pnpm argument-forwarding issue: `pnpm run operations:generate --
+  --check --json` passed a literal `--` to Trellis, so the CLI stayed in write
+  mode. The working form is `pnpm run operations:generate --check --json`.
+
+### Implementation
+
+- In Trellis commit `1cdaf2a`, changed operation-handle generation to emit
+  formatter-stable handle definitions. Short calls keep the existing single-line
+  header; long calls use the same multi-line shape `oxfmt` expects.
+- In Ginko CMS commit `c5e3e01`, added:
+  - `operations:generate` as the canonical direct `trellis operations generate`
+    command for the CMS Convex package-root output;
+  - `operations:check` as `pnpm run operations:generate --check --json`;
+  - `operations:check` inside root `pnpm run check` after `format:check`.
+- Regenerated the Ginko testing handle file with the formatter-stable Trellis
+  output.
+
+### Verification
+
+- Trellis focused codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-ref-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/cli-operations.test.ts`.
+- Trellis build passed:
+  `pnpm run build:module`.
+- Trellis lint/format/type/surface checks passed:
+  `pnpm run lint:src:core`, `pnpm run lint:tests`,
+  `pnpm run format:check`, `pnpm run test:types:public`,
+  `pnpm run test:types:contracts`, `pnpm run check:publish-surface`,
+  `pnpm run check:docs:api-surface`, and `git diff --check`.
+- Ginko's new operation check passed in real package-script form:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date generated files.
+- Full Ginko gate passed after wiring the check:
+  `pnpm run check` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+
+### Notes
+
+- This keeps the operation registry command in package scripts instead of
+  adding a new Ginko config file or wrapper layer.
+- The next Trellis improvement should make this command easier to install into
+  generated/consumer projects, but the real consumer now has a drift gate.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
