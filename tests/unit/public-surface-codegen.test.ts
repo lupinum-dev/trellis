@@ -358,6 +358,71 @@ describe('public surface codegen', () => {
     ])
   }, 15_000)
 
+  it('reports unsupported re-exported operation projections', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/local.ts': `
+        import { defineOperation } from '@lupinum/trellis/backend'
+        import { mutation } from '../../functions'
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+
+        const archiveTask = mutation.workspace(archiveTaskOp)
+        export { archiveTask }
+      `,
+      'convex/features/tasks/domain.ts': `
+        import { defineOperation } from '@lupinum/trellis/backend'
+        import { mutation } from '../../functions'
+
+        export const removeTaskOp = defineOperation({
+          id: 'tasks.remove',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const removeTask = mutation.workspace(removeTaskOp)
+      `,
+      'convex/features/tasks/index.ts': `
+        export { removeTask } from './domain'
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.projections).toEqual([
+      {
+        exportName: 'removeTask',
+        file: 'convex/features/tasks/domain.ts',
+        functionKind: 'mutation',
+        line: expect.any(Number),
+        operationExportName: 'removeTaskOp',
+        operationId: 'tasks.remove',
+        projection: 'execute',
+      },
+    ])
+    expect(metadata.diagnostics).toEqual([
+      {
+        code: 'unsupported-projection-re-export',
+        exportName: 'removeTask',
+        file: 'convex/features/tasks/index.ts',
+        line: expect.any(Number),
+        message: expect.stringContaining('Re-exported operation projection'),
+      },
+      {
+        code: 'unsupported-projection-re-export',
+        exportName: 'archiveTask',
+        file: 'convex/features/tasks/local.ts',
+        line: expect.any(Number),
+        message: expect.stringContaining('Re-exported operation projection'),
+      },
+    ])
+  }, 15_000)
+
   it('renders additive module augmentation types for generated operation and tool maps', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

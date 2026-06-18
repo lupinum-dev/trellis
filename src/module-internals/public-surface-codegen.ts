@@ -4,6 +4,7 @@ import {
   Node,
   Project,
   type ExportAssignment,
+  type ExportDeclaration,
   type ObjectLiteralExpression,
   type SourceFile,
   type VariableDeclaration,
@@ -44,6 +45,7 @@ export type PublicSurfaceCodegenDiagnosticCode =
   | 'unsupported-projection-call'
   | 'unsupported-projection-conditional'
   | 'unsupported-projection-operation-reference'
+  | 'unsupported-projection-re-export'
 
 export interface PublicSurfaceCodegenDiagnostic {
   code: PublicSurfaceCodegenDiagnosticCode
@@ -388,8 +390,11 @@ function extractProjectionBinding(
   rootDir: string,
   declaration: VariableDeclaration,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
+  options: { requireExport?: boolean } = {},
 ): OperationProjectionBindingMetadata | null {
-  if (!declaration.getVariableStatement()?.isExported()) return null
+  if ((options.requireExport ?? true) && !declaration.getVariableStatement()?.isExported()) {
+    return null
+  }
 
   const initializer = unwrapExpression(declaration.getInitializer())
   if (!initializer || !Node.isCallExpression(initializer)) return null
@@ -515,6 +520,53 @@ function extractProjectionDiagnostic(
   }
 
   return null
+}
+
+function createProjectionReExportDiagnostic(
+  rootDir: string,
+  exportDeclaration: ExportDeclaration,
+  exportName: string,
+  line: number,
+): PublicSurfaceCodegenDiagnostic {
+  return {
+    code: 'unsupported-projection-re-export',
+    exportName,
+    file: toPosixPath(relative(rootDir, exportDeclaration.getSourceFile().getFilePath())),
+    line,
+    message: `Re-exported operation projection "${exportName}" is unsupported. Export the direct lane call from the Convex function module instead.`,
+  }
+}
+
+function extractProjectionReExportDiagnostics(
+  rootDir: string,
+  exportDeclaration: ExportDeclaration,
+  operationsByExport: Map<string, OperationDefinitionMetadata>,
+): PublicSurfaceCodegenDiagnostic[] {
+  const targetSourceFile =
+    exportDeclaration.getModuleSpecifierSourceFile() ?? exportDeclaration.getSourceFile()
+  const diagnostics: PublicSurfaceCodegenDiagnostic[] = []
+
+  for (const specifier of exportDeclaration.getNamedExports()) {
+    const declaration = targetSourceFile.getVariableDeclaration(specifier.getName())
+    if (!declaration) continue
+
+    const binding = extractProjectionBinding(rootDir, declaration, operationsByExport, {
+      requireExport: false,
+    })
+    if (!binding) continue
+
+    const exportName = specifier.getAliasNode()?.getText() ?? specifier.getName()
+    diagnostics.push(
+      createProjectionReExportDiagnostic(
+        rootDir,
+        exportDeclaration,
+        exportName,
+        specifier.getStartLineNumber(),
+      ),
+    )
+  }
+
+  return diagnostics
 }
 
 function toKebabCase(value: string): string {
@@ -696,6 +748,16 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
         projectionOperationsByExport,
       )
       if (tool) tools.push(tool)
+    }
+
+    for (const exportDeclaration of sourceFile.getExportDeclarations()) {
+      diagnostics.push(
+        ...extractProjectionReExportDiagnostics(
+          rootDir,
+          exportDeclaration,
+          projectionOperationsByExport,
+        ),
+      )
     }
   }
 

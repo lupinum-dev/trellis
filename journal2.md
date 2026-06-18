@@ -436,9 +436,46 @@ loops.
   wired into the Nuxt/module prepare output. Until then, keep them as advanced
   explicit package/example boundaries, not the canonical greenfield path.
 
+## Slice 10: Projection Re-Export Diagnostics
+
+### Proof
+
+- Added a failing scanner test for re-exported operation projections:
+  `const archiveTask = mutation.workspace(op); export { archiveTask }` and
+  `export { removeTask } from './domain'`.
+- The initial focused run failed with empty diagnostics, proving the scanner only
+  inspected variable declarations and silently ignored `ExportDeclaration`
+  projection forms.
+
+### Implementation
+
+- Added `unsupported-projection-re-export` diagnostics for named export
+  declarations that point at operation projection variables.
+- Reused the existing projection binding reader with `requireExport: false` so
+  re-export detection follows the same canonical projection rules as normal
+  extraction.
+- Kept generation fail-closed through the existing registry diagnostic gate; the
+  registry still refuses to build when scanner diagnostics are present.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts -t "re-exported operation projections"`.
+- After implementation, the same focused test passed.
+- `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`
+  passed.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm exec oxfmt --check src/module-internals/public-surface-codegen.ts tests/unit/public-surface-codegen.test.ts`,
+  and `git diff --check` passed.
+
+### Notes
+
+- This intentionally rejects re-exported operation projections instead of
+  supporting alternate public paths. Convex function API paths remain derived
+  from the direct function module that owns the lane export.
+
 ## Next Slice Candidates
 
-1. Add scanner diagnostics for re-exported projection forms.
-2. Wire registry-generated artifacts into Nuxt/module prepare output.
-3. Hard-cut remaining starter resources and examples to generated handles where
+1. Wire registry-generated artifacts into Nuxt/module prepare output.
+2. Hard-cut remaining starter resources and examples to generated handles where
    the registry can own projection refs and MCP operation kinds.
