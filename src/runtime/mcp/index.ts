@@ -102,6 +102,7 @@ export type {
 } from './define-mcp-app.js'
 
 export type {
+  OperationDescriptor,
   OperationHandle,
   OperationHandleFunctionKind,
   OperationHandleProjection,

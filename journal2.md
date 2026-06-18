@@ -2791,13 +2791,83 @@ test/helpers.ts` had no matches except the candidate helper row before
   `project-tool-runtime.ts` still hand-binds `executeOperationRef(...)` and
   `previewOperationRef(...)` for ordinary operation-backed tools.
 
+## Slice 51: Ginko MCP Generated Operation Handles
+
+### Proof
+
+- Ginko's MCP project runtime still imported `executeOperationRef(...)` and
+  `previewOperationRef(...)` and bound ordinary operation-backed tools by hand.
+- Destructive MCP tools duplicated operation metadata across three places:
+  operation object import, execute `call`, and preview ref.
+- Bounded-write MCP tools such as create entry, save draft, unarchive entry, and
+  move asset still passed direct Convex call refs next to operation metadata.
+- Generated MCP handle modules needed to import
+  `import('@lupinum/trellis/mcp').OperationDescriptor`, but the Trellis MCP
+  public surface did not export that type.
+
+### Implementation
+
+- Exported `OperationDescriptor` from `@lupinum/trellis/mcp`.
+- Added generated MCP operation refs and MCP operation handles under Ginko's
+  Convex source package:
+  `packages/convex/src/generated/operationRefs.ts` and
+  `packages/convex/src/generated/operationHandles/mcp.ts`.
+- Split Ginko operation generation into testing and MCP handle generation, and
+  made `operations:check` validate both generated outputs.
+- Exported `@lupinum/ginko-cms-convex/operation-handles/mcp` from the Convex
+  package and added the local TypeScript path for package tests.
+- Changed Ginko's MCP `projectTool(...)` helper to accept generated
+  `OperationHandle` values and call `rawMcpRuntime.tool.operation(handle, ...)`
+  without app-authored execute or preview binding.
+- Hard-cut ordinary destructive and bounded-write MCP tools to
+  `operations.ginkoCms.*` handles from the generated MCP module.
+- Kept direct query MCP tools on explicit Convex `call` refs because they are
+  not operation-backed writes.
+
+### Verification
+
+- Trellis format check passed:
+  `pnpm exec oxfmt --check src/runtime/mcp/index.ts`.
+- Trellis public type surface passed: `pnpm run test:types:public`.
+- Trellis focused MCP/unit tests passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-index-exports.test.ts tests/unit/define-convex-tool.test.ts`
+  reported 2 passing test files and 34 passing tests.
+- Trellis module build passed: `pnpm run build:module`.
+- Trellis whitespace check passed: `git diff --check`.
+- Ginko format check passed for package metadata, generated MCP files, MCP
+  runtime/tool files, and focused tests:
+  `pnpm exec oxfmt --check package.json tsconfig.json packages/convex/package.json packages/convex/src/generated/operationRefs.ts packages/convex/src/generated/operationHandles/mcp.ts packages/cms/src/server/mcp/_shared/project-tool-runtime.ts packages/cms/src/server/mcp/direct/assets.ts packages/cms/src/server/mcp/direct/content.ts packages/cms/src/server/mcp/tools/assets/delete-asset.ts packages/cms/src/server/mcp/tools/content/archive-entry.ts packages/cms/src/server/mcp/tools/content/delete-entry.ts packages/cms/src/server/mcp/tools/content/publish-entry.ts packages/cms/src/server/mcp/tools/content/unpublish-entry.ts test/runtime/mcp-project-tool.test.ts test/shared/mcp-tools.test.ts`.
+- Ginko generated operation artifacts were current for both testing and MCP
+  outputs: `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files for both generated outputs.
+- Ginko focused MCP tests passed:
+  `pnpm vitest run test/runtime/mcp-project-tool.test.ts test/shared/mcp-tools.test.ts`
+  reported 2 passing test files and 18 passing tests.
+- Ginko typecheck passed: `pnpm run typecheck`.
+- Ginko publish specifier check passed: `pnpm run check:publish-specifiers`.
+- Ginko whitespace check passed: `git diff --check`.
+- Source scan found no remaining app-authored execute/preview MCP binding for
+  ordinary project tools:
+  `rg -n "executeOperationRef|previewOperationRef|operation: \\w+Operation|@lupinum/ginko-cms-convex/operations|call: internal\\.ginkoCmsMcp\\.(deleteAsset|archiveEntry|deleteEntry|publishEntry|unpublishEntry|moveAsset|createEntry|saveEntryDraft|unarchiveEntry)|preview: internal\\.ginkoCmsMcp" packages/cms/src/server/mcp --glob '*.ts'`
+  returned no matches.
+
+### Notes
+
+- The clean Ginko verification was rerun after the Trellis module build
+  completed. An earlier parallel attempt failed while Trellis was rebuilding
+  `dist`, so Vitest temporarily could not resolve the local
+  `@lupinum/trellis/testing` export.
+- This slice proves the RFC's one-line MCP operation-binding target in Ginko's
+  consumer code without adding a compatibility path.
+- The generated MCP files currently live inside the Ginko Convex package source
+  because that is the package-exportable path Ginko needs today. A future
+  Trellis vNext implementation should centralize runtime-filtered generated
+  handles as part of the registry/prepare system.
+
 ## Next Slice Candidates
 
-1. Cut Ginko MCP project tools over to one-line generated operation binding so
-   ordinary tools no longer hand-bind `executeOperationRef(...)` /
-   `previewOperationRef(...)`.
-2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
+1. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
    operation files can be validated by package/consumer tests without virtual
    aliases.
-3. Update RFC 0013 status and acceptance notes now that several implementation
+2. Update RFC 0013 status and acceptance notes now that several implementation
    slices are complete, while keeping remaining release gates explicit.
