@@ -70,6 +70,7 @@ const clientDetails = {
   useConvexQuery: 'Query composable with SSR + subscriptions',
   useConvexStorageUrl: 'Storage URL helper',
   useConvexUpload: 'Upload composable',
+  useTrellisOperation: 'Operation composable with preview and confirmation state',
 }
 
 const permissionDetails = {

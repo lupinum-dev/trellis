@@ -84,6 +84,7 @@ describe('installer auto-import surface', () => {
         'useConvexPaginatedQuery',
         'useConvexMutation',
         'useConvexAction',
+        'useTrellisOperation',
         'useConvexUpload',
         'useConvexAuth',
         'useBetterAuthClient',

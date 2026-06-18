@@ -9,6 +9,12 @@ export {
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
 } from '../convex/composables/useConvexMutation.js'
+export {
+  useTrellisOperation,
+  type UseTrellisOperationConfirmation,
+  type UseTrellisOperationExecuteOptions,
+  type UseTrellisOperationReturn,
+} from '../convex/composables/useTrellisOperation.js'
 // Optimistic update builder types and helpers — exported directly from source to avoid re-export hop
 export {
   type OptimisticContext,

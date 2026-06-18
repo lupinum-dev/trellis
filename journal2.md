@@ -1225,11 +1225,70 @@ loops.
   handles are needed for Convex-local operations without importing backend
   implementation files.
 
+## Slice 25: Client Operation Composable Proof
+
+### Proof
+
+- Added a Nuxt runtime proof for `useTrellisOperation(...)` using a generated
+  destructive operation handle shape. After fixing the test syntax, it failed
+  before implementation because
+  `src/runtime/convex/composables/useTrellisOperation` did not exist.
+- Extended the Nuxt auto-import surface test before implementation. It failed
+  because `useTrellisOperation` was not registered by `installCoreTrellis(...)`.
+- Added a public DTS proof that generated-style operation handles preserve
+  execute args/result types and preview result types through
+  `useTrellisOperation(...)`.
+
+### Implementation
+
+- Added `useTrellisOperation(...)` as a thin client composable over the existing
+  Convex mutation/action command state instead of adding a new state machine.
+- The composable exposes separate preview and execute state, preview-derived
+  warnings/blockers/effects/confirmation refs, and explicit
+  `{ confirmation: preview.confirmation }` execution.
+- Explicit confirmation maps to the internal `_confirmationToken` transport
+  field; backend confirmation binding remains authoritative.
+- Preview projections are intentionally mutation-backed in this first client
+  slice, matching the RFC destructive-preview contract.
+- Exported the composable from `@lupinum/trellis/composables`, registered it as
+  a core Nuxt auto-import, and refreshed the generated API surface docs.
+- Expanded the public DTS Nuxt shim enough for the composables barrel to be
+  typechecked directly by `test:types:public`.
+
+### Verification
+
+- Proof/runtime tests passed:
+  `pnpm vitest run --project=nuxt tests/nuxt/useTrellisOperation.nuxt.test.ts`
+  and
+  `pnpm vitest run --project=unit tests/unit/module-auto-imports.test.ts`.
+- Public type proof passed: `pnpm run test:types:public`.
+- Neighboring operation-handle/codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/permission-codegen-installer.test.ts tests/unit/module-auto-imports.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/app-index-exports.test.ts tests/unit/server-index-exports.test.ts tests/unit/mcp-index-exports.test.ts`.
+- Focused lint and surface checks passed:
+  `pnpm run lint:src:runtime:auth-convex`,
+  `pnpm run lint:src:runtime:rest`,
+  `pnpm run lint:src:core`,
+  `pnpm run lint:tests`,
+  `pnpm run check:publish-surface`,
+  `pnpm run check:docs:api-surface`.
+- Formatting and whitespace checks passed:
+  `pnpm run format:check` and `git diff --check`.
+
+### Notes
+
+- This slice gives the generated client handles a real Vue consumer surface, but
+  it does not yet add the operation-aware product test client or server-route
+  operation adapter from the RFC.
+- Query-backed operation handles still belong to the normal query composables or
+  a later deliberate `useTrellisOperation` read design; this slice only covers
+  mutation/action execute calls plus mutation previews.
+
 ## Next Slice Candidates
 
-1. Define the bridge-generated operation handle shape needed to replace
+1. Add the product-level testing client so Ginko-like tests call
+   `owner.operation(operations.entries.publish).preview/execute(...)` instead of
+   maintaining transport maps.
+2. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
+   runtime-specific generated modules.
+3. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
-2. Add client/server/testing consumers for generated handles, starting with a
-   minimal `useTrellisOperation` proof for client handles.
-3. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
-   new runtime-specific generated modules.

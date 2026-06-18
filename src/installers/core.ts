@@ -145,6 +145,10 @@ export const internal = new Proxy(
       from: resolver.resolve('./runtime/convex/composables/useConvexAction'),
     },
     {
+      name: 'useTrellisOperation',
+      from: resolver.resolve('./runtime/convex/composables/useTrellisOperation'),
+    },
+    {
       name: 'useConvexQuery',
       from: resolver.resolve('./runtime/convex/composables/useConvexQuery'),
     },
