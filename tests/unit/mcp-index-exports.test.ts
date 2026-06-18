@@ -48,11 +48,9 @@ describe('mcp entrypoint exports', () => {
       'defineMcpResource',
       'defineOperationHandle',
       'deniedMcpAccessSnapshot',
-      'executeOperationRef',
       'extractToolNames',
       'imageResult',
       'isOperationHandle',
-      'previewOperationRef',
       'projectOperationRef',
       'unsafe',
       'useMcpServer',
@@ -68,6 +66,8 @@ describe('mcp entrypoint exports', () => {
   it('does not surface low-level helpers from the top-level entrypoint', () => {
     expect(mcpApi).not.toHaveProperty('defineMcpTool')
     expect(mcpApi).not.toHaveProperty('defineTool')
+    expect(mcpApi).not.toHaveProperty('executeOperationRef')
+    expect(mcpApi).not.toHaveProperty('previewOperationRef')
     expect(mcpApi).not.toHaveProperty('stampMcpToolSafety')
     expect(mcpApi).not.toHaveProperty('trellisMcpToolSafetyKey')
   })
@@ -86,8 +86,6 @@ describe('mcp entrypoint exports', () => {
     expect(mcpApi).toHaveProperty('wrapSuccess')
     expect(mcpApi).toHaveProperty('wrapPreview')
     expect(mcpApi).toHaveProperty('withSummary')
-    expect(mcpApi).toHaveProperty('executeOperationRef')
-    expect(mcpApi).toHaveProperty('previewOperationRef')
     expect(mcpApi).toHaveProperty('projectOperationRef')
   })
 })

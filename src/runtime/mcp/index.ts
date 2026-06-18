@@ -22,9 +22,7 @@ export { defineMcpApp } from './define-mcp-app.js'
 export { createMcpConvexCaller, deniedMcpAccessSnapshot } from './create-mcp-convex-caller.js'
 export {
   defineOperationHandle,
-  executeOperationRef,
   isOperationHandle,
-  previewOperationRef,
   projectOperationRef,
 } from '../functions/operation-metadata.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'

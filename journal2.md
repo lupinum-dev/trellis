@@ -2864,6 +2864,64 @@ test/helpers.ts` had no matches except the candidate helper row before
   Trellis vNext implementation should centralize runtime-filtered generated
   handles as part of the registry/prepare system.
 
+## Slice 52: Remove Manual Projection Helpers From MCP First-Reader Surface
+
+### Proof
+
+- `@lupinum/trellis/mcp` still exported `executeOperationRef(...)` and
+  `previewOperationRef(...)` even though the entrypoint is documented as the
+  blessed first-reader MCP surface.
+- The generated MCP modules only need `defineOperationHandle(...)`,
+  `projectOperationRef(...)`, and operation-handle types from the MCP surface.
+- Ginko's MCP project tools no longer import or need the manual execute/preview
+  helpers after Slice 51.
+- Keeping those helpers on `@lupinum/trellis/mcp` made the old hand-bound MCP
+  path look as canonical as generated operation handles.
+
+### Implementation
+
+- Removed `executeOperationRef` and `previewOperationRef` from
+  `src/runtime/mcp/index.ts`.
+- Kept generated-handle primitives on the MCP surface:
+  `defineOperationHandle`, `projectOperationRef`, `isOperationHandle`, and the
+  operation-handle types.
+- Updated MCP entrypoint export tests so the first-reader MCP surface now fails
+  if the manual projection helpers return.
+- Left the helpers available from backend/functions surfaces for Trellis
+  internals, advanced package boundaries, and existing low-level tests.
+
+### Verification
+
+- Trellis format check passed:
+  `pnpm exec oxfmt --check src/runtime/mcp/index.ts tests/unit/mcp-index-exports.test.ts`.
+- Trellis MCP entrypoint test passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-index-exports.test.ts`
+  reported 1 passing test file and 4 passing tests.
+- Trellis public type surface passed: `pnpm run test:types:public`.
+- Trellis module build passed: `pnpm run build:module`.
+- Trellis whitespace check passed: `git diff --check`.
+- Ginko generated operation artifacts were still current after rebuilding
+  Trellis:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files for both testing and MCP outputs.
+- Ginko typecheck passed against the rebuilt local Trellis package:
+  `pnpm run typecheck`.
+- Trellis source scan confirmed the MCP runtime source only keeps negative
+  assertions for the removed helpers:
+  `rg -n "executeOperationRef|previewOperationRef" src/runtime/mcp tests/unit/mcp-index-exports.test.ts`.
+- Ginko source scan found no generated-handle or MCP runtime imports of the
+  removed helpers:
+  `rg -n "from '@lupinum/trellis/mcp'.*(executeOperationRef|previewOperationRef)|executeOperationRef|previewOperationRef" packages/cms packages/convex/src/generated test/shared/mcp-tools.test.ts --glob '!dist'`.
+
+### Notes
+
+- This is a public surface hard cut, not a runtime semantic change. Existing
+  backend/function tests still cover manual projection refs where Trellis needs
+  low-level projection metadata.
+- The practical consumer proof is Ginko: its generated MCP refs import only
+  `projectOperationRef` from `@lupinum/trellis/mcp`, and its MCP tool runtime
+  imports only the MCP app/runtime types it needs.
+
 ## Next Slice Candidates
 
 1. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
