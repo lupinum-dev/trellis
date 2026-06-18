@@ -4094,6 +4094,62 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 73: Nuxt Server Route Operation Alias Proof
+
+### Proof
+
+- The server operation adapter slice proved runtime and public typing, but not
+  a real Nitro file importing generated server handles from
+  `#trellis/operations/server`.
+- Extended the maintained `phase0-workspace-mcp` Nuxt fixture proof to require:
+  - generated `.nuxt/trellis/operation-handles/server.ts` handles with
+    `runtimes: ['server']`
+  - `.nuxt/tsconfig.json` path aliases for `#trellis/operations/server`
+  - a real `server/api/projects.post.ts` route importing
+    `serverOperation` from `@lupinum/trellis/server`
+  - the same route importing `operations` from `#trellis/operations/server`
+  - no route import of generated file paths or operation-ref internals
+- The initial focused run failed with `ENOENT` for
+  `server/api/projects.post.ts`, proving the maintained fixture did not yet
+  cover the RFC server-route import path.
+
+### Implementation
+
+- Added a source alias for `@lupinum/trellis/server` in the fixture
+  `nuxt.config.ts`, matching the existing app/auth/backend/MCP/workspace source
+  aliases. This avoids relying on a previously built `dist` directory during
+  fixture typecheck.
+- Added `server/api/projects.post.ts` to the fixture. The route:
+  - owns HTTP body parsing and request validation
+  - imports `serverOperation` from `@lupinum/trellis/server`
+  - imports generated server handles from `#trellis/operations/server`
+  - calls `serverOperation(event, operations.projects.create).execute(...)`
+  - does not import generated handle files, operation refs, or Convex
+    implementation modules directly
+- Updated the fixture proof name to cover both MCP and server operation handles.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/operation-alias-no-permission-codegen.test.ts`.
+- Focused fixture proof passed after implementation. The test runs real
+  `nuxi prepare` and `nuxi typecheck` against
+  `/Users/matthias/Git/workspace/trellis/tests/fixtures/phase0-workspace-mcp`.
+- Formatter check passed:
+  `pnpm exec oxfmt --check tests/unit/operation-alias-no-permission-codegen.test.ts tests/fixtures/phase0-workspace-mcp/nuxt.config.ts tests/fixtures/phase0-workspace-mcp/server/api/projects.post.ts`.
+- Focused lint passed:
+  `pnpm exec eslint tests/unit/operation-alias-no-permission-codegen.test.ts tests/fixtures/phase0-workspace-mcp/nuxt.config.ts tests/fixtures/phase0-workspace-mcp/server/api/projects.post.ts`.
+
+### Notes
+
+- This is a stronger import-resolution proof than the earlier installer unit
+  test because Nuxt generates `.nuxt/tsconfig.json`, then the server route is
+  typechecked through `nuxi typecheck`.
+- The route remains intentionally small. Product authorization stays in the
+  operation lane; the route owns only HTTP boundary details.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
 1. Audit `trellis add entity project --workspace --mcp` against the RFC
@@ -4102,10 +4158,6 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 2. Close the backend-only destructive exposure requirement with explicit
    metadata, doctor/explain visibility, and filtered handle generation, if the
    current operation registry cannot already prove it.
-3. Add a maintained Nuxt/Nitro route fixture using
-   `serverOperation(event, operations.<feature>.<action>)` from
-   `#trellis/operations/server` if the current installer/type proof is not
-   enough for import-resolution confidence.
-4. After the remaining RFC slices are implemented, rerun full
+3. After the remaining RFC slices are implemented, rerun full
    `pnpm run release:verify`, regenerate local tarballs, and rerun the CMS and
    i18n consumer proofs.

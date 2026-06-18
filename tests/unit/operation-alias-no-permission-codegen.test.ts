@@ -22,7 +22,7 @@ function runNuxi(fixtureRoot: string, command: 'prepare' | 'typecheck') {
 
 describe('operation aliases without permission codegen', () => {
   it(
-    'prepares and typechecks MCP operation handles with permission codegen disabled',
+    'prepares and typechecks MCP and server operation handles with permission codegen disabled',
     { timeout: 120000 },
     () => {
       const fixtureRoot = resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp')
@@ -42,6 +42,15 @@ describe('operation aliases without permission codegen', () => {
       expect(generatedMcpHandles).toContain("'projects.create': createProjectHandle")
       expect(generatedMcpHandles).toContain('executeRef: projectsCreateExecuteRef')
 
+      const generatedServerHandlesPath = resolve(
+        fixtureRoot,
+        '.nuxt/trellis/operation-handles/server.ts',
+      )
+      const generatedServerHandles = readFileSync(generatedServerHandlesPath, 'utf8')
+      expect(generatedServerHandles).toContain("runtimes: ['server']")
+      expect(generatedServerHandles).toContain("'projects.create': createProjectHandle")
+      expect(generatedServerHandles).toContain('executeRef: projectsCreateExecuteRef')
+
       const generatedRefs = readFileSync(
         resolve(fixtureRoot, '.nuxt/trellis/operation-refs.ts'),
         'utf8',
@@ -52,6 +61,8 @@ describe('operation aliases without permission codegen', () => {
       const generatedTsconfig = readFileSync(resolve(fixtureRoot, '.nuxt/tsconfig.json'), 'utf8')
       expect(generatedTsconfig).toContain('"#trellis/operations/mcp"')
       expect(generatedTsconfig).toContain('./trellis/operation-handles/mcp')
+      expect(generatedTsconfig).toContain('"#trellis/operations/server"')
+      expect(generatedTsconfig).toContain('./trellis/operation-handles/server')
 
       const virtualAliasTool = readFileSync(
         resolve(fixtureRoot, 'server/mcp/tools/create-project-from-virtual-alias.ts'),
@@ -59,6 +70,13 @@ describe('operation aliases without permission codegen', () => {
       )
       expect(virtualAliasTool).toContain("from '#trellis/operations/mcp'")
       expect(virtualAliasTool).not.toContain('generated/operation-handles')
+
+      const serverRoute = readFileSync(resolve(fixtureRoot, 'server/api/projects.post.ts'), 'utf8')
+      expect(serverRoute).toContain("from '@lupinum/trellis/server'")
+      expect(serverRoute).toContain("from '#trellis/operations/server'")
+      expect(serverRoute).toContain('serverOperation(event, operations.projects.create)')
+      expect(serverRoute).not.toContain('generated/operation-handles')
+      expect(serverRoute).not.toContain('operation-refs')
 
       expect(existsSync(resolve(fixtureRoot, '.nuxt/trellis/permissions.ts'))).toBe(false)
       expect(existsSync(resolve(fixtureRoot, '.nuxt/types/trellis-permissions.d.ts'))).toBe(false)

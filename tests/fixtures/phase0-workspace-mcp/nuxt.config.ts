@@ -9,6 +9,9 @@ const runtimeBackendEntry = fileURLToPath(
   new URL('../../../src/runtime/backend/index.ts', import.meta.url),
 )
 const runtimeMcpEntry = fileURLToPath(new URL('../../../src/runtime/mcp/index.ts', import.meta.url))
+const runtimeServerEntry = fileURLToPath(
+  new URL('../../../src/runtime/server/index.ts', import.meta.url),
+)
 const runtimeWorkspaceEntry = fileURLToPath(
   new URL('../../../src/runtime/workspace/index.ts', import.meta.url),
 )
@@ -21,6 +24,7 @@ export default defineNuxtConfig({
     '@lupinum/trellis/auth': runtimeAuthEntry,
     '@lupinum/trellis/backend': runtimeBackendEntry,
     '@lupinum/trellis/mcp': runtimeMcpEntry,
+    '@lupinum/trellis/server': runtimeServerEntry,
     '@lupinum/trellis/workspace': runtimeWorkspaceEntry,
   },
 
