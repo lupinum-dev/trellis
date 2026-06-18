@@ -1,3 +1,3 @@
 export { pagesFeature } from './feature'
-export { previewPublish, publishPageOp } from './operations'
+export { publishPageOp } from './operations'
 export { pagesTables } from './schema'

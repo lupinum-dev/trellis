@@ -58,6 +58,7 @@ describe('example 08 component mini cms', () => {
       email: 'editor-public@example.com',
       displayName: 'Editor Public',
     }) as {
+      action: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>
       mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
     }
 
@@ -67,11 +68,7 @@ describe('example 08 component mini cms', () => {
       draftBody: 'Public page body',
     })
 
-    await (
-      editorPublic as {
-        mutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>
-      }
-    ).mutation(api.features.pages.domain.publish, { id: pageId })
+    await editorPublic.action(api.features.pages.domain.publishAction, { id: pageId })
 
     const published = await ctx.raw.query(api.features.pages.domain.listPublished, {})
     expect(published).toHaveLength(1)
@@ -100,6 +97,7 @@ describe('example 08 component mini cms', () => {
       email: 'editor-workflow@example.com',
       displayName: 'Editor Workflow',
     }) as {
+      action: (fn: unknown, args: Record<string, unknown>) => Promise<any>
       mutation: (fn: unknown, args: Record<string, unknown>) => Promise<any>
       query: (fn: unknown, args: Record<string, unknown>) => Promise<any>
     }
@@ -117,7 +115,7 @@ describe('example 08 component mini cms', () => {
       draftBody: 'Draft v2',
     })
 
-    await editor.mutation(api.features.pages.domain.publish, { id })
+    await editor.action(api.features.pages.domain.publishAction, { id })
 
     const pages = await editor.query(api.features.pages.domain.listStudio, {})
     expect(pages).toHaveLength(1)
@@ -164,19 +162,19 @@ describe('example 08 component mini cms', () => {
     })
   })
 
-  it('binds the MCP publish tool to the action-backed operation ref', () => {
+  it('binds the MCP publish tool to the generated action-backed operation handle', () => {
     const source = readFileSync(
       new URL('../server/mcp/tools/publish-page.ts', import.meta.url),
       'utf8',
     )
 
-    expect(source).toContain('tool.operation(publishPageOp')
-    expect(source).toContain('executeOperationRef(')
-    expect(source).toContain('publishPageOp')
-    expect(source).toContain('api.features.pages.domain.publishAction')
-    expect(source).toContain("executeOperation: 'action'")
-    expect(source).toContain('previewOperationRef(publishPageOp')
-    expect(source).toContain('api.features.pages.domain.previewPublish')
+    expect(source).toContain("from '#trellis/operations/mcp'")
+    expect(source).toContain('tool.operation(operations.pages.publish')
+    expect(source).toContain('schema: publishPage')
+    expect(source).toContain("confirmationMode: 'transport'")
+    expect(source).not.toContain('OperationRef(')
+    expect(source).not.toContain('publishPageOp')
+    expect(source).not.toContain('api.features.pages.domain.publishAction')
   })
 
   it('rejects forwarded principals on public root wrappers', async () => {

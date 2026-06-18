@@ -3,6 +3,7 @@ import { basename, relative, resolve } from 'node:path'
 import {
   Node,
   Project,
+  type CallExpression,
   type ExportAssignment,
   type ExportDeclaration,
   type ObjectLiteralExpression,
@@ -11,6 +12,7 @@ import {
 } from 'ts-morph'
 
 export const DEFAULT_OPERATION_CODEGEN_INCLUDE = ['convex/**/*.ts', 'shared/**/*.ts'] as const
+export const DEFAULT_OPERATION_CODEGEN_EXCLUDE = ['convex/components/**'] as const
 export const DEFAULT_MCP_TOOL_CODEGEN_INCLUDE = ['server/mcp/tools/**/*.ts'] as const
 
 export interface PublicSurfaceProjectionRoot {
@@ -215,6 +217,12 @@ type CanonicalProjectionCall = {
   functionKind: 'query' | 'mutation' | 'action'
 }
 
+type ExplicitProjectionCall = CanonicalProjectionCall & {
+  operationIdentifier: string
+  projectionExpression: Node
+  targetFunctionRef?: string
+}
+
 const defaultProjectionRoots: readonly PublicSurfaceProjectionRoot[] = [
   { name: 'mutation', functionKind: 'mutation', supportsPreview: true },
   { name: 'query', functionKind: 'query' },
@@ -285,6 +293,73 @@ function readCanonicalProjectionCall(
   }
 }
 
+function readExplicitProjectionCall(
+  expression: Node | undefined,
+  options: PublicSurfaceCodegenOptions = {},
+  sourceFile?: SourceFile,
+): ExplicitProjectionCall | null {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression || !Node.isCallExpression(unwrappedExpression)) return null
+
+  const callee = unwrapExpression(unwrappedExpression.getExpression())
+  if (!callee || !Node.isIdentifier(callee)) return null
+
+  const helperName = callee.getText()
+  const projection =
+    helperName === 'executeOperationRef'
+      ? 'execute'
+      : helperName === 'previewOperationRef'
+        ? 'preview'
+        : null
+  if (!projection) return null
+
+  const [operationArg, projectionArg, optionsArg] = unwrappedExpression.getArguments()
+  const operationIdentifier = unwrapExpression(operationArg)
+  if (!operationIdentifier || !Node.isIdentifier(operationIdentifier)) return null
+
+  const projectionExpression = resolveProjectionCallExpression(projectionArg, sourceFile)
+  if (!projectionExpression) return null
+
+  const canonicalProjection = readCanonicalProjectionCall(projectionExpression, options)
+  if (!canonicalProjection) return null
+  if (canonicalProjection.projection === 'preview' && projection !== 'preview') return null
+
+  const projectionDefinition = unwrapExpression(projectionExpression.getArguments()[0])
+  if (!projectionDefinition) return null
+
+  const explicitOptions = unwrapExpression(optionsArg)
+  const targetFunctionRef =
+    explicitOptions && Node.isObjectLiteralExpression(explicitOptions)
+      ? readStringProperty(explicitOptions, 'functionRef')
+      : undefined
+
+  return {
+    operationIdentifier: operationIdentifier.getText(),
+    projection,
+    functionKind: canonicalProjection.functionKind,
+    projectionExpression: projectionDefinition,
+    ...(targetFunctionRef ? { targetFunctionRef } : {}),
+  }
+}
+
+function resolveProjectionCallExpression(
+  expression: Node | undefined,
+  sourceFile?: SourceFile,
+): CallExpression | null {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression) return null
+
+  if (Node.isCallExpression(unwrappedExpression)) return unwrappedExpression
+
+  if (sourceFile && Node.isIdentifier(unwrappedExpression)) {
+    const declaration = sourceFile.getVariableDeclaration(unwrappedExpression.getText())
+    const initializer = unwrapExpression(declaration?.getInitializer())
+    return initializer && Node.isCallExpression(initializer) ? initializer : null
+  }
+
+  return null
+}
+
 function hasProjectionLikeExpression(
   expression: Node | undefined,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
@@ -304,6 +379,11 @@ function hasProjectionLikeExpression(
   const rootIdentifier = getCallRootIdentifier(unwrappedExpression)
   if (rootIdentifier && options.ignoredProjectionRoots?.includes(rootIdentifier)) return false
   if (readCanonicalProjectionCall(unwrappedExpression, options)) return true
+  if (
+    readExplicitProjectionCall(unwrappedExpression, options, unwrappedExpression.getSourceFile())
+  ) {
+    return true
+  }
 
   const [firstArg] = unwrappedExpression.getArguments()
   const executeOperationIdentifier = readExecuteOperationIdentifier(firstArg)
@@ -520,6 +600,33 @@ function extractProjectionBinding(
   const initializer = unwrapExpression(declaration.getInitializer())
   if (!initializer || !Node.isCallExpression(initializer)) return null
 
+  const explicitProjectionCall = readExplicitProjectionCall(
+    initializer,
+    codegenOptions,
+    declaration.getSourceFile(),
+  )
+  if (explicitProjectionCall) {
+    const operation = operationsByExport.get(explicitProjectionCall.operationIdentifier)
+    if (!operation) return null
+
+    return {
+      operationId: operation.id,
+      operationExportName: operation.exportName,
+      exportName: declaration.getName(),
+      file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
+      line: declaration.getNameNode().getStartLineNumber(),
+      projection: explicitProjectionCall.projection,
+      functionKind: explicitProjectionCall.functionKind,
+      targetFunctionRef:
+        explicitProjectionCall.targetFunctionRef ??
+        deriveProjectionTargetFunctionRef(
+          operation,
+          explicitProjectionCall.projection,
+          explicitProjectionCall.projectionExpression,
+        ),
+    }
+  }
+
   const [firstArg] = initializer.getArguments()
   const unwrappedFirstArg = unwrapExpression(firstArg)
   if (!unwrappedFirstArg) return null
@@ -606,6 +713,23 @@ function extractProjectionDiagnostic(
   if (!Node.isCallExpression(initializer)) return null
   const rootIdentifier = getCallRootIdentifier(initializer)
   if (rootIdentifier && options.ignoredProjectionRoots?.includes(rootIdentifier)) return null
+
+  const explicitProjectionCall = readExplicitProjectionCall(
+    initializer,
+    options,
+    declaration.getSourceFile(),
+  )
+  if (explicitProjectionCall) {
+    return isLikelyOperationIdentifier(explicitProjectionCall.operationIdentifier) &&
+      !operationsByExport.has(explicitProjectionCall.operationIdentifier)
+      ? createProjectionDiagnostic(
+          rootDir,
+          declaration,
+          'unsupported-projection-operation-reference',
+          `Unsupported operation projection "${declaration.getName()}". Pass the operation export directly to the projection helper.`,
+        )
+      : null
+  }
 
   const [firstArg] = initializer.getArguments()
   const callee = unwrapExpression(initializer.getExpression())
@@ -820,7 +944,7 @@ export function extractPublicSurfaceCodegenMetadata(
   const rawOperationInclude = [...(options.operationInclude ?? DEFAULT_OPERATION_CODEGEN_INCLUDE)]
   const operationInclude = rawOperationInclude.filter((pattern) => !pattern.startsWith('!'))
   const operationExclude = [
-    ...(options.operationExclude ?? []),
+    ...(options.operationExclude ?? DEFAULT_OPERATION_CODEGEN_EXCLUDE),
     ...rawOperationInclude
       .filter((pattern) => pattern.startsWith('!'))
       .map((pattern) => pattern.slice(1)),

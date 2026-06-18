@@ -1,15 +1,11 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '#trellis/api'
-
-import { createPageOp } from '../../../convex/components/miniCms/features/pages/domain'
 import { createPagePermission } from '../../../convex/features/pages/permissions'
 import { createPage } from '../../../shared/features/pages/contract'
 import { tool } from '../../lib/mcp-runtime'
 
-export default tool.operation(createPageOp, {
+export default tool.operation(operations.pages.create, {
   schema: createPage,
-  execute: executeOperationRef(createPageOp, api.features.pages.domain.create),
   permission: createPagePermission,
   group: 'pages',
   meta: {

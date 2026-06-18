@@ -242,7 +242,7 @@
                   type="button"
                   color="primary"
                   variant="soft"
-                  :loading="publishPageMutation.pending.value"
+                  :loading="publishPageAction.pending.value"
                   leading-icon="i-lucide-rocket"
                   @click="handlePublish"
                 >
@@ -396,14 +396,14 @@ watch(
 
 const createPageMutation = useConvexMutation(api.features.pages.domain.create)
 const saveDraftMutation = useConvexMutation(api.features.pages.domain.save)
-const publishPageMutation = useConvexMutation(api.features.pages.domain.publish)
+const publishPageAction = useConvexAction(api.features.pages.domain.publishAction)
 
 const uiError = computed(
   () =>
     pagesError.value?.message ||
     createPageMutation.error.value?.message ||
     saveDraftMutation.error.value?.message ||
-    publishPageMutation.error.value?.message ||
+    publishPageAction.error.value?.message ||
     '',
 )
 
@@ -451,6 +451,6 @@ async function handleSaveDraft() {
 
 async function handlePublish() {
   if (!selectedId.value) return
-  await publishPageMutation({ id: selectedId.value })
+  await publishPageAction({ id: selectedId.value })
 }
 </script>

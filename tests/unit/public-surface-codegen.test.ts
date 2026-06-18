@@ -130,6 +130,137 @@ describe('public surface codegen', () => {
     ])
   }, 15_000)
 
+  it('extracts explicit host bridge projections while ignoring component internals by default', () => {
+    const rootDir = createFixture({
+      'shared/features/pages/operations.ts': `
+        import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+
+        export const publishPageDescriptor = defineOperationDescriptor({
+          id: 'pages.publish',
+          kind: 'destructive',
+          args: {},
+          previewReturns: {},
+        })
+
+        export const saveDraftDescriptor = defineOperationDescriptor({
+          id: 'pages.save-draft',
+          args: {},
+        })
+      `,
+      'convex/components/miniCms/features/pages/domain.ts': `
+        import { implementOperation } from '@lupinum/trellis/backend'
+        import { mutation } from '../../../functions'
+        import { publishPageDescriptor, saveDraftDescriptor } from '../../../../../shared/features/pages/operations'
+
+        export const publishPageOp = implementOperation(publishPageDescriptor, {
+          preview: async () => null,
+          handler: async () => null,
+        })
+        export const saveDraftOp = implementOperation(saveDraftDescriptor, {
+          handler: async () => null,
+        })
+
+        export const publish = mutation.authenticated(publishPageOp)
+        export const save = mutation.authenticated(saveDraftOp)
+      `,
+      'convex/features/pages/domain.ts': `
+        import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+        import { action, mutation, query } from '../../functions'
+        import { publishPageDescriptor, saveDraftDescriptor } from '../../../shared/features/pages/operations'
+
+        const saveProjection = mutation.public({
+          id: 'features/pages/domain:save',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const save = executeOperationRef(saveDraftDescriptor, saveProjection, {
+          functionRef: 'features/pages/domain:save',
+        }) as typeof saveProjection
+
+        const publishActionProjection = action.public({
+          id: 'features/pages/domain:publishAction',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const publishAction = executeOperationRef(
+          publishPageDescriptor,
+          publishActionProjection,
+          { functionRef: 'features/pages/domain:publishAction' },
+        ) as typeof publishActionProjection
+
+        const previewPublishProjection = query.public({
+          id: 'features/pages/domain:previewPublish',
+          reads: [],
+          args: {},
+          handler: async () => null,
+        })
+
+        export const previewPublish = previewOperationRef(
+          publishPageDescriptor,
+          previewPublishProjection,
+          {
+            functionRef: 'features/pages/domain:previewPublish',
+            executeFunctionRef: 'features/pages/domain:publishAction',
+          },
+        ) as typeof previewPublishProjection
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.diagnostics).toEqual([])
+    expect(metadata.operations).toEqual([
+      {
+        exportName: 'publishPageDescriptor',
+        file: 'shared/features/pages/operations.ts',
+        id: 'pages.publish',
+        kind: 'destructive',
+        line: expect.any(Number),
+      },
+      {
+        exportName: 'saveDraftDescriptor',
+        file: 'shared/features/pages/operations.ts',
+        id: 'pages.save-draft',
+        kind: 'safe',
+        line: expect.any(Number),
+      },
+    ])
+    expect(metadata.projections).toEqual([
+      {
+        exportName: 'publishAction',
+        file: 'convex/features/pages/domain.ts',
+        functionKind: 'action',
+        line: expect.any(Number),
+        operationExportName: 'publishPageDescriptor',
+        operationId: 'pages.publish',
+        projection: 'execute',
+        targetFunctionRef: 'features/pages/domain:publishAction',
+      },
+      {
+        exportName: 'previewPublish',
+        file: 'convex/features/pages/domain.ts',
+        functionKind: 'query',
+        line: expect.any(Number),
+        operationExportName: 'publishPageDescriptor',
+        operationId: 'pages.publish',
+        projection: 'preview',
+        targetFunctionRef: 'features/pages/domain:previewPublish',
+      },
+      {
+        exportName: 'save',
+        file: 'convex/features/pages/domain.ts',
+        functionKind: 'mutation',
+        line: expect.any(Number),
+        operationExportName: 'saveDraftDescriptor',
+        operationId: 'pages.save-draft',
+        projection: 'execute',
+        targetFunctionRef: 'features/pages/domain:save',
+      },
+    ])
+  }, 15_000)
+
   it('extracts operations, projections, and MCP tool metadata', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

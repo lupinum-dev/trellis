@@ -1,16 +1,13 @@
-import { operation } from '@lupinum/trellis/app'
-import { v } from 'convex/values'
+import { implementOperation } from '@lupinum/trellis/backend'
 
 import {
-  createPage,
-  getPublishedPage,
-  listDraftPages,
-  listPublishedPages,
-  listStudioPages,
-  publishedPageValidator,
-  saveDraft,
-  studioPageValidator,
-} from '../../../../../shared/features/pages/contract'
+  createPageDescriptor,
+  getPublishedPageDescriptor,
+  listDraftPagesDescriptor,
+  listPublishedPagesDescriptor,
+  listStudioPagesDescriptor,
+  saveDraftDescriptor,
+} from '../../../../../shared/features/pages/operations'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query, transportMutation } from '../../functions'
@@ -71,10 +68,7 @@ function toStudioPage(page: {
   }
 }
 
-export const listPublishedPagesOp = operation.query({
-  id: 'pages.list-published',
-  args: listPublishedPages.args,
-  returns: v.array(publishedPageValidator),
+export const listPublishedPagesOp = implementOperation(listPublishedPagesDescriptor, {
   executeFunctionRef: 'features/pages/domain:listPublished',
   identityForwardingTransport: 'bridge',
   reads: ['pages'],
@@ -91,10 +85,7 @@ export const listPublishedPagesOp = operation.query({
 
 export const listPublished = query.public(listPublishedPagesOp)
 
-export const getPublishedPageOp = operation.query({
-  id: 'pages.get-published',
-  args: getPublishedPage.args,
-  returns: v.union(publishedPageValidator, v.null()),
+export const getPublishedPageOp = implementOperation(getPublishedPageDescriptor, {
   executeFunctionRef: 'features/pages/domain:getPublished',
   identityForwardingTransport: 'bridge',
   reads: ['pages'],
@@ -111,10 +102,7 @@ export const getPublishedPageOp = operation.query({
 
 export const getPublished = query.public(getPublishedPageOp)
 
-export const listStudioPagesOp = operation.query({
-  id: 'pages.list-studio',
-  args: listStudioPages.args,
-  returns: v.array(studioPageValidator),
+export const listStudioPagesOp = implementOperation(listStudioPagesDescriptor, {
   executeFunctionRef: 'features/pages/domain:listStudio',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: QueryCtx) => {
@@ -125,10 +113,7 @@ export const listStudioPagesOp = operation.query({
 
 export const listStudio = query.authenticated(listStudioPagesOp)
 
-export const listDraftPagesOp = operation.query({
-  id: 'pages.list-draft',
-  args: listDraftPages.args,
-  returns: v.array(studioPageValidator),
+export const listDraftPagesOp = implementOperation(listDraftPagesDescriptor, {
   executeFunctionRef: 'features/pages/domain:listDraft',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: QueryCtx) => {
@@ -144,10 +129,7 @@ export const listDraftPagesOp = operation.query({
 
 export const listDraft = query.authenticated(listDraftPagesOp)
 
-export const createPageOp = operation.mutation({
-  id: 'pages.create',
-  args: createPage.args,
-  returns: v.string(),
+export const createPageOp = implementOperation(createPageDescriptor, {
   executeFunctionRef: 'features/pages/domain:create',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: ManagePagesMutationCtx, args: CreatePageArgs) => {
@@ -176,10 +158,7 @@ export const createPageOp = operation.mutation({
 
 export const create = mutation.authenticated(createPageOp)
 
-export const saveDraftOp = operation.mutation({
-  id: 'pages.save-draft',
-  args: saveDraft.args,
-  returns: v.null(),
+export const saveDraftOp = implementOperation(saveDraftDescriptor, {
   executeFunctionRef: 'features/pages/domain:save',
   identityForwardingTransport: 'bridge',
   handler: async (ctx: MutationCtx, args: SaveDraftArgs) => {

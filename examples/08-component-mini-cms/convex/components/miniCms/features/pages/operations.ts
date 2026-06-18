@@ -1,15 +1,13 @@
+import { requireRecord } from '@lupinum/trellis/auth'
 import {
-  operation,
+  implementOperation,
   operationEffect,
   operationIssue,
   operationPreview,
-  operationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/app'
-import { requireRecord } from '@lupinum/trellis/auth'
-import { v } from 'convex/values'
+} from '@lupinum/trellis/backend'
 
-import { publishPage, publishPreviewValidator } from '../../../../../shared/features/pages/contract'
+import { publishPageDescriptor } from '../../../../../shared/features/pages/operations'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { query } from '../../functions'
 
@@ -22,26 +20,9 @@ type PageOperationCtx = {
   }
 }
 
-export const publishPageOp = operation.destructive({
-  id: 'pages.publish',
+export const publishPageOp = implementOperation(publishPageDescriptor, {
   executeFunctionRef: 'features/pages/domain:publish',
   identityForwardingTransport: 'bridge',
-  args: publishPage.args,
-  returns: v.object({
-    pageId: v.string(),
-    published: v.boolean(),
-  }),
-  safety: 'external-side-effect',
-  previewReturns: operationPreviewValidator({
-    details: publishPreviewValidator,
-    confirm: v.object({
-      operation: v.literal('pages.publish'),
-      targetId: v.string(),
-      affectedCounts: v.object({
-        pages: v.number(),
-      }),
-    }),
-  }),
   load: async (ctx: PageOperationCtx, args: PublishPageArgs): Promise<LoadedPage> => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
     requireRecord(page, 'Page')

@@ -1,15 +1,11 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '#trellis/api'
-
-import { saveDraftOp } from '../../../convex/components/miniCms/features/pages/domain'
 import { saveDraftPermission } from '../../../convex/features/pages/permissions'
 import { saveDraft } from '../../../shared/features/pages/contract'
 import { tool } from '../../lib/mcp-runtime'
 
-export default tool.operation(saveDraftOp, {
+export default tool.operation(operations.pages.saveDraft, {
   schema: saveDraft,
-  execute: executeOperationRef(saveDraftOp, api.features.pages.domain.save),
   permission: saveDraftPermission,
   group: 'pages',
   meta: {

@@ -322,6 +322,115 @@ describe('operation registry codegen', () => {
     )
   })
 
+  it('renders host bridge operation handles from explicit projection wrappers', () => {
+    const rootDir = createFixture({
+      'shared/features/pages/operations.ts': `
+        import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+
+        export const publishPageDescriptor = defineOperationDescriptor({
+          id: 'pages.publish',
+          kind: 'destructive',
+          args: {},
+          previewReturns: {},
+        })
+
+        export const saveDraftDescriptor = defineOperationDescriptor({
+          id: 'pages.save-draft',
+          args: {},
+        })
+      `,
+      'convex/components/miniCms/features/pages/domain.ts': `
+        import { implementOperation } from '@lupinum/trellis/backend'
+        import { mutation } from '../../../functions'
+        import { publishPageDescriptor, saveDraftDescriptor } from '../../../../../shared/features/pages/operations'
+
+        export const publishPageOp = implementOperation(publishPageDescriptor, {
+          preview: async () => null,
+          handler: async () => null,
+        })
+        export const saveDraftOp = implementOperation(saveDraftDescriptor, {
+          handler: async () => null,
+        })
+
+        export const publish = mutation.authenticated(publishPageOp)
+        export const save = mutation.authenticated(saveDraftOp)
+      `,
+      'convex/features/pages/domain.ts': `
+        import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+        import { action, mutation, query } from '../../functions'
+        import { publishPageDescriptor, saveDraftDescriptor } from '../../../shared/features/pages/operations'
+
+        const saveProjection = mutation.public({
+          id: 'features/pages/domain:save',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const save = executeOperationRef(saveDraftDescriptor, saveProjection, {
+          functionRef: 'features/pages/domain:save',
+        }) as typeof saveProjection
+
+        const publishActionProjection = action.public({
+          id: 'features/pages/domain:publishAction',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const publishAction = executeOperationRef(
+          publishPageDescriptor,
+          publishActionProjection,
+          { functionRef: 'features/pages/domain:publishAction' },
+        ) as typeof publishActionProjection
+
+        const previewPublishProjection = query.public({
+          id: 'features/pages/domain:previewPublish',
+          reads: [],
+          args: {},
+          handler: async () => null,
+        })
+
+        export const previewPublish = previewOperationRef(
+          publishPageDescriptor,
+          previewPublishProjection,
+          {
+            functionRef: 'features/pages/domain:previewPublish',
+            executeFunctionRef: 'features/pages/domain:publishAction',
+          },
+        ) as typeof previewPublishProjection
+      `,
+    })
+
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(rootDir))
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '#trellis/api',
+      defineOperationHandleImport: '#trellis/mcp',
+      operationHandlesPath: '.nuxt/trellis/operation-handles/mcp.ts',
+      operationProjectionsPath: 'generated/operation-projections.ts',
+      operationRefsPath: '.nuxt/trellis/operation-refs.ts',
+      projectOperationRefImport: '#trellis/mcp',
+      runtimes: ['mcp'],
+    })
+    const refs = rendered.find((file) => file.path.endsWith('/operation-refs.ts'))?.content
+    const handles = rendered.find((file) =>
+      file.path.endsWith('/operation-handles/mcp.ts'),
+    )?.content
+    const projections = rendered.find(
+      (file) => file.path === 'generated/operation-projections.ts',
+    )?.content
+
+    expect(refs).toContain('api.features.pages.domain.publishAction')
+    expect(refs).toContain('api.features.pages.domain.previewPublish')
+    expect(refs).toContain("{ functionRef: 'features/pages/domain:publishAction' }")
+    expect(refs).toContain("executeFunctionRef: 'features/pages/domain:publishAction'")
+    expect(refs).not.toContain('api.components')
+    expect(handles).toContain("from '../../../shared/features/pages/operations'")
+    expect(handles).toContain("executeOperation: 'action'")
+    expect(handles).toContain("previewOperation: 'query'")
+    expect(handles).toContain("'pages.publish': publishPageHandle")
+    expect(projections).toContain("'pages.publish': 'features/pages/domain:publishAction'")
+    expect(projections).toContain("'pages.publish': 'features/pages/domain:previewPublish'")
+  })
+
   it('maps implemented operation projections back to shared descriptors', () => {
     const rootDir = createFixture({
       'shared/features/tasks/operations.ts': `

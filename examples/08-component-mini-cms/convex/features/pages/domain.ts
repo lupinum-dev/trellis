@@ -1,5 +1,9 @@
 import { createBridgeForwardingArgs } from '@lupinum/trellis-bridge/component'
-import { operationPreviewValidator } from '@lupinum/trellis/backend'
+import {
+  executeOperationRef,
+  operationPreviewValidator,
+  previewOperationRef,
+} from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
@@ -17,6 +21,15 @@ import {
   saveDraft as saveDraftSchema,
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
+import {
+  createPageDescriptor,
+  getPublishedPageDescriptor,
+  listDraftPagesDescriptor,
+  listPublishedPagesDescriptor,
+  listStudioPagesDescriptor,
+  publishPageDescriptor,
+  saveDraftDescriptor,
+} from '../../../shared/features/pages/operations'
 import { action, mutation, query } from '../../functions'
 
 const publishedPageListValidator = v.array(publishedPageValidator)
@@ -51,7 +64,7 @@ async function bridgeForwardingArgs(
 
 const bridgeApi = (anyApi as any).features.pages.bridge
 
-export const listPublished = query.public({
+const listPublishedProjection = query.public({
   id: 'features/pages/domain:listPublished',
   reads: [],
   args: listPublishedPagesSchema.args,
@@ -69,7 +82,13 @@ export const listPublished = query.public({
     ),
 })
 
-export const getPublished = query.public({
+export const listPublished = executeOperationRef(
+  listPublishedPagesDescriptor,
+  listPublishedProjection,
+  { functionRef: 'features/pages/domain:listPublished' },
+) as typeof listPublishedProjection
+
+const getPublishedProjection = query.public({
   id: 'features/pages/domain:getPublished',
   reads: [],
   args: getPublishedPageSchema.args,
@@ -87,7 +106,13 @@ export const getPublished = query.public({
     ),
 })
 
-export const listStudio = query.public({
+export const getPublished = executeOperationRef(
+  getPublishedPageDescriptor,
+  getPublishedProjection,
+  { functionRef: 'features/pages/domain:getPublished' },
+) as typeof getPublishedProjection
+
+const listStudioProjection = query.public({
   id: 'features/pages/domain:listStudio',
   reads: [],
   args: listStudioPagesSchema.args,
@@ -105,7 +130,11 @@ export const listStudio = query.public({
     ),
 })
 
-export const listDraft = query.public({
+export const listStudio = executeOperationRef(listStudioPagesDescriptor, listStudioProjection, {
+  functionRef: 'features/pages/domain:listStudio',
+}) as typeof listStudioProjection
+
+const listDraftProjection = query.public({
   id: 'features/pages/domain:listDraft',
   reads: [],
   args: listDraftPagesSchema.args,
@@ -123,7 +152,11 @@ export const listDraft = query.public({
     ),
 })
 
-export const create = mutation.public({
+export const listDraft = executeOperationRef(listDraftPagesDescriptor, listDraftProjection, {
+  functionRef: 'features/pages/domain:listDraft',
+}) as typeof listDraftProjection
+
+const createProjection = mutation.public({
   id: 'features/pages/domain:create',
   args: createPageSchema.args,
   returns: v.string(),
@@ -140,7 +173,11 @@ export const create = mutation.public({
     ),
 })
 
-export const save = mutation.public({
+export const create = executeOperationRef(createPageDescriptor, createProjection, {
+  functionRef: 'features/pages/domain:create',
+}) as typeof createProjection
+
+const saveProjection = mutation.public({
   id: 'features/pages/domain:save',
   args: saveDraftSchema.args,
   returns: v.null(),
@@ -157,26 +194,13 @@ export const save = mutation.public({
     ),
 })
 
-export const publish = mutation.public({
-  id: 'features/pages/domain:publish',
-  args: publishPageSchema.args,
-  returns: publishResultValidator,
-  handler: async (ctx, args) =>
-    await ctx.runMutation(
-      bridgeApi.publish,
-      await bridgeForwardingArgs(
-        ctx,
-        args,
-        'operation-execute',
-        bridgeApi.publish,
-        'features/pages/domain:publish',
-      ),
-    ),
-})
+export const save = executeOperationRef(saveDraftDescriptor, saveProjection, {
+  functionRef: 'features/pages/domain:save',
+}) as typeof saveProjection
 
 if (!action) throw new Error('Component mini CMS bridge requires an action builder.')
 
-export const publishAction = action.public({
+const publishActionProjection = action.public({
   id: 'features/pages/domain:publishAction',
   args: publishPageSchema.args,
   returns: publishResultValidator,
@@ -193,7 +217,11 @@ export const publishAction = action.public({
     ),
 })
 
-export const previewPublish = query.public({
+export const publishAction = executeOperationRef(publishPageDescriptor, publishActionProjection, {
+  functionRef: 'features/pages/domain:publishAction',
+}) as typeof publishActionProjection
+
+const previewPublishProjection = query.public({
   id: 'features/pages/domain:previewPublish',
   reads: [],
   args: publishPageSchema.args,
@@ -210,3 +238,8 @@ export const previewPublish = query.public({
       ),
     ),
 })
+
+export const previewPublish = previewOperationRef(publishPageDescriptor, previewPublishProjection, {
+  functionRef: 'features/pages/domain:previewPublish',
+  executeFunctionRef: 'features/pages/domain:publishAction',
+}) as typeof previewPublishProjection

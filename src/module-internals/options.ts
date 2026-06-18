@@ -98,7 +98,7 @@ export interface PermissionsOptions {
    * App-owned query that returns the frontend access context.
    * Format: `<modulePath>.<exportName>` like `permissions/context.getAccessContext`.
    */
-  query: string
+  query?: string
   /**
    * Opt-in permission metadata/type generation.
    * When true, scans canonical permission files and emits additive .nuxt artifacts.

@@ -29,6 +29,7 @@ const generatedProjectionRegistryExamples = [
   'examples/04-saas-platform',
   'examples/05-visibility-access',
   'examples/07-mcp-reference',
+  'examples/08-component-mini-cms',
 ] as const
 
 const normalMaintainedExampleRoots = [
@@ -124,16 +125,41 @@ describe('MCP operation boundary', () => {
     }
   })
 
-  it('keeps component bridge MCP tools on explicit host bridge refs', () => {
+  it('keeps component bridge MCP tools on generated host bridge handles', () => {
     for (const file of componentBridgeOperationToolFiles) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8')
 
       expect(source, file).toMatch(/tool\.operation\([^)]*[,)]/)
-      expect(source, file).toMatch(/OperationRef\(/)
-      expect(source, file).toContain('api.features.pages.domain.')
-      expect(source, file).not.toContain("from '#trellis/operations/mcp'")
+      expect(source, file).toContain("from '#trellis/operations/mcp'")
+      expect(source, file).toContain('tool.operation(operations.pages.')
+      expect(source, file).not.toMatch(/OperationRef\(/)
+      expect(source, file).not.toContain('api.features.pages.domain.')
       expect(source, file).not.toContain('api.components.')
+      expect(source, file).not.toMatch(/from ['"].*convex\/components\//)
     }
+
+    const exampleRoot = resolve(process.cwd(), 'examples/08-component-mini-cms')
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(exampleRoot))
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '#trellis/api',
+      defineOperationHandleImport: '#trellis/mcp',
+      operationHandlesPath: '.nuxt/trellis/operation-handles/mcp.ts',
+      operationProjectionsPath: 'generated/operation-projections.ts',
+      operationRefsPath: '.nuxt/trellis/operation-refs.ts',
+      projectOperationRefImport: '#trellis/mcp',
+      runtimes: ['mcp'],
+    })
+    const refs = rendered.find((file) => file.path.endsWith('/operation-refs.ts'))?.content
+    const handles = rendered.find((file) =>
+      file.path.endsWith('/operation-handles/mcp.ts'),
+    )?.content
+
+    expect(refs).toContain('api.features.pages.domain.publishAction')
+    expect(refs).toContain('api.features.pages.domain.previewPublish')
+    expect(refs).not.toContain('api.components.')
+    expect(handles).toContain("from '../../../shared/features/pages/operations'")
+    expect(handles).toContain("executeOperation: 'action'")
+    expect(handles).toContain("'pages.publish': publishPageHandle")
   })
 
   it('keeps maintained generated operation projection registries in sync', () => {

@@ -7,6 +7,7 @@ import {
   queryGeneric as generatedQuery,
 } from 'convex/server'
 
+import { operationProjectionRegistry } from '../generated/operation-projections'
 import { getAppIdentityFromCaller, caller } from './auth/caller'
 
 export const { action, internalMutation, internalQuery, mutation, query, unsafe } = defineTrellis(
@@ -20,5 +21,6 @@ export const { action, internalMutation, internalQuery, mutation, query, unsafe 
   {
     caller,
     appIdentity: getAppIdentityFromCaller,
+    operationProjections: operationProjectionRegistry,
   },
 )
