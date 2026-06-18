@@ -1,6 +1,8 @@
 export interface OperationHandleBindingInput {
   exportName: string
   operationId: string
+  operationName?: string
+  operationKind?: 'safe' | 'destructive'
   descriptorName: string
   executeRefName: string
   previewRefName?: string
@@ -17,8 +19,10 @@ export interface OperationHandleImportInput {
 
 export interface OperationHandlesModuleInput {
   defineOperationHandleImport: string
+  operationDescriptorTypeImport?: string
   descriptorImport?: string
   descriptorImports?: readonly OperationHandleImportInput[]
+  descriptorMode?: 'runtime-import' | 'generated-metadata'
   refsImport: string
   descriptors: readonly string[]
   refs: readonly string[]
@@ -106,7 +110,74 @@ function renderPropertyKey(key: string): string {
   return /^[A-Za-z_$][\w$]*$/u.test(key) ? key : `'${key.replaceAll("'", "\\'")}'`
 }
 
+function renderStringLiteral(value: string): string {
+  return `'${value.replaceAll("'", "\\'")}'`
+}
+
+function metadataDescriptorName(handle: OperationHandleBindingInput): string {
+  return `__${handle.exportName}Descriptor`
+}
+
+function renderMetadataDescriptor(
+  handle: OperationHandleBindingInput,
+  operationDescriptorTypeImport: string,
+): string[] {
+  if (!handle.operationKind) {
+    throw new Error(
+      `Operation handle "${handle.exportName}" requires operationKind for generated metadata descriptors.`,
+    )
+  }
+
+  const lines = [
+    `const ${metadataDescriptorName(handle)} = {`,
+    `  _type: 'operation-descriptor',`,
+    `  id: ${renderStringLiteral(handle.operationId)},`,
+  ]
+
+  if (handle.operationName) {
+    lines.push(`  name: ${renderStringLiteral(handle.operationName)},`)
+  }
+
+  lines.push(
+    `  kind: '${handle.operationKind}',`,
+    `  args: {},`,
+    `} as unknown as import('${operationDescriptorTypeImport}').OperationDescriptor<${renderStringLiteral(handle.operationId)}>`,
+  )
+
+  return lines
+}
+
 function renderHandle(handle: OperationHandleBindingInput): string[] {
+  const lines = [
+    `export const ${handle.exportName} = defineOperationHandle(${metadataDescriptorName(handle)}, {`,
+    `  executeRef: ${handle.executeRefName},`,
+  ]
+
+  if (handle.previewRefName) {
+    lines.push(`  previewRef: ${handle.previewRefName},`)
+  }
+
+  if (handle.executeOperation) {
+    lines.push(`  executeOperation: '${handle.executeOperation}',`)
+  }
+
+  if (handle.previewOperation) {
+    lines.push(`  previewOperation: '${handle.previewOperation}',`)
+  }
+
+  if (handle.projection && handle.projection !== 'default-app') {
+    lines.push(`  projection: '${handle.projection}',`)
+  }
+
+  if (handle.runtimes && handle.runtimes.length > 0) {
+    lines.push(`  runtimes: [${handle.runtimes.map((runtime) => `'${runtime}'`).join(', ')}],`)
+  }
+
+  lines.push('})')
+  return lines
+}
+
+function renderRuntimeImportHandle(handle: OperationHandleBindingInput): string[] {
   const lines = [
     `export const ${handle.exportName} = defineOperationHandle(${handle.descriptorName}, {`,
     `  executeRef: ${handle.executeRefName},`,
@@ -137,7 +208,10 @@ function renderHandle(handle: OperationHandleBindingInput): string[] {
 }
 
 export function renderOperationHandlesModule(input: OperationHandlesModuleInput): string {
+  const usesGeneratedMetadata = input.descriptorMode === 'generated-metadata'
+
   if (
+    !usesGeneratedMetadata &&
     input.descriptors.length === 0 &&
     (!input.descriptorImports || input.descriptorImports.length === 0)
   ) {
@@ -145,6 +219,7 @@ export function renderOperationHandlesModule(input: OperationHandlesModuleInput)
   }
 
   if (
+    !usesGeneratedMetadata &&
     input.descriptors.length > 0 &&
     input.descriptorImport === undefined &&
     (!input.descriptorImports || input.descriptorImports.length === 0)
@@ -181,18 +256,29 @@ export function renderOperationHandlesModule(input: OperationHandlesModuleInput)
     '',
   ]
 
-  if (input.descriptorImports && input.descriptorImports.length > 0) {
+  if (!usesGeneratedMetadata && input.descriptorImports && input.descriptorImports.length > 0) {
     for (const descriptorImport of input.descriptorImports) {
       lines.push(renderImport(descriptorImport.names, descriptorImport.from))
     }
-  } else if (input.descriptorImport) {
+  } else if (!usesGeneratedMetadata && input.descriptorImport) {
     lines.push(renderImport(input.descriptors, input.descriptorImport))
   }
 
   lines.push(renderImport(input.refs, input.refsImport), '')
 
   input.handles.forEach((handle, index) => {
-    lines.push(...renderHandle(handle))
+    if (input.descriptorMode === 'generated-metadata') {
+      lines.push(
+        ...renderMetadataDescriptor(
+          handle,
+          input.operationDescriptorTypeImport ?? '@lupinum/trellis/backend',
+        ),
+      )
+      lines.push('')
+      lines.push(...renderHandle(handle))
+    } else {
+      lines.push(...renderRuntimeImportHandle(handle))
+    }
     if (index < input.handles.length - 1) lines.push('')
   })
 

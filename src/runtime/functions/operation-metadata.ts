@@ -143,6 +143,8 @@ export function defineOperationHandle<
     )
   }
 
+  const metadata = getOperationMetadata(descriptor)
+
   return Object.assign({}, descriptor, {
     _type: 'operation-handle' as const,
     key: descriptor.id,
@@ -152,7 +154,7 @@ export function defineOperationHandle<
     ...(options.previewRef !== undefined ? { previewRef: options.previewRef } : {}),
     ...(options.executeOperation ? { executeOperation: options.executeOperation } : {}),
     ...(options.previewOperation ? { previewOperation: options.previewOperation } : {}),
-    [trellisOperationMetadataKey]: descriptor[trellisOperationMetadataKey],
+    [trellisOperationMetadataKey]: metadata,
     [trellisOperationHandleKey]: true,
   }) as OperationHandle<TDescriptor, TExecuteRef, TPreviewRef>
 }

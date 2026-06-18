@@ -43,9 +43,9 @@ expectTypeOf(removeTask.confirmation.value).toEqualTypeOf<{
 } | null>()
 
 // @ts-expect-error id is required by the generated operation handle.
-removeTask.execute({})
+void removeTask.execute({})
 
-removeTask.execute(
+void removeTask.execute(
   { id: 'task_1' },
   // @ts-expect-error confirmation objects require an expiry timestamp.
   { confirmation: { token: 'confirm-token' } },

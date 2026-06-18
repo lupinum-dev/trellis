@@ -50,22 +50,37 @@ export interface OperationRegistryGeneratedFilesOptions {
   operationProjectionsPath?: string
   projectOperationRefImport: string
   defineOperationHandleImport: string
+  operationDescriptorTypeImport?: string
   operationProjectionRegistryImport?: string
   apiImport: string
   runtimes?: OperationHandleBindingInput['runtimes']
+  descriptorMode?: 'runtime-import' | 'generated-metadata'
 }
 
 type MutableOperationRegistryOperation = Omit<OperationRegistryOperation, 'execute'> & {
   execute?: OperationRegistryProjection
 }
 
-function toGeneratedApiPath(file: string, exportName: string): string[] {
-  if (!file.startsWith('convex/')) {
-    throw new Error(`Operation projection "${exportName}" must be exported from convex/.`)
+export interface OperationRegistryBuildOptions {
+  convexSourceRoot?: string
+}
+
+function normalizeSourceRoot(value: string): string {
+  return value.replace(/^\/+|\/+$/gu, '')
+}
+
+function toGeneratedApiPath(
+  file: string,
+  exportName: string,
+  options: OperationRegistryBuildOptions = {},
+): string[] {
+  const sourceRoot = normalizeSourceRoot(options.convexSourceRoot ?? 'convex')
+  const prefix = sourceRoot.length > 0 ? `${sourceRoot}/` : ''
+  if (prefix && !file.startsWith(prefix)) {
+    throw new Error(`Operation projection "${exportName}" must be exported from ${sourceRoot}/.`)
   }
 
-  const modulePath = file
-    .slice('convex/'.length)
+  const modulePath = (prefix ? file.slice(prefix.length) : file)
     .replace(/\.[cm]?[jt]sx?$/u, '')
     .split('/')
     .filter(Boolean)
@@ -79,8 +94,9 @@ function toGeneratedApiPath(file: string, exportName: string): string[] {
 
 function toRegistryProjection(
   projection: OperationProjectionBindingMetadata,
+  options: OperationRegistryBuildOptions = {},
 ): OperationRegistryProjection {
-  const apiPath = toGeneratedApiPath(projection.file, projection.exportName)
+  const apiPath = toGeneratedApiPath(projection.file, projection.exportName, options)
   return {
     exportName: projection.exportName,
     file: projection.file,
@@ -154,7 +170,9 @@ function operationHandleRegistryFor(
   registry: OperationRegistry,
   options: OperationRegistryGeneratedFilesOptions,
 ): OperationRegistry {
-  if (!shouldUseRuntimeNeutralHandles(options)) return registry
+  if (!shouldUseRuntimeNeutralHandles(options) || options.descriptorMode === 'generated-metadata') {
+    return registry
+  }
   return {
     operations: registry.operations.filter((operation) => operation.file.startsWith('shared/')),
   }
@@ -317,7 +335,10 @@ function renderOperationProjectionRegistryModule(
   ].join('\n')
 }
 
-export function buildOperationRegistry(metadata: PublicSurfaceCodegenMetadata): OperationRegistry {
+export function buildOperationRegistry(
+  metadata: PublicSurfaceCodegenMetadata,
+  options: OperationRegistryBuildOptions = {},
+): OperationRegistry {
   if (metadata.diagnostics.length > 0) {
     const firstDiagnostic = metadata.diagnostics[0]!
     throw new Error(
@@ -342,7 +363,7 @@ export function buildOperationRegistry(metadata: PublicSurfaceCodegenMetadata): 
     const operation = operationsById.get(projection.operationId)
     if (!operation) continue
 
-    const registryProjection = toRegistryProjection(projection)
+    const registryProjection = toRegistryProjection(projection, options)
 
     if (projection.projection === 'execute') {
       if (operation.execute) {
@@ -414,6 +435,8 @@ export function buildOperationHandleBindingsFromRegistry(
   return registry.operations.map((operation) => ({
     exportName: getOperationHandleExportName(operation.exportName),
     operationId: operation.id,
+    ...(operation.name ? { operationName: operation.name } : {}),
+    operationKind: operation.kind,
     descriptorName: operation.exportName,
     executeRefName: getOperationRefExportName(operation, operation.execute),
     ...(operation.preview
@@ -447,10 +470,12 @@ export function renderOperationRegistryGeneratedFiles(
           ? renderEmptyOperationHandlesModule()
           : renderOperationHandlesModule({
               defineOperationHandleImport: options.defineOperationHandleImport,
+              operationDescriptorTypeImport: options.operationDescriptorTypeImport,
               descriptorImports: descriptorImportsFor(
                 handleRegistry.operations,
                 options.operationHandlesPath,
               ),
+              descriptorMode: options.descriptorMode,
               refsImport: toRelativeImport(options.operationHandlesPath, options.operationRefsPath),
               descriptors: handleRegistry.operations.map((operation) => operation.exportName),
               refs: refs.map((ref) => ref.exportName),

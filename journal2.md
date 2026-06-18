@@ -1338,10 +1338,83 @@ loops.
 - The helper derives transport metadata from operation handles; it does not add
   a second public transport API or a compatibility shim for old maps.
 
+## Slice 27: Package-Root Operation Handle Generation
+
+### Proof
+
+- Ran the current public-surface scanner against
+  `/Users/matthias/Git/workspace/ginko-cms` and confirmed it found zero
+  operations because Ginko CMS is a package/component consumer, not a canonical
+  app-level `convex/` tree.
+- Added a focused package-root fixture that mirrors Ginko's real shape:
+  `src/` as the Convex source root, `callerMutation.protected(...)` lanes,
+  `callerTransportMutation(...)` transport exports, and
+  `Object.assign(previewOf(operation), { id })` preview wrappers.
+- The proof failed before implementation because destructive previews wrapped
+  with `Object.assign(previewOf(...))` were not traced, and package-local
+  source roots could not be converted into generated Convex api paths.
+- Re-ran the generator against the real Ginko Convex package with explicit
+  package options. It now finds 16 operations and 28 projections with no
+  diagnostics, and generated testing handles omit `*TransportExecute` exports.
+
+### Implementation
+
+- Added explicit public-surface scanner options for package roots:
+  `operationInclude`, `operationExclude`, custom projection roots, and ignored
+  projection roots.
+- Kept the default app scanner unchanged: canonical `convex/**`, `shared/**`,
+  and `mutation`/`query`/`action` roots still work without configuration.
+- Added narrow scanner support for `Object.assign(previewOf(operation), ...)`
+  and `Object.assign(operation, ...)` without accepting arbitrary operation
+  factories.
+- Added configurable Convex source-root mapping to the operation registry so
+  package files such as `src/entries/publish.ts` produce api paths such as
+  `api.entries.publish.*`.
+- Added generated-metadata operation handles. These handles use generated
+  runtime-safe descriptor metadata instead of runtime-importing Convex handler
+  modules, while preserving execute/preview ref metadata for testing clients.
+- Updated `defineOperationHandle(...)` to derive fallback operation metadata
+  from descriptor fields when generated descriptors do not carry the internal
+  metadata symbol.
+- Fixed a DTS proof lint issue by marking intentional promise-returning
+  negative calls as ignored with `void`.
+
+### Verification
+
+- Focused and neighboring tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/testing.test.ts`.
+- Ginko dry-run proof passed via the Trellis generator against
+  `/Users/matthias/Git/workspace/ginko-cms/packages/convex`: 16 registry
+  operations, 28 projections, no scanner diagnostics, testing handles generated
+  from operation execute/preview projections only.
+- Lint passed for touched areas:
+  `pnpm run lint:src:core`,
+  `pnpm run lint:src:runtime:functions-mcp`, and `pnpm run lint:tests`.
+- Type checks passed:
+  `pnpm run test:types:public` and `pnpm run test:types:contracts`.
+- Surface/build checks passed:
+  `pnpm run build:module`,
+  `pnpm run check:publish-surface`, and
+  `pnpm run check:docs:api-surface`.
+- Formatting and whitespace checks passed:
+  `pnpm run format:check` and `git diff --check`.
+
+### Notes
+
+- This is not a compatibility path for old transport maps. It creates the
+  missing generated-handle foundation needed to delete those maps from Ginko
+  tests.
+- The next slice should materialize these generated testing handles in Ginko CMS
+  and replace at least one confirmed destructive helper path with
+  `ctx.asCmsUser(...).operation(operations.byId[...]).preview/execute(...)`.
+- A proper `trellis prepare` lifecycle remains open. This slice proves the
+  generator contract and package-root options first, before adding a durable
+  command/config surface.
+
 ## Next Slice Candidates
 
-1. Try the new `operation(handle)` helper in Ginko CMS against the local Trellis
-   tarball/source to identify remaining handle-generation gaps.
+1. Materialize generated testing operation handles in Ginko CMS and delete the
+   first transport-map path from its test helpers.
 2. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
    runtime-specific generated modules.
 3. Define the bridge-generated operation handle shape needed to replace

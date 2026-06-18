@@ -129,7 +129,9 @@ describe('operation registry codegen', () => {
         executeOperation: 'mutation',
         executeRefName: 'tasksArchiveExecuteRef',
         exportName: 'archiveTaskHandle',
+        operationKind: 'destructive',
         operationId: 'tasks.archive',
+        operationName: 'archiveTask',
         previewOperation: 'mutation',
         previewRefName: 'tasksArchivePreviewRef',
       },
@@ -138,6 +140,7 @@ describe('operation registry codegen', () => {
         executeOperation: 'query',
         executeRefName: 'tasksListExecuteRef',
         exportName: 'listTasksHandle',
+        operationKind: 'safe',
         operationId: 'tasks.list',
       },
     ])
@@ -366,5 +369,109 @@ describe('operation registry codegen', () => {
         },
       },
     ])
+  })
+
+  it('renders package-root testing handles without runtime-importing operation implementations', () => {
+    const rootDir = createFixture({
+      'src/entries/publish.ts': `
+        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+        import { callerMutation, callerTransportMutation } from '../functions'
+
+        export const publishEntryOperation = defineOperation({
+          id: 'ginko-cms.publish-entry',
+          name: 'publish-entry',
+          kind: 'destructive',
+          args: {},
+          handler: async () => ({ published: true }),
+          preview: async () => ({ confirmation: { token: 'confirm', expiresAt: 1 } }),
+        })
+
+        export const publishEntryOperationExecute = callerMutation.protected({
+          ...publishEntryOperation,
+        })
+        export const publishEntryTransportExecute = callerTransportMutation({
+          ...publishEntryOperation,
+          id: 'entries/publish:publishEntryTransportExecute',
+        })
+        export const previewPublishEntryOperation = callerMutation.protected(
+          Object.assign(previewOf(publishEntryOperation), {
+            id: 'editor:previewPublishEntryOperation',
+          }),
+        )
+      `,
+      'src/functions.ts': `
+        export const callerMutation = { protected: (definition: unknown) => definition }
+        export const callerTransportMutation = (definition: unknown) => definition
+      `,
+    })
+
+    const registry = buildOperationRegistry(
+      extractPublicSurfaceCodegenMetadata(rootDir, {
+        operationInclude: ['src/**/*.ts'],
+        projectionRoots: [
+          { name: 'callerMutation', functionKind: 'mutation', supportsPreview: true },
+        ],
+        ignoredProjectionRoots: ['callerTransportMutation'],
+      }),
+      { convexSourceRoot: 'src' },
+    )
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '../_generated/api',
+      defineOperationHandleImport: '@lupinum/trellis/mcp',
+      descriptorMode: 'generated-metadata',
+      operationDescriptorTypeImport: '@lupinum/trellis/backend',
+      operationHandlesPath: 'src/generated/operation-handles/testing.ts',
+      operationRefsPath: 'src/generated/operation-refs.ts',
+      projectOperationRefImport: '@lupinum/trellis/mcp',
+      runtimes: ['testing'],
+    })
+    const byPath = new Map(rendered.map((file) => [file.path, file.content]))
+
+    expect(registry.operations).toEqual([
+      {
+        id: 'ginko-cms.publish-entry',
+        exportName: 'publishEntryOperation',
+        file: 'src/entries/publish.ts',
+        kind: 'destructive',
+        line: expect.any(Number),
+        name: 'publish-entry',
+        execute: {
+          apiPath: ['entries', 'publish', 'publishEntryOperationExecute'],
+          exportName: 'publishEntryOperationExecute',
+          file: 'src/entries/publish.ts',
+          functionKind: 'mutation',
+          functionRef: 'entries/publish:publishEntryOperationExecute',
+          line: expect.any(Number),
+          projection: 'execute',
+        },
+        preview: {
+          apiPath: ['entries', 'publish', 'previewPublishEntryOperation'],
+          exportName: 'previewPublishEntryOperation',
+          file: 'src/entries/publish.ts',
+          functionKind: 'mutation',
+          functionRef: 'entries/publish:previewPublishEntryOperation',
+          line: expect.any(Number),
+          projection: 'preview',
+        },
+      },
+    ])
+    expect(byPath.get('src/generated/operation-refs.ts')).toContain(
+      'api.entries.publish.publishEntryOperationExecute',
+    )
+    expect(byPath.get('src/generated/operation-refs.ts')).not.toContain(
+      'publishEntryTransportExecute',
+    )
+    expect(byPath.get('src/generated/operation-handles/testing.ts')).toContain(
+      "id: 'ginko-cms.publish-entry'",
+    )
+    expect(byPath.get('src/generated/operation-handles/testing.ts')).toContain(
+      "kind: 'destructive'",
+    )
+    expect(byPath.get('src/generated/operation-handles/testing.ts')).toContain(
+      "runtimes: ['testing']",
+    )
+    expect(byPath.get('src/generated/operation-handles/testing.ts')).not.toContain(
+      "from '../../entries/publish'",
+    )
   })
 })

@@ -13,6 +13,20 @@ import {
 export const DEFAULT_OPERATION_CODEGEN_INCLUDE = ['convex/**/*.ts', 'shared/**/*.ts'] as const
 export const DEFAULT_MCP_TOOL_CODEGEN_INCLUDE = ['server/mcp/tools/**/*.ts'] as const
 
+export interface PublicSurfaceProjectionRoot {
+  name: string
+  functionKind: 'query' | 'mutation' | 'action'
+  supportsPreview?: boolean
+}
+
+export interface PublicSurfaceCodegenOptions {
+  operationInclude?: readonly string[]
+  operationExclude?: readonly string[]
+  toolInclude?: readonly string[]
+  projectionRoots?: readonly PublicSurfaceProjectionRoot[]
+  ignoredProjectionRoots?: readonly string[]
+}
+
 export interface OperationDefinitionMetadata {
   exportName: string
   file: string
@@ -70,6 +84,18 @@ function toPosixPath(value: string): string {
   return value.replaceAll('\\', '/')
 }
 
+function normalizeExcludePattern(value: string): string {
+  return toPosixPath(value).replace(/^!+/u, '')
+}
+
+function isExcludedPath(file: string, patterns: readonly string[] = []): boolean {
+  return patterns.some((pattern) => {
+    const normalized = normalizeExcludePattern(pattern)
+    if (normalized.endsWith('/**')) return file.startsWith(normalized.slice(0, -2))
+    return file === normalized
+  })
+}
+
 function isPrivateMcpSurfaceFile(rootDir: string, sourceFile: SourceFile): boolean {
   const file = toPosixPath(relative(rootDir, sourceFile.getFilePath()))
   if (!file.startsWith('server/mcp/')) return false
@@ -112,11 +138,26 @@ function unwrapExpression<T extends Node>(expression: T | undefined): Node | und
   return undefined
 }
 
+function isObjectAssignCall(expression: Node): boolean {
+  if (!Node.isCallExpression(expression)) return false
+  const callee = unwrapExpression(expression.getExpression())
+  return (
+    !!callee &&
+    Node.isPropertyAccessExpression(callee) &&
+    callee.getName() === 'assign' &&
+    callee.getExpression().getText() === 'Object'
+  )
+}
+
 function readPreviewOperationIdentifier(expression: Node | undefined): string | null {
   const unwrappedExpression = unwrapExpression(expression)
   if (!unwrappedExpression) return null
 
   if (Node.isCallExpression(unwrappedExpression)) {
+    if (isObjectAssignCall(unwrappedExpression)) {
+      return readPreviewOperationIdentifier(unwrappedExpression.getArguments()[0])
+    }
+
     const previewCallee = unwrapExpression(unwrappedExpression.getExpression())
     if (!previewCallee || !Node.isIdentifier(previewCallee)) return null
     if (previewCallee.getText() !== 'previewOf') return null
@@ -147,6 +188,10 @@ function readExecuteOperationIdentifier(expression: Node | undefined): string | 
     return unwrappedExpression.getText()
   }
 
+  if (Node.isCallExpression(unwrappedExpression) && isObjectAssignCall(unwrappedExpression)) {
+    return readExecuteOperationIdentifier(unwrappedExpression.getArguments()[0])
+  }
+
   if (Node.isObjectLiteralExpression(unwrappedExpression)) {
     for (const property of unwrappedExpression.getProperties()) {
       if (!Node.isSpreadAssignment(property)) continue
@@ -159,18 +204,49 @@ function readExecuteOperationIdentifier(expression: Node | undefined): string | 
   return null
 }
 
+function isLikelyOperationIdentifier(value: string): boolean {
+  return /(?:Operation|Descriptor|Op)$/u.test(value)
+}
+
 type CanonicalProjectionCall = {
   projection: 'execute' | 'preview'
   functionKind: 'query' | 'mutation' | 'action'
 }
 
-const canonicalProjectionRoots = new Set(['mutation', 'query', 'action'])
-const canonicalPreviewProjectionRoots = new Set(['mutation'])
+const defaultProjectionRoots: readonly PublicSurfaceProjectionRoot[] = [
+  { name: 'mutation', functionKind: 'mutation', supportsPreview: true },
+  { name: 'query', functionKind: 'query' },
+  { name: 'action', functionKind: 'action' },
+]
 
-function readCanonicalProjectionCall(expression: Node | undefined): CanonicalProjectionCall | null {
+function projectionRootsFor(
+  options: PublicSurfaceCodegenOptions,
+): Map<string, PublicSurfaceProjectionRoot> {
+  return new Map(
+    (options.projectionRoots ?? defaultProjectionRoots).map((root) => [root.name, root]),
+  )
+}
+
+function getCallRootIdentifier(expression: Node | undefined): string | null {
   const unwrappedExpression = unwrapExpression(expression)
   if (!unwrappedExpression || !Node.isCallExpression(unwrappedExpression)) return null
 
+  let callee = unwrapExpression(unwrappedExpression.getExpression())
+  while (callee && Node.isPropertyAccessExpression(callee)) {
+    callee = unwrapExpression(callee.getExpression())
+  }
+
+  return callee && Node.isIdentifier(callee) ? callee.getText() : null
+}
+
+function readCanonicalProjectionCall(
+  expression: Node | undefined,
+  options: PublicSurfaceCodegenOptions = {},
+): CanonicalProjectionCall | null {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression || !Node.isCallExpression(unwrappedExpression)) return null
+
+  const projectionRoots = projectionRootsFor(options)
   const callee = unwrapExpression(unwrappedExpression.getExpression())
   if (!callee || !Node.isPropertyAccessExpression(callee)) return null
 
@@ -182,45 +258,50 @@ function readCanonicalProjectionCall(expression: Node | undefined): CanonicalPro
     if (
       !rootExpression ||
       !Node.isIdentifier(rootExpression) ||
-      !canonicalPreviewProjectionRoots.has(rootExpression.getText())
+      projectionRoots.get(rootExpression.getText())?.supportsPreview !== true
     ) {
       return null
     }
 
-    return { projection: 'preview', functionKind: rootExpression.getText() as 'mutation' }
+    const root = projectionRoots.get(rootExpression.getText())!
+    return { projection: 'preview', functionKind: root.functionKind }
   }
 
   const rootExpression = unwrapExpression(callee.getExpression())
   if (
     !rootExpression ||
     !Node.isIdentifier(rootExpression) ||
-    !canonicalProjectionRoots.has(rootExpression.getText())
+    !projectionRoots.has(rootExpression.getText())
   ) {
     return null
   }
 
+  const root = projectionRoots.get(rootExpression.getText())!
   return {
     projection: 'execute',
-    functionKind: rootExpression.getText() as 'query' | 'mutation' | 'action',
+    functionKind: root.functionKind,
   }
 }
 
 function hasProjectionLikeExpression(
   expression: Node | undefined,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
+  options: PublicSurfaceCodegenOptions = {},
 ): boolean {
   const unwrappedExpression = unwrapExpression(expression)
   if (!unwrappedExpression) return false
 
   if (Node.isConditionalExpression(unwrappedExpression)) {
     return (
-      hasProjectionLikeExpression(unwrappedExpression.getWhenTrue(), operationsByExport) ||
-      hasProjectionLikeExpression(unwrappedExpression.getWhenFalse(), operationsByExport)
+      hasProjectionLikeExpression(unwrappedExpression.getWhenTrue(), operationsByExport, options) ||
+      hasProjectionLikeExpression(unwrappedExpression.getWhenFalse(), operationsByExport, options)
     )
   }
 
   if (!Node.isCallExpression(unwrappedExpression)) return false
-  if (readCanonicalProjectionCall(unwrappedExpression)) return true
+  const rootIdentifier = getCallRootIdentifier(unwrappedExpression)
+  if (rootIdentifier && options.ignoredProjectionRoots?.includes(rootIdentifier)) return false
+  if (readCanonicalProjectionCall(unwrappedExpression, options)) return true
 
   const [firstArg] = unwrappedExpression.getArguments()
   const executeOperationIdentifier = readExecuteOperationIdentifier(firstArg)
@@ -391,6 +472,7 @@ function extractProjectionBinding(
   declaration: VariableDeclaration,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
   options: { requireExport?: boolean } = {},
+  codegenOptions: PublicSurfaceCodegenOptions = {},
 ): OperationProjectionBindingMetadata | null {
   if ((options.requireExport ?? true) && !declaration.getVariableStatement()?.isExported()) {
     return null
@@ -403,7 +485,7 @@ function extractProjectionBinding(
   const unwrappedFirstArg = unwrapExpression(firstArg)
   if (!unwrappedFirstArg) return null
 
-  const projectionCall = readCanonicalProjectionCall(initializer)
+  const projectionCall = readCanonicalProjectionCall(initializer, codegenOptions)
   if (!projectionCall) return null
 
   if (projectionCall.projection === 'preview') {
@@ -461,6 +543,7 @@ function extractProjectionDiagnostic(
   rootDir: string,
   declaration: VariableDeclaration,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
+  options: PublicSurfaceCodegenOptions = {},
 ): PublicSurfaceCodegenDiagnostic | null {
   if (!declaration.getVariableStatement()?.isExported()) return null
 
@@ -468,7 +551,7 @@ function extractProjectionDiagnostic(
   if (!initializer) return null
 
   if (Node.isConditionalExpression(initializer)) {
-    return hasProjectionLikeExpression(initializer, operationsByExport)
+    return hasProjectionLikeExpression(initializer, operationsByExport, options)
       ? createProjectionDiagnostic(
           rootDir,
           declaration,
@@ -479,6 +562,8 @@ function extractProjectionDiagnostic(
   }
 
   if (!Node.isCallExpression(initializer)) return null
+  const rootIdentifier = getCallRootIdentifier(initializer)
+  if (rootIdentifier && options.ignoredProjectionRoots?.includes(rootIdentifier)) return null
 
   const [firstArg] = initializer.getArguments()
   const callee = unwrapExpression(initializer.getExpression())
@@ -486,10 +571,12 @@ function extractProjectionDiagnostic(
     return null
   }
 
-  const projectionCall = readCanonicalProjectionCall(initializer)
+  const projectionCall = readCanonicalProjectionCall(initializer, options)
   if (projectionCall) {
     const operationIdentifier = readExecuteOperationIdentifier(firstArg)
-    return operationIdentifier && !operationsByExport.has(operationIdentifier)
+    return operationIdentifier &&
+      isLikelyOperationIdentifier(operationIdentifier) &&
+      !operationsByExport.has(operationIdentifier)
       ? createProjectionDiagnostic(
           rootDir,
           declaration,
@@ -541,6 +628,7 @@ function extractProjectionReExportDiagnostics(
   rootDir: string,
   exportDeclaration: ExportDeclaration,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
+  options: PublicSurfaceCodegenOptions = {},
 ): PublicSurfaceCodegenDiagnostic[] {
   const targetSourceFile =
     exportDeclaration.getModuleSpecifierSourceFile() ?? exportDeclaration.getSourceFile()
@@ -550,9 +638,15 @@ function extractProjectionReExportDiagnostics(
     const declaration = targetSourceFile.getVariableDeclaration(specifier.getName())
     if (!declaration) continue
 
-    const binding = extractProjectionBinding(rootDir, declaration, operationsByExport, {
-      requireExport: false,
-    })
+    const binding = extractProjectionBinding(
+      rootDir,
+      declaration,
+      operationsByExport,
+      {
+        requireExport: false,
+      },
+      options,
+    )
     if (!binding) continue
 
     const exportName = specifier.getAliasNode()?.getText() ?? specifier.getName()
@@ -677,9 +771,19 @@ function renderInterfaceBody(lines: string[]): string {
   return lines.length > 0 ? lines.map((line) => `  ${line}`).join('\n') : ''
 }
 
-export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurfaceCodegenMetadata {
-  const operationInclude = [...DEFAULT_OPERATION_CODEGEN_INCLUDE]
-  const toolInclude = [...DEFAULT_MCP_TOOL_CODEGEN_INCLUDE]
+export function extractPublicSurfaceCodegenMetadata(
+  rootDir: string,
+  options: PublicSurfaceCodegenOptions = {},
+): PublicSurfaceCodegenMetadata {
+  const rawOperationInclude = [...(options.operationInclude ?? DEFAULT_OPERATION_CODEGEN_INCLUDE)]
+  const operationInclude = rawOperationInclude.filter((pattern) => !pattern.startsWith('!'))
+  const operationExclude = [
+    ...(options.operationExclude ?? []),
+    ...rawOperationInclude
+      .filter((pattern) => pattern.startsWith('!'))
+      .map((pattern) => pattern.slice(1)),
+  ]
+  const toolInclude = [...(options.toolInclude ?? DEFAULT_MCP_TOOL_CODEGEN_INCLUDE)]
   const project = createProject(rootDir, [...operationInclude, ...toolInclude])
 
   const operations: OperationDefinitionMetadata[] = []
@@ -689,6 +793,11 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
 
   for (const sourceFile of project.getSourceFiles()) {
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+    if (
+      isExcludedPath(toPosixPath(relative(rootDir, sourceFile.getFilePath())), operationExclude)
+    ) {
+      continue
+    }
 
     const fileOperations = extractOperationDefinitions(rootDir, sourceFile)
 
@@ -711,6 +820,11 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
 
   for (const sourceFile of project.getSourceFiles()) {
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+    if (
+      isExcludedPath(toPosixPath(relative(rootDir, sourceFile.getFilePath())), operationExclude)
+    ) {
+      continue
+    }
 
     for (const [alias, operation] of extractOperationImplementationAliases(
       sourceFile,
@@ -724,9 +838,20 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
 
   for (const sourceFile of project.getSourceFiles()) {
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+    if (
+      isExcludedPath(toPosixPath(relative(rootDir, sourceFile.getFilePath())), operationExclude)
+    ) {
+      continue
+    }
 
     for (const declaration of sourceFile.getVariableDeclarations()) {
-      const binding = extractProjectionBinding(rootDir, declaration, projectionOperationsByExport)
+      const binding = extractProjectionBinding(
+        rootDir,
+        declaration,
+        projectionOperationsByExport,
+        {},
+        options,
+      )
       if (binding) {
         projections.push(binding)
         continue
@@ -736,6 +861,7 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
         rootDir,
         declaration,
         projectionOperationsByExport,
+        options,
       )
       if (diagnostic) diagnostics.push(diagnostic)
     }
@@ -756,6 +882,7 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
           rootDir,
           exportDeclaration,
           projectionOperationsByExport,
+          options,
         ),
       )
     }
