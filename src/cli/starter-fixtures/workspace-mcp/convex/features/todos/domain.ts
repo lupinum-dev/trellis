@@ -1,5 +1,5 @@
 import { mutation, query } from '../../functions'
-import { createTodoOp, listTodosOp } from './operations'
+import { createTodoOperation, listTodosOperation } from './operations'
 
-export const list = query.workspace(listTodosOp)
-export const create = mutation.workspace(createTodoOp)
+export const list = query.workspace(listTodosOperation)
+export const create = mutation.workspace(createTodoOperation)

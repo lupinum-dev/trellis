@@ -1,6 +1,10 @@
-import { operation, workspaceScope } from '@lupinum/trellis/app'
+import { workspaceScope } from '@lupinum/trellis/app'
+import { implementOperation } from '@lupinum/trellis/backend'
 
-import { createTodo, listTodos } from '../../../shared/features/todos/contract'
+import {
+  createTodoDescriptor,
+  listTodosDescriptor,
+} from '../../../shared/features/todos/operations'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { todoCreate, workspaceRead } from './permissions'
@@ -8,9 +12,7 @@ import { todoCreate, workspaceRead } from './permissions'
 type WorkspaceQueryCtx = QueryCtx & { workspaceId: Id<'workspaces'> }
 type WorkspaceMutationCtx = MutationCtx & { workspaceId: Id<'workspaces'> }
 
-export const listTodosOp = operation.query({
-  id: 'todos.list',
-  args: listTodos.args,
+export const listTodosOperation = implementOperation(listTodosDescriptor, {
   scope: workspaceScope(),
   permission: workspaceRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
@@ -22,9 +24,7 @@ export const listTodosOp = operation.query({
   },
 })
 
-export const createTodoOp = operation.mutation({
-  id: 'todos.create',
-  args: createTodo.args,
+export const createTodoOperation = implementOperation(createTodoDescriptor, {
   scope: workspaceScope(),
   permission: todoCreate,
   handler: async (ctx: WorkspaceMutationCtx, args) => {

@@ -1,5 +1,6 @@
 import { definePermission } from '@lupinum/trellis/auth'
 
+import { todoCreateKey, workspaceReadKey } from '../../../shared/features/todos/permissions'
 import type { AccessIdentity } from '../../auth/appIdentity'
 import type { Role } from '../../auth/caller'
 
@@ -20,12 +21,12 @@ function hasMinimumRole(appIdentity: AccessIdentity | null, minimum: Role): bool
 }
 
 export const workspaceRead = definePermission({
-  key: 'workspace.read',
+  key: workspaceReadKey.key,
   check: hasWorkspace,
 })
 
 export const todoCreate = definePermission({
-  key: 'todo.create',
+  key: todoCreateKey.key,
   check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member'),
 })
 

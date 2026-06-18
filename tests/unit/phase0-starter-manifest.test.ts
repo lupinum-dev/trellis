@@ -3,11 +3,22 @@ import { join, relative, resolve, sep } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import {
+  buildOperationRegistry,
+  renderOperationRegistryGeneratedFiles,
+} from '../../src/module-internals/operation-registry-codegen'
+import { extractPublicSurfaceCodegenMetadata } from '../../src/module-internals/public-surface-codegen'
+
 type StarterManifest = {
   name: string
   include: string[]
   exclude: string[]
-  generated?: { path: string }[]
+  generated?: {
+    kind?: string
+    path?: string
+    operationRefsPath?: string
+    operationHandlesPath?: string
+  }[]
   generatedPaths?: string[]
 }
 
@@ -53,6 +64,7 @@ describe('phase0 workspace-mcp starter manifest', () => {
       'convex/features/projects/domain.ts',
       'convex/schema.ts',
       'generated/operation-refs.ts',
+      'generated/operation-handles/mcp.ts',
       'nuxt.config.ts',
       'package.json',
       'server/mcp/tools/create-project.ts',
@@ -75,7 +87,13 @@ describe('phase0 workspace-mcp starter manifest', () => {
     expect(manifest.include).not.toContain('.nuxt/**')
     expect(manifest.include).not.toContain('.output/**')
 
-    expect(manifest.generated?.map((file) => file.path)).toEqual(['generated/operation-refs.ts'])
+    expect(manifest.generated).toEqual([
+      expect.objectContaining({
+        kind: 'operationRegistry',
+        operationRefsPath: 'generated/operation-refs.ts',
+        operationHandlesPath: 'generated/operation-handles/mcp.ts',
+      }),
+    ])
     expect(toFixturePath(manifestPath)).toBe('starter.manifest.json')
   })
 })
@@ -309,6 +327,8 @@ describe('fixture-backed beginner starter manifests', () => {
       'server/mcp/tools/list-todos.ts',
       'server/middleware/mcp-auth.ts',
       'shared/features/todos/contract.ts',
+      'shared/features/todos/operations.ts',
+      'shared/features/todos/permissions.ts',
       'shared/features/workspaces/contract.ts',
     ]
 
@@ -332,18 +352,51 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('createProjectToolDescriptor')
     const todosDomain = readFileSync(join(root, 'convex/features/todos/domain.ts'), 'utf8')
     const todosOperations = readFileSync(join(root, 'convex/features/todos/operations.ts'), 'utf8')
-    const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
-    expect(todosDomain).toContain('query.workspace(listTodosOp)')
-    expect(todosDomain).toContain('mutation.workspace(createTodoOp)')
-    expect(todosOperations).toContain(
-      "import { operation, workspaceScope } from '@lupinum/trellis/app'",
+    const sharedTodosOperations = readFileSync(
+      join(root, 'shared/features/todos/operations.ts'),
+      'utf8',
     )
-    expect(todosOperations).toContain('scope: workspaceScope()')
+    const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
+    const createTodoTool = readFileSync(join(root, 'server/mcp/tools/create-todo.ts'), 'utf8')
+    expect(todosDomain).toContain('query.workspace(listTodosOperation)')
+    expect(todosDomain).toContain('mutation.workspace(createTodoOperation)')
+    expect(sharedTodosOperations).toContain('defineOperationDescriptor')
+    expect(sharedTodosOperations).toContain('createTodoDescriptor')
+    expect(todosOperations).toContain('implementOperation(createTodoDescriptor')
+    expect(todosOperations).not.toContain('operation.mutation')
     expect(todosOperations).toContain("q.eq('workspaceId', ctx.workspaceId)")
     expect(todosOperations).toContain('workspaceId: ctx.workspaceId')
     expect(todosOperations).not.toContain('appIdentity.workspaceId')
     expect(todosOperations).not.toContain('const appIdentity = await ctx.appIdentity()')
-    expect(todosFeature).toContain('operations: [listTodosOp, createTodoOp]')
+    expect(todosFeature).toContain('operations: [listTodosDescriptor, createTodoDescriptor]')
+    expect(createTodoTool).toContain("import { operations } from '#trellis/operations/mcp'")
+    expect(createTodoTool).toContain('tool.operation(operations.todos.create')
+    expect(createTodoTool).not.toContain('executeOperationRef')
+    expect(createTodoTool).not.toContain('#trellis/api')
+    expect(createTodoTool).not.toContain('~~/convex/features/todos/operations')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
+  })
+
+  it('generates workspace MCP operation handles from shared descriptors', () => {
+    const root = join(cliStarterRoot, 'workspace-mcp')
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(root))
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      operationRefsPath: '.nuxt/trellis/operation-refs.ts',
+      operationHandlesPath: '.nuxt/trellis/operation-handles/mcp.ts',
+      projectOperationRefImport: '#trellis/mcp',
+      defineOperationHandleImport: '#trellis/mcp',
+      apiImport: '#trellis/api',
+      runtimes: ['mcp'],
+    })
+    const byPath = new Map(rendered.map((file) => [file.path, file.content]))
+    const refsSource = byPath.get('.nuxt/trellis/operation-refs.ts')
+    const handlesSource = byPath.get('.nuxt/trellis/operation-handles/mcp.ts')
+
+    expect(refsSource).toContain('api.features.todos.domain.create')
+    expect(refsSource).toContain("{ functionRef: 'features/todos/domain:create' }")
+    expect(handlesSource).toContain("from '../../../shared/features/todos/operations'")
+    expect(handlesSource).not.toContain('convex/features/todos/operations')
+    expect(handlesSource).toContain("executeOperation: 'mutation'")
+    expect(handlesSource).toContain("'todos.create': createTodoHandle")
   })
 })

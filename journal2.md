@@ -528,7 +528,61 @@ loops.
 - The generated MCP handle alias is the canonical greenfield import target for
   operation-backed MCP tools once starters/examples are hard-cut.
 
+## Slice 12: Workspace-MCP Starter Generated Handles
+
+### Proof
+
+- Added a failing starter-manifest proof for the maintained `workspace-mcp`
+  preset: operation descriptors should live in shared files, Convex should
+  implement them, and MCP tools should import `operations` from
+  `#trellis/operations/mcp`.
+- The initial focused run failed because `shared/features/todos/operations.ts`
+  did not exist and the MCP create tool still imported `executeOperationRef`,
+  `#trellis/api`, and Convex operation objects directly.
+
+### Implementation
+
+- Added shared todo permission keys and shared todo operation descriptors.
+- Changed Convex todo operations to `implementOperation(...)` the shared
+  descriptors while keeping handlers, workspace scope, and concrete permission
+  checks in Convex.
+- Updated workspace-MCP todo projections to use implemented operation exports.
+- Updated the feature manifest to list shared descriptors instead of Convex
+  implementation objects.
+- Removed todo operation re-exports from the Convex feature barrel.
+- Changed the generated starter MCP create tool to import
+  `operations` from `#trellis/operations/mcp` and call
+  `tool.operation(operations.todos.create, ...)`.
+- Added a direct registry-render proof against the real workspace-MCP starter
+  root to verify generated handles import shared descriptors and not Convex
+  implementation files.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts -t "workspace MCP starter"`.
+- After implementation,
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts`
+  passed.
+- Focused suite passed:
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`.
+- Focused doctor MCP run passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts -t "workspace-mcp|workspace MCP|MCP"`.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm run test:types:contracts`, `pnpm exec oxfmt --check ...`, and
+  `git diff --check` passed.
+
+### Notes
+
+- This slice intentionally covers only the maintained workspace-MCP starter.
+  The add-resource generator and larger examples still have explicit
+  `executeOperationRef` / `previewOperationRef` authoring and should be cut over
+  in follow-up slices after their descriptors move to shared/runtime-neutral
+  files.
+
 ## Next Slice Candidates
 
-1. Hard-cut remaining starter resources and examples to generated handles where
-   the registry can own projection refs and MCP operation kinds.
+1. Hard-cut add-resource MCP templates to shared descriptors plus generated
+   handles.
+2. Hard-cut maintained MCP examples to generated handles where the registry can
+   own projection refs and MCP operation kinds.
