@@ -3908,13 +3908,71 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - `ginko-cms` and `ginko-content` worktrees were clean after the package e2e
   run; the refreshed `.pack` tarballs are ignored local artifacts.
 
+## Slice 70: i18n-cms Consumer Proof Against Local Tarball Stack
+
+### Proof
+
+- The real consumer app is `/Users/matthias/Git/workspace/i18n-cms`, not only
+  the temporary CMS package-e2e fixture.
+- The consumer is wired to local tarballs for CMS, CMS Convex, CMS Contract,
+  Ginko Content, Trellis, and Trellis Bridge via `file:../ginko-cms/.pack/...`
+  dependencies and workspace overrides.
+- `pnpm install --force` refreshed local tarball integrities in
+  `i18n-cms/pnpm-lock.yaml`; no registry Trellis/Ginko package was used.
+
+### Verification
+
+- `pnpm run typecheck` passed in
+  `/Users/matthias/Git/workspace/i18n-cms`.
+- `pnpm run build` passed and prerendered 211 routes, including localized
+  content routes, sitemap output, and content payload/API routes.
+- `TMPDIR=/tmp GINKO_CMS_TEST_EMAIL=... GINKO_CMS_TEST_PASSWORD=...
+  pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
+  dev-server Vite IPC socket path issue observed under the default macOS temp
+  directory.
+- Built-server smoke passed against
+  `CMS_SMOKE_BASE_URL=http://127.0.0.1:9999` after starting
+  `node .output/server/index.mjs` with `.env.local` loaded.
+- In-app browser verification passed for:
+  - public docs/blog/pricing/changelog content in English and German
+  - visible search from the docs search button returning `Markdown Syntax` and
+    `Security Enhancements`
+  - header locale switching from `/docs/code-blocks` to
+    `/de/dokumentation/codebloecke`
+  - Studio sign-out/sign-in with the configured smoke account
+  - `/studio/settings` with settings, member, storage hygiene, and MCP key
+    sections
+  - representative Studio content routes:
+    `/studio/content/docs`, `/studio/content/posts`,
+    `/studio/content/index`, `/studio/assets`, and `/studio/activity`
+- Direct XML sitemap navigation in the in-app browser is blocked by browser
+  client policy with `net::ERR_BLOCKED_BY_CLIENT`, so sitemap output was
+  verified with HTTP probes against the running app:
+  - `/sitemap.xml` redirects to `/sitemap_index.xml`
+  - `/sitemap_index.xml` references `/__sitemap__/en-US.xml` and
+    `/__sitemap__/de-DE.xml`
+  - locale sitemap files include `/docs/code-blocks`,
+    `/de/dokumentation/codebloecke`, `/blog`, and `/de/blog`
+
+### Notes
+
+- No Trellis source change was needed from this consumer proof.
+- A clean built-server browser tab had no new timestamp-filtered browser
+  warnings/errors for the checked flows.
+- There is a remaining non-blocking Vue Router warning for unprefixed translated
+  German docs paths such as `/dokumentation/codebloecke`. Rendered links are
+  correctly prefixed with `/de/...`, and direct navigation works. Treat this as
+  a Ginko Content or consumer navigation cleanup candidate, not a Trellis
+  release blocker.
+- The built-server/browser proof is now stronger than the dev-server proof; the
+  dev-server-specific IPC issue should not drive library design.
+
 ## Next Slice Candidates
 
-1. Run the `i18n-cms` browser smoke/E2E pass with login, sitemap, search,
-   content, and i18n switching against the local tarball stack.
-2. If `i18n-cms` exposes a real Trellis issue, fix Trellis directly, rerun the
+1. Decide whether to clean the non-blocking unprefixed German docs router
+   warnings in Ginko Content or in the consumer navigation composition.
+2. If another `i18n-cms` pass exposes a real Trellis issue, fix Trellis
+   directly, rerun the
    focused Trellis proof, regenerate local tarballs, and rerun CMS consumer
    validation.
-3. Only after the Trellis/CMS/i18n path stays green, decide whether any
-   remaining Ginko Content follow-up is still real or already covered by the
-   current `0.1.6` tarball proof.
+3. Keep Trellis frozen unless a consumer proof exposes a foundation issue.
