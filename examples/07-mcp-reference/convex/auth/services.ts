@@ -11,7 +11,6 @@ export const services = defineServices<
       source: 'verifiedWebhook',
       purpose: 'runbook-webhook:create',
       allowedOperations: ['runbooks.create-from-webhook'],
-      allowedFunctionRefs: ['features/runbooks/webhooks:createRunbookFromWebhookMutation'],
       replayMode: 'domain-idempotency',
       actingFor: true,
       auditEvent: 'runbook.webhook.created',

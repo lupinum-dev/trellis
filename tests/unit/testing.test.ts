@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 import { makeFunctionReference, mutationGeneric, defineSchema } from 'convex/server'
 import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
@@ -32,6 +34,23 @@ describe('convexTestConfig', () => {
         }),
       ]),
     )
+  })
+
+  it('resolves generated Trellis operation aliases for Vitest', () => {
+    const config = convexTestConfig()
+
+    expect(config.resolve?.alias).toMatchObject({
+      '#trellis/api': resolve(process.cwd(), '.nuxt/trellis/api.ts'),
+      '#trellis/operation-runtime': resolve(process.cwd(), '.nuxt/trellis/operation-runtime.ts'),
+      '#trellis/operation-projections': resolve(
+        process.cwd(),
+        '.nuxt/trellis/operation-projections.ts',
+      ),
+      '#trellis/operations/testing': resolve(
+        process.cwd(),
+        '.nuxt/trellis/operation-handles/testing.ts',
+      ),
+    })
   })
 
   it('calls generated operation handles without caller-authored transport refs', async () => {

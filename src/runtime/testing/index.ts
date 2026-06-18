@@ -385,6 +385,40 @@ function mergeStableTestTsconfig(config: UserConfig): UserConfig {
   }
 }
 
+function trellisGeneratedAliasTargets(): Record<string, string> {
+  const generatedRoot = resolve(process.cwd(), '.nuxt/trellis')
+  return {
+    '#trellis/api': resolve(generatedRoot, 'api.ts'),
+    '#trellis/operation-runtime': resolve(generatedRoot, 'operation-runtime.ts'),
+    '#trellis/operation-projections': resolve(generatedRoot, 'operation-projections.ts'),
+    '#trellis/operations/client': resolve(generatedRoot, 'operation-handles/client.ts'),
+    '#trellis/operations/server': resolve(generatedRoot, 'operation-handles/server.ts'),
+    '#trellis/operations/testing': resolve(generatedRoot, 'operation-handles/testing.ts'),
+    '#trellis/operations/mcp': resolve(generatedRoot, 'operation-handles/mcp.ts'),
+  }
+}
+
+function mergeTrellisGeneratedAliases(config: UserConfig): UserConfig {
+  const aliases = trellisGeneratedAliasTargets()
+  const existingAlias = config.resolve?.alias
+
+  return {
+    ...config,
+    resolve: {
+      ...config.resolve,
+      alias: Array.isArray(existingAlias)
+        ? [
+            ...existingAlias,
+            ...Object.entries(aliases).map(([find, replacement]) => ({ find, replacement })),
+          ]
+        : {
+            ...aliases,
+            ...(existingAlias ?? {}),
+          },
+    },
+  }
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -712,7 +746,7 @@ export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserCon
 
   return mergeInlineDeps(
     mergeStableTestTsconfig({
-      ...options,
+      ...mergeTrellisGeneratedAliases(options),
       plugins: [createGeneratedServerPlugin(), ...plugins],
     }),
   )

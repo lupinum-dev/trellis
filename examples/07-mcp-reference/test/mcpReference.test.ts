@@ -7,6 +7,8 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { operations } from '#trellis/operations/testing'
+
 import { mcpManage } from '../convex/features/mcpKeys/permissions'
 import {
   runbookBulkDelete,
@@ -29,13 +31,7 @@ function createCtx() {
 }
 
 function forwardedUser(ctx: ReturnType<typeof createCtx>, user: { authKey: string }) {
-  return ctx.asUser(
-    { authKey: user.authKey, subject: `auth:${user.authKey}` },
-    {
-      replayMode: 'domain-idempotency',
-      transport: 'server',
-    },
-  )
+  return ctx.asUser({ authKey: user.authKey, subject: `auth:${user.authKey}` })
 }
 
 function webhookService(
@@ -47,6 +43,7 @@ function webhookService(
     transport: 'webhook',
     purpose: 'mutation',
     replayMode: 'domain-idempotency',
+    targetFunctionRef: 'runbooks.create-from-webhook',
   })
 }
 
@@ -280,7 +277,7 @@ describe('mcp reference example', () => {
       },
     })
 
-    await team.users.owner.mutation(api.features.runbooks.domain.create, {
+    await team.users.owner.operation(operations.runbooks.create).execute({
       title: 'Public handoff',
       summary: 'Shared with anyone.',
       content: '# Public handoff\n\n1. Share status',
@@ -315,7 +312,7 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      forwardedUser(ctx, team.users.viewer).mutation(api.features.runbooks.domain.create, {
+      forwardedUser(ctx, team.users.viewer).operation(operations.runbooks.create).execute({
         title: 'Viewer should fail',
         summary: 'No permission',
         content: '# Nope',
@@ -325,13 +322,15 @@ describe('mcp reference example', () => {
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      forwardedUser(ctx, team.users.member).mutation(api.features.runbooks.domain.create, {
-        title: 'Member may create',
-        summary: 'Allowed',
-        content: '# Allowed',
-        visibility: 'draft',
-        tags: ['ops'],
-      }),
+      forwardedUser(ctx, team.users.member)
+        .operation(operations.runbooks.create)
+        .execute({
+          title: 'Member may create',
+          summary: 'Allowed',
+          content: '# Allowed',
+          visibility: 'draft',
+          tags: ['ops'],
+        }),
     ).resolves.toBeTruthy()
   })
 
