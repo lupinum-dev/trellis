@@ -1810,6 +1810,49 @@ loops.
   to the shared publish/unpublish helpers, then continue toward deleting the
   publish and unpublish map rows once their last callers are gone.
 
+## Slice 35: Ginko Integration Lifecycle Uses Operation Helpers
+
+### Proof
+
+- Inspected `test/component/integration.test.ts`; it had three direct transport
+  calls:
+  two `publishEntryTransportExecute` calls and one
+  `unpublishEntryTransportExecute` call.
+- Confirmed the new shared helpers from Slice 34 covered the exact behavior:
+  publish current draft, publish selected locales, and unpublish with
+  preview/confirmation/execute.
+- Confirmed no transport execute call remained in the integration test after
+  the cutover.
+
+### Implementation
+
+- In Ginko CMS commit `89e25a7`, replaced the integration lifecycle's direct
+  publish/unpublish transport mutations with `publishEntry(...)` and
+  `unpublishEntry(...)`.
+- Removed the now-unused `currentDraftVersion` import from the integration test.
+
+### Verification
+
+- Focused Ginko integration proof passed:
+  `pnpm vitest run test/component/integration.test.ts` reported two passing
+  tests.
+- Ginko operation registry drift check passed:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko package type/build proof passed:
+  `pnpm run typecheck`.
+- Ginko whitespace proof passed:
+  `git diff --check`.
+
+### Notes
+
+- The raw `TransportExecute` count in Ginko tests dropped from 58 to 55.
+- The publish and unpublish transport helper map rows are still required by
+  public API, versioning, tree, and draft tests.
+- The next natural consumer slice is `test/component/entries/tree.test.ts`
+  because it can reuse the publish/unpublish helpers and start proving the
+  delete-entry operation helper path.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
