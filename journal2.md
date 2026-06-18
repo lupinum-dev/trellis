@@ -1055,10 +1055,57 @@ loops.
 - The remaining normal maintained-example `executeFunctionRef` string is in
   `examples/05-visibility-access`.
 
+## Slice 21: Visibility Access Projection Registry
+
+### Proof
+
+- Ran the operation-registry builder against `examples/05-visibility-access`
+  before editing. It failed on `convex/features/articles/index.ts` because the
+  feature barrel re-exported the `create` projection from `domain.ts`.
+- Reviewed feature-barrel usage and confirmed app code and tests call canonical
+  `api.features.*.domain.*` refs directly. The article, knowledge-base, and
+  workspace barrel projection exports were duplicate function surfaces rather
+  than required public paths.
+- After deleting those duplicate re-exports, the scanner derived the full
+  registry, including the `shareTokens.revoke` preview/execute pair, without a
+  handwritten operation ref.
+
+### Implementation
+
+- Removed duplicate Convex projection re-exports from the articles,
+  knowledge-bases, and workspaces feature barrels.
+- Removed the app-authored `executeFunctionRef` from `revokeShareTokenOp`.
+- Generated `examples/05-visibility-access/generated/operation-projections.ts`
+  and wired `convex/functions.ts` to
+  `operationProjections: operationProjectionRegistry`.
+- Added `examples/05-visibility-access` to the maintained projection-registry
+  drift test.
+- Switched the example Vitest config to import Trellis testing helpers from the
+  source tree and alias the runtime subpaths used by the example.
+- Regenerated the security contract so `shareTokens.revoke` no longer carries
+  an app-authored execute ref in the operation inventory.
+
+### Verification
+
+- Visibility access example tests passed after Nuxt prepare:
+  `pnpm --dir examples/05-visibility-access test`.
+- MCP boundary and projection-registry drift test passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-descriptor-boundary.test.ts`.
+- Source scan confirmed no remaining `executeFunctionRef` strings under
+  `examples/05-visibility-access`.
+
+### Notes
+
+- Maintained normal examples now use generated projection registries instead of
+  app-authored `executeFunctionRef` strings for ordinary operation bindings.
+- Remaining source `executeFunctionRef` strings are expected in runtime
+  internals, tests/fixtures, harness coverage, and the component mini-CMS bridge
+  boundary classified in Slice 18.
+
 ## Next Slice Candidates
 
-1. Wire `examples/05-visibility-access` to a generated projection registry and
-   remove its normal destructive operation `executeFunctionRef` string.
+1. Add or tighten a source-policy assertion that normal maintained examples do
+   not reintroduce app-authored `executeFunctionRef` strings.
 2. Review harness explicit operation refs and decide which are advanced test
    coverage versus deletion targets.
 3. Define the bridge-generated operation handle shape needed to replace

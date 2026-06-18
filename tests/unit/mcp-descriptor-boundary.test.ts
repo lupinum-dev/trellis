@@ -27,6 +27,7 @@ const referenceRunbookOperationToolFiles = [
 const generatedProjectionRegistryExamples = [
   'examples/03-team-workspace',
   'examples/04-saas-platform',
+  'examples/05-visibility-access',
   'examples/07-mcp-reference',
 ] as const
 

@@ -3290,7 +3290,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "executeFunctionRef": "features/articles/domain:revokeShareToken",
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {

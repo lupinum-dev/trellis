@@ -24,7 +24,6 @@ type RevokeShareTokenLoaded = { token: Doc<'shareTokens'> }
 
 export const revokeShareTokenOp = operation.destructive({
   id: 'shareTokens.revoke',
-  executeFunctionRef: 'features/articles/domain:revokeShareToken',
   args: revokeArticleShareToken.args,
   returns: v.null(),
   scope: workspaceScope(),
