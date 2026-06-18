@@ -106,19 +106,19 @@ describe('operation registry codegen', () => {
       {
         apiPath: ['features', 'tasks', 'operations', 'archiveTask'],
         descriptorName: 'archiveTaskOp',
-        exportName: 'archiveTaskRef',
+        exportName: 'tasksArchiveExecuteRef',
         projection: 'execute',
       },
       {
         apiPath: ['features', 'tasks', 'operations', 'previewArchiveTask'],
         descriptorName: 'archiveTaskOp',
-        exportName: 'previewArchiveTaskRef',
+        exportName: 'tasksArchivePreviewRef',
         projection: 'preview',
       },
       {
         apiPath: ['features', 'tasks', 'operations', 'listTasks'],
         descriptorName: 'listTasksOp',
-        exportName: 'listTasksRef',
+        exportName: 'tasksListExecuteRef',
         projection: 'execute',
       },
     ])
@@ -127,16 +127,16 @@ describe('operation registry codegen', () => {
       {
         descriptorName: 'archiveTaskOp',
         executeOperation: 'mutation',
-        executeRefName: 'archiveTaskRef',
+        executeRefName: 'tasksArchiveExecuteRef',
         exportName: 'archiveTaskHandle',
         operationId: 'tasks.archive',
         previewOperation: 'mutation',
-        previewRefName: 'previewArchiveTaskRef',
+        previewRefName: 'tasksArchivePreviewRef',
       },
       {
         descriptorName: 'listTasksOp',
         executeOperation: 'query',
-        executeRefName: 'listTasksRef',
+        executeRefName: 'tasksListExecuteRef',
         exportName: 'listTasksHandle',
         operationId: 'tasks.list',
       },
@@ -276,7 +276,10 @@ describe('operation registry codegen', () => {
       "{ functionRef: 'features/tasks/domain:archiveTask' }",
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "{ functionRef: 'features/tasks/domain:previewArchiveTask', executeFunctionRef: 'features/tasks/domain:archiveTask' }",
+      "functionRef: 'features/tasks/domain:previewArchiveTask'",
+    )
+    expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
+      "executeFunctionRef: 'features/tasks/domain:archiveTask'",
     )
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
       "from '../../../shared/features/tasks/operations'",

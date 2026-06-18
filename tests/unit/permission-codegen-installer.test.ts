@@ -102,9 +102,8 @@ describe('permission codegen installer', () => {
     expect(refsSource).toContain("from '../../shared/features/projects/operations'")
     expect(refsSource).toContain('api.features.projects.domain.createProject')
     expect(refsSource).toContain("{ functionRef: 'features/projects/domain:createProject' }")
-    expect(refsSource).toContain(
-      "{ functionRef: 'features/projects/domain:previewDeleteProject', executeFunctionRef: 'features/projects/domain:deleteProject' }",
-    )
+    expect(refsSource).toContain("functionRef: 'features/projects/domain:previewDeleteProject'")
+    expect(refsSource).toContain("executeFunctionRef: 'features/projects/domain:deleteProject'")
 
     const handlesSource = getTemplate('trellis/operation-handles/mcp.ts').getContents()
     expect(handlesSource).toContain("import { defineOperationHandle } from '#trellis/mcp'")

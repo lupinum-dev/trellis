@@ -1,16 +1,8 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
-import { createRunbookOp } from '~~/convex/features/runbooks/domain'
-import { runbookCreate } from '~~/convex/features/runbooks/permissions'
-import { createRunbook } from '~~/shared/features/runbooks/contract'
-
-import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/mcp'
 
 import { tool } from '../../runtime'
 
-export default tool.operation(createRunbookOp, {
-  schema: createRunbook,
-  execute: executeOperationRef(createRunbookOp, api.features.runbooks.domain.create),
-  permission: runbookCreate,
+export default tool.operation(operations.runbooks.create, {
   group: 'workspace',
   maxItems: { field: 'tags', limit: 6 },
   middleware: async (args, ctx, next) => {

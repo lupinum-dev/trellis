@@ -110,8 +110,54 @@ function getOperationHandleExportName(operationExportName: string): string {
   return `${baseName || operationExportName}Handle`
 }
 
-function getOperationRefExportName(projection: OperationRegistryProjection): string {
-  return `${projection.exportName}Ref`
+function toIdentifierSegment(value: string): string {
+  const parts = value.split(/[^A-Za-z0-9]+/u).filter(Boolean)
+  return parts.map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`).join('')
+}
+
+function toOperationIdentifierBase(operationId: string): string {
+  const pascal = operationId.split('.').map(toIdentifierSegment).filter(Boolean).join('')
+
+  if (!pascal) {
+    throw new Error(`Operation id "${operationId}" does not produce a generated ref name.`)
+  }
+
+  return `${pascal.slice(0, 1).toLowerCase()}${pascal.slice(1)}`
+}
+
+function getOperationRefExportName(
+  operation: OperationRegistryOperation,
+  projection: OperationRegistryProjection,
+): string {
+  return `${toOperationIdentifierBase(operation.id)}${projection.projection === 'preview' ? 'Preview' : 'Execute'}Ref`
+}
+
+function renderEmptyOperationRefsModule(): string {
+  return `// AUTO-GENERATED. Do not edit.
+export {}
+`
+}
+
+function renderEmptyOperationHandlesModule(): string {
+  return `// AUTO-GENERATED. Do not edit.
+export const operations = {
+  byId: {},
+} as const
+`
+}
+
+function shouldUseRuntimeNeutralHandles(options: OperationRegistryGeneratedFilesOptions): boolean {
+  return (options.runtimes?.length ?? 0) > 0
+}
+
+function operationHandleRegistryFor(
+  registry: OperationRegistry,
+  options: OperationRegistryGeneratedFilesOptions,
+): OperationRegistry {
+  if (!shouldUseRuntimeNeutralHandles(options)) return registry
+  return {
+    operations: registry.operations.filter((operation) => operation.file.startsWith('shared/')),
+  }
 }
 
 function renderImport(names: readonly string[], from: string): string {
@@ -183,11 +229,17 @@ function renderOperationRefsModuleFromRegistry(
   const projectionByRefName = new Map<string, OperationRegistryProjection>()
   const executeFunctionRefByPreviewRefName = new Map<string, string>()
   for (const operation of registry.operations) {
-    projectionByRefName.set(getOperationRefExportName(operation.execute), operation.execute)
+    projectionByRefName.set(
+      getOperationRefExportName(operation, operation.execute),
+      operation.execute,
+    )
     if (operation.preview) {
-      projectionByRefName.set(getOperationRefExportName(operation.preview), operation.preview)
+      projectionByRefName.set(
+        getOperationRefExportName(operation, operation.preview),
+        operation.preview,
+      )
       executeFunctionRefByPreviewRefName.set(
-        getOperationRefExportName(operation.preview),
+        getOperationRefExportName(operation, operation.preview),
         operation.execute.functionRef,
       )
     }
@@ -204,11 +256,18 @@ function renderOperationRefsModuleFromRegistry(
       `  ${ref.descriptorName},`,
       `  '${ref.projection}',`,
       `  ${renderGeneratedApiPath(ref.apiPath, 'Operation ref')},`,
-      ref.projection === 'preview'
-        ? `  { functionRef: '${projection.functionRef}', executeFunctionRef: '${executeFunctionRefByPreviewRefName.get(ref.exportName)}' },`
-        : `  { functionRef: '${projection.functionRef}' },`,
-      ')',
     )
+    if (ref.projection === 'preview') {
+      lines.push(
+        '  {',
+        `    functionRef: '${projection.functionRef}',`,
+        `    executeFunctionRef: '${executeFunctionRefByPreviewRefName.get(ref.exportName)}',`,
+        '  },',
+      )
+    } else {
+      lines.push(`  { functionRef: '${projection.functionRef}' },`)
+    }
+    lines.push(')')
     if (index < refs.length - 1) lines.push('')
   })
 
@@ -328,7 +387,7 @@ export function buildOperationRefBindingsFromRegistry(
   return registry.operations.flatMap((operation) => {
     const refs: OperationRefBindingInput[] = [
       {
-        exportName: getOperationRefExportName(operation.execute),
+        exportName: getOperationRefExportName(operation, operation.execute),
         descriptorName: operation.exportName,
         projection: 'execute',
         apiPath: operation.execute.apiPath,
@@ -337,7 +396,7 @@ export function buildOperationRefBindingsFromRegistry(
 
     if (operation.preview) {
       refs.push({
-        exportName: getOperationRefExportName(operation.preview),
+        exportName: getOperationRefExportName(operation, operation.preview),
         descriptorName: operation.exportName,
         projection: 'preview',
         apiPath: operation.preview.apiPath,
@@ -356,8 +415,10 @@ export function buildOperationHandleBindingsFromRegistry(
     exportName: getOperationHandleExportName(operation.exportName),
     operationId: operation.id,
     descriptorName: operation.exportName,
-    executeRefName: getOperationRefExportName(operation.execute),
-    ...(operation.preview ? { previewRefName: getOperationRefExportName(operation.preview) } : {}),
+    executeRefName: getOperationRefExportName(operation, operation.execute),
+    ...(operation.preview
+      ? { previewRefName: getOperationRefExportName(operation, operation.preview) }
+      : {}),
     executeOperation: operation.execute.functionKind,
     ...(operation.preview ? { previewOperation: operation.preview.functionKind } : {}),
     ...(options.runtimes ? { runtimes: options.runtimes } : {}),
@@ -368,25 +429,35 @@ export function renderOperationRegistryGeneratedFiles(
   registry: OperationRegistry,
   options: OperationRegistryGeneratedFilesOptions,
 ): OperationRegistryGeneratedFile[] {
-  const refs = buildOperationRefBindingsFromRegistry(registry)
+  const handleRegistry = operationHandleRegistryFor(registry, options)
+  const refs = buildOperationRefBindingsFromRegistry(handleRegistry)
 
   const files: OperationRegistryGeneratedFile[] = [
     {
       path: options.operationRefsPath,
-      content: renderOperationRefsModuleFromRegistry(registry, options),
+      content:
+        handleRegistry.operations.length === 0
+          ? renderEmptyOperationRefsModule()
+          : renderOperationRefsModuleFromRegistry(handleRegistry, options),
     },
     {
       path: options.operationHandlesPath,
-      content: renderOperationHandlesModule({
-        defineOperationHandleImport: options.defineOperationHandleImport,
-        descriptorImports: descriptorImportsFor(registry.operations, options.operationHandlesPath),
-        refsImport: toRelativeImport(options.operationHandlesPath, options.operationRefsPath),
-        descriptors: registry.operations.map((operation) => operation.exportName),
-        refs: refs.map((ref) => ref.exportName),
-        handles: buildOperationHandleBindingsFromRegistry(registry, {
-          runtimes: options.runtimes,
-        }),
-      }),
+      content:
+        handleRegistry.operations.length === 0
+          ? renderEmptyOperationHandlesModule()
+          : renderOperationHandlesModule({
+              defineOperationHandleImport: options.defineOperationHandleImport,
+              descriptorImports: descriptorImportsFor(
+                handleRegistry.operations,
+                options.operationHandlesPath,
+              ),
+              refsImport: toRelativeImport(options.operationHandlesPath, options.operationRefsPath),
+              descriptors: handleRegistry.operations.map((operation) => operation.exportName),
+              refs: refs.map((ref) => ref.exportName),
+              handles: buildOperationHandleBindingsFromRegistry(handleRegistry, {
+                runtimes: options.runtimes,
+              }),
+            }),
     },
   ]
 

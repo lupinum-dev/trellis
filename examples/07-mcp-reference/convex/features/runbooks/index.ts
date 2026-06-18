@@ -1,22 +1,6 @@
 export { publicRunbookCapabilities, workspaceRunbookCapabilities } from './recordAccess'
 export { canDeleteRunbook, canUpdateRunbook } from './checks'
-export {
-  bulkRemove,
-  create,
-  get,
-  getWorkspace,
-  listPublic,
-  listWorkspace,
-  previewBulkRemove,
-  previewRemove,
-  remove,
-  searchPublic,
-  update,
-  workspaceOverview,
-} from './domain'
 export { runbooksFeature } from './feature'
-export { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
-export { createRunbookFromWebhookMutation } from './webhooks'
 export {
   runbookBulkDelete,
   runbookCreate,

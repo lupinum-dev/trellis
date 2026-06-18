@@ -1,17 +1,11 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { updateRunbookOp } from '~~/convex/features/runbooks/domain'
-import { runbookCreate } from '~~/convex/features/runbooks/permissions'
-import { updateRunbook } from '~~/shared/features/runbooks/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/mcp'
 
 import { tool } from '../../runtime'
 
-export default tool.operation(updateRunbookOp, {
-  schema: updateRunbook,
-  execute: executeOperationRef(updateRunbookOp, api.features.runbooks.domain.update),
-  permission: runbookCreate,
+export default tool.operation(operations.runbooks.update, {
   group: 'workspace',
   middleware: async (args, ctx, next) => {
     const request = args as {

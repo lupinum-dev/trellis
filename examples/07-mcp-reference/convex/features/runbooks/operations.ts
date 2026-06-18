@@ -1,16 +1,17 @@
 import {
   blockedOperationPreview,
-  operation,
   operationEffect,
   operationIssue,
   operationPreview,
-  operationPreviewValidator,
   workspaceScope,
 } from '@lupinum/trellis/app'
 import { can } from '@lupinum/trellis/auth'
-import { v } from 'convex/values'
+import { implementOperation } from '@lupinum/trellis/backend'
 
-import { bulkDeleteRunbooks, deleteRunbook } from '../../../shared/features/runbooks/contract'
+import {
+  bulkRemoveRunbooksDescriptor,
+  removeRunbookDescriptor,
+} from '../../../shared/features/runbooks/operations'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
@@ -38,23 +39,9 @@ type LoadedBulkRunbooks = {
   found: Doc<'runbooks'>[]
 }
 
-export const removeRunbookOp = operation.destructive({
-  id: 'runbooks.remove',
-  executeFunctionRef: 'features/runbooks/domain:remove',
-  args: deleteRunbook.args,
-  returns: v.null(),
+export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
   scope: workspaceScope(),
   permission: runbookDelete,
-  safety: 'destructive-write',
-  previewReturns: operationPreviewValidator({
-    confirm: v.object({
-      operation: v.literal('runbooks.remove'),
-      targetId: v.id('runbooks'),
-      affectedCounts: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-  }),
   load: async (ctx: WorkspaceMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     if (!runbook) throw new Error('Runbook not found.')
@@ -85,32 +72,9 @@ export const removeRunbookOp = operation.destructive({
   },
 })
 
-export const bulkRemoveRunbooksOp = operation.destructive({
-  id: 'runbooks.bulkRemove',
-  executeFunctionRef: 'features/runbooks/domain:bulkRemove',
-  args: bulkDeleteRunbooks.args,
-  returns: v.object({
-    deleted: v.number(),
-    skipped: v.array(
-      v.object({
-        id: v.string(),
-        reason: v.string(),
-      }),
-    ),
-    total: v.number(),
-  }),
+export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescriptor, {
   scope: workspaceScope(),
   permission: runbookBulkDelete,
-  safety: 'destructive-write',
-  previewReturns: operationPreviewValidator({
-    confirm: v.object({
-      operation: v.literal('runbooks.bulkRemove'),
-      targetIds: v.array(v.id('runbooks')),
-      affectedCounts: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-  }),
   load: async (
     ctx: WorkspaceMutationCtx,
     args: BulkDeleteRunbooksArgs,

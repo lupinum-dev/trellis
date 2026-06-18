@@ -7,21 +7,21 @@ import {
   deleteProjectDescriptor,
 } from '../shared/features/projects/operations'
 
-export const createProjectRef = projectOperationRef(
+export const projectsCreateExecuteRef = projectOperationRef(
   createProjectDescriptor,
   'execute',
   api.features.projects.domain.createProject,
   { functionRef: 'features/projects/domain:createProject' },
 )
 
-export const deleteProjectRef = projectOperationRef(
+export const projectsDeleteExecuteRef = projectOperationRef(
   deleteProjectDescriptor,
   'execute',
   api.features.projects.domain.deleteProject,
   { functionRef: 'features/projects/domain:deleteProject' },
 )
 
-export const previewDeleteProjectRef = projectOperationRef(
+export const projectsDeletePreviewRef = projectOperationRef(
   deleteProjectDescriptor,
   'preview',
   api.features.projects.domain.previewDeleteProject,

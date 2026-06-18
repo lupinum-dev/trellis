@@ -1769,6 +1769,65 @@ describe('defineTrellis', () => {
     ).resolves.toEqual({ ok: true })
   })
 
+  it('uses the operation projection registry for safe operation identity forwarding targets', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        operationProjections: {
+          fingerprint: 'test',
+          executeById: {
+            'tasks.create': 'features/tasks/domain:create',
+          },
+          previewById: {},
+        },
+      },
+    )
+
+    const operation = defineOperation({
+      id: 'tasks.create',
+      kind: 'safe',
+      args: {
+        title: v.string(),
+      },
+      handler: async () => ({ ok: true }),
+    })
+    const definition = runtime.mutation.public(operation as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createIdentityForwardingEnvelopeArgs({
+      args: { title: 'Hello' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'features/tasks/domain:create',
+      operation: 'mutation',
+      replayMode: 'domain-idempotency',
+      jti: 'safe-operation-registry-target',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).resolves.toEqual({ ok: true })
+  })
+
   it('uses projected operation function-ref metadata for identity forwarding verification', async () => {
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never

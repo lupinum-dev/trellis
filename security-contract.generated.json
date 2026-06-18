@@ -631,20 +631,20 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 121,
+      "line": 101,
+      "exportName": "listPublic",
+      "reads": ["runbooks"]
+    },
+    {
+      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
+      "line": 127,
       "exportName": "searchPublic",
       "reads": ["runbooks"]
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 170,
+      "line": 174,
       "exportName": "get",
-      "reads": ["runbooks"]
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 95,
-      "exportName": "listPublic",
       "reads": ["runbooks"]
     },
     {
@@ -2003,7 +2003,19 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 121,
+      "line": 101,
+      "exportName": "listPublic",
+      "functionType": "query",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": true
+    },
+    {
+      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
+      "line": 127,
       "exportName": "searchPublic",
       "functionType": "query",
       "lane": "public",
@@ -2015,7 +2027,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 168,
+      "line": 172,
       "exportName": "listWorkspace",
       "functionType": "query",
       "lane": "workspace",
@@ -2027,7 +2039,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 170,
+      "line": 174,
       "exportName": "get",
       "functionType": "query",
       "lane": "public",
@@ -2039,7 +2051,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 235,
+      "line": 237,
       "exportName": "getWorkspace",
       "functionType": "query",
       "lane": "workspace",
@@ -2051,7 +2063,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 268,
+      "line": 267,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2063,7 +2075,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 309,
+      "line": 306,
       "exportName": "update",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2075,7 +2087,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 311,
+      "line": 308,
       "exportName": "previewRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2087,7 +2099,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 312,
+      "line": 309,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2099,7 +2111,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 313,
+      "line": 310,
       "exportName": "previewBulkRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2111,7 +2123,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 314,
+      "line": 311,
       "exportName": "bulkRemove",
       "functionType": "mutation",
       "lane": "workspace",
@@ -2123,7 +2135,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 338,
+      "line": 333,
       "exportName": "workspaceOverview",
       "functionType": "query",
       "lane": "workspace",
@@ -2134,20 +2146,8 @@
       "crossTenant": false
     },
     {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 95,
-      "exportName": "listPublic",
-      "functionType": "query",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": true
-    },
-    {
       "file": "examples/07-mcp-reference/convex/features/runbooks/webhooks.ts",
-      "line": 124,
+      "line": 123,
       "exportName": "createRunbookFromWebhookMutation",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -2511,7 +2511,7 @@
       "exportName": "list",
       "functionType": "query",
       "lane": "workspace",
-      "operationBacked": "referenced",
+      "operationBacked": "none",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -2523,7 +2523,7 @@
       "exportName": "create",
       "functionType": "mutation",
       "lane": "workspace",
-      "operationBacked": "referenced",
+      "operationBacked": "none",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -3574,104 +3574,6 @@
       "identityForwardingTransport": null
     },
     {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 151,
-      "exportName": "listWorkspaceRunbooksOp",
-      "type": "query",
-      "id": "runbooks.list-workspace",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 218,
-      "exportName": "getWorkspaceRunbookOp",
-      "type": "query",
-      "id": "runbooks.get-workspace",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 237,
-      "exportName": "createRunbookOp",
-      "type": "mutation",
-      "id": "runbooks.create",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/runbooks/domain:create",
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 270,
-      "exportName": "updateRunbookOp",
-      "type": "mutation",
-      "id": "runbooks.update",
-      "hasGuard": false,
-      "hasAuthorize": true,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/domain.ts",
-      "line": 316,
-      "exportName": "workspaceOverviewOp",
-      "type": "query",
-      "id": "runbooks.workspace-overview",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/operations.ts",
-      "line": 41,
-      "exportName": "removeRunbookOp",
-      "type": "destructive",
-      "id": "runbooks.remove",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": true,
-      "hasExecute": false,
-      "executeFunctionRef": "features/runbooks/domain:remove",
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/07-mcp-reference/convex/features/runbooks/operations.ts",
-      "line": 88,
-      "exportName": "bulkRemoveRunbooksOp",
-      "type": "destructive",
-      "id": "runbooks.bulkRemove",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": true,
-      "hasExecute": false,
-      "executeFunctionRef": "features/runbooks/domain:bulkRemove",
-      "identityForwardingTransport": null
-    },
-    {
       "file": "examples/07-mcp-reference/convex/features/runbooks/webhooks.ts",
       "line": 81,
       "exportName": "createRunbookFromWebhookOp",
@@ -3682,7 +3584,7 @@
       "hasPublicWrite": false,
       "hasPreview": false,
       "hasExecute": false,
-      "executeFunctionRef": "features/runbooks/webhooks:createRunbookFromWebhookMutation",
+      "executeFunctionRef": null,
       "identityForwardingTransport": "webhook"
     },
     {
@@ -3952,34 +3854,6 @@
       "identityForwardingTransport": null
     },
     {
-      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/todos/operations.ts",
-      "line": 11,
-      "exportName": "listTodosOp",
-      "type": "query",
-      "id": "todos.list",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
-      "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/todos/operations.ts",
-      "line": 25,
-      "exportName": "createTodoOp",
-      "type": "mutation",
-      "id": "todos.create",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": null,
-      "identityForwardingTransport": null
-    },
-    {
       "file": "src/cli/starter-fixtures/workspace-mcp/convex/features/workspaces/domain.ts",
       "line": 12,
       "exportName": "createWorkspaceOp",
@@ -4146,7 +4020,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 7
+          "line": 5
         }
       ],
       "usesBackendOperation": true,
@@ -4159,7 +4033,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 10
+          "line": 5
         }
       ],
       "usesBackendOperation": true,
@@ -4172,7 +4046,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 7
+          "line": 5
         }
       ],
       "usesBackendOperation": true,
@@ -4224,7 +4098,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 11
+          "line": 8
         }
       ],
       "usesBackendOperation": true,
@@ -4315,7 +4189,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 10
+          "line": 5
         }
       ],
       "usesBackendOperation": true,

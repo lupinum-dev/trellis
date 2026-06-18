@@ -27,10 +27,15 @@ describe('operation ref codegen', () => {
       resolve(fixtureRoot, 'generated/operation-handles/mcp.ts'),
       'utf8',
     )
+    const operationProjectionsFixture = readFileSync(
+      resolve(fixtureRoot, 'generated/operation-projections.ts'),
+      'utf8',
+    )
 
     expect(rendered).toEqual([
       { path: 'generated/operation-refs.ts', content: operationRefsFixture },
       { path: 'generated/operation-handles/mcp.ts', content: operationHandlesFixture },
+      { path: 'generated/operation-projections.ts', content: operationProjectionsFixture },
     ])
     expect(JSON.stringify(manifest)).not.toContain('executeDeleteProjectRef')
     expect(JSON.stringify(manifest)).not.toContain('createProjectHandle')

@@ -1958,15 +1958,68 @@ function getRegisteredOperationExecuteFunctionRef(
   operationProjections: OperationProjectionRegistry | undefined,
   operationId: string | undefined,
 ): string | undefined {
+  return getRegisteredOperationProjectionFunctionRef(operationProjections, operationId, 'execute')
+}
+
+function getRegisteredOperationProjectionFunctionRef(
+  operationProjections: OperationProjectionRegistry | undefined,
+  operationId: string | undefined,
+  projection: 'execute' | 'preview',
+): string | undefined {
   if (!operationProjections || !operationId) return undefined
-  const executePath = operationProjections.executeById[operationId]
-  return typeof executePath === 'string' && executePath.trim().length > 0 ? executePath : undefined
+  const functionRef =
+    projection === 'preview'
+      ? operationProjections.previewById?.[operationId]
+      : operationProjections.executeById[operationId]
+  return typeof functionRef === 'string' && functionRef.trim().length > 0 ? functionRef : undefined
 }
 
 function getExecuteFunctionRef(definition: unknown): string | undefined {
   return typeof (definition as { executeFunctionRef?: unknown }).executeFunctionRef === 'string'
     ? (definition as { executeFunctionRef: string }).executeFunctionRef
     : undefined
+}
+
+function getExplicitIdentityForwardingTarget(definition: unknown): string | undefined {
+  return typeof (definition as { identityForwardingTarget?: unknown }).identityForwardingTarget ===
+    'string'
+    ? (definition as { identityForwardingTarget: string }).identityForwardingTarget
+    : undefined
+}
+
+function getOperationIdentityForwardingTarget(
+  definition: unknown,
+  metadata: TrellisOperationMetadata,
+  projectionMetadata: TrellisOperationProjectionMetadata | null,
+  operationProjections: OperationProjectionRegistry | undefined,
+  projection: 'execute' | 'preview' = projectionMetadata?.projection ?? 'execute',
+): string | undefined {
+  return (
+    getExplicitIdentityForwardingTarget(definition) ??
+    getExecuteFunctionRef(definition) ??
+    projectionMetadata?.functionRef ??
+    getRegisteredOperationProjectionFunctionRef(operationProjections, metadata.id, projection) ??
+    (typeof (definition as { id?: unknown }).id === 'string'
+      ? (definition as { id: string }).id
+      : undefined)
+  )
+}
+
+function withOperationIdentityForwardingTarget<TDefinition extends object>(
+  definition: TDefinition,
+  metadata: TrellisOperationMetadata,
+  projectionMetadata: TrellisOperationProjectionMetadata | null,
+  operationProjections: OperationProjectionRegistry | undefined,
+  projection?: 'execute' | 'preview',
+): TDefinition {
+  const identityForwardingTarget = getOperationIdentityForwardingTarget(
+    definition,
+    metadata,
+    projectionMetadata,
+    operationProjections,
+    projection,
+  )
+  return identityForwardingTarget ? { ...definition, identityForwardingTarget } : definition
 }
 
 function getIdentityForwardingTarget(
@@ -2772,7 +2825,14 @@ function buildStructuredQueryRuntime<
     const metadata = getOperationMetadata(definition as never)
     const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive' || projectionMetadata?.projection !== 'preview') {
-      return structured(definition as never)
+      return structured(
+        withOperationIdentityForwardingTarget(
+          definition,
+          metadata,
+          projectionMetadata,
+          options.operationProjections,
+        ) as never,
+      )
     }
 
     if (!metadata.id) {
@@ -2792,7 +2852,13 @@ function buildStructuredQueryRuntime<
     ) => Promise<unknown> | unknown
 
     const transformed = {
-      ...definition,
+      ...withOperationIdentityForwardingTarget(
+        definition,
+        metadata,
+        projectionMetadata,
+        options.operationProjections,
+        'preview',
+      ),
       handler: async (
         ctx: QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
         args: Record<string, unknown>,
@@ -2847,7 +2913,14 @@ function buildStructuredMutationRuntime<
     const metadata = getOperationMetadata(definition as never)
     const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive') {
-      return structured(definition as never)
+      return structured(
+        withOperationIdentityForwardingTarget(
+          definition,
+          metadata,
+          projectionMetadata,
+          options.operationProjections,
+        ) as never,
+      )
     }
 
     if (!metadata.id) {
@@ -2863,7 +2936,13 @@ function buildStructuredMutationRuntime<
       ) => Promise<unknown> | unknown
 
       const transformed = {
-        ...definition,
+        ...withOperationIdentityForwardingTarget(
+          definition,
+          metadata,
+          projectionMetadata,
+          options.operationProjections,
+          'preview',
+        ),
         handler: async (
           ctx: MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
           args: Record<string, unknown>,
@@ -2936,18 +3015,12 @@ function buildStructuredMutationRuntime<
     )
 
     const transformed = {
-      ...definition,
-      ...(getExecuteFunctionRef(definition)
-        ? {
-            identityForwardingTarget: getExecuteFunctionRef(definition)!,
-          }
-        : projectionMetadata?.functionRef
-          ? { identityForwardingTarget: projectionMetadata.functionRef }
-          : registeredExecuteFunctionRef
-            ? { identityForwardingTarget: registeredExecuteFunctionRef }
-            : definition.id
-              ? { identityForwardingTarget: definition.id }
-              : {}),
+      ...withOperationIdentityForwardingTarget(
+        definition,
+        metadata,
+        projectionMetadata,
+        options.operationProjections,
+      ),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
@@ -3279,6 +3352,7 @@ function buildStructuredTransportMutationRuntime<
   TActor,
 >(
   builder: unknown,
+  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
   handlerIds?: StructuredHandlerIdRegistry,
 ): TransportMutationWithBackendLanes<
   MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
@@ -3329,16 +3403,12 @@ function buildStructuredTransportMutationRuntime<
     ) => Promise<unknown> | unknown
 
     const transformed = {
-      ...definition,
-      ...(getExecuteFunctionRef(definition)
-        ? {
-            identityForwardingTarget: getExecuteFunctionRef(definition)!,
-          }
-        : projectionMetadata?.functionRef
-          ? { identityForwardingTarget: projectionMetadata.functionRef }
-          : definition.id
-            ? { identityForwardingTarget: definition.id }
-            : {}),
+      ...withOperationIdentityForwardingTarget(
+        definition,
+        metadata,
+        projectionMetadata,
+        options.operationProjections,
+      ),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
@@ -3475,7 +3545,7 @@ function buildTrellisRuntime<
       TCaller,
       TActingFor,
       TActor
-    >(unsafe.mutation, handlerIds),
+    >(unsafe.mutation, options, handlerIds),
   }
 
   const structuredInternal =
@@ -3501,7 +3571,7 @@ function buildTrellisRuntime<
             TCaller,
             TActingFor,
             TActor
-          >(unsafe.internal.mutation, handlerIds),
+          >(unsafe.internal.mutation, options, handlerIds),
         }
       : undefined
 

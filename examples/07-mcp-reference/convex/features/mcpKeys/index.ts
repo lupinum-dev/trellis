@@ -1,5 +1,4 @@
 export { canIssueKeyRole } from './checks'
-export { create, list, revoke, touch, validate } from './domain'
 export { mcpKeysFeature } from './feature'
 export { mcpManage, mcpKeyPermissionMatrix, mcpKeyPermissions } from './permissions'
 export { mcpKeyTables } from './schema'

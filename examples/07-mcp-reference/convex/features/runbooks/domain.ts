@@ -1,4 +1,4 @@
-import { operation, previewOf, workspaceScope } from '@lupinum/trellis/app'
+import { previewOf, workspaceScope } from '@lupinum/trellis/app'
 import {
   can,
   deny,
@@ -7,14 +7,20 @@ import {
   requireAuth,
   requireRecord,
 } from '@lupinum/trellis/auth'
+import { implementOperation } from '@lupinum/trellis/backend'
 
 import {
-  createRunbook,
   getRunbook,
   listRunbooks,
   searchRunbooks,
-  updateRunbook,
 } from '../../../shared/features/runbooks/contract'
+import {
+  createRunbookDescriptor,
+  getWorkspaceRunbookDescriptor,
+  listWorkspaceRunbooksDescriptor,
+  updateRunbookDescriptor,
+  workspaceOverviewDescriptor,
+} from '../../../shared/features/runbooks/operations'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
@@ -148,9 +154,7 @@ export const searchPublic = query.public({
   },
 })
 
-export const listWorkspaceRunbooksOp = operation.query({
-  id: 'runbooks.list-workspace',
-  args: listRunbooks.args,
+export const listWorkspaceRunbooksOp = implementOperation(listWorkspaceRunbooksDescriptor, {
   scope: workspaceScope(),
   permission: runbookRead,
   handler: async (ctx: WorkspaceQueryCtx) => {
@@ -215,9 +219,7 @@ export const get = query.public({
   },
 })
 
-export const getWorkspaceRunbookOp = operation.query({
-  id: 'runbooks.get-workspace',
-  args: getRunbook.args,
+export const getWorkspaceRunbookOp = implementOperation(getWorkspaceRunbookDescriptor, {
   scope: workspaceScope(),
   permission: runbookRead,
   handler: async (ctx: WorkspaceQueryCtx, args: RunbookIdArgs) => {
@@ -234,10 +236,7 @@ export const getWorkspaceRunbookOp = operation.query({
 
 export const getWorkspace = query.workspace(getWorkspaceRunbookOp)
 
-export const createRunbookOp = operation.mutation({
-  id: 'runbooks.create',
-  args: createRunbook.args,
-  executeFunctionRef: 'features/runbooks/domain:create',
+export const createRunbookOp = implementOperation(createRunbookDescriptor, {
   scope: workspaceScope(),
   permission: runbookCreate,
   handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookArgs) => {
@@ -267,11 +266,9 @@ export const createRunbookOp = operation.mutation({
 
 export const create = mutation.workspace(createRunbookOp)
 
-export const updateRunbookOp = operation.mutation({
-  id: 'runbooks.update',
-  args: updateRunbook.args,
+export const updateRunbookOp = implementOperation(updateRunbookDescriptor, {
   scope: workspaceScope(),
-  permission: runbookRead,
+  permission: runbookCreate,
   load: async (ctx: WorkspaceMutationCtx, args: RunbookIdArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     requireRecord(runbook, 'Runbook')
@@ -313,9 +310,7 @@ export const remove = mutation.workspace(removeRunbookOp)
 export const previewBulkRemove = mutation.workspace(previewOf(bulkRemoveRunbooksOp))
 export const bulkRemove = mutation.workspace(bulkRemoveRunbooksOp)
 
-export const workspaceOverviewOp = operation.query({
-  id: 'runbooks.workspace-overview',
-  args: listRunbooks.args,
+export const workspaceOverviewOp = implementOperation(workspaceOverviewDescriptor, {
   scope: workspaceScope(),
   permission: runbookRead,
   handler: async (ctx: WorkspaceQueryCtx) => {

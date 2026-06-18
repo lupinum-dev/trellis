@@ -1,16 +1,8 @@
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/mcp'
-import { api } from '~~/convex/_generated/api'
-import { bulkRemoveRunbooksOp } from '~~/convex/features/runbooks/operations'
+import { operations } from '#trellis/operations/mcp'
 
 import { tool } from '../../runtime'
 
-export default tool.operation(bulkRemoveRunbooksOp, {
-  execute: executeOperationRef(bulkRemoveRunbooksOp, api.features.runbooks.domain.bulkRemove),
-  preview: previewOperationRef(
-    bulkRemoveRunbooksOp,
-    api.features.runbooks.domain.previewBulkRemove,
-  ),
-  previewOperation: 'mutation',
+export default tool.operation(operations.byId['runbooks.bulkRemove'], {
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
   meta: {

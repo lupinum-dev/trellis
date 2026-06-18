@@ -89,7 +89,6 @@ export const createRunbookFromWebhookOp = operation.mutation({
     visibility: v.optional(runbookVisibilityValidator),
     tags: v.optional(v.array(v.string())),
   },
-  executeFunctionRef: 'features/runbooks/webhooks:createRunbookFromWebhookMutation',
   identityForwardingTransport: 'webhook',
   handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookFromWebhookArgs) => {
     const appIdentity = await ctx.appIdentity()

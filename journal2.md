@@ -812,5 +812,94 @@ loops.
 
 ## Next Slice Candidates
 
-1. Hard-cut maintained MCP examples to generated handles where the registry can
-   own projection refs and MCP operation kinds.
+## Slice 17: MCP Reference Generated Handles And Registry Forwarding
+
+### Proof
+
+- Added a failing MCP boundary proof for the maintained
+  `examples/07-mcp-reference` runbook write tools. The initial run showed the
+  tools still imported Convex runbook operation implementations and handwritten
+  `executeOperationRef(...)` / `previewOperationRef(...)` bindings.
+- The same proof rendered MCP operation handles from the scanned registry and
+  exposed a runtime-boundary problem: generated MCP handles imported Convex-only
+  descriptors when runtime filtering was not applied.
+- The example test then exposed a forwarding gap after removing handwritten
+  execute refs from safe operations: forwarded create calls failed envelope
+  validation before reaching `Forbidden: Create runbook` because normal
+  non-destructive operations did not use the root projection registry as their
+  identity-forwarding target source.
+- A second example run exposed stale test resolution: the reference example
+  aliased most Trellis subpaths to source but not `@lupinum/trellis/app`, so
+  tests mixed current source with stale `dist` runtime behavior.
+
+### Implementation
+
+- Moved runbook permission keys and operation descriptors into
+  `examples/07-mcp-reference/shared/features/runbooks`, leaving Convex files to
+  implement the shared descriptors with `implementOperation(...)`.
+- Updated the reference runbook feature manifest to list shared descriptors as
+  the canonical operation inventory.
+- Replaced the reference runbook MCP write tools with generated operation
+  handles from `#trellis/operations/mcp`.
+- Added the root `examples/07-mcp-reference/generated/operation-projections.ts`
+  registry and wired `convex/functions.ts` to pass it into `defineTrellis(...)`.
+- Removed projection re-exports from reference feature barrels so the scanner
+  sees direct Convex projection exports instead of ambiguous barrel exports.
+- Made registry-rendered operation ref names collision-safe by deriving them
+  from operation ids plus projection kind.
+- Runtime-filtered generated operation refs/handles to shared descriptors when
+  a generated handle module targets external runtimes such as MCP, while still
+  rendering the full root operation projection registry for Convex.
+- Added a shared runtime resolver for operation identity-forwarding targets:
+  explicit target, explicit `executeFunctionRef`, projection metadata,
+  generated projection registry, then the legacy `id` fallback.
+- Applied that resolver to safe queries, safe mutations, destructive previews,
+  destructive executions, and transport mutations.
+- Removed the remaining normal-path handwritten `executeFunctionRef` from the
+  reference webhook operation after the runtime registry fallback was proven.
+- Added the missing `@lupinum/trellis/app` alias to the reference example
+  Vitest config so the example tests run against source consistently.
+- Regenerated `security-contract.generated.json` after the reference example
+  operation inventory moved from Convex-local definitions to shared
+  descriptors.
+
+### Verification
+
+- Focused runtime proof passed:
+  `pnpm vitest run --project=unit tests/unit/functions-defineTrellis.test.ts -t "operation projection registry"`.
+- Reference example tests passed:
+  `pnpm vitest run --config vitest.config.ts test/mcpReference.test.ts server/api/runbook-webhook.post.test.ts`
+  from `examples/07-mcp-reference`.
+- Full reference example script passed:
+  `pnpm --dir examples/07-mcp-reference test`.
+- Boundary/codegen unit block passed:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts tests/unit/functions-defineTrellis.test.ts`.
+- Source gates passed:
+  `pnpm run lint:src:core`, `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run test:types:public`, `pnpm run test:types:contracts`, and
+  `pnpm run build:cli`.
+- Security contract check passed after regeneration:
+  `pnpm run check:security:contract`.
+- Security gate passed:
+  `pnpm run test:security`.
+- Formatting and diff hygiene passed:
+  `pnpm exec oxfmt --check ...` for touched files and `git diff --check`.
+
+### Notes
+
+- The maintained MCP reference write tools now use generated operation handles
+  instead of importing Convex runbook operation implementations or recreating
+  execute/preview refs in tool files.
+- The checked-in reference `generated/operation-projections.ts` is now covered
+  by a boundary test that compares it exactly with scanner-rendered output.
+- Explicit `executeFunctionRef` remains in advanced examples/tests and the
+  component mini-CMS example. Those are separate boundaries to review; the
+  reference app no longer needs normal-path handwritten refs for runbook writes
+  or the webhook operation.
+
+## Next Slice Candidates
+
+1. Hard-cut the component mini-CMS operation paths where shared descriptors and
+   generated handles can replace handwritten execute refs.
+2. Review remaining explicit `executeFunctionRef` call sites and classify each
+   as advanced boundary, test-only coverage, or deletion target.
