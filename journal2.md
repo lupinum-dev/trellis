@@ -946,9 +946,70 @@ loops.
   layer review, not to the normal app operation path removed from the
   maintained MCP reference example.
 
+## Slice 19: Team Workspace Projection Registry
+
+### Proof
+
+- Ran the operation-registry scanner against `examples/03-team-workspace`
+  before editing. It failed on the re-exported
+  `processTodoSyncWebhookMutation`, proving the registry path still rejected
+  noncanonical projection exports instead of guessing through feature barrels.
+- After removing that re-export, the scanner exposed an unused
+  `users.resolve-mcp-user-by-email` operation without an execute projection.
+  That operation had no callers and would have kept a second source of truth in
+  the maintained workspace example.
+- The webhook operation still carried a handwritten `executeFunctionRef`, so
+  the example had not fully moved to generated operation projection facts.
+
+### Implementation
+
+- Removed the noncanonical webhook projection re-export from the todos feature
+  barrel.
+- Deleted the unused `resolveMcpUserByEmailOp` operation wrapper instead of
+  adding projection metadata for an unused path.
+- Generated `examples/03-team-workspace/generated/operation-projections.ts`
+  from the scanner and wired `convex/functions.ts` to
+  `operationProjections: operationProjectionRegistry`.
+- Removed the webhook operation's app-authored `executeFunctionRef`; the
+  generated registry now owns the execute binding.
+- Switched the example Vitest config to import Trellis testing helpers from the
+  source tree and alias the runtime subpaths used by the example, matching the
+  local source verification pattern used by the MCP reference and mini-CMS
+  examples.
+- Added an exact drift test for maintained checked-in projection registries,
+  currently covering `examples/03-team-workspace` and
+  `examples/07-mcp-reference`.
+- Regenerated the security contract so the inventory reflects the removed
+  operation and the registry-owned webhook execute projection.
+
+### Verification
+
+- Team workspace example tests passed:
+  `pnpm --dir examples/03-team-workspace test`.
+- MCP boundary and projection-registry drift test passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-descriptor-boundary.test.ts`.
+- Focused formatting check passed for the changed example, generated registry,
+  boundary test, and journal files.
+- Security contract drift check passed:
+  `pnpm run check:security:contract`.
+
+### Notes
+
+- `examples/03-team-workspace` no longer has normal-path app-authored
+  `executeFunctionRef` metadata.
+- Remaining normal maintained-example `executeFunctionRef` strings are in
+  `examples/04-saas-platform` and `examples/05-visibility-access`.
+- The component mini-CMS refs remain classified as bridge-boundary refs until a
+  bridge-generated handle can represent host bridge authority and component
+  implementation binding as one checked artifact.
+
 ## Next Slice Candidates
 
-1. Review harness explicit operation refs and decide which are advanced test
+1. Wire `examples/04-saas-platform` to a generated projection registry and
+   remove its normal destructive operation `executeFunctionRef` strings.
+2. Wire `examples/05-visibility-access` to a generated projection registry and
+   remove its normal destructive operation `executeFunctionRef` string.
+3. Review harness explicit operation refs and decide which are advanced test
    coverage versus deletion targets.
-2. Define the bridge-generated operation handle shape needed to replace
+4. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.

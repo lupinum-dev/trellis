@@ -24,6 +24,11 @@ const referenceRunbookOperationToolFiles = [
   'examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts',
 ] as const
 
+const generatedProjectionRegistryExamples = [
+  'examples/03-team-workspace',
+  'examples/07-mcp-reference',
+] as const
+
 describe('MCP operation boundary', () => {
   it('keeps the MCP reference app on generated operation handles', () => {
     for (const file of referenceRunbookOperationToolFiles) {
@@ -82,6 +87,29 @@ describe('MCP operation boundary', () => {
       expect(source, file).toContain('api.features.pages.domain.')
       expect(source, file).not.toContain("from '#trellis/operations/mcp'")
       expect(source, file).not.toContain('api.components.')
+    }
+  })
+
+  it('keeps maintained generated operation projection registries in sync', () => {
+    for (const example of generatedProjectionRegistryExamples) {
+      const exampleRoot = resolve(process.cwd(), example)
+      const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(exampleRoot))
+      const rendered = renderOperationRegistryGeneratedFiles(registry, {
+        apiImport: '#trellis/api',
+        defineOperationHandleImport: '#trellis/mcp',
+        operationHandlesPath: '.nuxt/trellis/operation-handles/mcp.ts',
+        operationProjectionsPath: 'generated/operation-projections.ts',
+        operationRefsPath: '.nuxt/trellis/operation-refs.ts',
+        projectOperationRefImport: '#trellis/mcp',
+        runtimes: ['mcp'],
+      })
+      const projections = rendered.find(
+        (file) => file.path === 'generated/operation-projections.ts',
+      )?.content
+
+      expect(projections, example).toBe(
+        readFileSync(resolve(exampleRoot, 'generated/operation-projections.ts'), 'utf8'),
+      )
     }
   })
 })
