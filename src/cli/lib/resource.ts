@@ -157,22 +157,40 @@ export const ${listName} = defineArgs({
 }
 
 function resourcePermissionsTemplate(ctx: ResourceGeneratorContext): string {
+  const keyImports = ctx.hasMcp
+    ? `
+import {
+  ${ctx.singularCamel}CreateKey,
+  ${ctx.singularCamel}DeleteKey,
+  ${ctx.singularCamel}ReadKey,
+} from '../../../shared/features/${ctx.tableName}/permissions'
+`
+    : ''
+  const readKey = ctx.hasMcp ? `${ctx.singularCamel}ReadKey.key` : `'${ctx.permissionPrefix}.read'`
+  const createKey = ctx.hasMcp
+    ? `${ctx.singularCamel}CreateKey.key`
+    : `'${ctx.permissionPrefix}.create'`
+  const deleteKey = ctx.hasMcp
+    ? `${ctx.singularCamel}DeleteKey.key`
+    : `'${ctx.permissionPrefix}.delete'`
+
   if (ctx.kind !== 'workspace') {
     return `
 import { definePermission } from '@lupinum/trellis/auth'
+${keyImports}
 
 export const ${ctx.singularCamel}ReadPermission = definePermission({
-  key: '${ctx.permissionPrefix}.read',
+  key: ${readKey},
   check: (appIdentity) => appIdentity !== null,
 })
 
 export const ${ctx.singularCamel}CreatePermission = definePermission({
-  key: '${ctx.permissionPrefix}.create',
+  key: ${createKey},
   check: (appIdentity) => appIdentity !== null,
 })
 
 export const ${ctx.singularCamel}DeletePermission = definePermission({
-  key: '${ctx.permissionPrefix}.delete',
+  key: ${deleteKey},
   check: (appIdentity) => appIdentity !== null,
 })
 
@@ -186,6 +204,7 @@ export const ${ctx.singularCamel}Permissions = [
 
   return `
 import { definePermission } from '@lupinum/trellis/auth'
+${keyImports}
 
 import type { AccessIdentity } from '../../auth/appIdentity'
 import type { Role } from '../../auth/caller'
@@ -207,17 +226,17 @@ function hasMinimumRole(appIdentity: AccessIdentity | null, minimum: Role): bool
 }
 
 export const ${ctx.singularCamel}ReadPermission = definePermission({
-  key: '${ctx.permissionPrefix}.read',
+  key: ${readKey},
   check: hasWorkspace,
 })
 
 export const ${ctx.singularCamel}CreatePermission = definePermission({
-  key: '${ctx.permissionPrefix}.create',
+  key: ${createKey},
   check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member'),
 })
 
 export const ${ctx.singularCamel}DeletePermission = definePermission({
-  key: '${ctx.permissionPrefix}.delete',
+  key: ${deleteKey},
   check: (appIdentity: AccessIdentity | null) => hasMinimumRole(appIdentity, 'member'),
 })
 
@@ -226,6 +245,27 @@ export const ${ctx.singularCamel}Permissions = [
   ${ctx.singularCamel}CreatePermission,
   ${ctx.singularCamel}DeletePermission,
 ] as const
+`.trimStart()
+}
+
+function resourceSharedPermissionsTemplate(ctx: ResourceGeneratorContext): string {
+  return `
+import { definePermissionKey } from '@lupinum/trellis/auth'
+
+export const ${ctx.singularCamel}ReadKey = definePermissionKey({
+  key: '${ctx.permissionPrefix}.read',
+  label: 'Read ${ctx.pluralCamel}',
+})
+
+export const ${ctx.singularCamel}CreateKey = definePermissionKey({
+  key: '${ctx.permissionPrefix}.create',
+  label: 'Create ${ctx.pluralCamel}',
+})
+
+export const ${ctx.singularCamel}DeleteKey = definePermissionKey({
+  key: '${ctx.permissionPrefix}.delete',
+  label: 'Delete ${ctx.pluralCamel}',
+})
 `.trimStart()
 }
 
@@ -265,29 +305,32 @@ function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
   const operationOwnerCheck = ctx.tenantField
     ? `${ctx.singularCamel}.${ctx.tenantField} === appIdentity.workspaceId`
     : `${ctx.singularCamel}.${ctx.ownerField} === appIdentity.userId`
-  const operationImport = ctx.tenantField
-    ? 'operation, operationEffect, operationIssue, operationPreview, previewOf, workspaceScope'
-    : 'operation, operationEffect, operationIssue, operationPreview, previewOf'
+  const workspaceScopeImport = ctx.tenantField
+    ? "import { workspaceScope } from '@lupinum/trellis/app'\n"
+    : ''
   const scopeProperty = ctx.tenantField ? `  scope: workspaceScope(),\n` : ''
 
   return `
 import { requireAuth, requireRecord } from '@lupinum/trellis/auth'
-import { ${operationImport} } from '@lupinum/trellis/app'
+${workspaceScopeImport}import {
+  implementOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  previewOf,
+} from '@lupinum/trellis/backend'
 
 import {
-  create${ctx.singularPascal},
-  delete${ctx.singularPascal},
-} from '../../../shared/features/${ctx.tableName}/contract'
+  create${ctx.singularPascal}Descriptor,
+  remove${ctx.singularPascal}Descriptor,
+} from '../../../shared/features/${ctx.tableName}/operations'
 import {
   ${ctx.singularCamel}CreatePermission,
   ${ctx.singularCamel}DeletePermission,
 } from './permissions'
 import { mutation } from '../../functions'
 
-export const create${ctx.singularPascal}Op = operation.mutation({
-  id: '${ctx.tableName}.create',
-  name: 'create${ctx.singularPascal}',
-  args: create${ctx.singularPascal}.args,
+export const create${ctx.singularPascal}Operation = implementOperation(create${ctx.singularPascal}Descriptor, {
   permission: ${ctx.singularCamel}CreatePermission,
 ${scopeProperty}  handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
@@ -299,12 +342,8 @@ ${scopeProperty}  handler: async (ctx, args) => {
   },
 })
 
-export const remove${ctx.singularPascal}Op = operation.destructive({
-  id: '${ctx.tableName}.remove',
-  name: 'remove${ctx.singularPascal}',
-  args: delete${ctx.singularPascal}.args,
+export const remove${ctx.singularPascal}Operation = implementOperation(remove${ctx.singularPascal}Descriptor, {
   permission: ${ctx.singularCamel}DeletePermission,
-  safety: 'destructive-write',
   executeFunctionRef: 'features/${ctx.tableName}/domain:remove',
 ${scopeProperty}  load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
@@ -330,7 +369,39 @@ ${scopeProperty}  load: async (ctx, args) => {
   },
 })
 
-export const previewRemove${ctx.singularPascal} = mutation.${lane}(previewOf(remove${ctx.singularPascal}Op))
+export const previewRemove${ctx.singularPascal} = mutation.${lane}(previewOf(remove${ctx.singularPascal}Operation))
+`.trimStart()
+}
+
+function resourceOperationDescriptorTemplate(ctx: ResourceGeneratorContext): string {
+  return `
+import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+
+import {
+  create${ctx.singularPascal},
+  delete${ctx.singularPascal},
+} from './contract'
+import {
+  ${ctx.singularCamel}CreateKey,
+  ${ctx.singularCamel}DeleteKey,
+} from './permissions'
+
+export const create${ctx.singularPascal}Descriptor = defineOperationDescriptor({
+  id: '${ctx.tableName}.create',
+  name: 'create${ctx.singularPascal}',
+  args: create${ctx.singularPascal}.args,
+  permission: ${ctx.singularCamel}CreateKey,
+  safety: 'bounded-write',
+})
+
+export const remove${ctx.singularPascal}Descriptor = defineOperationDescriptor({
+  id: '${ctx.tableName}.remove',
+  name: 'remove${ctx.singularPascal}',
+  kind: 'destructive',
+  args: delete${ctx.singularPascal}.args,
+  permission: ${ctx.singularCamel}DeleteKey,
+  safety: 'destructive-write',
+})
 `.trimStart()
 }
 
@@ -352,7 +423,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
     ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : []),
   ].join(',\n      ')
   const removeExport = ctx.hasMcp
-    ? `export const remove = mutation.${lane}(remove${ctx.singularPascal}Op)\n`
+    ? `export const remove = mutation.${lane}(remove${ctx.singularPascal}Operation)\n`
     : `export const remove = mutation.${lane}({
   args: delete${ctx.singularPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}DeletePermission`)}  load: async (ctx, args) => {
@@ -369,7 +440,7 @@ ${resourcePermissionProperty(ctx, `${ctx.singularCamel}DeletePermission`)}  load
 })
 `
   const createExport = ctx.hasMcp
-    ? `export const create = mutation.${lane}(create${ctx.singularPascal}Op)\n`
+    ? `export const create = mutation.${lane}(create${ctx.singularPascal}Operation)\n`
     : `export const create = mutation.${lane}({
   args: create${ctx.singularPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}CreatePermission`)}  handler: async (ctx, args) => {
@@ -398,7 +469,7 @@ import {
   ${ctx.singularCamel}ReadPermission,
 } from './permissions'
 import { mutation, query } from '../../functions'
-${ctx.hasMcp ? `import { create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op } from './operations'\n` : ''}
+${ctx.hasMcp ? `import { create${ctx.singularPascal}Operation, remove${ctx.singularPascal}Operation } from './operations'\n` : ''}
 
 export const list = query.${lane}({
   args: list${ctx.pluralPascal}.args,
@@ -575,21 +646,11 @@ export default tool.query({
 
 function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { executeOperationRef } from '@lupinum/trellis/mcp'
-import { api } from '#trellis/api'
-import { create${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
-import { ${ctx.singularCamel}CreatePermission } from '~~/convex/features/${ctx.tableName}'
-import { create${ctx.singularPascal} } from '~~/shared/features/${ctx.tableName}/contract'
+import { operations } from '#trellis/operations/mcp'
 
 import { tool } from '../runtime'
 
-export default tool.operation(create${ctx.singularPascal}Op, {
-  schema: create${ctx.singularPascal},
-  execute: executeOperationRef(
-    create${ctx.singularPascal}Op,
-    api.features.${ctx.tableName}.domain.create,
-  ),
-  permission: ${ctx.singularCamel}CreatePermission,
+export default tool.operation(operations.${ctx.tableName}.create, {
   meta: {
     name: 'create-${ctx.fileStem}',
   },
@@ -599,22 +660,11 @@ export default tool.operation(create${ctx.singularPascal}Op, {
 
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/mcp'
-import { api } from '#trellis/api'
-import { remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
+import { operations } from '#trellis/operations/mcp'
 
 import { tool } from '../runtime'
 
-export default tool.operation(remove${ctx.singularPascal}Op, {
-  execute: executeOperationRef(
-    remove${ctx.singularPascal}Op,
-    api.features.${ctx.tableName}.domain.remove,
-  ),
-  preview: previewOperationRef(
-    remove${ctx.singularPascal}Op,
-    api.features.${ctx.tableName}.operations.previewRemove${ctx.singularPascal},
-  ),
-  previewOperation: 'mutation',
+export default tool.operation(operations.${ctx.tableName}.remove, {
   meta: {
     name: 'delete-${ctx.fileStem}',
   },
@@ -652,10 +702,10 @@ ${schemaTableBlock(ctx).trimEnd()}
 function resourceFeatureTemplate(ctx: ResourceGeneratorContext): string {
   const permissionsLine = `  permissions: ${ctx.singularCamel}Permissions,\n`
   const operationsImport = ctx.hasMcp
-    ? `import { create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op } from './operations'\n`
+    ? `import { create${ctx.singularPascal}Descriptor, remove${ctx.singularPascal}Descriptor } from '../../../shared/features/${ctx.tableName}/operations'\n`
     : ''
   const operationsLine = ctx.hasMcp
-    ? `  operations: [create${ctx.singularPascal}Op, remove${ctx.singularPascal}Op],\n`
+    ? `  operations: [create${ctx.singularPascal}Descriptor, remove${ctx.singularPascal}Descriptor],\n`
     : ''
 
   return `
@@ -682,7 +732,7 @@ export {
   ${ctx.singularCamel}ReadPermission,
 } from './permissions'
 export { ${ctx.tableName}Tables } from './schema'
-${ctx.hasMcp ? `export { create${ctx.singularPascal}Op, previewRemove${ctx.singularPascal}, remove${ctx.singularPascal}Op } from './operations'\n` : ''}`.trimStart()
+`.trimStart()
 }
 
 async function patchSchema(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
@@ -845,6 +895,16 @@ export async function buildResourceTemplateSet(
 
   if (ctx.hasMcp) {
     files.push(
+      {
+        path: `shared/features/${ctx.tableName}/permissions.ts`,
+        content: resourceSharedPermissionsTemplate(ctx),
+        ownership: 'authored',
+      },
+      {
+        path: `shared/features/${ctx.tableName}/operations.ts`,
+        content: resourceOperationDescriptorTemplate(ctx),
+        ownership: 'authored',
+      },
       {
         path: `convex/features/${ctx.tableName}/operations.ts`,
         content: resourceOperationTemplate(ctx),

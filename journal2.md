@@ -580,9 +580,75 @@ loops.
   in follow-up slices after their descriptors move to shared/runtime-neutral
   files.
 
+## Slice 13: Add-Resource MCP Generated Handles
+
+### Proof
+
+- Added a failing add-resource proof for MCP-facing resources: generated Convex
+  operations should use `implementOperation(...)` with shared descriptors, MCP
+  create/delete tools should import `operations` from
+  `#trellis/operations/mcp`, and generated tools should not bind
+  `executeOperationRef(...)`, `previewOperationRef(...)`, `#trellis/api`, or
+  Convex implementation files directly.
+- The initial focused run failed because `src/cli/lib/resource.ts` still emitted
+  `operation.mutation(...)`, `operation.destructive(...)`, manual MCP execute
+  and preview ref binding, and Convex operation imports in MCP tools.
+- Added a failing permission-codegen proof for generated shared permission key
+  handles: Convex permissions using `key: taskReadKey.key` were not discovered,
+  so permission inventory generation would lose the generated add-resource
+  permissions.
+- Added a registry-render proof against the exact generated temp app so the
+  operation registry must derive `projects.create` and `projects.remove`
+  projections and render MCP handles from shared descriptors.
+
+### Implementation
+
+- Added shared add-resource permission-key output under
+  `shared/features/<resource>/permissions.ts`.
+- Added shared add-resource operation descriptors under
+  `shared/features/<resource>/operations.ts`.
+- Changed generated Convex MCP operations to implement the shared descriptors
+  with `implementOperation(...)` while keeping workspace scope, permission
+  checks, handlers, destructive preview, and confirmation behavior in Convex.
+- Changed generated Convex domain projections to project implemented operation
+  exports and changed feature manifests to list shared descriptors.
+- Removed generated Convex operation/projection re-exports from feature barrels
+  so scanner diagnostics do not see projection facts through barrels.
+- Changed generated MCP create/delete tools to use
+  `tool.operation(operations.<resource>.<action>, ...)`.
+- Extended permission codegen to scan shared `definePermissionKey(...)` exports
+  and resolve Convex `definePermission({ key: sharedKey.key })` definitions
+  without treating shared files themselves as permission definition sources.
+
+### Verification
+
+- Initial focused resource proof failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "MCP-facing resource"`.
+- Initial focused permission proof failed as expected:
+  `pnpm vitest run --project=unit tests/unit/permissions-codegen.test.ts -t "shared definePermissionKey"`.
+- After implementation, both focused proofs passed.
+- Focused adjacent suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts tests/unit/permissions-codegen.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm run test:types:contracts`, `pnpm exec oxfmt --check ...`, and
+  `git diff --check` passed.
+
+### Notes
+
+- Generated MCP tools now use generated operation handles and no longer import
+  Convex operation implementation files, shared contracts, explicit MCP ref
+  helpers, or `#trellis/api`.
+- The generated destructive Convex operation still contains
+  `executeFunctionRef` because backend preview confirmation currently reads the
+  execute target from operation/projection metadata when issuing confirmation
+  tokens. Removing that app-authored string needs a focused runtime/codegen
+  slice that lets canonical preview projections receive the execute ref from the
+  registry without weakening confirmation binding.
+
 ## Next Slice Candidates
 
-1. Hard-cut add-resource MCP templates to shared descriptors plus generated
-   handles.
+1. Remove app-authored `executeFunctionRef` from canonical destructive
+   operation authoring by deriving preview confirmation execute targets from the
+   registry/projection binding.
 2. Hard-cut maintained MCP examples to generated handles where the registry can
    own projection refs and MCP operation kinds.

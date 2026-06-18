@@ -103,6 +103,44 @@ describe('permission codegen', () => {
     ])
   }, 15_000)
 
+  it('extracts permission keys from shared definePermissionKey handles', () => {
+    const rootDir = createFixture({
+      'shared/features/tasks/permissions.ts': `
+        import { definePermissionKey } from '@lupinum/trellis/auth'
+
+        export const taskReadKey = definePermissionKey({
+          key: 'task.read',
+          label: 'Read tasks',
+        })
+      `,
+      'convex/features/tasks/permissions.ts': `
+        import { definePermission } from '@lupinum/trellis/auth'
+
+        import { taskReadKey } from '../../../shared/features/tasks/permissions'
+
+        export const taskRead = definePermission({
+          key: taskReadKey.key,
+          check: true,
+        })
+      `,
+    })
+
+    const metadata = extractPermissionCodegenMetadata(rootDir, [
+      'convex/features/**/permissions.ts',
+    ])
+
+    expect(metadata.permissions).toEqual([
+      {
+        exportName: 'taskRead',
+        file: 'convex/features/tasks/permissions.ts',
+        key: 'task.read',
+        line: expect.any(Number),
+        projected: true,
+        roles: [],
+      },
+    ])
+  }, 15_000)
+
   it('renders additive module augmentation types', () => {
     const rootDir = createFixture({
       'convex/auth/permissions.ts': `

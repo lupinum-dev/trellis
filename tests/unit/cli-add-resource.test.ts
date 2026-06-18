@@ -10,6 +10,11 @@ import {
   getCanonicalAppTemplateSet,
 } from '../../src/cli/lib/init'
 import { renderAddFixture, renderAppStarterFixtureSubset } from '../../src/cli/lib/starter-fixtures'
+import {
+  buildOperationRegistry,
+  renderOperationRegistryGeneratedFiles,
+} from '../../src/module-internals/operation-registry-codegen'
+import { extractPublicSurfaceCodegenMetadata } from '../../src/module-internals/public-surface-codegen'
 
 // Intentional 0.3.0 generator boundary coverage: old `guard:` strings here are
 // negative assertions proving generated resources no longer emit guard fixtures.
@@ -242,10 +247,19 @@ describe('trellis add entity', () => {
 
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
-    ).resolves.toContain('removeProjectOp')
+    ).resolves.toContain('removeProjectOperation')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
-    ).resolves.toContain('createProjectOp')
+    ).resolves.toContain('createProjectOperation')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('implementOperation(createProjectDescriptor')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).not.resolves.toContain('operation.mutation')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).not.resolves.toContain('operation.destructive')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('workspaceScope')
@@ -260,43 +274,58 @@ describe('trellis add entity', () => {
     ).not.resolves.toContain('workspaceId: appIdentity.workspaceId!')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
-    ).resolves.toContain('mutation.workspace(createProjectOp)')
+    ).resolves.toContain('mutation.workspace(createProjectOperation)')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.not.toContain('guard:')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
-    ).resolves.toContain('tool.operation(createProjectOp')
+    ).resolves.toContain("import { operations } from '#trellis/operations/mcp'")
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
-    ).resolves.toContain('executeOperationRef(')
+    ).resolves.toContain('tool.operation(operations.projects.create')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
+    ).not.resolves.toContain('executeOperationRef(')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
+    ).not.resolves.toContain('#trellis/api')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
     ).not.resolves.toContain('stampMcpToolSafety')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain('removeProjectOp')
+    ).resolves.toContain('tool.operation(operations.projects.remove')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain('api.features.projects.domain.remove')
+    ).not.resolves.toContain('previewOperationRef')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).not.resolves.toContain('previewOperation:')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/feature.ts'), 'utf8'),
-    ).resolves.toContain('operations: [createProjectOp, removeProjectOp]')
+    ).resolves.toContain('operations: [createProjectDescriptor, removeProjectDescriptor]')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('permission: projectDeletePermission')
     await expect(
-      readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
-    ).not.resolves.toContain('defineOperationDescriptor')
+      readFile(resolve(cwd, 'shared/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('defineOperationDescriptor')
     await expect(
-      readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
-    ).not.resolves.toContain('removeProjectDescriptor')
+      readFile(resolve(cwd, 'shared/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('removeProjectDescriptor')
+    await expect(
+      readFile(resolve(cwd, 'shared/features/projects/permissions.ts'), 'utf8'),
+    ).resolves.toContain('definePermissionKey')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
+    ).resolves.toContain('key: projectCreateKey.key')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).not.resolves.toContain('permission: projectDeletePermission')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain("from '~~/convex/features/projects/operations'")
+    ).not.resolves.toContain("from '~~/convex/features/projects/operations'")
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).not.resolves.toContain("from '~~/convex/features/projects/domain'")
@@ -305,16 +334,66 @@ describe('trellis add entity', () => {
     ).not.resolves.toContain("from '~~/convex/features/projects/permissions'")
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain('api.features.projects.operations.previewRemoveProject')
+    ).not.resolves.toContain('#trellis/api')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).not.resolves.toContain('functionRef:')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
-    ).resolves.toContain('~~/shared/features/projects/contract')
+    ).not.resolves.toContain('~~/shared/features/projects/contract')
     await expect(readFile(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')).resolves.toContain(
       'api.permissions.context.getAccessContext',
     )
+
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
+    expect(registry.operations).toContainEqual(
+      expect.objectContaining({
+        id: 'projects.create',
+        exportName: 'createProjectDescriptor',
+        file: 'shared/features/projects/operations.ts',
+        execute: expect.objectContaining({
+          file: 'convex/features/projects/domain.ts',
+          functionKind: 'mutation',
+          functionRef: 'features/projects/domain:create',
+        }),
+      }),
+    )
+    expect(registry.operations).toContainEqual(
+      expect.objectContaining({
+        id: 'projects.remove',
+        exportName: 'removeProjectDescriptor',
+        file: 'shared/features/projects/operations.ts',
+        kind: 'destructive',
+        execute: expect.objectContaining({
+          file: 'convex/features/projects/domain.ts',
+          functionKind: 'mutation',
+          functionRef: 'features/projects/domain:remove',
+        }),
+        preview: expect.objectContaining({
+          file: 'convex/features/projects/operations.ts',
+          functionKind: 'mutation',
+          functionRef: 'features/projects/operations:previewRemoveProject',
+        }),
+      }),
+    )
+
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '../../convex/_generated/api',
+      defineOperationHandleImport: '@lupinum/trellis/mcp',
+      operationHandlesPath: '.trellis/generated/operation-handles/mcp.ts',
+      operationRefsPath: '.trellis/generated/operation-refs.ts',
+      projectOperationRefImport: '@lupinum/trellis/mcp',
+      runtimes: ['mcp'],
+    })
+    const handles = rendered.find((file) =>
+      file.path.endsWith('/operation-handles/mcp.ts'),
+    )?.content
+    expect(handles).toContain("from '../../../shared/features/projects/operations'")
+    expect(handles).toContain('export const createProjectHandle = defineOperationHandle')
+    expect(handles).toContain('export const removeProjectHandle = defineOperationHandle')
+    expect(handles).toContain("previewOperation: 'mutation'")
+    expect(handles).toContain('projects: {')
+    expect(handles).toContain('remove: removeProjectHandle')
   })
 
   it('scaffolds an author-owned resource slice with the existing author convention', async () => {

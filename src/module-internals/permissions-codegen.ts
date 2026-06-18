@@ -83,6 +83,26 @@ function readStringProperty(node: ObjectLiteralExpression, name: string): string
   return undefined
 }
 
+function readPermissionKeyProperty(
+  node: ObjectLiteralExpression,
+  name: string,
+  permissionKeysByExport: Map<string, string>,
+): string | undefined {
+  const literal = readStringProperty(node, name)
+  if (literal) return literal
+
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return undefined
+  const initializer = property.getInitializer()
+  if (!initializer || !Node.isPropertyAccessExpression(initializer)) return undefined
+  if (initializer.getName() !== 'key') return undefined
+
+  const expression = initializer.getExpression()
+  return Node.isIdentifier(expression)
+    ? permissionKeysByExport.get(expression.getText())
+    : undefined
+}
+
 function readBooleanProperty(node: ObjectLiteralExpression, name: string): boolean | undefined {
   const property = node.getProperty(name)
   if (!property || !Node.isPropertyAssignment(property)) return undefined
@@ -96,6 +116,7 @@ function readBooleanProperty(node: ObjectLiteralExpression, name: string): boole
 function extractPermissionDefinition(
   rootDir: string,
   declaration: VariableDeclaration,
+  permissionKeysByExport: Map<string, string>,
 ): PermissionDefinitionMetadata | null {
   if (!declaration.getVariableStatement()?.isExported()) return null
   const initializer = declaration.getInitializer()
@@ -105,7 +126,7 @@ function extractPermissionDefinition(
   const [firstArg] = initializer.getArguments()
   if (!firstArg || !Node.isObjectLiteralExpression(firstArg)) return null
 
-  const key = readStringProperty(firstArg, 'key')
+  const key = readPermissionKeyProperty(firstArg, 'key', permissionKeysByExport)
   if (!key) return null
 
   return {
@@ -122,6 +143,19 @@ function extractPermissionDefinition(
     roles: readStringArray(firstArg, 'roles'),
     projected: readBooleanProperty(firstArg, 'project') !== false,
   }
+}
+
+function extractPermissionKeyDefinition(declaration: VariableDeclaration): [string, string] | null {
+  if (!declaration.getVariableStatement()?.isExported()) return null
+  const initializer = declaration.getInitializer()
+  if (!initializer || !Node.isCallExpression(initializer)) return null
+  if (initializer.getExpression().getText() !== 'definePermissionKey') return null
+
+  const [firstArg] = initializer.getArguments()
+  if (!firstArg || !Node.isObjectLiteralExpression(firstArg)) return null
+
+  const key = readStringProperty(firstArg, 'key')
+  return key ? [declaration.getName(), key] : null
 }
 
 function extractArrayEntries(initializer: ArrayLiteralExpression): PermissionInventoryEntry[] {
@@ -233,7 +267,36 @@ function createProject(rootDir: string, include: string[]): Project {
   for (const pattern of include) {
     project.addSourceFilesAtPaths(resolve(rootDir, pattern))
   }
+  project.addSourceFilesAtPaths(resolve(rootDir, 'shared/**/*.ts'))
   return project
+}
+
+function matchesPattern(path: string, pattern: string): boolean {
+  const deepNamedFileMatch = pattern.match(/^(.+)\/\*\*\/([^/*]+)$/)
+  if (deepNamedFileMatch) {
+    const prefix = deepNamedFileMatch[1]
+    const filename = deepNamedFileMatch[2]
+    if (!prefix || !filename) return false
+    return path.startsWith(`${prefix}/`) && path.endsWith(`/${filename}`)
+  }
+
+  const deepFileMatch = pattern.match(/^(.+)\/\*\*\/\*(\.[^/]+)$/)
+  if (deepFileMatch) {
+    const prefix = deepFileMatch[1]
+    const suffix = deepFileMatch[2]
+    if (!prefix || !suffix) return false
+    return path.startsWith(`${prefix}/`) && path.endsWith(suffix)
+  }
+
+  if (pattern.endsWith('/**')) {
+    return path.startsWith(pattern.slice(0, -3))
+  }
+
+  return path === pattern
+}
+
+function matchesAny(path: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) => matchesPattern(path, pattern))
 }
 
 export function extractPermissionCodegenMetadata(
@@ -241,14 +304,34 @@ export function extractPermissionCodegenMetadata(
   include: string[],
 ): PermissionCodegenMetadata {
   const project = createProject(rootDir, include)
+  const normalizedInclude = include.map(toPosixPath)
+  const sourceFiles = project.getSourceFiles()
+  const permissionKeyExportCounts = new Map<string, number>()
+  const permissionKeyEntries: [string, string][] = []
+  for (const sourceFile of sourceFiles) {
+    for (const declaration of sourceFile.getVariableDeclarations()) {
+      const entry = extractPermissionKeyDefinition(declaration)
+      if (!entry) continue
+      permissionKeyEntries.push(entry)
+      permissionKeyExportCounts.set(entry[0], (permissionKeyExportCounts.get(entry[0]) ?? 0) + 1)
+    }
+  }
+  const permissionKeysByExport = new Map(
+    permissionKeyEntries.filter(([exportName]) => permissionKeyExportCounts.get(exportName) === 1),
+  )
   const permissions: PermissionDefinitionMetadata[] = []
   const inventories: PermissionInventoryMetadata[] = []
   const matrices: PermissionMatrixMetadata[] = []
 
-  for (const sourceFile of project.getSourceFiles()) {
+  for (const sourceFile of sourceFiles) {
+    const file = toPosixPath(relative(rootDir, sourceFile.getFilePath()))
+    if (!matchesAny(file, normalizedInclude)) continue
+
     const filePermissions = sourceFile
       .getVariableDeclarations()
-      .map((declaration) => extractPermissionDefinition(rootDir, declaration))
+      .map((declaration) =>
+        extractPermissionDefinition(rootDir, declaration, permissionKeysByExport),
+      )
       .filter((entry): entry is PermissionDefinitionMetadata => entry !== null)
 
     permissions.push(...filePermissions)
