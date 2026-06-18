@@ -899,7 +899,56 @@ loops.
 
 ## Next Slice Candidates
 
-1. Hard-cut the component mini-CMS operation paths where shared descriptors and
-   generated handles can replace handwritten execute refs.
-2. Review remaining explicit `executeFunctionRef` call sites and classify each
-   as advanced boundary, test-only coverage, or deletion target.
+## Slice 18: Component Bridge Operation Boundary Classification
+
+### Proof
+
+- Reviewed the remaining component mini-CMS `executeFunctionRef` and MCP
+  operation bindings after the reference-app hard cut.
+- The key difference is topology, not syntax: mini-CMS operation
+  implementations live inside the local Convex component, but MCP tools must
+  call host bridge refs such as `api.features.pages.domain.create` and
+  `api.features.pages.domain.publishAction` so bridge forwarding and component
+  access stay enforced.
+- A generated handle from the current operation registry would target component
+  projections directly, which would be the wrong authority lane for the host
+  MCP server.
+- The mini-CMS Vitest config had the same stale-runtime risk found in the MCP
+  reference app: it imported `convexTestConfig` from the package and only
+  aliased a subset of Trellis subpaths to source.
+
+### Implementation
+
+- Added an MCP boundary test for mini-CMS write tools that requires explicit
+  checked operation refs to host bridge APIs, rejects generated MCP handles for
+  this bridge topology, and prevents accidental direct `api.components.*`
+  binding.
+- Kept the generic advanced MCP tool assertion scoped to harness code.
+- Switched the mini-CMS Vitest config to import `convexTestConfig` directly from
+  source and added source aliases for the Trellis runtime subpaths used by the
+  example.
+
+### Verification
+
+- Component mini-CMS full example test passed:
+  `pnpm --dir examples/08-component-mini-cms test`.
+- MCP boundary proof passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-descriptor-boundary.test.ts`.
+
+### Notes
+
+- This is an explicit keep, not a missed hard cut: generated operation handles
+  are correct for normal app/MCP operation projections, but the component bridge
+  still needs host bridge refs until Trellis has bridge-generated operation
+  handles that can represent host ref plus component implementation binding as
+  one checked artifact.
+- The remaining mini-CMS `executeFunctionRef` strings belong to the bridge
+  layer review, not to the normal app operation path removed from the
+  maintained MCP reference example.
+
+## Next Slice Candidates
+
+1. Review harness explicit operation refs and decide which are advanced test
+   coverage versus deletion targets.
+2. Define the bridge-generated operation handle shape needed to replace
+   component mini-CMS explicit refs without bypassing host bridge authority.

@@ -9,8 +9,11 @@ import {
 } from '../../src/module-internals/operation-registry-codegen'
 import { extractPublicSurfaceCodegenMetadata } from '../../src/module-internals/public-surface-codegen'
 
-const advancedOperationToolFiles = [
-  'apps/harness/server/mcp/tools/delete-post.ts',
+const advancedOperationToolFiles = ['apps/harness/server/mcp/tools/delete-post.ts'] as const
+
+const componentBridgeOperationToolFiles = [
+  'examples/08-component-mini-cms/server/mcp/tools/create-page.ts',
+  'examples/08-component-mini-cms/server/mcp/tools/save-draft.ts',
   'examples/08-component-mini-cms/server/mcp/tools/publish-page.ts',
 ] as const
 
@@ -67,6 +70,18 @@ describe('MCP operation boundary', () => {
       expect(source, file).toMatch(/OperationRef\(/)
       expect(source, file).not.toMatch(/from ['"].*convex\/.*\/domain['"]/)
       expect(source, file).not.toMatch(/from ['"].*convex\/posts['"]/)
+    }
+  })
+
+  it('keeps component bridge MCP tools on explicit host bridge refs', () => {
+    for (const file of componentBridgeOperationToolFiles) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+
+      expect(source, file).toMatch(/tool\.operation\([^)]*[,)]/)
+      expect(source, file).toMatch(/OperationRef\(/)
+      expect(source, file).toContain('api.features.pages.domain.')
+      expect(source, file).not.toContain("from '#trellis/operations/mcp'")
+      expect(source, file).not.toContain('api.components.')
     }
   })
 })
