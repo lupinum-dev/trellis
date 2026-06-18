@@ -1,0 +1,189 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, resolve } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
+
+import {
+  buildOperationHandleBindingsFromRegistry,
+  buildOperationRefBindingsFromRegistry,
+  buildOperationRegistry,
+} from '../../src/module-internals/operation-registry-codegen'
+import { extractPublicSurfaceCodegenMetadata } from '../../src/module-internals/public-surface-codegen'
+
+function createFixture(files: Record<string, string>) {
+  const rootDir = mkdtempSync(resolve(tmpdir(), 'trellis-operation-registry-codegen-'))
+  for (const [relativePath, contents] of Object.entries(files)) {
+    const absolutePath = resolve(rootDir, relativePath)
+    mkdirSync(dirname(absolutePath), { recursive: true })
+    writeFileSync(absolutePath, contents, 'utf8')
+  }
+  return rootDir
+}
+
+describe('operation registry codegen', () => {
+  it('derives registry projections from canonical lane exports', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/operations.ts': `
+        import { defineOperation, operationPreview } from '@lupinum/trellis/backend'
+        import { mutation, query } from '../../functions'
+        import { taskArchivePermission } from './permissions'
+
+        export const listTasksOp = defineOperation({
+          id: 'tasks.list',
+          kind: 'safe',
+          args: {},
+          permission: taskArchivePermission,
+          handler: async () => [],
+        })
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          name: 'archiveTask',
+          kind: 'destructive',
+          args: {},
+          permission: taskArchivePermission,
+          preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
+          handler: async () => null,
+        })
+
+        export const listTasks = query.workspace(listTasksOp)
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+        export const previewArchiveTask = mutation.workspace.preview(archiveTaskOp)
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+    const registry = buildOperationRegistry(metadata)
+
+    expect(registry.operations).toEqual([
+      {
+        id: 'tasks.archive',
+        exportName: 'archiveTaskOp',
+        file: 'convex/features/tasks/operations.ts',
+        kind: 'destructive',
+        line: expect.any(Number),
+        name: 'archiveTask',
+        execute: {
+          apiPath: ['features', 'tasks', 'operations', 'archiveTask'],
+          exportName: 'archiveTask',
+          file: 'convex/features/tasks/operations.ts',
+          functionRef: 'features/tasks/operations:archiveTask',
+          line: expect.any(Number),
+          projection: 'execute',
+        },
+        preview: {
+          apiPath: ['features', 'tasks', 'operations', 'previewArchiveTask'],
+          exportName: 'previewArchiveTask',
+          file: 'convex/features/tasks/operations.ts',
+          functionRef: 'features/tasks/operations:previewArchiveTask',
+          line: expect.any(Number),
+          projection: 'preview',
+        },
+      },
+      {
+        id: 'tasks.list',
+        exportName: 'listTasksOp',
+        file: 'convex/features/tasks/operations.ts',
+        kind: 'safe',
+        line: expect.any(Number),
+        execute: {
+          apiPath: ['features', 'tasks', 'operations', 'listTasks'],
+          exportName: 'listTasks',
+          file: 'convex/features/tasks/operations.ts',
+          functionRef: 'features/tasks/operations:listTasks',
+          line: expect.any(Number),
+          projection: 'execute',
+        },
+      },
+    ])
+
+    expect(buildOperationRefBindingsFromRegistry(registry)).toEqual([
+      {
+        apiPath: ['features', 'tasks', 'operations', 'archiveTask'],
+        descriptorName: 'archiveTaskOp',
+        exportName: 'archiveTaskRef',
+        projection: 'execute',
+      },
+      {
+        apiPath: ['features', 'tasks', 'operations', 'previewArchiveTask'],
+        descriptorName: 'archiveTaskOp',
+        exportName: 'previewArchiveTaskRef',
+        projection: 'preview',
+      },
+      {
+        apiPath: ['features', 'tasks', 'operations', 'listTasks'],
+        descriptorName: 'listTasksOp',
+        exportName: 'listTasksRef',
+        projection: 'execute',
+      },
+    ])
+
+    expect(buildOperationHandleBindingsFromRegistry(registry)).toEqual([
+      {
+        descriptorName: 'archiveTaskOp',
+        executeRefName: 'archiveTaskRef',
+        exportName: 'archiveTaskHandle',
+        operationId: 'tasks.archive',
+        previewRefName: 'previewArchiveTaskRef',
+      },
+      {
+        descriptorName: 'listTasksOp',
+        executeRefName: 'listTasksRef',
+        exportName: 'listTasksHandle',
+        operationId: 'tasks.list',
+      },
+    ])
+  })
+
+  it('fails duplicate operation ids before generating registry output', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/operations.ts': `
+        import { defineOperation } from '@lupinum/trellis/backend'
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const removeTaskOp = defineOperation({
+          id: 'tasks.archive',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(() => buildOperationRegistry(metadata)).toThrow(/Duplicate operation id "tasks.archive"/)
+  })
+
+  it('fails destructive operations without canonical preview projections', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/operations.ts': `
+        import { defineOperation, operationPreview } from '@lupinum/trellis/backend'
+        import { mutation } from '../../functions'
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          kind: 'destructive',
+          args: {},
+          preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
+          handler: async () => null,
+        })
+
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(() => buildOperationRegistry(metadata)).toThrow(
+      /Destructive operation "tasks.archive" requires exactly one preview projection/,
+    )
+  })
+})

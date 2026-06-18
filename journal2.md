@@ -117,12 +117,58 @@ loops.
 - The next structural step is to split scanned operation/projection facts into a
   registry-oriented model that can drive generated runtime handles.
 
+## Slice 3: Scanned Operation Registry Foundation
+
+### Proof
+
+- Added a failing registry test before implementation. The initial run failed
+  because `operation-registry-codegen` did not exist.
+- The proof fixture starts from real scanner metadata and canonical Convex lane
+  exports, then expects a registry shape with operation id, operation source,
+  execute/preview source, generated Convex `api` path, and string
+  `functionRef`.
+- The same test asserts derived operation-ref and operation-handle binding
+  inputs so the next generated-file slice can delete manifest-maintained
+  projection facts instead of copying them.
+
+### Implementation
+
+- Added `buildOperationRegistry(...)` as an internal analysis step on top of
+  `PublicSurfaceCodegenMetadata`.
+- Derived Convex API paths and function refs from projection source file plus
+  export name.
+- Added fail-closed registry invariants for duplicate operation ids, missing
+  execute projections, duplicate execute/preview projections, destructive
+  operations without preview projections, and safe operations with preview
+  projections.
+- Added `buildOperationRefBindingsFromRegistry(...)` and
+  `buildOperationHandleBindingsFromRegistry(...)` to produce the input shape
+  expected by the existing operation-ref and operation-handle renderers.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts`.
+- After implementation,
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/generated-type-consumers.test.ts`
+  passed.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- This slice intentionally stops at internal registry and binding inputs. It
+  does not yet emit runtime-filtered generated modules or solve the safe
+  descriptor import boundary for operations whose implementation file contains
+  handler closures.
+- The next slice should use the registry as the only projection source for a
+  generated artifact, then remove duplicated projection data from the fixture
+  manifest.
+
 ## Next Slice Candidates
 
-1. Split public-surface extraction into core operation registry and surface
-   inventory.
-2. Generate runtime-filtered handle modules from scanned projection facts.
-3. Add scanner/registry diagnostics for rejected dynamic, aliased,
+1. Generate runtime-filtered handle modules from scanned projection facts.
+2. Add scanner/registry diagnostics for rejected dynamic, aliased,
    conditional, and re-exported forms.
-4. Replace one maintained MCP example with generated handles after scan-backed
+3. Replace one maintained MCP example with generated handles after scan-backed
    handles exist.
