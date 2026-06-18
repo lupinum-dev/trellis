@@ -285,7 +285,7 @@ export function renderOperationHandlesModule(input: OperationHandlesModuleInput)
     ...byIdLines,
     '  },',
     `  ...${renderNestedObject(ergonomicRoot, 2)},`,
-    '} as const',
+    '}',
     '',
   )
 

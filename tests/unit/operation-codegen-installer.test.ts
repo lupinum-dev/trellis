@@ -127,6 +127,7 @@ describe('operation codegen installer', () => {
       expect(handlesSource).toContain("previewOperation: 'mutation'")
       expect(handlesSource).toContain(`runtimes: ['${runtime}']`)
       expect(handlesSource).toContain("'projects.delete': deleteProjectHandle")
+      expect(handlesSource).not.toContain('} as const')
     }
 
     const projectionsSource = getTemplate('trellis/operation-projections.ts').getContents()
@@ -157,7 +158,7 @@ export {}
         .toBe(`// AUTO-GENERATED. Do not edit.
 export const operations = {
   byId: {},
-} as const
+}
 `)
     }
     expect(getTemplate('trellis/operation-projections.ts').getContents())

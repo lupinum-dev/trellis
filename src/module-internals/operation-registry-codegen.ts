@@ -158,7 +158,7 @@ function renderEmptyOperationHandlesModule(): string {
   return `// AUTO-GENERATED. Do not edit.
 export const operations = {
   byId: {},
-} as const
+}
 `
 }
 

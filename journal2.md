@@ -3327,11 +3327,57 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   work; this slice only fixes the current operation/permission inventory path
   used by explain and doctor.
 
+## Slice 60: Make Operation Handle Codegen Build-Safe
+
+### Proof
+
+- The standalone starter typecheck gate passed for all four generated starters:
+  public, personal, workspace, and workspace-MCP.
+- The starter build gate then failed only for `workspace-mcp` during Nitro
+  bundling. Rollup tried to parse
+  `.nuxt/trellis/operation-handles/mcp.ts` as JavaScript and failed on the
+  generated `operations` aggregate ending in `} as const`.
+- That made the generated MCP handle module valid for TypeScript but not safe
+  for Nuxt production bundling.
+
+### Implementation
+
+- Removed the TypeScript-only `as const` assertion from generated operation
+  handle `operations` aggregate output.
+- Removed the same assertion from the empty operation-handle module fallback.
+- Added focused installer coverage so generated operation handle modules do not
+  reintroduce `} as const`.
+
+### Verification
+
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/module-internals/operation-handle-codegen.ts src/module-internals/operation-registry-codegen.ts tests/unit/operation-codegen-installer.test.ts`.
+- Operation codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-codegen-installer.test.ts tests/unit/operation-registry-codegen.test.ts`
+  reported 2 passing test files and 11 passing tests.
+- Nuxt MCP alias smoke passed:
+  `pnpm vitest run --project=unit tests/unit/operation-alias-no-permission-codegen.test.ts`.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Starter fixture build gate passed:
+  `pnpm run check:starter-fixtures:build` reported public, personal, workspace,
+  and workspace-mcp doctor/install/codegen/prepare/typecheck/build passes.
+- Starter fixture typecheck gate passed on the final tree:
+  `pnpm run check:starter-fixtures:typecheck` reported public, personal,
+  workspace, and workspace-mcp doctor/install/codegen/prepare/typecheck passes.
+
+### Notes
+
+- The individual handle constants still carry their operation-handle types from
+  `defineOperationHandle(...)`. The aggregate object does not need a TS-only
+  assertion to preserve the authoring API.
+- This closes the starter fixture typecheck/build acceptance gap for the
+  descriptor-backed workspace-MCP hard cutover.
+
 ## Next Slice Candidates
 
 1. Implement the broader `trellis explain app --json` versioned report from
    existing inventory without introducing a handwritten app manifest.
 2. Extend `trellis doctor --agent` around operation metadata, missing generated
    contracts, MCP argument-shape warnings, and privacy-safe agent context.
-3. Run starter fixture typecheck/build gates against the descriptor-backed
-   workspace-MCP hard cutover.
+3. Audit the remaining `release:verify` gates from the current branch and run
+   the next broad gate that is likely to expose RFC-specific drift.
