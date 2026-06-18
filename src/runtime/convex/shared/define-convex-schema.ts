@@ -26,6 +26,8 @@ export interface SchemaFieldMeta {
   examples?: unknown[]
   enum?: string[]
   defaultHint?: unknown
+  resolveWith?: string
+  displayField?: string
 }
 
 export type InputSchemaMeta<V extends PropertyValidators> = {
@@ -171,6 +173,8 @@ function createResolvedMeta<V extends PropertyValidators>(
           ...(provided?.examples ? { examples: provided.examples } : {}),
           ...(provided?.enum ? { enum: provided.enum } : {}),
           ...(provided?.defaultHint !== undefined ? { defaultHint: provided.defaultHint } : {}),
+          ...(provided?.resolveWith ? { resolveWith: provided.resolveWith } : {}),
+          ...(provided?.displayField ? { displayField: provided.displayField } : {}),
         },
       ]
     }),

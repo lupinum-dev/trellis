@@ -47,6 +47,18 @@ export interface OperationContractMetadata {
   file: string
   line: number
   description?: string
+  fields?: OperationContractFieldMetadata[]
+}
+
+export interface OperationContractFieldMetadata {
+  name: string
+  kind: 'id' | 'unknown'
+  tableName?: string
+  label?: string
+  description?: string
+  examples?: unknown[]
+  resolveWith?: string
+  displayField?: string
 }
 
 export interface OperationProjectionBindingMetadata {
@@ -67,6 +79,10 @@ export interface ToolDefinitionMetadata {
   source: 'tool' | 'operation' | 'defineMcpTool'
   operationId?: string
   operationExportName?: string
+  resolveIdFields?: string[]
+  idResolutionWaiver?: {
+    reason: string
+  }
 }
 
 export type PublicSurfaceCodegenDiagnosticCode =
@@ -431,6 +447,60 @@ function readStringProperty(node: ObjectLiteralExpression, name: string): string
   return undefined
 }
 
+function readObjectProperty(
+  node: ObjectLiteralExpression,
+  name: string,
+): ObjectLiteralExpression | undefined {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return undefined
+  const initializer = unwrapExpression(property.getInitializer())
+  return initializer && Node.isObjectLiteralExpression(initializer) ? initializer : undefined
+}
+
+function readPropertyName(node: Node): string | null {
+  if (Node.isIdentifier(node)) return node.getText()
+  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
+    return node.getLiteralText()
+  }
+  return null
+}
+
+function readStaticValue(expression: Node | undefined): unknown {
+  const unwrapped = unwrapExpression(expression)
+  if (!unwrapped) return undefined
+
+  if (Node.isStringLiteral(unwrapped) || Node.isNoSubstitutionTemplateLiteral(unwrapped)) {
+    return unwrapped.getLiteralText()
+  }
+
+  if (Node.isNumericLiteral(unwrapped)) return Number(unwrapped.getText())
+  if (unwrapped.getText() === 'true') return true
+  if (unwrapped.getText() === 'false') return false
+  if (unwrapped.getText() === 'null') return null
+
+  return undefined
+}
+
+function readStaticArrayProperty(
+  node: ObjectLiteralExpression,
+  name: string,
+): unknown[] | undefined {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return undefined
+  const initializer = unwrapExpression(property.getInitializer())
+  if (!initializer || !Node.isArrayLiteralExpression(initializer)) return undefined
+
+  const values = initializer.getElements().map((element) => readStaticValue(element))
+  return values.every((value) => value !== undefined) ? values : undefined
+}
+
+function readFalseProperty(node: ObjectLiteralExpression, name: string): boolean {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return false
+  const initializer = unwrapExpression(property.getInitializer())
+  return initializer?.getText() === 'false'
+}
+
 function readExplicitIdOverride(expression: Node | undefined): string | undefined {
   const unwrappedExpression = unwrapExpression(expression)
   if (!unwrappedExpression) return undefined
@@ -559,6 +629,76 @@ function readDefineArgsObject(declaration: VariableDeclaration): ObjectLiteralEx
   return definition && Node.isObjectLiteralExpression(definition) ? definition : null
 }
 
+function readIdValidatorTableName(expression: Node | undefined): string | undefined {
+  const unwrapped = unwrapExpression(expression)
+  if (!unwrapped || !Node.isCallExpression(unwrapped)) return undefined
+
+  const callee = unwrapExpression(unwrapped.getExpression())
+  if (!callee || !Node.isPropertyAccessExpression(callee)) return undefined
+
+  if (callee.getName() === 'optional') {
+    return readIdValidatorTableName(unwrapped.getArguments()[0])
+  }
+
+  if (callee.getName() !== 'id') return undefined
+
+  const tableName = readStringLiteralExpression(unwrapped.getArguments()[0])
+  return tableName ?? undefined
+}
+
+function readFieldMeta(
+  meta: ObjectLiteralExpression | undefined,
+  fieldName: string,
+): ObjectLiteralExpression | undefined {
+  const property = meta?.getProperty(fieldName)
+  if (!property || !Node.isPropertyAssignment(property)) return undefined
+  const initializer = unwrapExpression(property.getInitializer())
+  return initializer && Node.isObjectLiteralExpression(initializer) ? initializer : undefined
+}
+
+function extractArgsDefinitionFields(
+  definition: ObjectLiteralExpression,
+): OperationContractFieldMetadata[] | undefined {
+  const args = readObjectProperty(definition, 'args')
+  if (!args) return undefined
+
+  const meta = readObjectProperty(definition, 'meta')
+  const fields: OperationContractFieldMetadata[] = []
+
+  for (const property of args.getProperties()) {
+    if (!Node.isPropertyAssignment(property)) continue
+
+    const fieldName = readPropertyName(property.getNameNode())
+    if (!fieldName) continue
+
+    const fieldMeta = readFieldMeta(meta, fieldName)
+    const tableName = readIdValidatorTableName(property.getInitializer())
+    const examples = fieldMeta ? readStaticArrayProperty(fieldMeta, 'examples') : undefined
+    const label = fieldMeta ? readStringProperty(fieldMeta, 'label') : undefined
+    const description = fieldMeta ? readStringProperty(fieldMeta, 'description') : undefined
+    const resolveWith = fieldMeta ? readStringProperty(fieldMeta, 'resolveWith') : undefined
+    const displayField = fieldMeta ? readStringProperty(fieldMeta, 'displayField') : undefined
+    const hasFieldMetadata =
+      !!label || !!description || !!examples || !!resolveWith || !!displayField
+
+    if (!tableName && !hasFieldMetadata) continue
+
+    fields.push({
+      name: fieldName,
+      kind: tableName ? 'id' : 'unknown',
+      ...(tableName ? { tableName } : {}),
+      ...(label ? { label } : {}),
+      ...(description ? { description } : {}),
+      ...(examples ? { examples } : {}),
+      ...(resolveWith ? { resolveWith } : {}),
+      ...(displayField ? { displayField } : {}),
+    })
+  }
+
+  fields.sort((a, b) => a.name.localeCompare(b.name))
+  return fields.length > 0 ? fields : undefined
+}
+
 function extractArgsDefinitions(
   rootDir: string,
   sourceFile: SourceFile,
@@ -568,6 +708,7 @@ function extractArgsDefinitions(
   for (const declaration of sourceFile.getVariableDeclarations()) {
     const definition = readDefineArgsObject(declaration)
     if (!definition) continue
+    const fields = extractArgsDefinitionFields(definition)
 
     argsDefinitions.push({
       exportName: declaration.getName(),
@@ -576,6 +717,7 @@ function extractArgsDefinitions(
       ...(readStringProperty(definition, 'description')
         ? { description: readStringProperty(definition, 'description') }
         : {}),
+      ...(fields ? { fields } : {}),
     })
   }
 
@@ -996,6 +1138,33 @@ function deriveToolName(sourceFile: SourceFile): string {
   return toKebabCase(base)
 }
 
+function readResolveIdFields(options: ObjectLiteralExpression | null): string[] | undefined {
+  const resolveIds = options ? readObjectProperty(options, 'resolveIds') : undefined
+  if (!resolveIds) return undefined
+
+  const fields = resolveIds
+    .getProperties()
+    .map((property) =>
+      Node.isPropertyAssignment(property) || Node.isShorthandPropertyAssignment(property)
+        ? readPropertyName(property.getNameNode())
+        : null,
+    )
+    .filter((field): field is string => !!field)
+    .sort((a, b) => a.localeCompare(b))
+
+  return fields.length > 0 ? fields : undefined
+}
+
+function readIdResolutionWaiver(
+  options: ObjectLiteralExpression | null,
+): ToolDefinitionMetadata['idResolutionWaiver'] {
+  const agent = options ? readObjectProperty(options, 'agent') : undefined
+  if (!agent || !readFalseProperty(agent, 'idResolution')) return undefined
+
+  const reason = readStringProperty(agent, 'reason')?.trim()
+  return reason ? { reason } : undefined
+}
+
 function readToolMetadata(
   rootDir: string,
   sourceFile: SourceFile,
@@ -1040,6 +1209,8 @@ function readToolMetadata(
   }
 
   if (!source) return null
+  const resolveIdFields = readResolveIdFields(options)
+  const idResolutionWaiver = readIdResolutionWaiver(options)
 
   return {
     name:
@@ -1057,6 +1228,8 @@ function readToolMetadata(
           operationExportName: operation.exportName,
         }
       : {}),
+    ...(resolveIdFields ? { resolveIdFields } : {}),
+    ...(idResolutionWaiver ? { idResolutionWaiver } : {}),
   }
 }
 

@@ -250,12 +250,23 @@ type DoctorInventoryJsonReport = {
           exportName: string
           source: { path: string; line: number }
           description?: string
+          fields?: Array<{
+            name: string
+            kind: 'id' | 'unknown'
+            tableName?: string
+            label?: string
+            description?: string
+            examples?: unknown[]
+            resolveWith?: string
+            displayField?: string
+          }>
         }
       }>
       projections: Array<{
         operationId: string
         exportName: string
         projection: 'preview' | 'execute'
+        functionKind: 'query' | 'mutation' | 'action'
         source: { path: string; line: number }
       }>
       tools: Array<{
@@ -264,6 +275,8 @@ type DoctorInventoryJsonReport = {
         sourceLocation: { path: string; line: number }
         operationId?: string
         operationExportName?: string
+        resolveIdFields?: string[]
+        idResolutionWaiver?: { reason: string }
       }>
     }
     findings: []
@@ -3240,6 +3253,187 @@ export default tool.operation(purgeTodoOp, {
         status: 'fail',
         message: expect.stringContaining('without contract descriptions'),
         fixHint: expect.stringContaining('defineArgs({ description'),
+      }),
+    )
+  })
+
+  it('fails agent doctor when an MCP-exposed write accepts a record id without a resolver or waiver', () => {
+    const appRoot = createTempDir('trellis-doctor-agent-missing-id-resolution-')
+    mkdirSync(resolve(appRoot, '.nuxt/trellis'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, '.nuxt/trellis/public-surface.json'),
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'projects.archive',
+              exportName: 'archiveProjectDescriptor',
+              kind: 'destructive',
+              file: 'shared/features/projects/operations.ts',
+              line: 7,
+              contract: {
+                exportName: 'archiveProject',
+                file: 'shared/features/projects/contract.ts',
+                line: 5,
+                description: 'Archive a project.',
+                fields: [
+                  {
+                    name: 'id',
+                    kind: 'id',
+                    tableName: 'projects',
+                    label: 'Project',
+                    description: 'Project to archive.',
+                  },
+                ],
+              },
+            },
+          ],
+          projections: [
+            {
+              operationId: 'projects.archive',
+              operationExportName: 'archiveProjectDescriptor',
+              exportName: 'archiveProject',
+              file: 'convex/features/projects/domain.ts',
+              line: 5,
+              projection: 'execute',
+              functionKind: 'mutation',
+              targetFunctionRef: 'projects.archive',
+            },
+            {
+              operationId: 'projects.archive',
+              operationExportName: 'archiveProjectDescriptor',
+              exportName: 'previewArchiveProject',
+              file: 'convex/features/projects/domain.ts',
+              line: 8,
+              projection: 'preview',
+              functionKind: 'mutation',
+              targetFunctionRef: 'projects.archive:preview',
+            },
+          ],
+          tools: [
+            {
+              name: 'archive-project',
+              file: 'server/mcp/tools/archive-project.ts',
+              line: 3,
+              source: 'operation',
+              operationId: 'projects.archive',
+              operationExportName: 'archiveProjectDescriptor',
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string; fixHint: string }>
+    }
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-record-id-resolution')).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('record id'),
+        fixHint: expect.stringContaining('resolveWith'),
+      }),
+    )
+  })
+
+  it('passes the record-id agent finding when an MCP-exposed write has an explicit waiver', () => {
+    const appRoot = createTempDir('trellis-doctor-agent-id-resolution-waiver-')
+    mkdirSync(resolve(appRoot, '.nuxt/trellis'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, '.nuxt/trellis/public-surface.json'),
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'projects.archive',
+              exportName: 'archiveProjectDescriptor',
+              kind: 'destructive',
+              file: 'shared/features/projects/operations.ts',
+              line: 7,
+              contract: {
+                exportName: 'archiveProject',
+                file: 'shared/features/projects/contract.ts',
+                line: 5,
+                description: 'Archive a project.',
+                fields: [
+                  {
+                    name: 'id',
+                    kind: 'id',
+                    tableName: 'projects',
+                    label: 'Project',
+                    description: 'Project to archive.',
+                  },
+                ],
+              },
+            },
+          ],
+          projections: [
+            {
+              operationId: 'projects.archive',
+              operationExportName: 'archiveProjectDescriptor',
+              exportName: 'archiveProject',
+              file: 'convex/features/projects/domain.ts',
+              line: 5,
+              projection: 'execute',
+              functionKind: 'mutation',
+              targetFunctionRef: 'projects.archive',
+            },
+            {
+              operationId: 'projects.archive',
+              operationExportName: 'archiveProjectDescriptor',
+              exportName: 'previewArchiveProject',
+              file: 'convex/features/projects/domain.ts',
+              line: 8,
+              projection: 'preview',
+              functionKind: 'mutation',
+              targetFunctionRef: 'projects.archive:preview',
+            },
+          ],
+          tools: [
+            {
+              name: 'archive-project',
+              file: 'server/mcp/tools/archive-project.ts',
+              line: 3,
+              source: 'operation',
+              operationId: 'projects.archive',
+              operationExportName: 'archiveProjectDescriptor',
+              idResolutionWaiver: {
+                reason: 'IDs are selected from a UI-generated menu, not free-form LLM input.',
+              },
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-record-id-resolution')).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        message: expect.stringContaining('record-id resolution'),
       }),
     )
   })

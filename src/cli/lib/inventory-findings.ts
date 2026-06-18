@@ -619,10 +619,143 @@ function createAgentMcpContractDescriptionFinding(inventory: TrellisCliInventory
   }
 }
 
+type AgentMcpRecordIdIssue = {
+  tool: TrellisCliInventory['publicSurface']['tools'][number]
+  fieldNames: string[]
+}
+
+function normalizeSearchToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function singularizeTableName(value: string): string {
+  return value.endsWith('s') && value.length > 1 ? value.slice(0, -1) : value
+}
+
+function hasPairedResolverTool(
+  field: NonNullable<
+    NonNullable<TrellisCliInventory['publicSurface']['operations'][number]['contract']>['fields']
+  >[number],
+  currentTool: TrellisCliInventory['publicSurface']['tools'][number],
+  tools: TrellisCliInventory['publicSurface']['tools'],
+): boolean {
+  const tableName = field.tableName
+  if (!tableName) return false
+
+  const candidates = new Set([
+    normalizeSearchToken(tableName),
+    normalizeSearchToken(singularizeTableName(tableName)),
+  ])
+
+  return tools.some((tool) => {
+    if (tool.name === currentTool.name) return false
+
+    const haystacks = [tool.name, tool.operationId ?? ''].map(normalizeSearchToken)
+    const hasResolverVerb = haystacks.some(
+      (value) => value.includes('search') || value.includes('list') || value.includes('resolve'),
+    )
+    const hasTableToken = haystacks.some((value) =>
+      [...candidates].some((candidate) => candidate.length > 0 && value.includes(candidate)),
+    )
+
+    return hasResolverVerb && hasTableToken
+  })
+}
+
+function hasRecordIdResolution(
+  tool: TrellisCliInventory['publicSurface']['tools'][number],
+  field: NonNullable<
+    NonNullable<TrellisCliInventory['publicSurface']['operations'][number]['contract']>['fields']
+  >[number],
+  tools: TrellisCliInventory['publicSurface']['tools'],
+): boolean {
+  return (
+    !!field.resolveWith?.trim() ||
+    !!tool.resolveIdFields?.includes(field.name) ||
+    hasPairedResolverTool(field, tool, tools)
+  )
+}
+
+function createAgentMcpRecordIdResolutionFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const operationsById = new Map(
+    inventory.publicSurface.operations.map((operation) => [operation.id, operation]),
+  )
+  const executeProjectionByOperationId = new Map(
+    inventory.publicSurface.projections
+      .filter((projection) => projection.projection === 'execute')
+      .map((projection) => [projection.operationId, projection]),
+  )
+  const operationBackedWriteTools = inventory.publicSurface.tools.filter((tool) => {
+    if (tool.source !== 'operation' || !tool.operationId || !operationsById.has(tool.operationId)) {
+      return false
+    }
+
+    const executeProjection = executeProjectionByOperationId.get(tool.operationId)
+    return (
+      executeProjection?.functionKind === 'mutation' || executeProjection?.functionKind === 'action'
+    )
+  })
+  const issues: AgentMcpRecordIdIssue[] = []
+
+  for (const tool of operationBackedWriteTools) {
+    if (!tool.operationId) continue
+
+    const operation = operationsById.get(tool.operationId)
+    const idFields = operation?.contract?.fields?.filter((field) => field.kind === 'id') ?? []
+    if (idFields.length === 0) continue
+
+    if (tool.idResolutionWaiver?.reason.trim()) continue
+
+    const unresolvedFields = idFields.filter(
+      (field) => !hasRecordIdResolution(tool, field, inventory.publicSurface.tools),
+    )
+    if (unresolvedFields.length === 0) continue
+
+    issues.push({
+      tool,
+      fieldNames: unresolvedFields.map((field) => field.name),
+    })
+  }
+
+  const locations =
+    issues.length > 0
+      ? issues.map((issue) => issue.tool.sourceLocation)
+      : operationBackedWriteTools.map((tool) => tool.sourceLocation)
+
+  return {
+    id: 'agent-mcp-record-id-resolution',
+    category: 'advanced',
+    title: 'Agent MCP record-id resolution',
+    status: issues.length > 0 ? 'fail' : 'pass',
+    message:
+      operationBackedWriteTools.length === 0
+        ? 'No operation-backed MCP writes were found in public-surface metadata.'
+        : issues.length > 0
+          ? `Found MCP-exposed write tools with unresolved record id fields at ${formatInventoryLocations(locations)}. First unresolved fields: ${issues[0]!.fieldNames.join(', ')}.`
+          : `Found ${operationBackedWriteTools.length} operation-backed MCP write tool${operationBackedWriteTools.length === 1 ? '' : 's'} with record-id resolution metadata, paired resolver tools, no record ids, or explicit waivers.`,
+    fixHint:
+      issues.length > 0
+        ? 'Add `resolveWith`/`displayField` metadata to the shared `defineArgs` field, add tool-level `resolveIds`, expose a paired search/list/resolve MCP tool, or add `agent: { idResolution: false, reason }` when raw ids are not free-form LLM input.'
+        : 'Keep MCP-exposed writes with record ids backed by resolver metadata, resolver tools, or explicit waiver reasons.',
+    sources: [
+      findingInventorySource('publicSurface.tools', locations),
+      findingInventorySource(
+        'publicSurface.operations',
+        operationBackedWriteTools
+          .map((tool) =>
+            tool.operationId ? operationsById.get(tool.operationId)?.source : undefined,
+          )
+          .filter((source): source is TrellisCliInventorySourceLocation => source !== undefined),
+      ),
+    ],
+  }
+}
+
 export function collectAgentDoctorFindings(inventory: TrellisCliInventory): DoctorFinding[] {
   return [
     createAgentMcpOperationMetadataFinding(inventory),
     createAgentMcpOperationProjectionFinding(inventory),
     createAgentMcpContractDescriptionFinding(inventory),
+    createAgentMcpRecordIdResolutionFinding(inventory),
   ]
 }

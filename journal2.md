@@ -3589,14 +3589,87 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   the `createTodo` contract description from
   `shared/features/todos/contract.ts`.
 - This slice covers top-level operation contract descriptions. Field labels,
-  field descriptions, examples, and id-resolution metadata remain the next
-  contract-level work.
+  field descriptions, examples, and id-resolution metadata are picked up in the
+  following record-id diagnostics slice.
+
+## Slice 65: Agent Doctor Record ID Resolution
+
+### Proof
+
+- RFC 0013 requires `trellis doctor --agent` to fail or warn when an
+  MCP-exposed write accepts a record id without id-resolution metadata, a
+  paired search/list/resolve tool, or an explicit waiver reason.
+- Before this slice, `defineArgs` field metadata could describe labels,
+  descriptions, examples, enum hints, and default hints, but it had no
+  `resolveWith` or `displayField` fields.
+- Public-surface operation contract metadata only retained the top-level
+  `defineArgs` description. A scanner proof for `v.id('projects')` field
+  metadata failed because generated operation metadata had no contract fields.
+- A doctor proof with generated public-surface metadata failed because no
+  `agent-mcp-record-id-resolution` finding existed.
+
+### Implementation
+
+- Extended `defineArgs` field metadata with `resolveWith` and `displayField`.
+- Extended public-surface scanning to derive static contract fields from
+  `defineArgs(...)`:
+  - record-id fields from `v.id(...)` and `v.optional(v.id(...))`
+  - static labels, descriptions, examples, `resolveWith`, and `displayField`
+    from field metadata
+- Extended `tool.operation(...)` options with tool-level `resolveIds` and a
+  reasoned `agent.idResolution: false` waiver shape.
+- Generated public-surface JSON validation and CLI inventory now preserve
+  contract fields, projection `functionKind`, tool `resolveIdFields`, and
+  tool `idResolutionWaiver`.
+- Added `agent-mcp-record-id-resolution`, which evaluates operation-backed MCP
+  mutation/action tools and fails unresolved record-id fields unless they have
+  field-level `resolveWith`, tool-level `resolveIds`, a paired
+  search/list/resolve MCP tool, or an explicit waiver reason.
+
+### Verification
+
+- The scanner proof first failed because `createProject` contract fields were
+  missing, then passed after deriving field metadata from `defineArgs`.
+- The agent doctor proof first failed because
+  `agent-mcp-record-id-resolution` was missing, then passed after adding the
+  finding and rebuilding the CLI.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/runtime/convex/shared/define-convex-schema.ts src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/index.ts src/module-internals/public-surface-codegen.ts src/cli/lib/inventory.ts src/cli/lib/inventory-findings.ts tests/unit/public-surface-codegen.test.ts tests/unit/cli-doctor.test.ts`.
+- CLI build and smoke passed: `pnpm run check:cli`.
+- Public-surface/codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/public-surface-codegen-installer.test.ts tests/unit/operation-codegen-installer.test.ts tests/unit/operation-registry-codegen.test.ts`
+  reported 4 passing test files and 22 passing tests.
+- Full doctor suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` reported 1
+  passing test file and 68 passing tests.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Runtime Convex/auth lint passed: `pnpm run lint:src:runtime:auth-convex`.
+- Runtime functions/MCP lint passed:
+  `pnpm run lint:src:runtime:functions-mcp`.
+- Test lint passed: `pnpm run lint:tests`.
+- Publish-surface check passed: `pnpm run check:publish-surface`.
+- Contract type tests passed: `pnpm run test:types:contracts`.
+- Public type tests passed: `pnpm run test:types:public`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- The finding remains derived from public-surface inventory. This does not add
+  an agent manifest, MCP manifest, compatibility path, or second contract
+  system.
+- `resolveIds` is accepted as tool-local metadata, but runtime execution does
+  not branch on it; the value is for agent-facing diagnostics and generated
+  context.
+- The paired resolver-tool check is intentionally simple and static: a sibling
+  MCP tool whose name or operation id contains a search/list/resolve verb plus
+  the target table token satisfies the doctor finding.
 
 ## Next Slice Candidates
 
-1. Add the record-id resolution/search/waiver warning required for MCP-exposed
-   writes that accept record ids.
-2. Extend public-surface contract metadata beyond top-level descriptions:
-   field descriptions, examples, and id-resolution hints from `defineArgs`.
+1. Start the product-level testing helper/Ginko acceptance slice: prove where
+   Ginko still maintains target handler and destructive transport maps, then
+   move that protocol knowledge into generated operation/testing handles.
+2. Extend explain output to display field-level contract metadata and record-id
+   resolution hints for operation-backed MCP tools.
 3. Audit the remaining `release:verify` gates from the current branch and run
    the next broad gate that is likely to expose RFC-specific drift.

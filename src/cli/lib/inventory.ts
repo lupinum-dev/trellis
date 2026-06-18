@@ -75,13 +75,26 @@ export interface TrellisCliInventoryPublicSurfaceOperation {
     exportName: string
     source: TrellisCliInventorySourceLocation
     description?: string
+    fields?: TrellisCliInventoryPublicSurfaceContractField[]
   }
+}
+
+export interface TrellisCliInventoryPublicSurfaceContractField {
+  name: string
+  kind: 'id' | 'unknown'
+  tableName?: string
+  label?: string
+  description?: string
+  examples?: unknown[]
+  resolveWith?: string
+  displayField?: string
 }
 
 export interface TrellisCliInventoryPublicSurfaceProjection {
   operationId: string
   exportName: string
   projection: 'preview' | 'execute'
+  functionKind: 'query' | 'mutation' | 'action'
   source: TrellisCliInventorySourceLocation
 }
 
@@ -91,6 +104,8 @@ export interface TrellisCliInventoryPublicSurfaceTool {
   sourceLocation: TrellisCliInventorySourceLocation
   operationId?: string
   operationExportName?: string
+  resolveIdFields?: string[]
+  idResolutionWaiver?: { reason: string }
 }
 
 export interface TrellisCliInventoryFeature {
@@ -315,6 +330,30 @@ function validateStringArray(value: unknown, property: string): string | null {
   return null
 }
 
+function validateGeneratedContractFields(value: unknown, property: string): string | null {
+  if (!Array.isArray(value)) return `expected ${property} to be an array`
+
+  for (const [index, field] of value.entries()) {
+    if (!isRecord(field)) return `expected ${property}[${index}] to be an object`
+    if (!hasStringProperty(field, 'name')) {
+      return `expected ${property}[${index}].name to be a string`
+    }
+    if (field.kind !== 'id' && field.kind !== 'unknown') {
+      return `expected ${property}[${index}].kind to be id or unknown`
+    }
+    for (const key of ['tableName', 'label', 'description', 'resolveWith', 'displayField']) {
+      if (!hasOptionalStringProperty(field, key)) {
+        return `expected ${property}[${index}].${key} to be a string when present`
+      }
+    }
+    if (field.examples !== undefined && !Array.isArray(field.examples)) {
+      return `expected ${property}[${index}].examples to be an array when present`
+    }
+  }
+
+  return null
+}
+
 function validateGeneratedPublicSurfaceMetadata(value: unknown): string | null {
   if (!isRecord(value)) return 'expected a metadata object'
 
@@ -363,6 +402,13 @@ function validateGeneratedPublicSurfaceMetadata(value: unknown): string | null {
       }
       if (!hasOptionalStringProperty(operation.contract, 'description')) {
         return `expected operations[${index}].contract.description to be a string when present`
+      }
+      if (operation.contract.fields !== undefined) {
+        const invalidFields = validateGeneratedContractFields(
+          operation.contract.fields,
+          `operations[${index}].contract.fields`,
+        )
+        if (invalidFields) return invalidFields
       }
     }
   }
@@ -413,6 +459,21 @@ function validateGeneratedPublicSurfaceMetadata(value: unknown): string | null {
     if (!hasOptionalStringProperty(tool, 'operationExportName')) {
       return `expected tools[${index}].operationExportName to be a string when present`
     }
+    if (tool.resolveIdFields !== undefined) {
+      const invalidResolveIdFields = validateStringArray(
+        tool.resolveIdFields,
+        `tools[${index}].resolveIdFields`,
+      )
+      if (invalidResolveIdFields) return invalidResolveIdFields
+    }
+    if (tool.idResolutionWaiver !== undefined) {
+      if (!isRecord(tool.idResolutionWaiver)) {
+        return `expected tools[${index}].idResolutionWaiver to be an object when present`
+      }
+      if (!hasStringProperty(tool.idResolutionWaiver, 'reason')) {
+        return `expected tools[${index}].idResolutionWaiver.reason to be a string`
+      }
+    }
   }
 
   return null
@@ -462,6 +523,7 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
               ...(operation.contract.description
                 ? { description: operation.contract.description }
                 : {}),
+              ...(operation.contract.fields ? { fields: operation.contract.fields } : {}),
             },
           }
         : {}),
@@ -470,6 +532,7 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
       operationId: projection.operationId,
       exportName: projection.exportName,
       projection: projection.projection,
+      functionKind: projection.functionKind,
       source: toMetadataLocation(projection.file, projection.line),
     })),
     tools: metadata.tools.map((tool) => ({
@@ -478,6 +541,8 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
       sourceLocation: toMetadataLocation(tool.file, tool.line),
       ...(tool.operationId ? { operationId: tool.operationId } : {}),
       ...(tool.operationExportName ? { operationExportName: tool.operationExportName } : {}),
+      ...(tool.resolveIdFields ? { resolveIdFields: tool.resolveIdFields } : {}),
+      ...(tool.idResolutionWaiver ? { idResolutionWaiver: tool.idResolutionWaiver } : {}),
     })),
   }
 }

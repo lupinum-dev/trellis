@@ -94,6 +94,7 @@ export type {
   McpConfirmationRedeemInput,
   McpConfirmationStore,
   McpConvexCaller,
+  McpToolAgentOptions,
   ToolOperationHandleOptions,
   ToolOperationOptions,
   ValidateMcpToolOptions,

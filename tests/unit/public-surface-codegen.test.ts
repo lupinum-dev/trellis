@@ -352,7 +352,21 @@ describe('public surface codegen', () => {
         export const createProject = defineArgs({
           description: 'Create a workspace project.',
           args: {
+            parentId: v.optional(v.id('projects')),
             name: v.string(),
+          },
+          meta: {
+            parentId: {
+              label: 'Parent project',
+              description: 'Optional parent project.',
+              resolveWith: 'projects.search',
+              displayField: 'name',
+            },
+            name: {
+              label: 'Name',
+              description: 'Project name.',
+              examples: ['Q3 launch'],
+            },
           },
         })
       `,
@@ -387,6 +401,9 @@ describe('public surface codegen', () => {
 
         export default tool.operation(operations.byId['projects.create'], {
           name: 'create-project-by-id',
+          resolveIds: {
+            parentId: operations.projects.search,
+          },
         })
       `,
     })
@@ -398,6 +415,24 @@ describe('public surface codegen', () => {
         contract: {
           description: 'Create a workspace project.',
           exportName: 'createProject',
+          fields: [
+            {
+              description: 'Project name.',
+              examples: ['Q3 launch'],
+              kind: 'unknown',
+              label: 'Name',
+              name: 'name',
+            },
+            {
+              description: 'Optional parent project.',
+              displayField: 'name',
+              kind: 'id',
+              label: 'Parent project',
+              name: 'parentId',
+              resolveWith: 'projects.search',
+              tableName: 'projects',
+            },
+          ],
           file: 'shared/features/projects/contract.ts',
           line: expect.any(Number),
         },
@@ -423,6 +458,7 @@ describe('public surface codegen', () => {
         name: 'create-project-by-id',
         operationExportName: 'createProjectDescriptor',
         operationId: 'projects.create',
+        resolveIdFields: ['parentId'],
         source: 'operation',
       },
     ])

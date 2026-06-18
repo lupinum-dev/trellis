@@ -296,6 +296,11 @@ type PreviewProjectionRef<
 
 export type McpDestructiveConfirmationMode = 'backend' | 'transport'
 
+export interface McpToolAgentOptions {
+  idResolution?: false
+  reason?: string
+}
+
 export interface ToolOperationOptions<
   TOperation extends AnyToolOperation,
   TCaller,
@@ -321,6 +326,10 @@ export interface ToolOperationOptions<
   }) => OperationPreviewEnvelope
   confirmationMode?: McpDestructiveConfirmationMode
   confirmationStore?: McpConfirmationStore
+  resolveIds?: Partial<
+    Record<Extract<keyof TOperation['args'], string>, AnyToolOperation | OperationHandle | string>
+  >
+  agent?: McpToolAgentOptions
   scopeKey?: (ctx: {
     caller: TCaller
     actingFor: TActingFor | null
