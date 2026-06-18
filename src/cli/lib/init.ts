@@ -18,13 +18,17 @@ export interface TemplateFile {
   expectedExistingContent?: string
 }
 
+export interface AfterWriteResult {
+  generated?: string[]
+}
+
 export interface InitTemplateSet {
   label: string
   description: string
   files: TemplateFile[]
   removeFiles?: string[]
   protectRemovalsOnSkippedOverwrites?: boolean
-  afterWrite?: (cwd: string) => Promise<void>
+  afterWrite?: (cwd: string) => Promise<AfterWriteResult>
 }
 
 export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp'
@@ -250,7 +254,8 @@ export async function applyInitTemplateSet(
   for (const file of templateSet.removeFiles ?? []) {
     await rm(resolve(cwd, file), { force: true, recursive: true })
   }
-  await templateSet.afterWrite?.(cwd)
+  const afterWriteResult = await templateSet.afterWrite?.(cwd)
+  const afterWriteGenerated = afterWriteResult?.generated ?? []
 
   return {
     written,
@@ -260,7 +265,8 @@ export async function applyInitTemplateSet(
       .map((file) => file.path),
     generated: templateSet.files
       .filter((file) => file.ownership === 'generated')
-      .map((file) => file.path),
+      .map((file) => file.path)
+      .concat(afterWriteGenerated),
   }
 }
 
@@ -620,6 +626,7 @@ export async function getAddTemplateSet(options: {
         await enableAuthEnvExample(cwd)
         await enableNuxtAuthConfig(cwd)
         await enableAuthSchema(cwd)
+        return {}
       },
     }
   }
@@ -669,6 +676,7 @@ export async function getAddTemplateSet(options: {
         await addMcpDependency(cwd)
         await enableWorkspaceMcpSchema(cwd)
         await enableMcpEnvExample(cwd)
+        return {}
       },
     }
   }

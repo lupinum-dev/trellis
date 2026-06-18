@@ -252,7 +252,12 @@ describe('trellis add entity', () => {
       appName: 'demo-app',
     })
 
-    await applyInitTemplateSet(cwd, template, false)
+    const result = await applyInitTemplateSet(cwd, template, false)
+
+    expect(result.generated).toEqual(['generated/operation-projections.ts'])
+    expect(result.authored).toContain('shared/features/projects/operations.ts')
+    expect(result.authored).toContain('server/mcp/tools/create-project.ts')
+    expect(result.authored).not.toContain('generated/operation-projections.ts')
 
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
@@ -375,6 +380,7 @@ describe('trellis add entity', () => {
       resolve(cwd, 'generated/operation-projections.ts'),
       'utf8',
     )
+    expect(projectionSource).toContain('// AUTO-GENERATED. Do not edit.')
     expect(projectionSource).toContain("'projects.create': 'features/projects/domain:create'")
     expect(projectionSource).toContain("'projects.remove': 'features/projects/domain:remove'")
     expect(projectionSource).toContain(

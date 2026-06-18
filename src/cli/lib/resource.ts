@@ -948,7 +948,7 @@ async function patchOperationProjectionRegistryImport(cwd: string): Promise<void
   await writeFile(path, next)
 }
 
-async function refreshOperationProjectionRegistry(cwd: string): Promise<void> {
+async function refreshOperationProjectionRegistry(cwd: string): Promise<string> {
   const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
   const rendered = renderOperationRegistryGeneratedFiles(registry, {
     operationProjectionsPath: 'generated/operation-projections.ts',
@@ -960,6 +960,7 @@ async function refreshOperationProjectionRegistry(cwd: string): Promise<void> {
 
   await mkdir(resolve(cwd, 'generated'), { recursive: true })
   await writeFile(resolve(cwd, projections.path), projections.content, 'utf8')
+  return projections.path
 }
 
 export async function buildResourceTemplateSet(
@@ -1050,8 +1051,11 @@ export async function buildResourceTemplateSet(
       await patchMcpRuntime(targetCwd, ctx)
       if (ctx.hasMcp) {
         await patchOperationProjectionRegistryImport(targetCwd)
-        await refreshOperationProjectionRegistry(targetCwd)
+        return {
+          generated: [await refreshOperationProjectionRegistry(targetCwd)],
+        }
       }
+      return {}
     },
   }
 }

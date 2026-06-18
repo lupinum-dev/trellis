@@ -4259,10 +4259,66 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 76: After-Write Generated File Classification
+
+### Proof
+
+- RFC 0013 calls for generated files to be visibly separated from scaffolded
+  user-owned files.
+- `TemplateFile` already has `ownership: 'authored' | 'generated'`, and
+  `applyInitTemplateSet(...)` already returns `authored` and `generated` lists.
+- The workspace-MCP entity generator creates `generated/operation-projections.ts`
+  in `afterWrite`, after the authored scaffold files are written.
+- Added failing assertions to the existing workspace-MCP add-resource proof:
+  - `applyInitTemplateSet(...)` reports
+    `generated/operation-projections.ts` under `result.generated`
+  - authored scaffold files such as `shared/features/projects/operations.ts` and
+    `server/mcp/tools/create-project.ts` stay under `result.authored`
+  - the generated projection file contains the auto-generated banner
+- The initial focused proof failed because `result.generated` was `[]`.
+
+### Implementation
+
+- Added an explicit `AfterWriteResult` type to `src/cli/lib/init.ts`.
+- `InitTemplateSet.afterWrite(...)` now returns an `AfterWriteResult`.
+- `applyInitTemplateSet(...)` appends `afterWrite` generated paths to the
+  returned `generated` list.
+- `refreshOperationProjectionRegistry(...)` now returns the renderer-emitted
+  path it actually wrote.
+- The resource generator returns that path from its `afterWrite` hook when MCP is
+  enabled. Auth and MCP add hooks return `{}` because they patch authored files
+  but do not produce derived generated artifacts.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "MCP-facing resource"`.
+- Focused proof passed after implementation:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "MCP-facing resource"`.
+- Full add-resource suite passed with 9 tests:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts`.
+- Focused lint passed:
+  `pnpm exec eslint src/cli/lib/init.ts src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts`.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/cli/lib/init.ts src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts journal2.md`.
+
+### Notes
+
+- This closes the narrow generated/authored classification gap for
+  after-write-generated operation projection registries.
+- Raw `pnpm exec tsc --noEmit --pretty false` is not a useful repo-level
+  verifier here because it typechecks starter fixture sources without generated
+  Convex/Nuxt files and fails on those missing fixture-only imports before
+  reaching this change.
+- This does not close first-run starter validation or the backend-only
+  destructive exposure audit.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
 1. Continue the `trellis add entity project --workspace --mcp` audit for
-   generated-file classification and first-run starter validation.
+   first-run starter validation.
 2. Close the backend-only destructive exposure requirement with explicit
    metadata, doctor/explain visibility, and filtered handle generation, if the
    current operation registry cannot already prove it.
