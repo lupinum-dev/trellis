@@ -3863,12 +3863,58 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   edits and should stay out of this workpackage unless a separate docs cleanup
   is desired.
 
+## Slice 69: Ginko CMS Tarball Proof Against Trellis f9add1a
+
+### Proof
+
+- The Trellis release gate proves the library in isolation, but Ginko CMS must
+  also consume the packed package shape instead of sibling workspace source.
+- The existing CMS package e2e script is the right proof because it rebuilds and
+  packs CMS, Ginko Content, Trellis, and Trellis Bridge, then installs a temp
+  Nuxt consumer using `file:` tarball dependencies.
+- Existing `.pack` tarballs were stale after the Trellis workpackage commit
+  `f9add1a`, so the tarball proof had to regenerate them.
+
+### Verification
+
+- `pnpm run package:e2e` passed in `/Users/matthias/Git/workspace/ginko-cms`.
+- The run rebuilt CMS, Ginko Content, Trellis, and Trellis Bridge from the local
+  sibling checkouts.
+- `pnpm run release:pack` passed in `/Users/matthias/Git/workspace/trellis`
+  after the CMS tarball proof and wrote fresh Trellis tarballs to
+  `/Users/matthias/Git/workspace/trellis/.pack`.
+- The run packed and installed these local tarballs into the temp consumer:
+  - `lupinum-ginko-cms-0.1.3.tgz`
+  - `lupinum-ginko-cms-contract-0.1.1.tgz`
+  - `lupinum-ginko-cms-convex-0.1.2.tgz`
+  - `lupinum-ginko-content-0.1.6.tgz`
+  - `lupinum-trellis-0.3.1.tgz`
+  - `lupinum-trellis-bridge-0.3.1.tgz`
+- Packed tarball workspace-reference scan passed for all six tarballs.
+- The temp consumer install resolved `@lupinum/trellis@0.3.1`,
+  `@lupinum/trellis-bridge@0.3.1`, and `@lupinum/ginko-content@0.1.6` from
+  local tarballs.
+- `ginko-cms init`, `ginko-cms bridge check`, `trellis doctor`, Convex codegen,
+  Nuxt prepare, Nuxt typecheck, and representative package import checks all
+  passed.
+- `trellis doctor` in the temp consumer reported 32 passed checks, 1 expected
+  missing Convex URL warning, and 0 failures.
+
+### Notes
+
+- No Trellis code changes were needed after the tarball proof. The only Trellis
+  worktree changes left are the unrelated local formatter edits in
+  `dream-spec.md` and `plan-vnext.md`.
+- `ginko-cms` and `ginko-content` worktrees were clean after the package e2e
+  run; the refreshed `.pack` tarballs are ignored local artifacts.
+
 ## Next Slice Candidates
 
-1. Commit the Trellis RFC workpackage, excluding unrelated formatter-only docs
-   churn.
-2. Build and consume the local Trellis tarball from `ginko-cms` before moving
-   to the new `ginko-content` tarball.
-3. Run the `i18n-cms` browser smoke/E2E pass with login, sitemap, search,
-   content, and i18n switching after the CMS package graph is on local
-   tarballs.
+1. Run the `i18n-cms` browser smoke/E2E pass with login, sitemap, search,
+   content, and i18n switching against the local tarball stack.
+2. If `i18n-cms` exposes a real Trellis issue, fix Trellis directly, rerun the
+   focused Trellis proof, regenerate local tarballs, and rerun CMS consumer
+   validation.
+3. Only after the Trellis/CMS/i18n path stays green, decide whether any
+   remaining Ginko Content follow-up is still real or already covered by the
+   current `0.1.6` tarball proof.
