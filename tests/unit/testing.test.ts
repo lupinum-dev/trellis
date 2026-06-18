@@ -1,6 +1,16 @@
+import { makeFunctionReference, mutationGeneric, defineSchema } from 'convex/server'
+import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { convexTestConfig } from '../../src/runtime/testing'
+import { operationPreviewValidator } from '../../src/runtime/app'
+import {
+  defineOperationDescriptor,
+  defineOperationHandle,
+  projectOperationRef,
+} from '../../src/runtime/functions/operation-metadata'
+import { convexTestConfig, createTestContext } from '../../src/runtime/testing'
+
+const identityForwardingKey = 'operation-testing-helper-identity-forwarding-key'
 
 describe('convexTestConfig', () => {
   it('defaults vitest to the convex-friendly edge runtime setup', () => {
@@ -22,5 +32,100 @@ describe('convexTestConfig', () => {
         }),
       ]),
     )
+  })
+
+  it('calls generated operation handles without caller-authored transport refs', async () => {
+    const schema = defineSchema({})
+    const modules = {
+      '/convex/tasks.ts': async () => ({
+        previewRemove: mutationGeneric({
+          args: {
+            id: v.string(),
+            _trellisForwarding: v.optional(v.string()),
+          },
+          handler: async (_ctx, args) => ({
+            allowed: true,
+            summary: `Remove ${args.id}`,
+            blockers: [],
+            warnings: [],
+            effects: [],
+            confirm: { id: args.id },
+            confirmation: { token: 'confirm-token', expiresAt: 1 },
+            forwarded: typeof args._trellisForwarding === 'string',
+          }),
+        }),
+        remove: mutationGeneric({
+          args: {
+            id: v.string(),
+            _confirmationToken: v.optional(v.string()),
+            _trellisForwarding: v.optional(v.string()),
+          },
+          handler: async (_ctx, args) => ({
+            removed: args.id,
+            confirmationToken: args._confirmationToken,
+            forwarded: typeof args._trellisForwarding === 'string',
+          }),
+        }),
+      }),
+    }
+    const descriptor = defineOperationDescriptor({
+      id: 'tasks.remove',
+      kind: 'destructive',
+      args: { id: v.string() },
+      previewReturns: operationPreviewValidator({ confirm: v.object({ id: v.string() }) }),
+    })
+    const previewRef = projectOperationRef(
+      descriptor,
+      'preview',
+      makeFunctionReference<
+        'mutation',
+        { id: string },
+        {
+          allowed: boolean
+          summary: string
+          blockers: []
+          warnings: []
+          effects: []
+          confirm: { id: string }
+          confirmation: { token: string; expiresAt: number }
+          forwarded: boolean
+        }
+      >('tasks:previewRemove'),
+      { functionRef: 'tasks:previewRemove', executeFunctionRef: 'tasks:remove' },
+    )
+    const executeRef = projectOperationRef(
+      descriptor,
+      'execute',
+      makeFunctionReference<
+        'mutation',
+        { id: string; _confirmationToken?: string },
+        { removed: string; confirmationToken?: string; forwarded: boolean }
+      >('tasks:remove'),
+      { functionRef: 'tasks:remove' },
+    )
+    const operation = defineOperationHandle(descriptor, {
+      executeRef,
+      previewRef,
+      executeOperation: 'mutation',
+      previewOperation: 'mutation',
+      runtimes: ['testing'],
+    })
+    const ctx = createTestContext({
+      schema,
+      modules,
+      identityForwardingKey,
+    })
+    const caller = ctx.asUser({ userId: 'owner-1' })
+
+    const preview = await caller.operation(operation).preview({ id: 'task_1' })
+    expect(preview.forwarded).toBe(true)
+
+    await expect(
+      caller.operation(operation).execute({ id: 'task_1' }, { confirmation: preview.confirmation }),
+    ).resolves.toMatchObject({
+      removed: 'task_1',
+      confirmationToken: 'confirm-token',
+      forwarded: true,
+    })
   })
 })

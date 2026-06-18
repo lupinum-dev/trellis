@@ -1283,11 +1283,65 @@ loops.
   a later deliberate `useTrellisOperation` read design; this slice only covers
   mutation/action execute calls plus mutation previews.
 
+## Slice 26: Product-Level Testing Operation Client
+
+### Proof
+
+- Added a public DTS proof for
+  `ctx.asUser(...).operation(operationHandle).preview/execute(...)`. It failed
+  before implementation because `operation` was not part of `TestClient`.
+- Added a focused runtime proof with inline Convex test modules and generated
+  operation projection metadata. It failed before implementation because
+  `caller.operation` was not a function.
+- Source review of Ginko CMS showed the consumer still maintained
+  `destructiveTransportExecuteFunctionRefs`, `handlerIdByFunctionRef`, and
+  call-site `targetFunctionRef` derivation in tests. This slice targets that
+  Trellis protocol leak directly.
+
+### Implementation
+
+- Added `operation(handle)` to Trellis testing clients returned by
+  `asCaller`, `asUser`, `asService`, seeded tenant users, and `asAuthUser`.
+- Operation preview/execute calls derive projection kind and function refs from
+  generated operation handle metadata instead of caller-authored maps.
+- Destructive execute calls with confirmation add `_confirmationToken` and
+  derive operation-execute forwarding options, including
+  `operation-confirmation` replay mode and confirmation-token JTI hashing.
+- Normal operation-backed mutation/action calls receive testing replay defaults
+  (`jti-redemption` for mutations, `domain-idempotency` for actions) while query
+  calls stay read-only.
+- Seeded users and `asAuthUser` attach `operation(...)` lazily so existing
+  browser-auth style tests do not require an identity-forwarding key unless the
+  operation testing helper is used.
+
+### Verification
+
+- Proof/runtime tests passed:
+  `pnpm vitest run --project=unit tests/unit/testing.test.ts`.
+- Public and contract type checks passed:
+  `pnpm run test:types:public` and `pnpm run test:types:contracts`.
+- Existing seeded-user harness coverage passed:
+  `pnpm vitest run --project=convex apps/harness/convex/testingPackage.test.ts`.
+- Focused lint and surface checks passed:
+  `pnpm run lint:src:runtime:rest`,
+  `pnpm run lint:tests`,
+  `pnpm run check:publish-surface`,
+  `pnpm run check:docs:api-surface`.
+- Formatting and whitespace checks passed:
+  `pnpm run format:check` and `git diff --check`.
+
+### Notes
+
+- This gives Ginko-like consumers the product-level testing surface required by
+  the RFC. The next consumer proof is to replace Ginko CMS test helper maps with
+  generated testing operation handles.
+- The helper derives transport metadata from operation handles; it does not add
+  a second public transport API or a compatibility shim for old maps.
+
 ## Next Slice Candidates
 
-1. Add the product-level testing client so Ginko-like tests call
-   `owner.operation(operations.entries.publish).preview/execute(...)` instead of
-   maintaining transport maps.
+1. Try the new `operation(handle)` helper in Ginko CMS against the local Trellis
+   tarball/source to identify remaining handle-generation gaps.
 2. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
    runtime-specific generated modules.
 3. Define the bridge-generated operation handle shape needed to replace

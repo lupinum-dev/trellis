@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { convexTest, type TestConvex } from 'convex-test'
 import type {
   DataModelFromSchemaDefinition,
+  FunctionArgs,
   FunctionReference,
   FunctionReturnType,
   GenericSchema,
@@ -17,6 +18,13 @@ import type { Subject } from '../auth/index.js'
 import { subject } from '../auth/subject.js'
 import { getFunctionName } from '../convex/shared/convex-shared.js'
 import type { AnyConvexFunction } from '../convex/shared/convex-shared.js'
+import { hashConfirmationToken } from '../functions/confirmation-token.js'
+import {
+  getOperationProjectionMetadata,
+  type OperationHandle,
+  type OperationHandleFunctionKind,
+} from '../functions/operation-metadata.js'
+import type { OperationPreviewConfirmation } from '../functions/operation-preview.js'
 import type {
   IdentityForwardingReplayMode,
   IdentityForwardingTransport,
@@ -142,7 +150,55 @@ type InsertDataFor<TSchema extends AnySchemaDefinition, TTable extends TableName
 type TestClient<TSchema extends AnySchemaDefinition> = Pick<
   TestConvex<TSchema>,
   'query' | 'mutation' | 'action'
->
+> & {
+  operation: <TOperation extends OperationHandle>(
+    operation: TOperation,
+  ) => TestOperationClient<
+    OperationArgs<TOperation>,
+    OperationResult<TOperation>,
+    OperationPreviewResult<TOperation>
+  >
+}
+
+type AnyOperationFunctionRef = FunctionReference<'query' | 'mutation' | 'action'>
+type UnknownArgs = Record<string, unknown>
+type OperationExecuteRef<TOperation extends OperationHandle> = TOperation extends {
+  readonly executeRef: infer TExecuteRef
+}
+  ? TExecuteRef
+  : never
+type OperationPreviewRef<TOperation extends OperationHandle> = TOperation extends {
+  readonly previewRef?: infer TPreviewRef
+}
+  ? TPreviewRef
+  : undefined
+type ArgsOf<TRef> = TRef extends AnyOperationFunctionRef
+  ? FunctionArgs<TRef> extends UnknownArgs
+    ? FunctionArgs<TRef>
+    : UnknownArgs
+  : UnknownArgs
+type ResultOf<TRef> = TRef extends AnyOperationFunctionRef ? FunctionReturnType<TRef> : unknown
+type OperationArgs<TOperation extends OperationHandle> = ArgsOf<OperationExecuteRef<TOperation>>
+type OperationResult<TOperation extends OperationHandle> = ResultOf<OperationExecuteRef<TOperation>>
+type OperationPreviewResult<TOperation extends OperationHandle> =
+  OperationPreviewRef<TOperation> extends undefined
+    ? unknown
+    : ResultOf<OperationPreviewRef<TOperation>>
+
+export type TestOperationConfirmation = OperationPreviewConfirmation | string | null | undefined
+
+export interface TestOperationExecuteOptions {
+  confirmation?: TestOperationConfirmation
+}
+
+export interface TestOperationClient<
+  TArgs extends UnknownArgs = UnknownArgs,
+  TResult = unknown,
+  TPreview = unknown,
+> {
+  preview: (args: TArgs) => Promise<TPreview>
+  execute: (args: TArgs, options?: TestOperationExecuteOptions) => Promise<TResult>
+}
 
 export type TestCallerOptions = {
   actingFor?: { subject: Subject } & Record<string, unknown>
@@ -359,30 +415,31 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     fn: FunctionReference<TKind>,
     args: Record<string, unknown> | undefined,
     principalMode: 'plain' | 'trusted',
+    callerOptions: TestCallerOptions,
   ) {
     if (principalMode === 'trusted') {
-      const signedArgs = options.signedArgs ?? args
+      const signedArgs = callerOptions.signedArgs ?? args
       const forwardingArgs = createIdentityForwardingEnvelopeArgs({
         args: signedArgs,
         caller: {
           ...caller,
           subject: principalSubject,
         },
-        ...(options.actingFor ? { actingFor: options.actingFor } : {}),
+        ...(callerOptions.actingFor ? { actingFor: callerOptions.actingFor } : {}),
         functionRef:
-          options.targetFunctionRef ?? getFunctionName(fn as unknown as AnyConvexFunction),
+          callerOptions.targetFunctionRef ?? getFunctionName(fn as unknown as AnyConvexFunction),
         operation: kind,
-        ...(options.purpose ? { purpose: options.purpose } : {}),
+        ...(callerOptions.purpose ? { purpose: callerOptions.purpose } : {}),
         key: effectiveIdentityForwardingKey,
-        ...(options.keyId ? { keyId: options.keyId } : {}),
-        transport: options.transport ?? 'server',
-        ...(options.replayMode ? { replayMode: options.replayMode } : {}),
-        ...(options.replayKey ? { replayKey: options.replayKey } : {}),
-        ...(options.replayTarget ? { replayTarget: options.replayTarget } : {}),
-        ...(options.jti ? { jti: options.jti } : {}),
+        ...(callerOptions.keyId ? { keyId: callerOptions.keyId } : {}),
+        transport: callerOptions.transport ?? 'server',
+        ...(callerOptions.replayMode ? { replayMode: callerOptions.replayMode } : {}),
+        ...(callerOptions.replayKey ? { replayKey: callerOptions.replayKey } : {}),
+        ...(callerOptions.replayTarget ? { replayTarget: callerOptions.replayTarget } : {}),
+        ...(callerOptions.jti ? { jti: callerOptions.jti } : {}),
       })
 
-      if (options.signedArgs === undefined) return forwardingArgs
+      if (callerOptions.signedArgs === undefined) return forwardingArgs
 
       return {
         ...(args ?? {}),
@@ -393,7 +450,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     return {
       ...(args ?? {}),
       caller,
-      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
+      ...(callerOptions.actingFor ? { actingFor: callerOptions.actingFor } : {}),
     }
   }
 
@@ -406,7 +463,12 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   async function callWithCaller<
     TKind extends 'query' | 'mutation' | 'action',
     TFn extends FunctionReference<TKind>,
-  >(kind: TKind, fn: TFn, args: OptionalRestArgs<TFn>[0]): Promise<FunctionReturnType<TFn>> {
+  >(
+    kind: TKind,
+    fn: TFn,
+    args: OptionalRestArgs<TFn>[0],
+    callerOptions: TestCallerOptions = options,
+  ): Promise<FunctionReturnType<TFn>> {
     const caller = raw[kind] as unknown as (
       ref: TFn,
       callArgs?: OptionalRestArgs<TFn>[0],
@@ -417,6 +479,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       fn,
       args as Record<string, unknown> | undefined,
       'trusted',
+      callerOptions,
     )
 
     try {
@@ -431,8 +494,120 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         fn,
         args as Record<string, unknown> | undefined,
         'plain',
+        callerOptions,
       )
       return await caller(fn, plainPayload as OptionalRestArgs<TFn>[0])
+    }
+  }
+
+  function getProjectionKind(
+    operationId: string,
+    projection: 'execute' | 'preview',
+    kind: OperationHandleFunctionKind | undefined,
+  ): 'query' | 'mutation' | 'action' {
+    const resolved = kind ?? 'mutation'
+    if (resolved === 'query' || resolved === 'mutation' || resolved === 'action') return resolved
+    throw new Error(`Operation "${operationId}" has an unsupported ${projection} projection kind.`)
+  }
+
+  function getProjectionFunctionRef(
+    operationId: string,
+    projection: 'execute' | 'preview',
+    refValue: unknown,
+  ): string {
+    const metadata = getOperationProjectionMetadata(
+      refValue as Parameters<typeof getOperationProjectionMetadata>[0],
+    )
+    if (metadata && metadata.projection !== projection) {
+      throw new Error(
+        `Operation "${operationId}" ${projection} projection received a ${metadata.projection} ref.`,
+      )
+    }
+
+    const functionRef =
+      metadata?.functionRef ?? getFunctionName(refValue as unknown as AnyConvexFunction)
+    if (functionRef && functionRef !== 'unknown') return functionRef
+
+    throw new Error(`Operation "${operationId}" ${projection} projection is missing functionRef.`)
+  }
+
+  function getExecuteTargetFunctionRef<TOperation extends OperationHandle>(
+    operation: TOperation,
+  ): string {
+    const previewMetadata =
+      operation.previewRef === undefined
+        ? null
+        : getOperationProjectionMetadata(
+            operation.previewRef as Parameters<typeof getOperationProjectionMetadata>[0],
+          )
+    return (
+      previewMetadata?.executeFunctionRef ??
+      getProjectionFunctionRef(operation.id, 'execute', operation.executeRef)
+    )
+  }
+
+  function defaultReplayMode(kind: 'query' | 'mutation' | 'action') {
+    if (kind === 'mutation') return 'jti-redemption' satisfies IdentityForwardingReplayMode
+    if (kind === 'action') return 'domain-idempotency' satisfies IdentityForwardingReplayMode
+    return undefined
+  }
+
+  function confirmationToken(value: TestOperationConfirmation): string | undefined {
+    if (typeof value === 'string') return value
+    if (value && typeof value.token === 'string') return value.token
+    return undefined
+  }
+
+  function withConfirmation<TArgs extends UnknownArgs>(
+    args: TArgs,
+    options?: TestOperationExecuteOptions,
+  ): TArgs {
+    const token = confirmationToken(options?.confirmation)
+    if (!token) return args
+    return { ...args, _confirmationToken: token } as TArgs
+  }
+
+  async function operationExecuteOptions<TOperation extends OperationHandle>(
+    operation: TOperation,
+    kind: 'query' | 'mutation' | 'action',
+    options?: TestOperationExecuteOptions,
+  ): Promise<TestCallerOptions> {
+    const targetFunctionRef = getExecuteTargetFunctionRef(operation)
+    const token = confirmationToken(options?.confirmation)
+
+    if (operation.kind === 'destructive' && token) {
+      const jti = await hashConfirmationToken(token)
+      return {
+        purpose: 'operation-execute',
+        replayMode: 'operation-confirmation',
+        targetFunctionRef,
+        replayTarget: targetFunctionRef,
+        jti,
+      }
+    }
+
+    const replayMode = defaultReplayMode(kind)
+    return {
+      purpose: kind,
+      targetFunctionRef,
+      ...(replayMode ? { replayMode } : {}),
+    }
+  }
+
+  function operationPreviewOptions<TOperation extends OperationHandle>(
+    operation: TOperation,
+    kind: 'query' | 'mutation' | 'action',
+  ): TestCallerOptions {
+    const targetFunctionRef = getProjectionFunctionRef(
+      operation.id,
+      'preview',
+      operation.previewRef,
+    )
+    const replayMode = defaultReplayMode(kind)
+    return {
+      purpose: kind,
+      targetFunctionRef,
+      ...(replayMode ? { replayMode } : {}),
     }
   }
 
@@ -454,6 +629,46 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
       return await callWithCaller('action', fn, args[0])
+    },
+    operation: <TOperation extends OperationHandle>(
+      operation: TOperation,
+    ): TestOperationClient<
+      OperationArgs<TOperation>,
+      OperationResult<TOperation>,
+      OperationPreviewResult<TOperation>
+    > => {
+      type Args = OperationArgs<TOperation>
+      type Result = OperationResult<TOperation>
+      type Preview = OperationPreviewResult<TOperation>
+
+      return {
+        preview: async (args: Args): Promise<Preview> => {
+          if (operation.previewRef === undefined) {
+            throw new Error(`Operation "${operation.id}" does not have a preview projection.`)
+          }
+
+          const kind = getProjectionKind(operation.id, 'preview', operation.previewOperation)
+          return (await callWithCaller(
+            kind,
+            operation.previewRef as FunctionReference<typeof kind>,
+            args as OptionalRestArgs<FunctionReference<typeof kind>>[0],
+            operationPreviewOptions(operation, kind),
+          )) as Preview
+        },
+        execute: async (
+          args: Args,
+          executeOptions?: TestOperationExecuteOptions,
+        ): Promise<Result> => {
+          const kind = getProjectionKind(operation.id, 'execute', operation.executeOperation)
+          const nextArgs = withConfirmation(args, executeOptions)
+          return (await callWithCaller(
+            kind,
+            operation.executeRef as FunctionReference<typeof kind>,
+            nextArgs as OptionalRestArgs<FunctionReference<typeof kind>>[0],
+            await operationExecuteOptions(operation, kind, executeOptions),
+          )) as Result
+        },
+      }
     },
   }
 
@@ -595,6 +810,16 @@ export function createTestContext<
         query: caller.query,
         mutation: caller.mutation,
         action: caller.action,
+        operation: (operation) =>
+          createPrincipalClient(
+            raw,
+            {
+              kind: 'user',
+              authKey: resolvedAuthKey,
+              subject: subject.auth(resolvedAuthKey),
+            },
+            identityForwardingKey,
+          ).operation(operation),
       }
 
       if (!ownerUserId && (role === 'owner' || entries.length === 1)) {
@@ -648,13 +873,29 @@ export function createTestContext<
   }
 
   function asAuthUser(user: TestAuthUser): TestClient<TSchema> {
-    return raw.withIdentity({
+    const caller = raw.withIdentity({
       subject: user.subject ?? user.authKey,
       tokenIdentifier: user.authKey,
       ...(user.email ? { email: user.email } : {}),
       ...(user.displayName ? { name: user.displayName } : {}),
       ...(user.avatarUrl ? { picture: user.avatarUrl } : {}),
     } as never)
+
+    return {
+      query: caller.query,
+      mutation: caller.mutation,
+      action: caller.action,
+      operation: (operation) =>
+        createPrincipalClient(
+          raw,
+          {
+            kind: 'user',
+            authKey: user.authKey,
+            subject: user.subject ?? subject.auth(user.authKey),
+          },
+          identityForwardingKey,
+        ).operation(operation),
+    }
   }
 
   function asService(

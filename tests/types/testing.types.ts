@@ -60,18 +60,18 @@ type _keyedOwnerRole = Assert<IsEqual<KeyedTenant['users']['owner']['role'], 'ow
 type _keyedMemberRole = Assert<IsEqual<KeyedTenant['users']['member']['role'], 'member'>>
 const _forwardedClient = defaultCtx.asCaller({ kind: 'user', userId: 'owner-1' })
 type _forwardedClientSurface = Assert<
-  IsEqual<keyof typeof _forwardedClient, 'action' | 'mutation' | 'query'>
+  IsEqual<keyof typeof _forwardedClient, 'action' | 'mutation' | 'operation' | 'query'>
 >
 const _forwardedUserClient = defaultCtx.asUser({ userId: 'owner-1' })
 type _forwardedUserClientSurface = Assert<
-  IsEqual<keyof typeof _forwardedUserClient, 'action' | 'mutation' | 'query'>
+  IsEqual<keyof typeof _forwardedUserClient, 'action' | 'mutation' | 'operation' | 'query'>
 >
 const _forwardedWriteClient = defaultCtx.asCaller(
   { kind: 'user', userId: 'owner-1' },
   { replayMode: 'domain-idempotency', transport: 'mcp', jti: 'test-jti' },
 )
 type _forwardedWriteClientSurface = Assert<
-  IsEqual<keyof typeof _forwardedWriteClient, 'action' | 'mutation' | 'query'>
+  IsEqual<keyof typeof _forwardedWriteClient, 'action' | 'mutation' | 'operation' | 'query'>
 >
 const _forwardedServiceClient = defaultCtx.asCaller(
   { kind: 'service', serviceId: 'webhook', subject: subject.service('webhook') },
@@ -86,7 +86,7 @@ const _forwardedServiceClient = defaultCtx.asCaller(
   },
 )
 type _forwardedServiceClientSurface = Assert<
-  IsEqual<keyof typeof _forwardedServiceClient, 'action' | 'mutation' | 'query'>
+  IsEqual<keyof typeof _forwardedServiceClient, 'action' | 'mutation' | 'operation' | 'query'>
 >
 const _forwardedNamedServiceClient = defaultCtx.asService('webhook', {
   actingFor: { subject: subject.user('owner-1'), reason: 'type-test' },
@@ -98,7 +98,7 @@ const _forwardedNamedServiceClient = defaultCtx.asService('webhook', {
   keyId: 'default',
 })
 type _forwardedNamedServiceClientSurface = Assert<
-  IsEqual<keyof typeof _forwardedNamedServiceClient, 'action' | 'mutation' | 'query'>
+  IsEqual<keyof typeof _forwardedNamedServiceClient, 'action' | 'mutation' | 'operation' | 'query'>
 >
 const _forwardedBridgeClient = defaultCtx.asCaller(
   { kind: 'agent', agentId: 'bridge-1', subject: subject.agent('bridge-1') },
@@ -110,7 +110,7 @@ const _forwardedBridgeClient = defaultCtx.asCaller(
   },
 )
 type _forwardedBridgeClientSurface = Assert<
-  IsEqual<keyof typeof _forwardedBridgeClient, 'action' | 'mutation' | 'query'>
+  IsEqual<keyof typeof _forwardedBridgeClient, 'action' | 'mutation' | 'operation' | 'query'>
 >
 
 const _organizationCtx = createTestContext({
