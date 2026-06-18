@@ -45,6 +45,78 @@ type ExplainOperationReport = {
   }
 }
 
+type ExplainAppReport = {
+  schemaVersion: 1
+  cwd?: string
+  privacy: 'public' | 'developer' | 'internal'
+  app: {
+    package: {
+      hasPackageJson: boolean
+      hasTrellisDependency: boolean
+      hasNuxtDependency: boolean
+      hasConvexDependency: boolean
+    }
+    layers: {
+      core: boolean
+      auth: boolean
+      workspace: boolean
+      mcp: boolean
+      bridge: boolean
+    }
+    files?: {
+      nuxtConfig: string | null
+      convexHttp: string | null
+      convexAuth: string | null
+      appInventory: string | null
+    }
+    surfaces: {
+      permissions: boolean
+      mcpTools: number
+      destructiveOperations: number
+    }
+    counts: {
+      features: number
+      permissionDefinitions: number
+      permissionInventories: number
+      operations: number
+      projections: number
+      mcpTools: number
+      findings: number
+    }
+    features: Array<{
+      name: string
+      exportName?: string
+      file?: string
+      source?: { path: string; line: number }
+    }>
+    permissions: Array<{
+      key: string
+      exportName?: string
+      source?: { path: string; line: number }
+    }>
+    operations: Array<{
+      id: string
+      kind: 'safe' | 'destructive'
+      exportName?: string
+      source?: { path: string; line: number }
+      projections: Array<{
+        projection: 'preview' | 'execute'
+        exportName?: string
+        source?: { path: string; line: number }
+      }>
+      mcpTools: Array<{
+        name: string
+        source: 'tool' | 'operation' | 'defineMcpTool'
+        sourceLocation?: { path: string; line: number }
+      }>
+    }>
+    appInventory?: {
+      detected: boolean
+      file: string | null
+    }
+  }
+}
+
 type ExplainMissingReport = {
   schemaVersion: 1
   cwd: string
@@ -221,6 +293,160 @@ export default tool.operation(archiveTaskOp, {
 }
 
 describe('CLI explain', () => {
+  it('explains the app as public JSON without local paths', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'app', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainAppReport>(result.stdout)
+    const serialized = JSON.stringify(report)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      privacy: 'public',
+      app: {
+        package: {
+          hasTrellisDependency: true,
+          hasNuxtDependency: true,
+          hasConvexDependency: true,
+        },
+        layers: {
+          core: true,
+          mcp: true,
+        },
+        counts: {
+          features: 1,
+          permissionDefinitions: 2,
+          permissionInventories: 1,
+          operations: 5,
+          projections: 6,
+          mcpTools: 1,
+        },
+        operations: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'tasks.archive',
+            kind: 'destructive',
+            projections: expect.arrayContaining([
+              expect.objectContaining({ projection: 'execute' }),
+              expect.objectContaining({ projection: 'preview' }),
+            ]),
+            mcpTools: [
+              expect.objectContaining({
+                name: 'archive-task',
+                source: 'operation',
+              }),
+            ],
+          }),
+        ]),
+      },
+    })
+    expect(report.cwd).toBeUndefined()
+    expect(report.app.files).toBeUndefined()
+    expect(report.app.operations[0]?.exportName).toBeUndefined()
+    expect(report.app.operations[0]?.source).toBeUndefined()
+    expect(serialized).not.toContain(appRoot)
+    expect(serialized).not.toContain('convex/features/tasks')
+  }, 30_000)
+
+  it('explains the app with internal inventory detail when requested', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(
+      ['explain', 'app', '--json', '--privacy', 'internal', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainAppReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      privacy: 'internal',
+      app: {
+        files: {
+          nuxtConfig: 'nuxt.config.ts',
+        },
+        appInventory: {
+          detected: false,
+          file: null,
+        },
+        operations: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'tasks.archive',
+            exportName: 'archiveTaskOp',
+            source: {
+              path: 'convex/features/tasks/operations.ts',
+              line: expect.any(Number),
+            },
+            projections: expect.arrayContaining([
+              expect.objectContaining({
+                projection: 'execute',
+                exportName: 'archiveTask',
+                source: {
+                  path: 'convex/features/tasks/operations.ts',
+                  line: expect.any(Number),
+                },
+              }),
+            ]),
+            mcpTools: [
+              expect.objectContaining({
+                name: 'archive-task',
+                sourceLocation: {
+                  path: 'server/mcp/tools/archive-task.ts',
+                  line: expect.any(Number),
+                },
+              }),
+            ],
+          }),
+        ]),
+        features: expect.arrayContaining([
+          expect.objectContaining({
+            name: 'tasks',
+            exportName: 'tasksFeature',
+            file: 'convex/features/tasks/feature.ts',
+          }),
+        ]),
+        permissions: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'tasks.archive',
+            exportName: 'taskArchivePermission',
+            source: {
+              path: 'convex/features/tasks/permissions.ts',
+              line: expect.any(Number),
+            },
+          }),
+        ]),
+      },
+    })
+  }, 30_000)
+
+  it('rejects invalid app explain privacy', () => {
+    const appRoot = createPublicApp()
+
+    const result = runCli(
+      ['explain', 'app', '--json', '--privacy', 'private', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).not.toBe(0)
+    expect(output).toContain('Invalid explain privacy. Use public, developer, or internal.')
+  })
+
+  it('rejects app explain identifiers', () => {
+    const appRoot = createPublicApp()
+
+    const result = runCli(['explain', 'app', 'tasks', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).not.toBe(0)
+    expect(output).toContain('`trellis explain app` does not accept an identifier.')
+  })
+
   it('explains an operation as versioned JSON from inventory', () => {
     const appRoot = createPublicApp()
     addOperationFixture(appRoot)

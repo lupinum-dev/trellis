@@ -3373,11 +3373,58 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - This closes the starter fixture typecheck/build acceptance gap for the
   descriptor-backed workspace-MCP hard cutover.
 
+## Slice 61: Add Versioned App Explain JSON
+
+### Proof
+
+- RFC 0013 requires `trellis explain app --json` to emit safe-to-share,
+  versioned JSON from existing inventory and not from a handwritten app
+  manifest.
+- Before this slice, `trellis explain` only accepted `operation <id>` and
+  `permission <key>`, and the `id` positional was always required.
+- The CLI already had one inventory collector carrying package, layer, surface,
+  feature, permission, operation, projection, and MCP tool facts, so adding a
+  second app-report source would have created drift.
+
+### Implementation
+
+- Added `trellis explain app` as a no-identifier topic.
+- Added `--privacy public|developer|internal`, defaulting to `public`.
+- Public app JSON omits the absolute cwd, file paths, source locations, and
+  export names while keeping safe package/layer/surface counts and public
+  operation/tool/feature/permission summaries.
+- Developer/internal app JSON includes local inventory detail from the existing
+  `collectTrellisCliInventory(...)` output, including relative files, source
+  locations, app inventory, and findings.
+- Added a compact human-readable app summary for `trellis explain app` without
+  `--json`.
+- Kept operation and permission explain behavior on the existing code path.
+
+### Verification
+
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/cli/commands/explain.ts tests/unit/cli-explain.test.ts`.
+- CLI build passed: `pnpm run build:cli`.
+- Explain suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts` reported 15
+  passing tests.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Test lint passed: `pnpm run lint:tests`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- The app report is derived from the existing CLI inventory. It does not add an
+  app manifest, generated agent context file, or second source of truth.
+- This covers the initial `trellis explain app --json` acceptance target. The
+  remaining explain/agent gaps are tool/file/feature explain and deeper
+  `doctor --agent` diagnostics.
+
 ## Next Slice Candidates
 
-1. Implement the broader `trellis explain app --json` versioned report from
-   existing inventory without introducing a handwritten app manifest.
-2. Extend `trellis doctor --agent` around operation metadata, missing generated
+1. Extend `trellis doctor --agent` around operation metadata, missing generated
    contracts, MCP argument-shape warnings, and privacy-safe agent context.
+2. Add `trellis explain tool <name>` for operation-backed tools from existing
+   public-surface inventory.
 3. Audit the remaining `release:verify` gates from the current branch and run
    the next broad gate that is likely to expose RFC-specific drift.

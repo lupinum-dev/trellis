@@ -6,13 +6,82 @@ import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
   type TrellisCliInventory,
+  type TrellisCliInventoryAppInventoryFeatureBinding,
   type TrellisCliInventoryFeature,
+  type TrellisCliInventoryPermission,
   type TrellisCliInventoryPublicSurfaceOperation,
   type TrellisCliInventoryPublicSurfaceProjection,
   type TrellisCliInventoryPublicSurfaceTool,
   type TrellisCliInventorySourceLocation,
 } from '../lib/inventory.js'
 import { inspectProject } from '../lib/project.js'
+
+type ExplainAppPrivacy = 'public' | 'developer' | 'internal'
+
+interface ExplainAppReport {
+  schemaVersion: 1
+  cwd?: string
+  privacy: ExplainAppPrivacy
+  app: {
+    package: TrellisCliInventory['package']
+    layers: TrellisCliInventory['layers']
+    files?: TrellisCliInventory['files']
+    surfaces: TrellisCliInventory['surfaces']
+    counts: {
+      features: number
+      permissionDefinitions: number
+      permissionInventories: number
+      operations: number
+      projections: number
+      mcpTools: number
+      findings: number
+    }
+    features: Array<{
+      name: string
+      exportName?: string
+      file?: string
+      source?: TrellisCliInventorySourceLocation
+      tenantTables?: string[]
+      sharedTables?: string[]
+      permissionRefs?: string[]
+      operationRefs?: string[]
+    }>
+    permissions: Array<{
+      key: string
+      label?: string
+      description?: string
+      roles: string[]
+      projected: boolean
+      exportName?: string
+      source?: TrellisCliInventorySourceLocation
+    }>
+    operations: Array<{
+      id: string
+      kind: 'safe' | 'destructive'
+      exportName?: string
+      source?: TrellisCliInventorySourceLocation
+      projections: Array<{
+        projection: 'preview' | 'execute'
+        exportName?: string
+        source?: TrellisCliInventorySourceLocation
+      }>
+      mcpTools: Array<{
+        name: string
+        source: 'tool' | 'operation' | 'defineMcpTool'
+        sourceLocation?: TrellisCliInventorySourceLocation
+      }>
+    }>
+    appInventory?: {
+      detected: boolean
+      file: string | null
+      featureBindings: Array<
+        Pick<TrellisCliInventoryAppInventoryFeatureBinding, 'name' | 'importPath' | 'source'>
+      >
+      warnings: TrellisCliInventory['appInventory']['warnings']
+    }
+    findings?: TrellisCliInventory['findings']
+  }
+}
 
 interface ExplainOperationReport {
   schemaVersion: 1
@@ -83,6 +152,12 @@ interface ExplainPermissionMissingReport {
   }
 }
 
+function readPrivacy(value: unknown): ExplainAppPrivacy {
+  const privacy = value === undefined ? 'public' : String(value)
+  if (privacy === 'public' || privacy === 'developer' || privacy === 'internal') return privacy
+  throw new Error('Invalid explain privacy. Use public, developer, or internal.')
+}
+
 function formatLocation(location: TrellisCliInventorySourceLocation): string {
   return `${location.path}:${location.line}`
 }
@@ -146,6 +221,131 @@ function findPermissionInventories(
       file: permissionInventory.file,
       source: permissionInventory.source,
     }))
+}
+
+function createAppFeatureReport(
+  feature: TrellisCliInventoryFeature,
+  privacy: ExplainAppPrivacy,
+): ExplainAppReport['app']['features'][number] {
+  const base = {
+    name: feature.name,
+  }
+
+  if (privacy === 'public') return base
+
+  return {
+    ...base,
+    exportName: feature.exportName,
+    file: feature.file,
+    source: feature.source,
+    tenantTables: feature.tenantTables,
+    sharedTables: feature.sharedTables,
+    permissionRefs: feature.permissionRefs,
+    operationRefs: feature.operationRefs,
+  }
+}
+
+function createAppPermissionReport(
+  permission: TrellisCliInventoryPermission,
+  privacy: ExplainAppPrivacy,
+): ExplainAppReport['app']['permissions'][number] {
+  const base = {
+    key: permission.key,
+    ...(permission.label ? { label: permission.label } : {}),
+    ...(permission.description ? { description: permission.description } : {}),
+    roles: permission.roles,
+    projected: permission.projected,
+  }
+
+  if (privacy === 'public') return base
+
+  return {
+    ...base,
+    exportName: permission.exportName,
+    source: permission.source,
+  }
+}
+
+function createAppOperationReport(
+  inventory: TrellisCliInventory,
+  operation: TrellisCliInventoryPublicSurfaceOperation,
+  privacy: ExplainAppPrivacy,
+): ExplainAppReport['app']['operations'][number] {
+  const projections = findOperationProjections(inventory, operation.id).map((projection) => ({
+    projection: projection.projection,
+    ...(privacy !== 'public'
+      ? {
+          exportName: projection.exportName,
+          source: projection.source,
+        }
+      : {}),
+  }))
+  const mcpTools = inventory.publicSurface.tools
+    .filter((tool) => tool.source === 'operation' && tool.operationId === operation.id)
+    .map((tool) => ({
+      name: tool.name,
+      source: tool.source,
+      ...(privacy !== 'public' ? { sourceLocation: tool.sourceLocation } : {}),
+    }))
+  const base = {
+    id: operation.id,
+    kind: operation.kind,
+    projections,
+    mcpTools,
+  }
+
+  if (privacy === 'public') return base
+
+  return {
+    ...base,
+    exportName: operation.exportName,
+    source: operation.source,
+  }
+}
+
+function createAppReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  privacy: ExplainAppPrivacy,
+): ExplainAppReport {
+  return {
+    schemaVersion: 1,
+    ...(privacy !== 'public' ? { cwd } : {}),
+    privacy,
+    app: {
+      package: inventory.package,
+      layers: inventory.layers,
+      ...(privacy !== 'public' ? { files: inventory.files } : {}),
+      surfaces: inventory.surfaces,
+      counts: {
+        features: inventory.features.length,
+        permissionDefinitions: inventory.permissions.definitions.length,
+        permissionInventories: inventory.permissions.inventories.length,
+        operations: inventory.publicSurface.operations.length,
+        projections: inventory.publicSurface.projections.length,
+        mcpTools: inventory.publicSurface.tools.length,
+        findings: inventory.findings.length,
+      },
+      features: inventory.features.map((feature) => createAppFeatureReport(feature, privacy)),
+      permissions: inventory.permissions.definitions.map((permission) =>
+        createAppPermissionReport(permission, privacy),
+      ),
+      operations: inventory.publicSurface.operations.map((operation) =>
+        createAppOperationReport(inventory, operation, privacy),
+      ),
+      ...(privacy !== 'public'
+        ? {
+            appInventory: {
+              detected: inventory.appInventory.detected,
+              file: inventory.appInventory.file,
+              featureBindings: inventory.appInventory.featureBindings,
+              warnings: inventory.appInventory.warnings,
+            },
+            findings: inventory.findings,
+          }
+        : {}),
+    },
+  }
 }
 
 function createOperationReport(
@@ -243,6 +443,24 @@ function createMissingPermissionReport(
       suggestedCommand: 'trellis permissions matrix',
     },
   }
+}
+
+function renderAppReport(report: ExplainAppReport): void {
+  const { app } = report
+
+  process.stdout.write(`App inventory (${report.privacy})\n`)
+  process.stdout.write(
+    `Layers: ${
+      Object.entries(app.layers)
+        .filter(([, enabled]) => enabled)
+        .map(([name]) => name)
+        .join(', ') || 'none'
+    }\n`,
+  )
+  process.stdout.write(`Operations: ${app.counts.operations}\n`)
+  process.stdout.write(`MCP tools: ${app.counts.mcpTools}\n`)
+  process.stdout.write(`Features: ${app.counts.features}\n`)
+  process.stdout.write(`Permissions: ${app.counts.permissionDefinitions}\n`)
 }
 
 function renderOperationReport(report: ExplainOperationReport): void {
@@ -349,11 +567,11 @@ export const explainCommand = defineCommand({
     topic: {
       type: 'positional',
       required: true,
-      description: 'Concept to explain. Supported: operation, permission',
+      description: 'Concept to explain. Supported: app, operation, permission',
     },
     id: {
       type: 'positional',
-      required: true,
+      required: false,
       description: 'Identifier to explain',
     },
     cwd: {
@@ -366,6 +584,11 @@ export const explainCommand = defineCommand({
       description: 'Print the explanation as JSON',
       default: false,
     },
+    privacy: {
+      type: 'string',
+      description: 'Privacy mode for app reports: public, developer, or internal',
+      default: 'public',
+    },
     color: {
       type: 'boolean',
       description: 'Enable colored output',
@@ -374,17 +597,38 @@ export const explainCommand = defineCommand({
   },
   async run({ args }) {
     const topic = String(args.topic)
-    if (topic !== 'operation' && topic !== 'permission') {
+    if (topic !== 'app' && topic !== 'operation' && topic !== 'permission') {
       throw new Error(
-        'Invalid explain topic. Use `trellis explain operation <id>` or `trellis explain permission <key>`.',
+        'Invalid explain topic. Use `trellis explain app`, `trellis explain operation <id>`, or `trellis explain permission <key>`.',
       )
     }
 
-    const id = String(args.id)
     const cwd = resolve(args.cwd || process.cwd())
     const project = inspectProject(cwd)
     const inventoryFacts = collectTrellisCliInventoryFacts(project)
     const inventory = collectTrellisCliInventory(project, inventoryFacts)
+    const privacy = readPrivacy(args.privacy)
+
+    if (topic === 'app') {
+      if (args.id !== undefined) {
+        throw new Error('`trellis explain app` does not accept an identifier.')
+      }
+
+      const report = createAppReport(cwd, inventory, privacy)
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+      } else {
+        renderAppReport(report)
+      }
+
+      return 0
+    }
+
+    if (args.id === undefined) {
+      throw new Error(`trellis explain ${topic} requires an identifier.`)
+    }
+
+    const id = String(args.id)
 
     if (topic === 'permission') {
       const permission = inventory.permissions.definitions.find((entry) => entry.key === id)
