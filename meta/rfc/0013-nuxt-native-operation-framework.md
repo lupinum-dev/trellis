@@ -1,11 +1,11 @@
 # 0013: Nuxt-Native Operation Framework
 
-Status: Accepted for implementation; in progress
-Date: 2026-06-18
+Status: Implemented and verified on `hardening`
+Date: 2026-06-19
 Owner: Trellis maintainers
 Review basis: Trellis 0.3.1 source, maintained examples, Ginko CMS integration, RFC 0012 closure notes, static DX reviews
-Review stance: accepted direction and implementation contract; build continues
-in proof-sized slices
+Review stance: implementation complete for the current 0.3.1 hardening tree;
+future provider/manifest/product-policy ideas stay out of this RFC
 
 ## Summary
 
@@ -25,8 +25,9 @@ The 0.2/0.3 foundation is directionally correct:
 - MCP tools that project backend operations instead of bypassing them
 - static inventory, doctor, explain, lint, examples, and starter policy files
 
-The remaining problem is ceremony. Trellis still exposes protocol details that
-Nuxt app authors and downstream integrations should not maintain by hand:
+This RFC targeted ceremony. Before the implementation, Trellis exposed protocol
+details that Nuxt app authors and downstream integrations should not maintain by
+hand:
 
 - `executeFunctionRef` string mirrors on operation definitions
 - manual preview/execute metadata and ref binding around projection exports
@@ -36,12 +37,12 @@ Nuxt app authors and downstream integrations should not maintain by hand:
 - downstream test helpers maintaining function-ref translation maps
 - starter scripts and docs drifting from the first local run path
 
-The next release should not add permission grants, deny tables, role overlays,
-record sharing, new app config, or generic adapters. Those features may become
-real later, but adding them now would add state before the existing secure path
-feels native.
+This release intentionally did not add permission grants, deny tables, role
+overlays, record sharing, new app config, or generic adapters. Those features
+may become real later, but adding them now would add state before the existing
+secure path feels native.
 
-The next release should compress the current model:
+The implemented release compresses the current model:
 
 ```text
 App authors declare the business operation.
@@ -52,11 +53,13 @@ Each runtime surface still owns its boundary semantics.
 
 ## Implementation Status
 
-Current state: accepted and partially implemented. This RFC is no longer only a
-proposal, but the release is not complete until the acceptance criteria and
-consumer gates below are green.
+Current state: implemented and verified on the `hardening` branch. The
+implementation is recorded in `journal2.md` through Slice 82 and was proven
+with focused RFC checks, starter fixture validation, the full local
+`release:verify` gate, and current-head `ginko-cms` / `i18n-cms` local-tarball
+consumer proof.
 
-Completed foundation slices:
+Completed foundation and acceptance slices:
 
 - generated MCP operation descriptors are exported for package and consumer
   handle generation
@@ -73,16 +76,28 @@ Completed foundation slices:
   artifacts are emitted
 - generated `OperationHandle` values are accepted directly by
   `tool.operation(...)`
+- explain and doctor consume generated operation/public-surface inventory
+  without adding a handwritten app manifest
+- `trellis explain app`, `operation`, `tool`, `feature`, and `file` are covered
+  by inventory-backed tests
+- `trellis doctor --agent` reports missing operation metadata, missing MCP args
+  descriptions, missing destructive projections, record-id resolution gaps, and
+  backend-only MCP exposure
+- starter fixture doctor/typecheck/build validation covers public, personal,
+  workspace, workspace-MCP, and workspace-MCP add-entity first-run flows
+- server-route adapters use generated server operation handles
+- backend-only destructive operations are explicit, reasoned, visible in
+  doctor/explain, excluded from normal handles, and rejected from MCP bindings
+- Ginko CMS consumes the generated Trellis path through local tarballs without
+  ordinary MCP execute/preview hand-binding
+- `i18n-cms` passed real-consumer typecheck, build, smoke, sitemap/search, and
+  in-app browser validation against the same local tarball stack
 
-Still open before release acceptance:
+Remaining work is outside this RFC's Trellis implementation scope:
 
-- update explain/doctor to consume the generated operation and public-surface
-  inventory without adding a handwritten manifest
-- prove starter fixture typecheck/build after the always-on operation/public
-  surface codegen split
-- keep Ginko CMS green against local Trellis tarballs and verify it no longer
-  copies Trellis protocol maps or hand-binds ordinary MCP execute/preview refs
-- run the full local `pnpm run release:verify` gate on the final tree
+- human-controlled publication;
+- keeping consumer repo changes deliberate and committed;
+- rerunning package/browser consumer proof if Trellis changes again.
 
 ## Problem
 
@@ -1128,8 +1143,10 @@ impossible to partially drift.
 
 ## Acceptance Criteria
 
-These are release acceptance criteria, not a claim that the current branch has
-already satisfied every item.
+These release acceptance criteria are satisfied by the current hardening branch
+unless a future Trellis change invalidates the recorded proof. The evidence is
+spread across the implementation slices in `journal2.md`, with final release and
+consumer closure recorded in Slices 79-81.
 
 ### Trellis Examples
 
@@ -1238,6 +1255,9 @@ Run consumer gates before calling this done:
 ```bash
 pnpm run release:verify
 CI=true pnpm --dir "${GINKO_CMS_DIR:-../ginko-cms}" run check
+pnpm --dir "${GINKO_CMS_DIR:-../ginko-cms}" run package:e2e
+pnpm --dir "${I18N_CMS_DIR:-../i18n-cms}" run typecheck
+pnpm --dir "${I18N_CMS_DIR:-../i18n-cms}" run build
 ```
 
 ## Dream Version Test

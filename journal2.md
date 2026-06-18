@@ -4650,3 +4650,59 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
   tested for the lower-level boundaries RFC 0013 explicitly keeps.
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
+
+## Slice 82: Mark RFC 0013 Implemented
+
+### Proof
+
+- After Slice 81, the remaining RFC 0013 status drift was in the RFC document
+  itself:
+  - status still said `Accepted for implementation; in progress`;
+  - implementation status still said accepted and partially implemented;
+  - the original open-gate list still named explain/doctor, starter
+    typecheck/build, Ginko consumer proof, and release verification as open.
+- Current implementation evidence says those gates are closed:
+  - explain/doctor inventory and agent diagnostics are covered by the focused
+    CLI tests;
+  - starter fixture validation covers public, personal, workspace,
+    workspace-MCP, and workspace-MCP add-entity first-run flows;
+  - `pnpm run release:verify` passed in Slice 79;
+  - current-head `ginko-cms` and `i18n-cms` local-tarball consumer proof is
+    recorded in Slice 80;
+  - normal-path MCP docs drift was fixed in Slice 81.
+
+### Implementation
+
+- Updated `meta/rfc/0013-nuxt-native-operation-framework.md` status to
+  `Implemented and verified on hardening`.
+- Replaced stale future-tense summary language with implemented-release
+  language.
+- Replaced the open-gate list with completed foundation and acceptance evidence.
+- Kept remaining publication and consumer-repo cleanup explicitly outside the
+  Trellis RFC implementation scope.
+- Updated the acceptance section to say the criteria are satisfied by the
+  current hardening branch unless future Trellis changes invalidate the proof.
+- Expanded the consumer-gate command list to include `ginko-cms package:e2e`
+  and `i18n-cms` typecheck/build.
+
+### Verification
+
+- Focused RFC acceptance tests passed in Slice 81:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts tests/unit/cli-doctor.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/operation-alias-no-permission-codegen.test.ts`
+  reported 4 passing files and 108 passing tests.
+- Starter fixture validation passed in Slice 81:
+  `node scripts/check-starter-fixtures.mjs`.
+- Status-closure checks passed:
+  - `pnpm exec oxfmt --check meta/rfc/0013-nuxt-native-operation-framework.md journal2.md`
+  - `pnpm run check:docs:links`
+  - `pnpm run check:docs:api-surface`
+  - `rg` confirmed stale in-progress/open-gate wording is gone from RFC 0013;
+    remaining hits are historical journal entries.
+
+### Notes
+
+- This is a status-closure slice. It does not change runtime code.
+- The RFC remains strict about future changes: if Trellis changes again, rerun
+  release and consumer proof before treating the implemented status as current.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
