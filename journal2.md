@@ -4706,3 +4706,55 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
   release and consumer proof before treating the implemented status as current.
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
+
+## Slice 83: Nuxt Kit Type Identity Closure
+
+### Proof
+
+- A current-head release proof exposed one remaining release-quality blocker
+  after RFC 0013 status closure:
+  `pnpm run check:publish-surface` failed because Trellis resolved mixed Nuxt
+  type identities through the local workspace install.
+- The concrete split was `@nuxt/schema@4.4.8` beside transitive
+  `@nuxt/schema@4.4.7` through `@nuxt/kit@4.4.7`. That made exported Nuxt
+  module types nominally incompatible even though the implementation was not
+  trying to change behavior.
+- This was a dependency source-of-truth issue, not a Trellis API issue. The
+  right fix was to make the workspace resolve one Nuxt kit/schema line instead
+  of adding casts, adapters, or compatibility shims in source.
+
+### Implementation
+
+- Added a workspace override for `@nuxt/kit: 4.4.8` beside the existing
+  `@nuxt/schema: 4.4.8` override in `pnpm-workspace.yaml`.
+- Regenerated `pnpm-lock.yaml` with `pnpm install`.
+- No runtime, API, generated-handle, lane, bridge, or security-contract code
+  changed in this slice.
+
+### Verification
+
+- Dependency identity proof passed:
+  - `pnpm why @nuxt/kit --depth 4` reported exactly one version:
+    `@nuxt/kit@4.4.8`.
+  - `rg -n "@nuxt/kit@4\\.4\\.7|@nuxt\\+kit@4\\.4\\.7|@nuxt/schema@4\\.4\\.7|@nuxt\\+schema@4\\.4\\.7" pnpm-lock.yaml || true`
+    found no remaining `4.4.7` Nuxt kit/schema lockfile entries.
+- Focused publish proof passed:
+  `pnpm run check:publish-surface`.
+- Full release proof passed:
+  `pnpm run release:verify` completed with exit code 0. The gate covered
+  formatting, lint, publish surface, compatibility matrix, type contracts,
+  bridge/public types, harness server types, canonical examples, contract
+  tests, security policy/contract/packed exports, maintained-example doctor,
+  starter doctor, broad unit/Convex/Nuxt/server/browser tests, e2e, starter
+  typecheck, starter build, Convex generated drift, packed tarball workspace
+  reference checks, production audit, and final build.
+
+### Notes
+
+- This closes the remaining "not yet" reason from the post-RFC-current-head
+  audit: Trellis now has a clean release gate at the same head that includes
+  the Nuxt dependency identity fix.
+- The fix keeps one dependency source of truth and avoids source-level casts or
+  compatibility paths.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
