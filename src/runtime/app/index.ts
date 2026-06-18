@@ -41,7 +41,19 @@ export function workspaceScope(): WorkspaceScopeDefinition {
   }
 }
 
-type WorkspaceScopedContext<TCtx> = Omit<TCtx, 'workspaceId'> & { workspaceId: string }
+type WorkspaceIdFromAppIdentity<TCtx> = TCtx extends {
+  appIdentity: () => Promise<(infer TActor) | null>
+}
+  ? NonNullable<TActor> extends { workspaceId?: infer TWorkspaceId }
+    ? Extract<TWorkspaceId, string> extends never
+      ? string
+      : Extract<TWorkspaceId, string>
+    : string
+  : string
+
+type WorkspaceScopedContext<TCtx> = Omit<TCtx, 'workspaceId'> & {
+  workspaceId: WorkspaceIdFromAppIdentity<TCtx>
+}
 
 type AppOperationShape = Omit<OperationShape, 'guard'> & {
   guard?: never

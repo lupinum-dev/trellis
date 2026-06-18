@@ -1,5 +1,4 @@
 import { operation } from '@lupinum/trellis/app'
-import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import type { MutationCtx } from '../../_generated/server'
@@ -16,12 +15,6 @@ type CreateWorkspaceArgs = { name: string; slug: string }
 
 export const createWorkspaceOp = operation.mutation({
   id: 'workspaces.create',
-  permit: unsafePermit.permit({
-    kind: 'preTenantWorkspaceBootstrap',
-    reason:
-      'Create the first workspace before a tenant-scoped appIdentity can exist; handler requires a signed user caller.',
-    scope: ['workspaces', 'users', 'runbooks'],
-  }),
   args: createWorkspace.args,
   crossTenant: {
     mode: 'write',
@@ -119,4 +112,4 @@ export const createWorkspaceOp = operation.mutation({
   },
 })
 
-export const createWorkspaceMutation = mutation.unsafe(createWorkspaceOp)
+export const createWorkspaceMutation = mutation.authenticated(createWorkspaceOp)

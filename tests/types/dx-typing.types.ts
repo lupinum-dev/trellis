@@ -1,6 +1,12 @@
-import type { FunctionReference } from 'convex/server'
+import type {
+  FunctionReference,
+  GenericDataModel,
+  GenericQueryCtx,
+  MutationBuilder,
+  QueryBuilder,
+} from 'convex/server'
 
-import { operation as appOperation } from '../../src/runtime/app'
+import { defineTrellis, operation as appOperation, workspaceScope } from '../../src/runtime/app'
 import { defineArgs } from '../../src/runtime/args'
 import {
   definePermission,
@@ -168,6 +174,50 @@ const _createTaskOperation = appOperation.mutation({
   handler: async (_ctx, _args, _loaded) => null,
 })
 void _createTaskOperation
+
+type WorkspaceId = string & { readonly __tableName: 'workspaces' }
+type WorkspaceActor = {
+  kind: 'user'
+  userId: string
+  authKey: string
+  role: 'owner'
+  workspaceId: WorkspaceId
+}
+type WorkspaceOperationCtx = GenericQueryCtx<GenericDataModel> & {
+  workspaceId: WorkspaceId
+  appIdentity: () => Promise<WorkspaceActor>
+}
+
+const workspacePermission = definePermission({
+  key: 'workspace.read',
+  check: true,
+})
+
+const workspaceRuntime = defineTrellis(
+  {
+    query: {} as QueryBuilder<GenericDataModel, 'public'>,
+    mutation: {} as MutationBuilder<GenericDataModel, 'public'>,
+  },
+  {
+    appIdentity: async () => ({
+      kind: 'user',
+      userId: 'user_1',
+      authKey: 'auth_1',
+      role: 'owner',
+      workspaceId: 'workspace_1' as WorkspaceId,
+    }),
+  },
+)
+
+const _brandedWorkspaceOperation = appOperation.query({
+  id: 'workspace.branded',
+  args: {},
+  scope: workspaceScope(),
+  permission: workspacePermission,
+  handler: async (ctx: WorkspaceOperationCtx) => ctx.workspaceId,
+})
+
+workspaceRuntime.query.workspace(_brandedWorkspaceOperation)
 
 const testContext = createTestContext({ schema: {} as never })
 void testContext

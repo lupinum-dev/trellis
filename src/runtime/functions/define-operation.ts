@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Type-level function-shape inference needs `any` for parameter contravariance. */
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
+import type { AuthRequiredGuard } from '../auth/define-guard.js'
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
 import type { AwaitedValue, FallbackIfUnknownOrNever } from '../types/type-utils.js'
 import type {
@@ -153,7 +154,7 @@ type InferOperationPrincipal<TDefinition extends OperationShape> =
     caller: () => Promise<infer TCaller>
   }
     ? TCaller
-    : never
+    : unknown
 
 type InferOperationDelegation<TDefinition extends OperationShape> =
   InferOperationCtx<TDefinition> extends {
@@ -171,12 +172,17 @@ type InferActorFromCtx<TCtx> = TCtx extends {
 type InferActorFromGuard<TGuard> =
   TGuard extends StructuredGuard<unknown, infer TActor> ? TActor : never
 
-type InferOperationGuard<TDefinition extends OperationShape> =
-  TDefinition['guard'] extends infer TGuard
-    ? TGuard extends StructuredGuard<any, any>
-      ? TGuard
-      : never
+type InferOperationGuard<TDefinition extends OperationShape> = TDefinition extends {
+  guard: infer TGuard
+}
+  ? TGuard extends StructuredGuard<any, any>
+    ? TGuard
     : never
+  : TDefinition extends { permission: PermissionKeyHandle<string> }
+    ? AuthRequiredGuard
+    : TDefinition extends { scope: unknown }
+      ? AuthRequiredGuard
+      : never
 
 type InferOperationActor<TDefinition extends OperationShape> = FallbackIfUnknownOrNever<
   InferActorFromCtx<InferOperationCtx<TDefinition>>,
@@ -206,7 +212,7 @@ export type InferOperationPreview<TDefinition extends OperationShape> =
     ? AwaitedValue<TPreview>
     : unknown
 
-type ResolvedOperationDefinition<TDefinition extends OperationShape> = OperationDefinition<
+type ResolvedOperationBase<TDefinition extends OperationShape> = OperationDefinition<
   InferOperationCtx<TDefinition>,
   InferOperationPrincipal<TDefinition>,
   InferOperationDelegation<TDefinition>,
@@ -217,6 +223,20 @@ type ResolvedOperationDefinition<TDefinition extends OperationShape> = Operation
   InferOperationResult<TDefinition>,
   InferOperationPreview<TDefinition>
 >
+
+type ResolvedOperationGuardProperty<TDefinition extends OperationShape> = TDefinition extends {
+  guard: infer TGuard
+}
+  ? TGuard extends StructuredGuard<any, any>
+    ? { guard?: TGuard }
+    : { guard?: never }
+  : { guard?: never }
+
+type ResolvedOperationDefinition<TDefinition extends OperationShape> = Omit<
+  ResolvedOperationBase<TDefinition>,
+  'guard'
+> &
+  ResolvedOperationGuardProperty<TDefinition>
 
 export type ValidateOperationDefinition<TDefinition extends OperationShape> = TDefinition &
   ResolvedOperationDefinition<TDefinition>
@@ -248,7 +268,7 @@ type DescriptorBoundOperationDefinition<
   id: TDescriptor['id']
   kind: TDescriptor['kind']
   args: TDescriptor['args']
-}
+} & (TDescriptor extends { permission: infer TPermission } ? { permission: TPermission } : unknown)
 
 type DefineOperationFn = {
   <const TDefinition extends OperationShape>(

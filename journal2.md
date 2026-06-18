@@ -2498,11 +2498,84 @@ test/helpers.ts` had no matches except the candidate helper row before
   the product operation test helper. Server/webhook adapters stay explicit until
   the RFC server-route adapter slice gives them a generated operation boundary.
 
+## Slice 46: Type Branded Workspace Operation Lanes
+
+### Proof
+
+- Example 07 had become runtime-green but not type-green:
+  `pnpm --dir examples/07-mcp-reference typecheck` failed on workspace
+  operations whose handlers used the app's branded Convex `Id<'workspaces'>`.
+- Rebuilding the module first was necessary because example typecheck consumes
+  Trellis through package exports and generated Nuxt declarations, not directly
+  from source files.
+- After rebuilding, the failure reduced to two framework type leaks:
+  workspace lane ctx typed `workspaceId` as plain `string`, and app-authored
+  permission/scoped operations inferred a `never` caller/app identity guard
+  context even though authenticated/workspace lanes inject the real guard at
+  registration time.
+- Example 07 also still had an old raw unsafe bootstrap registration:
+  `mutation.unsafe(createWorkspaceOp)`. That was a second path for an operation
+  that already declares a signed caller and explicit cross-tenant capability.
+
+### Implementation
+
+- Derived workspace lane `ctx.workspaceId` from the configured app identity
+  shape instead of hardcoding it to `string`.
+- Applied the same actor-derived workspace id typing inside `workspaceScope()`
+  operation wrappers.
+- Updated operation definition inference so app-authored permission/scoped
+  operations use the authenticated guard shape internally for handler/load
+  narrowing, without exposing a caller-authored `guard` property to
+  authenticated/workspace lanes.
+- Changed operation principal fallback from `never` to `unknown` when an
+  operation handler does not care about `ctx.caller()`, allowing the lane's real
+  caller type to flow in at registration time.
+- Carried descriptor-owned permission metadata into descriptor-bound operation
+  types.
+- Hard-cut example 07 workspace bootstrap from raw unsafe registration to
+  `mutation.authenticated(createWorkspaceOp)` and removed the stale unsafe
+  permit metadata.
+- Added a type regression proving a branded workspace operation can be accepted
+  by `defineTrellis(...).query.workspace(...)`.
+
+### Verification
+
+- Module build passed: `pnpm run build:module`.
+- Example 07 typecheck passed:
+  `pnpm --dir examples/07-mcp-reference typecheck`.
+- Type contract checks passed: `pnpm run test:types:contracts`.
+- Public type surface passed: `pnpm run test:types:public`.
+- Focused operation/runtime unit tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-descriptor.test.ts tests/unit/functions-defineTrellis.test.ts`
+  reported 2 passing test files and 78 passing tests.
+- Example 07 test suite passed:
+  `pnpm --dir examples/07-mcp-reference test` reported 3 passing test files and
+  20 passing tests.
+- Format check passed for touched files:
+  `pnpm exec oxfmt --check src/runtime/functions/index.ts src/runtime/app/index.ts src/runtime/functions/define-operation.ts examples/07-mcp-reference/convex/features/workspaces/domain.ts tests/types/dx-typing.types.ts`.
+- Whitespace check passed: `git diff --check`.
+- Relevant lint gates passed:
+  `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run lint:src:runtime:rest`, `pnpm run lint:tests`, and
+  `pnpm run lint:examples`.
+
+### Notes
+
+- The bootstrap operation still performs an intentional cross-tenant write, but
+  the authority is now its declared `crossTenant` capability plus the
+  authenticated lane. It is no longer registered through the raw unsafe escape
+  hatch.
+- The operation inference change does not reintroduce guard authoring on
+  explicit lanes. The inferred guard exists only for operation handler type
+  narrowing; lane builders still reject `guard` on authenticated/workspace
+  definitions.
+- `pnpm --dir examples/07-mcp-reference typecheck` is now a usable acceptance
+  gate for the MCP reference app again.
+
 ## Next Slice Candidates
 
-1. Fix the workspace ctx typing mismatch in maintained examples and starter
-   fixtures so `pnpm --dir examples/07-mcp-reference typecheck` can become a
-   reliable acceptance gate again.
+1. Sweep maintained examples and starter fixtures for remaining raw unsafe
+   operation registrations or stale operation/bootstrap patterns.
 2. Push generated testing handles into Ginko CMS tests and delete
    `handlerIdByFunctionRef` / destructive transport maps from the consumer.
 3. Add a first fail-closed stale-registry check outside Nuxt prepare so generated

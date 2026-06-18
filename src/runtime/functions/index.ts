@@ -280,8 +280,15 @@ type MutationCtxWithRuntime<
   db: MutationDbWithRuntime<DataModel>
 } & FunctionsCtxExtension<TCaller, TActingFor, TActor>
 
-type WorkspaceCtx<TCtx> = TCtx & {
-  workspaceId: string
+type WorkspaceIdFromActor<TActor> =
+  NonNullable<TActor> extends { workspaceId?: infer TWorkspaceId }
+    ? Extract<TWorkspaceId, string> extends never
+      ? string
+      : Extract<TWorkspaceId, string>
+    : string
+
+type WorkspaceCtx<TCtx, TActor> = TCtx & {
+  workspaceId: WorkspaceIdFromActor<TActor>
 }
 
 type PublicQueryCtxWithRuntime<
@@ -2610,7 +2617,7 @@ type QueryWithBackendLanes<
     TActor
   >
   workspace: AuthenticatedStructuredQueryBuilder<
-    WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+    WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
     Visibility,
     TActor
   >
@@ -2645,7 +2652,7 @@ type MutationWithBackendLanes<
   >
   workspace: MutationPreviewProjectionBuilder<
     AuthenticatedStructuredMutationBuilder<
-      WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+      WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
       Visibility,
       TActor
     >
@@ -2678,7 +2685,7 @@ type ActionWithBackendLanes<
     TActor
   >
   workspace: AuthenticatedStructuredActionBuilder<
-    WorkspaceCtx<ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+    WorkspaceCtx<ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
     Visibility,
     TActor
   >
@@ -3630,7 +3637,7 @@ function buildTrellisRuntime<
       TActor
     >
     workspace: AuthenticatedStructuredQueryBuilder<
-      WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+      WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
       QueryVisibility,
       TActor
     >
@@ -3658,7 +3665,7 @@ function buildTrellisRuntime<
     >
     workspace: MutationPreviewProjectionBuilder<
       AuthenticatedStructuredMutationBuilder<
-        WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+        WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
         MutationVisibility,
         TActor
       >
@@ -3688,7 +3695,7 @@ function buildTrellisRuntime<
           TActor
         >
         workspace: AuthenticatedStructuredQueryBuilder<
-          WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+          WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
           InternalQueryVisibility,
           TActor
         >
@@ -3718,7 +3725,7 @@ function buildTrellisRuntime<
         >
         workspace: MutationPreviewProjectionBuilder<
           AuthenticatedStructuredMutationBuilder<
-            WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+            WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
             InternalMutationVisibility,
             TActor
           >
@@ -3741,7 +3748,7 @@ function buildTrellisRuntime<
             TActor
           >
           workspace: AuthenticatedStructuredActionBuilder<
-            WorkspaceCtx<ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>>,
+            WorkspaceCtx<ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
             ActionVisibility,
             TActor
           >
