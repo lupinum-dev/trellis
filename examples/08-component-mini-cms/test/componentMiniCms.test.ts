@@ -171,7 +171,7 @@ describe('example 08 component mini cms', () => {
     )
 
     expect(source).toContain('tool.operation(publishPageOp')
-    expect(source).toContain('transportExecuteOperationRef(')
+    expect(source).toContain('executeOperationRef(')
     expect(source).toContain('publishPageOp')
     expect(source).toContain('api.features.pages.domain.publishAction')
     expect(source).toContain("executeOperation: 'action'")

@@ -117,7 +117,6 @@ export {
   operationPreviewValidator,
   previewOperationRef,
   projectOperationRef,
-  transportExecuteOperationRef,
   implementOperation,
   previewOf,
   trellisOperationMetadataKey,

@@ -96,7 +96,7 @@ export const securitySourcePolicies = [
       /^(?:apps\/docs\/content\/docs|apps\/harness\/server|examples|src\/cli\/starter-fixtures)\//,
     policy: 'MCP authoring surfaces must import operation ref helpers from @lupinum/trellis/mcp',
     pattern:
-      /import\s*\{[^}]*\b(?:executeOperationRef|previewOperationRef|transportExecuteOperationRef|projectOperationRef)\b[^}]*\}\s*from ['"]@lupinum\/trellis\/backend['"]/,
+      /import\s*\{[^}]*\b(?:executeOperationRef|previewOperationRef|projectOperationRef)\b[^}]*\}\s*from ['"]@lupinum\/trellis\/backend['"]/,
   },
   {
     id: 'no-beginner-define-trellis-from-backend',

@@ -152,7 +152,7 @@
         "id": "no-mcp-operation-refs-from-backend",
         "kind": "line",
         "policy": "MCP authoring surfaces must import operation ref helpers from @lupinum/trellis/mcp",
-        "pattern": "/import\\s*\\{[^}]*\\b(?:executeOperationRef|previewOperationRef|transportExecuteOperationRef|projectOperationRef)\\b[^}]*\\}\\s*from ['\"]@lupinum\\/trellis\\/backend['\"]/"
+        "pattern": "/import\\s*\\{[^}]*\\b(?:executeOperationRef|previewOperationRef|projectOperationRef)\\b[^}]*\\}\\s*from ['\"]@lupinum\\/trellis\\/backend['\"]/"
       },
       {
         "id": "no-open-guard-in-protected-lanes",

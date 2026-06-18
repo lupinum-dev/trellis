@@ -197,7 +197,6 @@ through the operation-backed MCP path.
 Projection helpers include:
 
 - `executeOperationRef(operation, ref)`
-- `transportExecuteOperationRef(operation, ref)`
 - `previewOperationRef(operation, ref)`
 - `projectOperationRef(operation, projection, ref)`
 - `previewOf(operation)`

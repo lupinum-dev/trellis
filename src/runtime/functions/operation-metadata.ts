@@ -385,14 +385,6 @@ export function executeOperationRef<TOperation extends OperationMetadataCarrier,
   return projectOperationRef(operation, 'execute', ref, options)
 }
 
-export function transportExecuteOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
-  operation: TOperation,
-  ref: TRef,
-  options: { functionRef?: string; executeFunctionRef?: string } = {},
-): ValidateOperationProjectionRef<TOperation, 'execute', TRef> {
-  return projectOperationRef(operation, 'execute', ref, options)
-}
-
 export function previewOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,

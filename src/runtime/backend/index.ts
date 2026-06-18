@@ -20,7 +20,6 @@ export {
   previewOf,
   previewOperationRef,
   projectOperationRef,
-  transportExecuteOperationRef,
   trellisBackendLaneMetadataKey,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,

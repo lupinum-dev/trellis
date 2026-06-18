@@ -26,7 +26,6 @@ export {
   isOperationHandle,
   previewOperationRef,
   projectOperationRef,
-  transportExecuteOperationRef,
 } from '../functions/operation-metadata.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
 export { unsafe } from './unsafe-permit.js'

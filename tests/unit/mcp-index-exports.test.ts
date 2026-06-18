@@ -54,7 +54,6 @@ describe('mcp entrypoint exports', () => {
       'isOperationHandle',
       'previewOperationRef',
       'projectOperationRef',
-      'transportExecuteOperationRef',
       'unsafe',
       'useMcpServer',
       'useMcpSession',
@@ -89,7 +88,6 @@ describe('mcp entrypoint exports', () => {
     expect(mcpApi).toHaveProperty('withSummary')
     expect(mcpApi).toHaveProperty('executeOperationRef')
     expect(mcpApi).toHaveProperty('previewOperationRef')
-    expect(mcpApi).toHaveProperty('transportExecuteOperationRef')
     expect(mcpApi).toHaveProperty('projectOperationRef')
   })
 })

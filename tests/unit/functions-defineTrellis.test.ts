@@ -16,7 +16,7 @@ import {
   getOperationProjectionMetadata,
   operationPreview,
   previewOf,
-  transportExecuteOperationRef,
+  executeOperationRef,
 } from '../../src/runtime/functions/define-operation'
 import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity-forwarding/shared'
 import { createObservationCapture } from '../../src/runtime/testing'
@@ -1857,7 +1857,7 @@ describe('defineTrellis', () => {
       handler: async () => ({ deleted: true }),
     })
     const definition = runtime.transportMutation.authenticated(
-      transportExecuteOperationRef(operation, operation, {
+      executeOperationRef(operation, operation, {
         functionRef: 'tasks:delete',
       }),
     ) as {
@@ -1927,7 +1927,7 @@ describe('defineTrellis', () => {
 
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const definition = runtime.transportMutation.authenticated(
-      transportExecuteOperationRef(operation, operation, {
+      executeOperationRef(operation, operation, {
         functionRef: 'tasks:delete',
       }) as never,
     ) as {
@@ -2006,7 +2006,7 @@ describe('defineTrellis', () => {
 
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const definition = runtime.transportMutation.authenticated(
-      transportExecuteOperationRef(operation, operation, {
+      executeOperationRef(operation, operation, {
         functionRef: 'tasks:delete',
       }) as never,
     ) as {

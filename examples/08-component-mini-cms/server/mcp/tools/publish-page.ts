@@ -1,11 +1,11 @@
-import { previewOperationRef, transportExecuteOperationRef } from '@lupinum/trellis/mcp'
+import { previewOperationRef, executeOperationRef } from '@lupinum/trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { publishPageOp } from '../../../convex/components/miniCms/features/pages/operations'
 import { tool } from '../../lib/mcp-runtime'
 
 export default tool.operation(publishPageOp, {
-  execute: transportExecuteOperationRef(publishPageOp, api.features.pages.domain.publishAction),
+  execute: executeOperationRef(publishPageOp, api.features.pages.domain.publishAction),
   preview: previewOperationRef(publishPageOp, api.features.pages.domain.previewPublish),
   executeOperation: 'action',
   confirmationMode: 'transport',
