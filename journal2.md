@@ -4600,3 +4600,53 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
   - keep package/browser consumer proof fresh whenever Trellis changes.
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
+
+## Slice 81: RFC 0013 Normal MCP Docs Drift
+
+### Proof
+
+- A focused RFC 0013 acceptance scan found one normal-path docs drift:
+  `apps/docs/content/docs/02.concepts/4.call-patterns.md` still taught ordinary
+  MCP projection with manual `executeOperationRef(...)` and
+  `previewOperationRef(...)` binding.
+- That contradicted the now-implemented generated-handle path. Normal MCP tool
+  files should import generated handles from `#trellis/operations/mcp`; the
+  manual projection ref helpers are for generated output, package/component
+  boundaries, and advanced projection code.
+- The same audit confirmed the remaining source hits are advanced/internal or
+  test fixtures rather than normal app guidance:
+  - component mini-CMS uses component/bridge boundaries;
+  - operation registry/public-surface codegen emits projection refs;
+  - type and unit tests keep low-level helpers covered;
+  - generated fixtures contain derived operation refs.
+
+### Implementation
+
+- Updated `apps/docs/content/docs/02.concepts/4.call-patterns.md` so the normal
+  MCP projection example imports `operations` from `#trellis/operations/mcp`
+  and binds `tool.operation(operations.tasks.delete, ...)`.
+- Added a short note that lower-level execute/preview ref helpers are reserved
+  for generated outputs, package boundaries, and component bridges.
+- Updated `apps/docs/content/docs/13.api-reference/3.functions.md` to clarify
+  that normal app code should use explicit lanes plus generated operation
+  handles, while explicit ref helpers remain lower-level projection tools.
+
+### Verification
+
+- Focused RFC 0013 acceptance tests passed:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts tests/unit/cli-doctor.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/operation-alias-no-permission-codegen.test.ts`
+  reported 4 passing files and 108 passing tests.
+- Starter fixture validation passed:
+  `node scripts/check-starter-fixtures.mjs`
+  reported public, personal, workspace, and workspace-MCP doctor checks with no
+  warnings or failures, plus workspace-MCP add-entity validation and operation
+  registry validation.
+
+### Notes
+
+- This is a documentation hard-cut alignment slice. It does not change runtime
+  code.
+- `executeOperationRef(...)` and `previewOperationRef(...)` stay available and
+  tested for the lower-level boundaries RFC 0013 explicitly keeps.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
