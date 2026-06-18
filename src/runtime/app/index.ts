@@ -14,6 +14,7 @@ import {
 } from '../functions/index.js'
 import type {
   McpWriteSafety,
+  OperationProjectionRegistry,
   OperationPreviewEffect,
   OperationPreviewEnvelope,
   OperationPreviewIssue,
@@ -271,6 +272,7 @@ export {
 }
 export type {
   McpWriteSafety,
+  OperationProjectionRegistry,
   OperationPreviewEffect,
   OperationPreviewEnvelope,
   OperationPreviewIssue,

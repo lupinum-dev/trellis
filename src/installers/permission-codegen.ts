@@ -49,23 +49,37 @@ export const operations = {
 `
 }
 
+function renderEmptyOperationProjectionsModule(): string {
+  return `// AUTO-GENERATED. Do not edit.
+import type { OperationProjectionRegistry } from '@lupinum/trellis/app'
+
+export const operationProjectionRegistry = {
+  fingerprint: 'sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
+  executeById: {},
+  previewById: {},
+} as const satisfies OperationProjectionRegistry
+`
+}
+
 function renderOperationRegistryTemplate(
   registry: OperationRegistry,
   path: string,
   options: {
     operationRefsPath: string
     operationHandlesPath: string
+    operationProjectionsPath: string
   },
 ): string {
   if (registry.operations.length === 0) {
-    return path === options.operationRefsPath
-      ? renderEmptyOperationRefsModule()
-      : renderEmptyOperationHandlesModule()
+    if (path === options.operationRefsPath) return renderEmptyOperationRefsModule()
+    if (path === options.operationHandlesPath) return renderEmptyOperationHandlesModule()
+    return renderEmptyOperationProjectionsModule()
   }
 
   const rendered = renderOperationRegistryGeneratedFiles(registry, {
     operationRefsPath: options.operationRefsPath,
     operationHandlesPath: options.operationHandlesPath,
+    operationProjectionsPath: options.operationProjectionsPath,
     projectOperationRefImport: '#trellis/mcp',
     defineOperationHandleImport: '#trellis/mcp',
     apiImport: '#trellis/api',
@@ -86,8 +100,10 @@ export function installPermissionCodegen(options: InstallPermissionCodegenOption
   const readOperationRegistry = () => buildOperationRegistry(readPublicSurfaceMetadata())
   const operationRefsFilename = 'trellis/operation-refs.ts'
   const operationHandlesFilename = 'trellis/operation-handles/mcp.ts'
+  const operationProjectionsFilename = 'trellis/operation-projections.ts'
   const operationRefsPath = templatePathForImports(nuxt, operationRefsFilename)
   const operationHandlesPath = templatePathForImports(nuxt, operationHandlesFilename)
+  const operationProjectionsPath = templatePathForImports(nuxt, operationProjectionsFilename)
 
   addTypeTemplate({
     filename: 'types/trellis-permissions.d.ts',
@@ -127,6 +143,7 @@ export function installPermissionCodegen(options: InstallPermissionCodegenOption
       renderOperationRegistryTemplate(readOperationRegistry(), operationRefsPath, {
         operationRefsPath,
         operationHandlesPath,
+        operationProjectionsPath,
       }),
   })
 
@@ -137,9 +154,22 @@ export function installPermissionCodegen(options: InstallPermissionCodegenOption
       renderOperationRegistryTemplate(readOperationRegistry(), operationHandlesPath, {
         operationRefsPath,
         operationHandlesPath,
+        operationProjectionsPath,
       }),
   })
   nuxt.options.alias['#trellis/operations/mcp'] = operationHandlesTemplate.dst
+
+  const operationProjectionsTemplate = addTemplate({
+    filename: operationProjectionsFilename,
+    write: true,
+    getContents: () =>
+      renderOperationRegistryTemplate(readOperationRegistry(), operationProjectionsPath, {
+        operationRefsPath,
+        operationHandlesPath,
+        operationProjectionsPath,
+      }),
+  })
+  nuxt.options.alias['#trellis/operation-projections'] = operationProjectionsTemplate.dst
 
   nuxt.hook('builder:watch', async (_event, path) => {
     if (!shouldRefreshPermissionCodegen(path, include) && !shouldRefreshPublicSurfaceCodegen(path))

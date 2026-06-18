@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { posix } from 'node:path'
 
 import type { OperationHandleBindingInput } from './operation-handle-codegen.js'
@@ -46,8 +47,10 @@ export interface OperationRegistryGeneratedFile {
 export interface OperationRegistryGeneratedFilesOptions {
   operationRefsPath: string
   operationHandlesPath: string
+  operationProjectionsPath?: string
   projectOperationRefImport: string
   defineOperationHandleImport: string
+  operationProjectionRegistryImport?: string
   apiImport: string
   runtimes?: OperationHandleBindingInput['runtimes']
 }
@@ -178,10 +181,15 @@ function renderOperationRefsModuleFromRegistry(
 
   const refs = buildOperationRefBindingsFromRegistry(registry)
   const projectionByRefName = new Map<string, OperationRegistryProjection>()
+  const executeFunctionRefByPreviewRefName = new Map<string, string>()
   for (const operation of registry.operations) {
     projectionByRefName.set(getOperationRefExportName(operation.execute), operation.execute)
     if (operation.preview) {
       projectionByRefName.set(getOperationRefExportName(operation.preview), operation.preview)
+      executeFunctionRefByPreviewRefName.set(
+        getOperationRefExportName(operation.preview),
+        operation.execute.functionRef,
+      )
     }
   }
 
@@ -196,7 +204,9 @@ function renderOperationRefsModuleFromRegistry(
       `  ${ref.descriptorName},`,
       `  '${ref.projection}',`,
       `  ${renderGeneratedApiPath(ref.apiPath, 'Operation ref')},`,
-      `  { functionRef: '${projection.functionRef}' },`,
+      ref.projection === 'preview'
+        ? `  { functionRef: '${projection.functionRef}', executeFunctionRef: '${executeFunctionRefByPreviewRefName.get(ref.exportName)}' },`
+        : `  { functionRef: '${projection.functionRef}' },`,
       ')',
     )
     if (index < refs.length - 1) lines.push('')
@@ -204,6 +214,48 @@ function renderOperationRefsModuleFromRegistry(
 
   lines.push('')
   return lines.join('\n')
+}
+
+function renderStringMap(name: string, entries: readonly (readonly [string, string])[]): string[] {
+  if (entries.length === 0) {
+    return [`  ${name}: {},`]
+  }
+
+  return [`  ${name}: {`, ...entries.map(([key, value]) => `    '${key}': '${value}',`), '  },']
+}
+
+function operationRegistryFingerprint(registry: OperationRegistry): string {
+  const payload = registry.operations.map((operation) => ({
+    id: operation.id,
+    kind: operation.kind,
+    execute: operation.execute.functionRef,
+    preview: operation.preview?.functionRef,
+  }))
+  return `sha256:${createHash('sha256').update(JSON.stringify(payload)).digest('hex')}`
+}
+
+function renderOperationProjectionRegistryModule(
+  registry: OperationRegistry,
+  options: Pick<OperationRegistryGeneratedFilesOptions, 'operationProjectionRegistryImport'>,
+): string {
+  const executeEntries = registry.operations.map(
+    (operation) => [operation.id, operation.execute.functionRef] as const,
+  )
+  const previewEntries = registry.operations
+    .filter((operation) => operation.preview !== undefined)
+    .map((operation) => [operation.id, operation.preview!.functionRef] as const)
+
+  return [
+    '// AUTO-GENERATED. Do not edit.',
+    `import type { OperationProjectionRegistry } from '${options.operationProjectionRegistryImport ?? '@lupinum/trellis/app'}'`,
+    '',
+    'export const operationProjectionRegistry = {',
+    `  fingerprint: '${operationRegistryFingerprint(registry)}',`,
+    ...renderStringMap('executeById', executeEntries),
+    ...renderStringMap('previewById', previewEntries),
+    '} as const satisfies OperationProjectionRegistry',
+    '',
+  ].join('\n')
 }
 
 export function buildOperationRegistry(metadata: PublicSurfaceCodegenMetadata): OperationRegistry {
@@ -318,7 +370,7 @@ export function renderOperationRegistryGeneratedFiles(
 ): OperationRegistryGeneratedFile[] {
   const refs = buildOperationRefBindingsFromRegistry(registry)
 
-  return [
+  const files: OperationRegistryGeneratedFile[] = [
     {
       path: options.operationRefsPath,
       content: renderOperationRefsModuleFromRegistry(registry, options),
@@ -337,4 +389,13 @@ export function renderOperationRegistryGeneratedFiles(
       }),
     },
   ]
+
+  if (options.operationProjectionsPath) {
+    files.push({
+      path: options.operationProjectionsPath,
+      content: renderOperationProjectionRegistryModule(registry, options),
+    })
+  }
+
+  return files
 }

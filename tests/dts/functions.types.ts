@@ -77,6 +77,7 @@ const previewRef = previewOperationRef(
     { id: string },
     OperationPreviewEnvelope<{ operation: string; id: string }>
   >,
+  { executeFunctionRef: 'features/entries/domain:archiveEntry' },
 )
 
 expectTypeOf(

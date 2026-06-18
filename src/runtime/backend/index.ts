@@ -61,6 +61,7 @@ export type {
   OperationKind,
   OperationMetadataDefinition,
   OperationExecutionsById,
+  OperationProjectionRegistry,
   OperationPreviewEffect,
   OperationPreviewEnvelope,
   OperationPreviewIssue,

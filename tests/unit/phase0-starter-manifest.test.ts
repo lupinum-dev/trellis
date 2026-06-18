@@ -18,6 +18,7 @@ type StarterManifest = {
     path?: string
     operationRefsPath?: string
     operationHandlesPath?: string
+    operationProjectionsPath?: string
   }[]
   generatedPaths?: string[]
 }
@@ -65,6 +66,7 @@ describe('phase0 workspace-mcp starter manifest', () => {
       'convex/schema.ts',
       'generated/operation-refs.ts',
       'generated/operation-handles/mcp.ts',
+      'generated/operation-projections.ts',
       'nuxt.config.ts',
       'package.json',
       'server/mcp/tools/create-project.ts',
@@ -92,6 +94,7 @@ describe('phase0 workspace-mcp starter manifest', () => {
         kind: 'operationRegistry',
         operationRefsPath: 'generated/operation-refs.ts',
         operationHandlesPath: 'generated/operation-handles/mcp.ts',
+        operationProjectionsPath: 'generated/operation-projections.ts',
       }),
     ])
     expect(toFixturePath(manifestPath)).toBe('starter.manifest.json')
@@ -383,6 +386,7 @@ describe('fixture-backed beginner starter manifests', () => {
     const rendered = renderOperationRegistryGeneratedFiles(registry, {
       operationRefsPath: '.nuxt/trellis/operation-refs.ts',
       operationHandlesPath: '.nuxt/trellis/operation-handles/mcp.ts',
+      operationProjectionsPath: '.nuxt/trellis/operation-projections.ts',
       projectOperationRefImport: '#trellis/mcp',
       defineOperationHandleImport: '#trellis/mcp',
       apiImport: '#trellis/api',
@@ -391,6 +395,7 @@ describe('fixture-backed beginner starter manifests', () => {
     const byPath = new Map(rendered.map((file) => [file.path, file.content]))
     const refsSource = byPath.get('.nuxt/trellis/operation-refs.ts')
     const handlesSource = byPath.get('.nuxt/trellis/operation-handles/mcp.ts')
+    const projectionsSource = byPath.get('.nuxt/trellis/operation-projections.ts')
 
     expect(refsSource).toContain('api.features.todos.domain.create')
     expect(refsSource).toContain("{ functionRef: 'features/todos/domain:create' }")
@@ -398,5 +403,7 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(handlesSource).not.toContain('convex/features/todos/operations')
     expect(handlesSource).toContain("executeOperation: 'mutation'")
     expect(handlesSource).toContain("'todos.create': createTodoHandle")
+    expect(projectionsSource).toContain("'todos.create': 'features/todos/domain:create'")
+    expect(projectionsSource).toContain('satisfies OperationProjectionRegistry')
   })
 })

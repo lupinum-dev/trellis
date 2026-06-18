@@ -40,6 +40,7 @@ export type StarterOperationRegistryGeneratedFile = {
   kind: 'operationRegistry'
   operationRefsPath: string
   operationHandlesPath: string
+  operationProjectionsPath?: string
   projectOperationRefImport: string
   defineOperationHandleImport: string
   apiImport: string

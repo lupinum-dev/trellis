@@ -25,5 +25,8 @@ export const previewDeleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,
   'preview',
   api.features.projects.domain.previewDeleteProject,
-  { functionRef: 'features/projects/domain:previewDeleteProject' },
+  {
+    functionRef: 'features/projects/domain:previewDeleteProject',
+    executeFunctionRef: 'features/projects/domain:deleteProject',
+  },
 )

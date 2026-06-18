@@ -259,6 +259,7 @@ describe('operation registry codegen', () => {
       apiImport: '../../convex/_generated/api',
       defineOperationHandleImport: '@lupinum/trellis/mcp',
       operationHandlesPath: '.trellis/generated/operation-handles/mcp.ts',
+      operationProjectionsPath: '.trellis/generated/operation-projections.ts',
       operationRefsPath: '.trellis/generated/operation-refs.ts',
       projectOperationRefImport: '@lupinum/trellis/mcp',
       runtimes: ['mcp', 'testing'],
@@ -273,6 +274,9 @@ describe('operation registry codegen', () => {
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
       "{ functionRef: 'features/tasks/domain:archiveTask' }",
+    )
+    expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
+      "{ functionRef: 'features/tasks/domain:previewArchiveTask', executeFunctionRef: 'features/tasks/domain:archiveTask' }",
     )
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
       "from '../../../shared/features/tasks/operations'",
@@ -294,6 +298,21 @@ describe('operation registry codegen', () => {
     )
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).not.toContain(
       'convex/features/tasks/domain',
+    )
+    expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
+      "import type { OperationProjectionRegistry } from '@lupinum/trellis/app'",
+    )
+    expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
+      "fingerprint: 'sha256:",
+    )
+    expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
+      "'tasks.archive': 'features/tasks/domain:archiveTask'",
+    )
+    expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
+      "'tasks.archive': 'features/tasks/domain:previewArchiveTask'",
+    )
+    expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
+      'satisfies OperationProjectionRegistry',
     )
   })
 

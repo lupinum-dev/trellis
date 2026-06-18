@@ -645,10 +645,69 @@ loops.
   slice that lets canonical preview projections receive the execute ref from the
   registry without weakening confirmation binding.
 
+## Slice 14: Generated Projection Registry For Confirmation Binding
+
+### Proof
+
+- Added a failing runtime proof for destructive preview confirmation without an
+  app-authored `executeFunctionRef`: a destructive operation with only
+  `operationProjections.executeById` in `defineTrellis(...)` should issue a
+  backend confirmation token bound to the generated execute target and redeem
+  through the execute projection.
+- The initial focused run failed at preview confirmation with the old
+  `executeFunctionRef` requirement, proving backend confirmation still depended
+  on app-authored string metadata.
+- Added registry-render and installer proofs for a generated
+  `operationProjectionRegistry` artifact containing operation id to execute and
+  preview function refs plus a deterministic fingerprint.
+- Added fixture proof that the phase0 workspace-MCP manifest can generate the
+  projection registry beside operation refs and handles.
+
+### Implementation
+
+- Added `OperationProjectionRegistry` and `defineTrellis({ operationProjections
+})`.
+- Changed destructive preview confirmation to resolve its execute path from
+  preview projection metadata first, then generated `operationProjections`.
+- Changed destructive execute redemption and identity-forwarding target
+  selection to use the same generated execute path when explicit metadata is
+  absent.
+- Extended `projectOperationRef(...)`, `executeOperationRef(...)`,
+  `transportExecuteOperationRef(...)`, and `previewOperationRef(...)` options so
+  generated preview refs can carry the registry-derived execute target.
+- Added registry rendering for `operation-projections.ts` with derived
+  `executeById`, `previewById`, and fingerprint data.
+- Wired the Nuxt installer to emit `trellis/operation-projections.ts` and alias
+  it as `#trellis/operation-projections`.
+- Updated phase0 generated fixture output to include
+  `generated/operation-projections.ts` and preview refs stamped with
+  registry-derived execute metadata.
+
+### Verification
+
+- Initial focused runtime proof failed as expected:
+  `pnpm vitest run --project=unit tests/unit/functions-defineTrellis.test.ts -t "operation projection registry"`.
+- After implementation, focused runtime proof passed.
+- Focused codegen and fixture suite passed:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/mcp-operation-binding.test.ts`.
+- `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm run lint:src:core`, `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run check:publish-surface`, `pnpm run check:docs:api-surface`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- This slice creates the generated source of truth that can replace normal
+  app-authored `executeFunctionRef` strings without weakening backend
+  confirmation binding.
+- It does not yet hard-cut starter/add-resource Convex code away from
+  `executeFunctionRef`, because the Convex-side import path for generated
+  projection registries still needs a dedicated prepare/import wiring slice.
+
 ## Next Slice Candidates
 
-1. Remove app-authored `executeFunctionRef` from canonical destructive
-   operation authoring by deriving preview confirmation execute targets from the
-   registry/projection binding.
+1. Add a Convex-safe generated projection-registry import path and wire starters
+   / add-resource output to pass it into `defineTrellis(...)`, then delete normal
+   app-authored `executeFunctionRef` strings.
 2. Hard-cut maintained MCP examples to generated handles where the registry can
    own projection refs and MCP operation kinds.

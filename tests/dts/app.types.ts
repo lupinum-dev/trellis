@@ -9,12 +9,23 @@ import {
   previewOf,
   workspaceScope,
   type InferOperationResult,
+  type OperationProjectionRegistry,
   type WorkspaceScopeDefinition,
 } from '@lupinum/trellis/app'
 import { v } from 'convex/values'
 import { expectTypeOf } from 'vitest'
 
 expectTypeOf(defineTrellis).toBeFunction()
+
+const _operationProjectionRegistry = {
+  fingerprint: 'sha256:test',
+  executeById: {
+    'todos.remove': 'features/todos/domain:remove',
+  },
+  previewById: {
+    'todos.remove': 'features/todos/domain:previewRemove',
+  },
+} as const satisfies OperationProjectionRegistry
 
 // Intentional 0.3.0 public type boundary coverage: old protected-lane guard
 // shapes appear only as negative app-operation assertions.

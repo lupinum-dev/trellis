@@ -93,6 +93,7 @@ describe('permission codegen installer', () => {
 
     expect(nuxt.options.alias).toMatchObject({
       '#trellis/operations/mcp': '/virtual/trellis/operation-handles/mcp.ts',
+      '#trellis/operation-projections': '/virtual/trellis/operation-projections.ts',
     })
 
     const refsSource = getTemplate('trellis/operation-refs.ts').getContents()
@@ -101,6 +102,9 @@ describe('permission codegen installer', () => {
     expect(refsSource).toContain("from '../../shared/features/projects/operations'")
     expect(refsSource).toContain('api.features.projects.domain.createProject')
     expect(refsSource).toContain("{ functionRef: 'features/projects/domain:createProject' }")
+    expect(refsSource).toContain(
+      "{ functionRef: 'features/projects/domain:previewDeleteProject', executeFunctionRef: 'features/projects/domain:deleteProject' }",
+    )
 
     const handlesSource = getTemplate('trellis/operation-handles/mcp.ts').getContents()
     expect(handlesSource).toContain("import { defineOperationHandle } from '#trellis/mcp'")
@@ -109,6 +113,21 @@ describe('permission codegen installer', () => {
     expect(handlesSource).toContain("executeOperation: 'mutation'")
     expect(handlesSource).toContain("previewOperation: 'mutation'")
     expect(handlesSource).toContain("'projects.delete': deleteProjectHandle")
+
+    const projectionsSource = getTemplate('trellis/operation-projections.ts').getContents()
+    expect(projectionsSource).toContain(
+      "import type { OperationProjectionRegistry } from '@lupinum/trellis/app'",
+    )
+    expect(projectionsSource).toContain("fingerprint: 'sha256:")
+    expect(projectionsSource).toContain(
+      "'projects.create': 'features/projects/domain:createProject'",
+    )
+    expect(projectionsSource).toContain(
+      "'projects.delete': 'features/projects/domain:deleteProject'",
+    )
+    expect(projectionsSource).toContain(
+      "'projects.delete': 'features/projects/domain:previewDeleteProject'",
+    )
   })
 
   it('emits empty operation registry modules when no operations are defined', () => {
@@ -129,6 +148,16 @@ export {}
 export const operations = {
   byId: {},
 } as const
+`)
+    expect(getTemplate('trellis/operation-projections.ts').getContents())
+      .toBe(`// AUTO-GENERATED. Do not edit.
+import type { OperationProjectionRegistry } from '@lupinum/trellis/app'
+
+export const operationProjectionRegistry = {
+  fingerprint: 'sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
+  executeById: {},
+  previewById: {},
+} as const satisfies OperationProjectionRegistry
 `)
   })
 })

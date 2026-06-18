@@ -193,6 +193,12 @@ export interface RegisteredOperationProjections {
   previewById: OperationPreviewsById
 }
 
+export interface OperationProjectionRegistry {
+  fingerprint?: string
+  executeById: Readonly<Record<string, string>>
+  previewById?: Readonly<Record<string, string>>
+}
+
 export type RegisteredOperationId = Extract<keyof OperationsById, string>
 export type RegisteredOperationDefinition<TId extends RegisteredOperationId> = OperationsById[TId]
 export type RegisteredOperationExecution<TId extends RegisteredOperationId> =
@@ -441,6 +447,7 @@ export interface DefineTrellisOptions<
   services?: ServiceAccessDefinition<DataModel, TCaller>
   observability?: TrellisObservabilityOptions
   identityForwardingKey?: IdentityForwardingKeyInput
+  operationProjections?: OperationProjectionRegistry
   destructiveOperations?: {
     confirmationTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
@@ -1934,14 +1941,26 @@ async function hashPreviewVersion(version: SerializableValue | undefined): Promi
 function getDestructivePreviewExecutePath(
   metadata: TrellisOperationMetadata,
   projectionMetadata: TrellisOperationProjectionMetadata | null,
+  operationProjections: OperationProjectionRegistry | undefined,
 ): string {
-  const executePath = projectionMetadata?.executeFunctionRef
+  const executePath =
+    projectionMetadata?.executeFunctionRef ??
+    getRegisteredOperationExecuteFunctionRef(operationProjections, metadata.id)
   if (!executePath) {
     throw new Error(
-      `Destructive operation "${metadata.id ?? metadata.name ?? 'unknown'}" preview confirmation requires the operation definition to provide executeFunctionRef for the execute function.`,
+      `Destructive operation "${metadata.id ?? metadata.name ?? 'unknown'}" preview confirmation requires operation projection metadata for the execute function.`,
     )
   }
   return executePath
+}
+
+function getRegisteredOperationExecuteFunctionRef(
+  operationProjections: OperationProjectionRegistry | undefined,
+  operationId: string | undefined,
+): string | undefined {
+  if (!operationProjections || !operationId) return undefined
+  const executePath = operationProjections.executeById[operationId]
+  return typeof executePath === 'string' && executePath.trim().length > 0 ? executePath : undefined
 }
 
 function getExecuteFunctionRef(definition: unknown): string | undefined {
@@ -2023,7 +2042,11 @@ async function attachDestructivePreviewConfirmation<
 
   const ttlSeconds = confirmationOptions.ttlSeconds ?? 5 * 60
   const now = Date.now()
-  const executePath = getDestructivePreviewExecutePath(input.metadata, input.projectionMetadata)
+  const executePath = getDestructivePreviewExecutePath(
+    input.metadata,
+    input.projectionMetadata,
+    input.options.operationProjections,
+  )
   const previewPath = getDestructivePreviewPath(input.definition, input.projectionMetadata)
   const [callerKey, scopeKey, argsHash, previewHash, versionHash] = await Promise.all([
     confirmationOptions.callerKey(input.ctx, input.args, input.loaded),
@@ -2907,6 +2930,10 @@ function buildStructuredMutationRuntime<
       loaded: unknown,
     ) => Promise<unknown> | unknown
     const safety = options.destructiveOperations
+    const registeredExecuteFunctionRef = getRegisteredOperationExecuteFunctionRef(
+      options.operationProjections,
+      operationId,
+    )
 
     const transformed = {
       ...definition,
@@ -2916,9 +2943,11 @@ function buildStructuredMutationRuntime<
           }
         : projectionMetadata?.functionRef
           ? { identityForwardingTarget: projectionMetadata.functionRef }
-          : definition.id
-            ? { identityForwardingTarget: definition.id }
-            : {}),
+          : registeredExecuteFunctionRef
+            ? { identityForwardingTarget: registeredExecuteFunctionRef }
+            : definition.id
+              ? { identityForwardingTarget: definition.id }
+              : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
@@ -3031,7 +3060,10 @@ function buildStructuredMutationRuntime<
             `Confirmation token targets operation "${payload.operationId}", not "${operationId}".`,
           )
         }
-        const executePath = getExecuteFunctionRef(definition) ?? projectionMetadata?.functionRef
+        const executePath =
+          getExecuteFunctionRef(definition) ??
+          projectionMetadata?.functionRef ??
+          registeredExecuteFunctionRef
         if (executePath && payload.executePath !== executePath) {
           throw new Error(
             `Confirmation token targets execute path "${payload.executePath}", not "${executePath}".`,

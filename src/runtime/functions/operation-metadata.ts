@@ -356,7 +356,7 @@ export function projectOperationRef<
   operation: TOperation,
   projection: TProjection,
   ref: TRef,
-  options: { functionRef?: string } = {},
+  options: { functionRef?: string; executeFunctionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, TProjection, TRef> {
   const metadata = getOperationMetadata(operation)
   if (!metadata.id) {
@@ -369,8 +369,8 @@ export function projectOperationRef<
     operationId: metadata.id,
     projection,
     ...(functionRef ? { functionRef } : {}),
-    ...(projection === 'preview' && operation.executeFunctionRef
-      ? { executeFunctionRef: operation.executeFunctionRef }
+    ...(projection === 'preview' && (options.executeFunctionRef ?? operation.executeFunctionRef)
+      ? { executeFunctionRef: options.executeFunctionRef ?? operation.executeFunctionRef }
       : {}),
   }) as ValidateOperationProjectionRef<TOperation, TProjection, TRef>
 }
@@ -378,7 +378,7 @@ export function projectOperationRef<
 export function executeOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,
-  options: { functionRef?: string } = {},
+  options: { functionRef?: string; executeFunctionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, 'execute', TRef> {
   return projectOperationRef(operation, 'execute', ref, options)
 }
@@ -386,7 +386,7 @@ export function executeOperationRef<TOperation extends OperationMetadataCarrier,
 export function transportExecuteOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,
-  options: { functionRef?: string } = {},
+  options: { functionRef?: string; executeFunctionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, 'execute', TRef> {
   return projectOperationRef(operation, 'execute', ref, options)
 }
@@ -394,7 +394,7 @@ export function transportExecuteOperationRef<TOperation extends OperationMetadat
 export function previewOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,
-  options: { functionRef?: string } = {},
+  options: { functionRef?: string; executeFunctionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, 'preview', TRef> {
   return projectOperationRef(operation, 'preview', ref, options)
 }

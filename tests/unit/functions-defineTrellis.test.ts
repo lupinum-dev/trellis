@@ -3053,6 +3053,93 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/already been redeemed/i)
   })
 
+  it('derives destructive preview execute paths from the operation projection registry', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        operationProjections: {
+          fingerprint: 'test-registry',
+          executeById: {
+            'tests.registry-preview-token': 'tasks:delete',
+          },
+        },
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+            ttlSeconds: 60,
+          },
+        },
+        caller: signedInTestCaller,
+        appIdentity: testAppIdentity,
+      },
+    )
+
+    const destructiveOp = defineOperation({
+      id: 'tests.registry-preview-token',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      permission: destructiveTestPermission,
+      preview: async (_ctx, args) =>
+        operationPreview({
+          summary: `Destroy ${args.id}`,
+          confirm: { operation: 'tests.registry-preview-token', id: args.id },
+        }),
+      handler: async () => 'destroyed',
+    })
+
+    const previewDefinition = runtime.mutation.authenticated({
+      ...previewOf(destructiveOp),
+      id: 'tasks:previewDelete',
+    }) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string },
+      ) => Promise<{ confirmation?: { token: string; expiresAt: number } }>
+    }
+    const executeDefinition = runtime.mutation.authenticated(destructiveOp) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string; _confirmationToken: string },
+      ) => Promise<unknown>
+    }
+
+    const memory = createMemoryDb()
+    const ctx = {
+      auth: { getUserIdentity: async () => null },
+      db: memory.db,
+      observe: async () => {},
+    }
+    const preview = await previewDefinition.handler(ctx, { id: 'record-1' })
+
+    expect(memory.tables.destructiveConfirmations[0]).toMatchObject({
+      operationId: 'tests.registry-preview-token',
+      executePath: 'tasks:delete',
+    })
+    await expect(
+      executeDefinition.handler(ctx, {
+        id: 'record-1',
+        _confirmationToken: preview.confirmation!.token,
+      }),
+    ).resolves.toBe('destroyed')
+  })
+
   it('rejects query previews that try to issue stored destructive confirmations', () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
