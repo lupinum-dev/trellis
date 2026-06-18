@@ -38,6 +38,13 @@ export {
   isWebhookHmacSignatureValid,
   verifyHmacWebhookDelivery,
 } from './webhooks.js'
+export {
+  serverOperation,
+  type ServerOperationAdapter,
+  type ServerOperationCallOptions,
+  type ServerOperationConfirmation,
+  type ServerOperationExecuteOptions,
+} from './operation.js'
 export type {
   VerifiedHmacWebhookDelivery,
   VerifyHmacWebhookDeliveryOptions,

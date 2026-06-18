@@ -55,6 +55,7 @@ describe('server entrypoint exports', () => {
     expect(serverApi).toHaveProperty('serverConvexMutation')
     expect(serverApi).toHaveProperty('serverConvexAction')
     expect(serverApi).toHaveProperty('createServerConvexCaller')
+    expect(serverApi).toHaveProperty('serverOperation')
     expect(serverApi).toHaveProperty('transportProof')
     expect(serverApi).toHaveProperty('domainIdempotency')
     expect(serverApi).toHaveProperty('verifyHmacWebhookDelivery')

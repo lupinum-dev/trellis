@@ -4025,17 +4025,87 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 72: Explicit Server Operation Adapter
+
+### Proof
+
+- RFC 0013 calls for explicit server-route adapters instead of automatic route
+  projections. Server routes should keep ownership of HTTP concerns while
+  Trellis chooses generated operation refs and forwards through the normal
+  server Convex auth path.
+- Existing operation codegen already emits `#trellis/operations/server` aliases
+  and runtime-filtered handles with `runtimes: ['server']`.
+- Added failing runtime proof tests for:
+  - query-backed server operation handles using the Convex query endpoint
+  - destructive preview plus execute with `{ confirmation: preview.confirmation }`
+  - action-backed execute calls using the Convex action endpoint
+  - rejection of handles not generated for the server runtime
+  - explicit `.query(...)` versus `.execute(...)` lane errors
+- Added a failing public DTS proof for `@lupinum/trellis/server` exporting
+  `serverOperation` with args/result/confirmation typing.
+- The initial proof failed because `serverOperation` was not exported at
+  runtime or in the public server type surface.
+
+### Implementation
+
+- Added `src/runtime/server/operation.ts` with `serverOperation(event, handle)`.
+- Reused `serverConvexQuery`, `serverConvexMutation`, and
+  `serverConvexAction`; no new transport, fetch path, manifest, or operation
+  registry was added.
+- Required generated operation handles and failed closed unless the handle
+  includes the `server` runtime.
+- Kept route semantics explicit:
+  - `.query(...)` only accepts query execute projections
+  - `.execute(...)` accepts mutation/action projections
+  - `.preview(...)` uses the generated preview projection kind
+- Added execute options that accept `confirmation` as either a preview
+  confirmation object or raw token and map it to the backend
+  `_confirmationToken` arg field.
+- Exported the adapter and public option/result types from
+  `@lupinum/trellis/server`.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/server-operation.test.ts` and
+  `pnpm run test:types:public`.
+- Focused runtime proof passed with 11 tests:
+  `pnpm vitest run --project=unit tests/unit/server-operation.test.ts tests/unit/server-index-exports.test.ts`.
+- Public type proof passed: `pnpm run test:types:public`.
+- Runtime/server lint passed: `pnpm run lint:src:runtime:rest`.
+- Focused test lint passed:
+  `pnpm exec eslint tests/unit/server-operation.test.ts tests/unit/server-index-exports.test.ts`.
+- Formatter check passed for the touched source, unit, and DTS files:
+  `pnpm exec oxfmt --check src/runtime/server/operation.ts src/runtime/server/index.ts tests/unit/server-operation.test.ts tests/unit/server-index-exports.test.ts tests/dts/server-operation.types.ts`.
+- Module build passed and emitted `dist/runtime/server/operation.{mjs,d.ts}`:
+  `pnpm run build:module`.
+- Public package surface check passed: `pnpm run check:publish-surface`.
+- API surface docs check passed: `pnpm run check:docs:api-surface`.
+
+### Notes
+
+- This is intentionally only an operation adapter. Webhook HMAC verification,
+  body parsing, idempotency decisions, response status codes, downloads,
+  streams, and provider-specific validation stay in the Nitro route.
+- The existing installer test already proves `#trellis/operations/server` alias
+  generation. A later fixture can still add a real Nitro server-route import
+  proof if consumer work shows Nuxt resolution differs from the current template
+  and type tests.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
-1. Experiment with the RFC server-route adapter shape before committing API:
-   prove how Nitro imports, generated operation handles, Convex function refs,
-   and transport proof options resolve from a fixture.
-2. Audit `trellis add entity project --workspace --mcp` against the RFC
+1. Audit `trellis add entity project --workspace --mcp` against the RFC
    product-grade starter criteria, then either hard-cut the generator output or
    write failing proof tests for the missing pieces.
-3. Close the backend-only destructive exposure requirement with explicit
+2. Close the backend-only destructive exposure requirement with explicit
    metadata, doctor/explain visibility, and filtered handle generation, if the
    current operation registry cannot already prove it.
+3. Add a maintained Nuxt/Nitro route fixture using
+   `serverOperation(event, operations.<feature>.<action>)` from
+   `#trellis/operations/server` if the current installer/type proof is not
+   enough for import-resolution confidence.
 4. After the remaining RFC slices are implemented, rerun full
    `pnpm run release:verify`, regenerate local tarballs, and rerun the CMS and
    i18n consumer proofs.
