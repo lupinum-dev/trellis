@@ -1542,12 +1542,76 @@ loops.
   prepare/codegen lifecycle and continue deleting Ginko's remaining raw
   transport execute usage.
 
+## Slice 30: Concrete Operation Registry CLI Generation
+
+### Proof
+
+- Added a failing CLI proof for Ginko-shaped concrete operation generation:
+  `src/` as Convex source root, custom caller projection roots, ignored
+  transport projection roots, generated metadata descriptors, `.js` relative
+  imports, and package-root output under `src/generated/**`.
+- The proof failed before implementation because `trellis operations generate`
+  did not exist; package-root generated testing handles still required a manual
+  Node script that imported Trellis internals.
+- Ran the new command against the actual Ginko CMS package-root generated
+  files. The first `--check` correctly reported drift in
+  `src/generated/operation-handles/testing.ts` because the file had been
+  manually formatter-touched after generation.
+
+### Implementation
+
+- Added `trellis operations generate`.
+- The command reuses the existing public-surface scanner and operation registry
+  renderer directly. It does not add a second registry model or a new config
+  file format.
+- Added explicit CLI flags for the existing scanner/rendering knobs:
+  operation include/exclude globs, projection roots, ignored projection roots,
+  Convex source root, output paths, runtime imports, descriptor mode, relative
+  import extension, and handle runtimes.
+- Added `--check` mode. It compares existing generated files with renderer
+  output and returns exit code `1` with a JSON `outOfDate` list when generated
+  files are stale.
+- Registered the command under the existing Trellis CLI without changing Nuxt
+  template generation.
+
+### Verification
+
+- Failing proof now passes:
+  `pnpm vitest run --project=unit tests/unit/cli-operations.test.ts`.
+- Neighboring generated-operation tests passed:
+  `pnpm vitest run --project=unit tests/unit/cli-operations.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts`.
+- Trellis build/lint/type/surface gates passed:
+  `pnpm run build:module`, `pnpm run lint:src:core`,
+  `pnpm run lint:tests`, `pnpm run test:types:public`,
+  `pnpm run test:types:contracts`, `pnpm run check:publish-surface`, and
+  `pnpm run check:docs:api-surface`.
+- Formatting and whitespace checks passed:
+  `pnpm run format:check` and `git diff --check`.
+- Ginko CMS consumer proof passed using the new built CLI:
+  `node /Users/matthias/Git/workspace/trellis/dist/cli.mjs operations generate ... --check --json`
+  reported 16 operations, 28 projections, and no out-of-date generated files
+  after one write.
+- Ginko CMS behavior still passed after CLI-owned generated output:
+  `pnpm vitest run test/component/entries/publish.test.ts` and
+  `pnpm run typecheck`.
+
+### Notes
+
+- This is intentionally a direct command over the existing registry renderer,
+  not a new configuration layer.
+- Ginko can now put this exact command in package scripts once the CMS changes
+  are ready to be committed, and CI can use `--check` to fail stale generated
+  operation files.
+- The next slice can use this durable generator while continuing to remove raw
+  transport execute refs from Ginko tests and helpers.
+
 ## Next Slice Candidates
 
-1. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
-   runtime-specific generated modules.
-2. Continue the Ginko CMS destructive test migration from transport execute refs
+1. Continue the Ginko CMS destructive test migration from transport execute refs
    to generated testing operation handles, then delete the corresponding helper
    maps.
+2. Add a first-class Ginko package script/check that wraps
+   `trellis operations generate --check` once the CMS-side generated files are
+   ready to commit.
 3. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.

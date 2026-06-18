@@ -4,6 +4,7 @@ import { addCommand } from './commands/add.js'
 import { doctorCommand } from './commands/doctor.js'
 import { explainCommand } from './commands/explain.js'
 import { initCommand } from './commands/init.js'
+import { operationsCommand } from './commands/operations.js'
 import { permissionsCommand } from './commands/permissions.js'
 import { upgradeCommand } from './commands/upgrade.js'
 
@@ -23,6 +24,7 @@ export function createCliCommand() {
       doctor: doctorCommand,
       explain: explainCommand,
       init: initCommand,
+      operations: operationsCommand,
       permissions: permissionsCommand,
       upgrade: upgradeCommand,
     },
