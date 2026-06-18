@@ -1907,6 +1907,56 @@ loops.
   calls, then delete the `deleteEntryTransportExecute` translation row from
   `test/helpers.ts`.
 
+## Slice 37: Delete Ginko Delete-Entry Transport Mapping
+
+### Proof
+
+- After Slice 36, the only remaining `deleteEntryTransportExecute` test callers
+  were in `test/component/backup.test.ts`.
+- The first backup assertion was a missing-backup proof. In the operation model,
+  that belongs to preview because the operation refuses to produce confirmation
+  without a matching backup artifact.
+- After migrating backup, `rg -n "deleteEntryTransportExecute" -S test
+  test/helpers.ts` had no matches except the candidate helper row before
+  deletion.
+
+### Implementation
+
+- In Ginko CMS commit `645fe68`, migrated the backup missing-artifact assertion
+  to `previewDeleteEntry(owner, { entryId })`.
+- Migrated the successful permanent entry delete assertion to
+  `deleteEntry(owner, { entryId, exportArtifactId })`.
+- Relaxed only `previewDeleteEntry(...)` to allow an omitted
+  `exportArtifactId`; `deleteEntry(...)` still requires an artifact for execute.
+- Deleted the now-dead `entries/tree:deleteEntryTransportExecute` translation
+  row from `test/helpers.ts`.
+
+### Verification
+
+- Focused Ginko backup/tree proof passed:
+  `pnpm vitest run test/component/backup.test.ts test/component/entries/tree.test.ts`
+  reported 20 passing tests.
+- Ginko operation registry drift check passed:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Ginko package type/build proof passed on a sequential rerun:
+  `pnpm run typecheck`.
+- Ginko lint and static guards passed:
+  `pnpm run lint`.
+- Formatting and whitespace checks passed:
+  targeted `oxfmt --check` for touched files and `git diff --check`.
+
+### Notes
+
+- The raw `TransportExecute` count in Ginko tests dropped from 49 to 46.
+- The delete-entry transport helper map row is gone. Remaining map rows are now
+  publish, unpublish, rollback, and revert-draft-to-published.
+- Next high-value slices are versioning rollback and draft revert, because each
+  can remove another helper row once the corresponding tests are migrated.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
