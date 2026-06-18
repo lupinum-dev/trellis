@@ -1062,10 +1062,11 @@ describe('defineTrellis', () => {
       id: 'todos.list',
       args,
       permission: 'todos.read',
+      reads: [],
       handler: async (_ctx, input: { title: string }) => ({ title: input.title }),
     })
 
-    const definition = runtime.query.public({ ...listTodosOp, reads: [] } as never) as {
+    const definition = runtime.query.public(listTodosOp) as {
       args: { fields: { title: typeof args.title } }
       handler: (
         ctx: {

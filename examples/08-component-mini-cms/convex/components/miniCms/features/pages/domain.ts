@@ -77,6 +77,7 @@ export const listPublishedPagesOp = operation.query({
   returns: v.array(publishedPageValidator),
   executeFunctionRef: 'features/pages/domain:listPublished',
   identityForwardingTransport: 'bridge',
+  reads: ['pages'],
   handler: async (ctx) => {
     const pages = await ctx.db
       .query('pages')
@@ -88,7 +89,7 @@ export const listPublishedPagesOp = operation.query({
   },
 })
 
-export const listPublished = query.public({ ...listPublishedPagesOp, reads: ['pages'] })
+export const listPublished = query.public(listPublishedPagesOp)
 
 export const getPublishedPageOp = operation.query({
   id: 'pages.get-published',
@@ -96,6 +97,7 @@ export const getPublishedPageOp = operation.query({
   returns: v.union(publishedPageValidator, v.null()),
   executeFunctionRef: 'features/pages/domain:getPublished',
   identityForwardingTransport: 'bridge',
+  reads: ['pages'],
   handler: async (ctx, args: GetPublishedPageArgs) => {
     const page = await ctx.db
       .query('pages')
@@ -107,7 +109,7 @@ export const getPublishedPageOp = operation.query({
   },
 })
 
-export const getPublished = query.public({ ...getPublishedPageOp, reads: ['pages'] })
+export const getPublished = query.public(getPublishedPageOp)
 
 export const listStudioPagesOp = operation.query({
   id: 'pages.list-studio',
