@@ -1759,8 +1759,7 @@ loops.
 1. Continue the Ginko CMS destructive test migration from transport execute refs
    to generated testing operation handles, then delete the corresponding helper
    maps.
-2. Add a first-class Ginko package script/check that wraps
-   `trellis operations generate --check` once the CMS-side generated files are
-   ready to commit.
-3. Define the bridge-generated operation handle shape needed to replace
+2. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
+3. Make `trellis operations generate` easier to install into generated/consumer
+   projects without introducing a second config source of truth.
