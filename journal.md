@@ -619,3 +619,20 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   set to `false` is the explicit escape hatch, generated starters only export the
   internal `createUserIfNeeded` mutation, and doctor fails app-owned bootstrap
   plugins. Moved the drift to resolved evidence.
+- 2026-06-18: Completed consumer smoke validation for the 0.2 clean-cut shape:
+  - `/Users/matthias/Git/0_libs/shadcn-trellis-template`: `pnpm run check`
+    passed. Nuxt emitted the known Node `[DEP0205] module.register()`
+    deprecation warning through its prepare step, but the command exited 0.
+  - `/Users/matthias/Git/workspace/ginko-cms`: migrated component Convex
+    handlers off removed `identityForwardingFunctionRef` and global
+    `public.readTables`, added handler-local public `reads`, made destructive
+    operations declare `executeFunctionRef`, and moved tests onto Trellis
+    `ctx.asCaller(...)` forwarding helpers.
+  - Focused Ginko checks passed:
+    `pnpm --filter @lupinum/ginko-cms-convex typecheck`,
+    `pnpm exec vitest run test/component/assets.test.ts test/component/auth/access-context.test.ts`,
+    and
+    `pnpm exec vitest run test/component/entries/publish.test.ts test/component/public-api.test.ts test/component/backup.test.ts`.
+  - Full Ginko gate passed: `CI=true pnpm run check` completed format, lint,
+    typecheck/build, publish specifier checks, and Vitest
+    (`713 passed`, `1 skipped`).
