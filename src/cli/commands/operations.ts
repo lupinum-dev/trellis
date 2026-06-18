@@ -54,6 +54,58 @@ function requireStringArg(args: CommandArgs, name: string): string {
   return value
 }
 
+function readOutputPaths(args: CommandArgs): {
+  operationRefsPath?: string
+  operationHandlesPath?: string
+  operationProjectionsPath?: string
+} {
+  const operationRefsPath = readStringArg(args, 'operation-refs')?.trim()
+  const operationHandlesPath = readStringArg(args, 'operation-handles')?.trim()
+  const operationProjectionsPath = readStringArg(args, 'operation-projections')?.trim()
+
+  if (!operationRefsPath && operationHandlesPath) {
+    throw new Error('Missing required --operation-refs for --operation-handles.')
+  }
+  if (!operationRefsPath && !operationHandlesPath && !operationProjectionsPath) {
+    throw new Error(
+      'Missing generated output path. Provide --operation-refs, --operation-handles, or --operation-projections.',
+    )
+  }
+
+  return {
+    ...(operationRefsPath ? { operationRefsPath } : {}),
+    ...(operationHandlesPath ? { operationHandlesPath } : {}),
+    ...(operationProjectionsPath ? { operationProjectionsPath } : {}),
+  }
+}
+
+function readImportOptions(args: CommandArgs, outputs: ReturnType<typeof readOutputPaths>) {
+  return {
+    ...(outputs.operationRefsPath
+      ? {
+          projectOperationRefImport: requireStringArg(args, 'project-operation-ref-import'),
+          apiImport: requireStringArg(args, 'api-import'),
+        }
+      : {}),
+    ...(outputs.operationHandlesPath
+      ? {
+          defineOperationHandleImport: requireStringArg(args, 'define-operation-handle-import'),
+        }
+      : {}),
+    ...(readStringArg(args, 'operation-descriptor-type-import')
+      ? { operationDescriptorTypeImport: readStringArg(args, 'operation-descriptor-type-import') }
+      : {}),
+    ...(readStringArg(args, 'operation-projection-registry-import')
+      ? {
+          operationProjectionRegistryImport: readStringArg(
+            args,
+            'operation-projection-registry-import',
+          ),
+        }
+      : {}),
+  }
+}
+
 function readStringListArg(
   args: CommandArgs,
   name: string,
@@ -283,26 +335,10 @@ const operationsGenerateCommand = defineCommand({
     const registry = buildOperationRegistry(metadata, {
       convexSourceRoot: readStringArg(args, 'convex-source-root') ?? 'convex',
     })
+    const outputPaths = readOutputPaths(args)
     const rendered = renderOperationRegistryGeneratedFiles(registry, {
-      operationRefsPath: requireStringArg(args, 'operation-refs'),
-      operationHandlesPath: requireStringArg(args, 'operation-handles'),
-      ...(readStringArg(args, 'operation-projections')
-        ? { operationProjectionsPath: readStringArg(args, 'operation-projections') }
-        : {}),
-      projectOperationRefImport: requireStringArg(args, 'project-operation-ref-import'),
-      defineOperationHandleImport: requireStringArg(args, 'define-operation-handle-import'),
-      ...(readStringArg(args, 'operation-descriptor-type-import')
-        ? { operationDescriptorTypeImport: readStringArg(args, 'operation-descriptor-type-import') }
-        : {}),
-      ...(readStringArg(args, 'operation-projection-registry-import')
-        ? {
-            operationProjectionRegistryImport: readStringArg(
-              args,
-              'operation-projection-registry-import',
-            ),
-          }
-        : {}),
-      apiImport: requireStringArg(args, 'api-import'),
+      ...outputPaths,
+      ...readImportOptions(args, outputPaths),
       relativeImportExtension: readRelativeImportExtension(args),
       descriptorMode: readDescriptorMode(args),
       runtimes: readRuntimes(args),

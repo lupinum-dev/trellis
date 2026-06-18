@@ -44,14 +44,14 @@ export interface OperationRegistryGeneratedFile {
 }
 
 export interface OperationRegistryGeneratedFilesOptions {
-  operationRefsPath: string
-  operationHandlesPath: string
+  operationRefsPath?: string
+  operationHandlesPath?: string
   operationProjectionsPath?: string
-  projectOperationRefImport: string
-  defineOperationHandleImport: string
+  projectOperationRefImport?: string
+  defineOperationHandleImport?: string
   operationDescriptorTypeImport?: string
   operationProjectionRegistryImport?: string
-  apiImport: string
+  apiImport?: string
   relativeImportExtension?: '' | '.js'
   runtimes?: OperationHandleBindingInput['runtimes']
   descriptorMode?: 'runtime-import' | 'generated-metadata'
@@ -220,15 +220,14 @@ function descriptorImportsFor(
 
 function renderOperationRefsModuleFromRegistry(
   registry: OperationRegistry,
-  options: Pick<
-    OperationRegistryGeneratedFilesOptions,
-    | 'apiImport'
-    | 'descriptorMode'
-    | 'operationDescriptorTypeImport'
-    | 'operationRefsPath'
-    | 'projectOperationRefImport'
-    | 'relativeImportExtension'
-  >,
+  options: {
+    apiImport: string
+    descriptorMode?: OperationRegistryGeneratedFilesOptions['descriptorMode']
+    operationDescriptorTypeImport?: string
+    operationRefsPath: string
+    projectOperationRefImport: string
+    relativeImportExtension?: '' | '.js'
+  },
 ): string {
   if (registry.operations.length === 0) {
     throw new Error('Operation registry refs module requires at least one operation')
@@ -508,44 +507,78 @@ export function renderOperationRegistryGeneratedFiles(
   registry: OperationRegistry,
   options: OperationRegistryGeneratedFilesOptions,
 ): OperationRegistryGeneratedFile[] {
-  const handleRegistry = operationHandleRegistryFor(registry, options)
-  const refs = buildOperationRefBindingsFromRegistry(handleRegistry)
+  if (!options.operationRefsPath && options.operationHandlesPath) {
+    throw new Error('Operation handle generation requires operationRefsPath.')
+  }
+  if (
+    !options.operationRefsPath &&
+    !options.operationHandlesPath &&
+    !options.operationProjectionsPath
+  ) {
+    throw new Error('Operation registry generation requires at least one output path.')
+  }
 
-  const files: OperationRegistryGeneratedFile[] = [
-    {
+  const files: OperationRegistryGeneratedFile[] = []
+
+  if (options.operationRefsPath) {
+    if (!options.projectOperationRefImport) {
+      throw new Error('Operation ref generation requires projectOperationRefImport.')
+    }
+    if (!options.apiImport) {
+      throw new Error('Operation ref generation requires apiImport.')
+    }
+
+    const handleRegistry = operationHandleRegistryFor(registry, options)
+    const refs = buildOperationRefBindingsFromRegistry(handleRegistry)
+
+    files.push({
       path: options.operationRefsPath,
       content:
         handleRegistry.operations.length === 0
           ? renderEmptyOperationRefsModule()
-          : renderOperationRefsModuleFromRegistry(handleRegistry, options),
-    },
-    {
-      path: options.operationHandlesPath,
-      content:
-        handleRegistry.operations.length === 0
-          ? renderEmptyOperationHandlesModule()
-          : renderOperationHandlesModule({
-              defineOperationHandleImport: options.defineOperationHandleImport,
-              operationDescriptorTypeImport: options.operationDescriptorTypeImport,
-              descriptorImports: descriptorImportsFor(
-                handleRegistry.operations,
-                options.operationHandlesPath,
-                options.relativeImportExtension,
-              ),
+          : renderOperationRefsModuleFromRegistry(handleRegistry, {
+              apiImport: options.apiImport,
               descriptorMode: options.descriptorMode,
-              refsImport: toRelativeImport(
-                options.operationHandlesPath,
-                options.operationRefsPath,
-                options.relativeImportExtension,
-              ),
-              descriptors: handleRegistry.operations.map((operation) => operation.exportName),
-              refs: refs.map((ref) => ref.exportName),
-              handles: buildOperationHandleBindingsFromRegistry(handleRegistry, {
-                runtimes: options.runtimes,
-              }),
+              operationDescriptorTypeImport: options.operationDescriptorTypeImport,
+              operationRefsPath: options.operationRefsPath,
+              projectOperationRefImport: options.projectOperationRefImport,
+              relativeImportExtension: options.relativeImportExtension,
             }),
-    },
-  ]
+    })
+
+    if (options.operationHandlesPath) {
+      if (!options.defineOperationHandleImport) {
+        throw new Error('Operation handle generation requires defineOperationHandleImport.')
+      }
+
+      files.push({
+        path: options.operationHandlesPath,
+        content:
+          handleRegistry.operations.length === 0
+            ? renderEmptyOperationHandlesModule()
+            : renderOperationHandlesModule({
+                defineOperationHandleImport: options.defineOperationHandleImport,
+                operationDescriptorTypeImport: options.operationDescriptorTypeImport,
+                descriptorImports: descriptorImportsFor(
+                  handleRegistry.operations,
+                  options.operationHandlesPath,
+                  options.relativeImportExtension,
+                ),
+                descriptorMode: options.descriptorMode,
+                refsImport: toRelativeImport(
+                  options.operationHandlesPath,
+                  options.operationRefsPath,
+                  options.relativeImportExtension,
+                ),
+                descriptors: handleRegistry.operations.map((operation) => operation.exportName),
+                refs: refs.map((ref) => ref.exportName),
+                handles: buildOperationHandleBindingsFromRegistry(handleRegistry, {
+                  runtimes: options.runtimes,
+                }),
+              }),
+      })
+    }
+  }
 
   if (options.operationProjectionsPath) {
     files.push({

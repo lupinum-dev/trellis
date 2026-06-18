@@ -2982,8 +2982,71 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 
 ## Next Slice Candidates
 
-1. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
-   operation files can be validated by package/consumer tests without virtual
-   aliases.
-2. Update RFC 0013 status and acceptance notes now that several implementation
+1. Update RFC 0013 status and acceptance notes now that several implementation
    slices are complete, while keeping remaining release gates explicit.
+2. Start the Nuxt prepare/runtime alias slice for generated operation handles so
+   `#trellis/operations/{client,server,mcp,testing}` is produced by Trellis
+   instead of only fixture/package scripts.
+
+## Slice 54: Check Operation Projection Registry Outside Nuxt Prepare
+
+### Proof
+
+- `trellis operations generate --check` already compared rendered operation
+  registry outputs with disk, but the renderer required operation refs and
+  handles even when the only real source artifact was the Convex-side projection
+  registry.
+- The workspace MCP starter writes `generated/operation-projections.ts` as the
+  source artifact consumed by `convex/functions.ts`; operation refs/handles are
+  Nuxt/test generated outputs and are not present in the starter source file set.
+- `scripts/check-starter-fixtures.mjs` also treated manifest generated entries as
+  if every entry had a single `path`, so `operationRegistry` entries were not a
+  reliable source of expected generated outputs.
+- That left the source projection registry dependent on later Nuxt
+  prepare/typecheck behavior instead of a direct fail-closed generated-file
+  check.
+
+### Implementation
+
+- Made operation registry generated outputs target-specific:
+  `operationProjectionsPath` can now be rendered and checked without also
+  rendering operation refs or operation handles.
+- Kept invalid combinations fail-closed: operation handles still require
+  operation refs, refs require the project operation-ref import and API import,
+  and at least one output path is required.
+- Simplified `trellis add entity ... --mcp` projection refresh so it renders only
+  `generated/operation-projections.ts` instead of producing unused refs/handles
+  and discarding them.
+- Updated the starter fixture checker to derive generated output paths from
+  `starter.manifest.json` `operationRegistry` entries and run
+  `trellis operations generate --check` against the generated files that the
+  starter actually writes, before Nuxt prepare/typecheck.
+- Added CLI and renderer tests proving projection-only generation, clean checks,
+  and stale projection-registry detection without generated refs or handles.
+
+### Verification
+
+- Formatter check passed for the touched operation registry, CLI, resource,
+  starter checker, and focused test files:
+  `pnpm exec oxfmt --check src/module-internals/operation-registry-codegen.ts src/cli/commands/operations.ts src/cli/lib/resource.ts tests/unit/cli-operations.test.ts tests/unit/operation-registry-codegen.test.ts scripts/check-starter-fixtures.mjs`.
+- CLI build passed: `pnpm run build:cli`.
+- Focused operation CLI/codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/cli-operations.test.ts tests/unit/operation-registry-codegen.test.ts`
+  reported 2 passing test files and 11 passing tests.
+- Starter fixture doctor gate passed and now includes the direct operation
+  registry check:
+  `pnpm run check:starter-fixtures:doctor` reported public, personal, workspace,
+  and workspace-mcp starter doctor passes with 0 warnings and 0 failures.
+- Adjacent starter/add-resource tests passed:
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+  reported 3 passing test files and 17 passing tests.
+
+### Notes
+
+- This slice deliberately does not add a new command or duplicate generated
+  registry state. The existing `operations generate --check` path remains the
+  single check mechanism; it can now check the projection registry independently
+  when that is the only materialized artifact.
+- The next implementation gap is still the full Nuxt prepare lifecycle for
+  generating runtime-filtered operation handles and aliases. This slice gives
+  source and package consumers a concrete non-Nuxt drift check first.

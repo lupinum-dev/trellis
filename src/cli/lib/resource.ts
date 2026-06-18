@@ -895,13 +895,7 @@ async function patchOperationProjectionRegistryImport(cwd: string): Promise<void
 async function refreshOperationProjectionRegistry(cwd: string): Promise<void> {
   const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
   const rendered = renderOperationRegistryGeneratedFiles(registry, {
-    apiImport: '../convex/_generated/api',
-    defineOperationHandleImport: '@lupinum/trellis/mcp',
-    operationHandlesPath: 'generated/operation-handles/mcp.ts',
     operationProjectionsPath: 'generated/operation-projections.ts',
-    operationRefsPath: 'generated/operation-refs.ts',
-    projectOperationRefImport: '@lupinum/trellis/mcp',
-    runtimes: ['mcp'],
   })
   const projections = rendered.find((file) => file.path === 'generated/operation-projections.ts')
   if (!projections) {

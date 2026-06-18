@@ -77,57 +77,84 @@ function operationGenerateArgs(appRoot: string, extra: string[] = []): string[] 
   ]
 }
 
+function operationProjectionOnlyArgs(appRoot: string, extra: string[] = []): string[] {
+  return [
+    'operations',
+    'generate',
+    '--cwd',
+    appRoot,
+    '--operation-include',
+    'src/**/*.ts',
+    '--operation-exclude',
+    'src/generated/**,src/operations.ts',
+    '--projection-root',
+    'callerQuery:query,callerMutation:mutation:preview,callerAction:action',
+    '--ignored-projection-root',
+    'callerTransportMutation',
+    '--convex-source-root',
+    'src',
+    '--operation-projections',
+    'src/generated/operation-projections.ts',
+    '--json',
+    ...extra,
+  ]
+}
+
+function writePackageRootOperationFixture(appRoot: string): void {
+  write(
+    appRoot,
+    'src/entries/publish.ts',
+    `
+      import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+      import { callerMutation, callerTransportMutation } from '../functions'
+
+      export const publishEntryOperation = defineOperation({
+        id: 'ginko-cms.publish-entry',
+        name: 'publish-entry',
+        kind: 'destructive',
+        executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
+        args: {},
+        handler: async () => ({ published: true }),
+        preview: async () => ({ confirmation: { token: 'confirm', expiresAt: 1 } }),
+      })
+
+      export const publishEntryOperationExecute = callerMutation.protected({
+        ...publishEntryOperation,
+      })
+      export const publishEntryTransportExecute = callerTransportMutation({
+        ...publishEntryOperation,
+        id: 'entries/publish:publishEntryTransportExecute',
+      })
+      export const previewPublishEntryOperation = callerMutation.protected(
+        Object.assign(previewOf(publishEntryOperation), {
+          id: 'editor:previewPublishEntryOperation',
+        }),
+      )
+    `,
+  )
+  write(
+    appRoot,
+    'src/functions.ts',
+    `
+      export const callerQuery = { protected: (definition: unknown) => definition }
+      export const callerMutation = { protected: (definition: unknown) => definition }
+      export const callerAction = { protected: (definition: unknown) => definition }
+      export const callerTransportMutation = (definition: unknown) => definition
+    `,
+  )
+  write(
+    appRoot,
+    'src/operations.ts',
+    `
+      export { publishEntryOperationExecute } from './entries/publish'
+    `,
+  )
+}
+
 describe('operations CLI', () => {
   it('generates and checks package-root operation registry files', () => {
     const appRoot = createTempDir('trellis-operations-generate-')
-    write(
-      appRoot,
-      'src/entries/publish.ts',
-      `
-        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
-        import { callerMutation, callerTransportMutation } from '../functions'
-
-        export const publishEntryOperation = defineOperation({
-          id: 'ginko-cms.publish-entry',
-          name: 'publish-entry',
-          kind: 'destructive',
-          executeFunctionRef: 'entries/publish:publishEntryOperationExecute',
-          args: {},
-          handler: async () => ({ published: true }),
-          preview: async () => ({ confirmation: { token: 'confirm', expiresAt: 1 } }),
-        })
-
-        export const publishEntryOperationExecute = callerMutation.protected({
-          ...publishEntryOperation,
-        })
-        export const publishEntryTransportExecute = callerTransportMutation({
-          ...publishEntryOperation,
-          id: 'entries/publish:publishEntryTransportExecute',
-        })
-        export const previewPublishEntryOperation = callerMutation.protected(
-          Object.assign(previewOf(publishEntryOperation), {
-            id: 'editor:previewPublishEntryOperation',
-          }),
-        )
-      `,
-    )
-    write(
-      appRoot,
-      'src/functions.ts',
-      `
-        export const callerQuery = { protected: (definition: unknown) => definition }
-        export const callerMutation = { protected: (definition: unknown) => definition }
-        export const callerAction = { protected: (definition: unknown) => definition }
-        export const callerTransportMutation = (definition: unknown) => definition
-      `,
-    )
-    write(
-      appRoot,
-      'src/operations.ts',
-      `
-        export { publishEntryOperationExecute } from './entries/publish'
-      `,
-    )
+    writePackageRootOperationFixture(appRoot)
 
     const generateResult = runCli(operationGenerateArgs(appRoot), repoRoot)
     const generateReport = parseJsonOutput<{
@@ -197,6 +224,71 @@ describe('operations CLI', () => {
         status: 'out-of-date',
         mode: 'check',
         outOfDate: ['src/generated/operation-refs.ts'],
+      }),
+    )
+  })
+
+  it('checks projection-only registry output without generated refs or handles', () => {
+    const appRoot = createTempDir('trellis-operations-projections-')
+    writePackageRootOperationFixture(appRoot)
+
+    const generateResult = runCli(operationProjectionOnlyArgs(appRoot), repoRoot)
+    const generateReport = parseJsonOutput<{
+      status: string
+      mode: string
+      written: string[]
+      outOfDate: string[]
+      operations: number
+      projections: number
+      files: string[]
+    }>(generateResult.stdout)
+
+    expect(generateResult.status, `${generateResult.stdout}\n${generateResult.stderr}`).toBe(0)
+    expect(generateReport).toMatchObject({
+      status: 'ok',
+      mode: 'write',
+      written: ['src/generated/operation-projections.ts'],
+      outOfDate: [],
+      operations: 1,
+      projections: 2,
+      files: ['src/generated/operation-projections.ts'],
+    })
+    expect(read(appRoot, 'src/generated/operation-projections.ts')).toContain('executeById: {')
+    expect(read(appRoot, 'src/generated/operation-projections.ts')).toContain(
+      "'ginko-cms.publish-entry': 'entries/publish:publishEntryOperationExecute'",
+    )
+    expect(existsSync(resolve(appRoot, 'src/generated/operation-refs.ts'))).toBe(false)
+    expect(existsSync(resolve(appRoot, 'src/generated/operation-handles/testing.ts'))).toBe(false)
+
+    const cleanCheckResult = runCli(operationProjectionOnlyArgs(appRoot, ['--check']), repoRoot)
+    const cleanCheckReport = parseJsonOutput<{ status: string; mode: string; outOfDate: string[] }>(
+      cleanCheckResult.stdout,
+    )
+    expect(cleanCheckResult.status, `${cleanCheckResult.stdout}\n${cleanCheckResult.stderr}`).toBe(
+      0,
+    )
+    expect(cleanCheckReport).toEqual(
+      expect.objectContaining({
+        status: 'ok',
+        mode: 'check',
+        outOfDate: [],
+      }),
+    )
+
+    write(appRoot, 'src/generated/operation-projections.ts', '// stale\n')
+
+    const staleCheckResult = runCli(operationProjectionOnlyArgs(appRoot, ['--check']), repoRoot)
+    const staleCheckReport = parseJsonOutput<{ status: string; mode: string; outOfDate: string[] }>(
+      staleCheckResult.stdout,
+    )
+    expect(staleCheckResult.status, `${staleCheckResult.stdout}\n${staleCheckResult.stderr}`).toBe(
+      1,
+    )
+    expect(staleCheckReport).toEqual(
+      expect.objectContaining({
+        status: 'out-of-date',
+        mode: 'check',
+        outOfDate: ['src/generated/operation-projections.ts'],
       }),
     )
   })

@@ -320,6 +320,16 @@ describe('operation registry codegen', () => {
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
       'satisfies OperationProjectionRegistry',
     )
+
+    const projectionOnly = renderOperationRegistryGeneratedFiles(registry, {
+      operationProjectionsPath: '.trellis/generated/operation-projections.ts',
+    })
+    expect(projectionOnly).toEqual([
+      {
+        path: '.trellis/generated/operation-projections.ts',
+        content: expect.stringContaining("'tasks.archive': 'tasks.archive'"),
+      },
+    ])
   })
 
   it('renders host bridge operation handles from explicit projection wrappers', () => {

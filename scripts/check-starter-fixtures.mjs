@@ -88,9 +88,33 @@ function collectFiles(rootDir, searchRoot = '.') {
   return files
 }
 
+function readStarterManifest(template) {
+  const root = resolve(fixtureRoot, template)
+  return JSON.parse(readFileSync(resolve(root, 'starter.manifest.json'), 'utf8'))
+}
+
+function generatedOutputPaths(generated) {
+  if (typeof generated.path === 'string') return [generated.path]
+  if (generated.kind !== 'operationRegistry') return []
+
+  return [
+    generated.operationRefsPath,
+    generated.operationHandlesPath,
+    generated.operationProjectionsPath,
+  ].filter((path) => typeof path === 'string' && path.length > 0)
+}
+
+function includedGeneratedOutputPaths(manifest, generated) {
+  return generatedOutputPaths(generated).filter((path) => {
+    if (!matchesAny(path, manifest.include)) return false
+    if (matchesAny(path, manifest.exclude)) return false
+    return true
+  })
+}
+
 function expectedFixturePaths(template) {
   const root = resolve(fixtureRoot, template)
-  const manifest = JSON.parse(readFileSync(resolve(root, 'starter.manifest.json'), 'utf8'))
+  const manifest = readStarterManifest(template)
   const selected = new Set()
 
   for (const searchRoot of includeSearchRoots(manifest.include)) {
@@ -102,9 +126,9 @@ function expectedFixturePaths(template) {
   }
 
   for (const generated of manifest.generated ?? []) {
-    if (!matchesAny(generated.path, manifest.include)) continue
-    if (matchesAny(generated.path, manifest.exclude)) continue
-    selected.add(generated.path)
+    for (const path of includedGeneratedOutputPaths(manifest, generated)) {
+      selected.add(path)
+    }
   }
 
   return [...selected].sort((left, right) => left.localeCompare(right))
@@ -380,6 +404,44 @@ function runGeneratedValidation(template, appRoot, trellisTarballPath) {
   }
 }
 
+function assertStarterOperationRegistryCurrent(template, appRoot) {
+  const manifest = readStarterManifest(template)
+
+  for (const generated of manifest.generated ?? []) {
+    if (generated.kind !== 'operationRegistry') continue
+
+    const outputs = new Set(includedGeneratedOutputPaths(manifest, generated))
+    if (outputs.size === 0) continue
+
+    const args = ['operations', 'generate', '--check', '--cwd', appRoot, '--json']
+
+    if (outputs.has(generated.operationRefsPath)) {
+      args.push('--operation-refs', generated.operationRefsPath)
+      args.push('--project-operation-ref-import', generated.projectOperationRefImport)
+      args.push('--api-import', generated.apiImport)
+    }
+
+    if (outputs.has(generated.operationHandlesPath)) {
+      args.push('--operation-handles', generated.operationHandlesPath)
+      args.push('--define-operation-handle-import', generated.defineOperationHandleImport)
+    }
+
+    if (outputs.has(generated.operationProjectionsPath)) {
+      args.push('--operation-projections', generated.operationProjectionsPath)
+    }
+
+    if (Array.isArray(generated.runtimes) && generated.runtimes.length > 0) {
+      args.push('--runtime', generated.runtimes.join(','))
+    }
+
+    const result = runCli(args)
+    assert(
+      result.status === 0,
+      formatCommandFailure(`${template} operation registry check`, result),
+    )
+  }
+}
+
 function patchOfflineComponentCodegen(appRoot) {
   const convexConfigPath = resolve(appRoot, 'convex/convex.config.ts')
   const apiTypesPath = resolve(appRoot, 'convex/_generated/api.d.ts')
@@ -434,6 +496,7 @@ try {
     assertSameSet(actualFiles, expectedFiles, `${template} generated file set`)
     assertSameSet(initReport.written.sort(), expectedFiles, `${template} CLI written file set`)
     assertLayerBoundaries(template, appRoot, expectedFiles)
+    assertStarterOperationRegistryCurrent(template, appRoot)
 
     writeDoctorEnv(appRoot, template)
     const doctorSummary = assertDoctorPass(template, appRoot)
