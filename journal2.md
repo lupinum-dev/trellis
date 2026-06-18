@@ -2428,14 +2428,83 @@ test/helpers.ts` had no matches except the candidate helper row before
   `pages.publish`.
 - `dream-spec.md` has unrelated local changes and was left out of this slice.
 
+## Slice 45: Resolve Generated Testing Handles In Convex Vitest Config
+
+### Proof
+
+- The testing runtime already had `caller.operation(operationHandle)` support,
+  but real example tests could not import the generated testing handle module.
+- Updating example 07 to import `#trellis/operations/testing` initially failed
+  in Vitest with `Cannot find module '#trellis/operations/testing'` even after
+  `nuxi prepare` generated `.nuxt/trellis/operation-handles/testing.ts`.
+- The failure was a resolver boundary: Nuxt knew the virtual alias, but
+  `convexTestConfig()` did not pass the generated Trellis aliases into Vitest.
+  Asking every app test config to recreate those aliases would be another
+  framework protocol map.
+- Once the alias resolved, example 07 exposed a separate service-boundary drift:
+  the webhook service allowed an old handler function ref while the operation
+  registry and forwarded envelope now use the canonical operation id
+  `runbooks.create-from-webhook`.
+
+### Implementation
+
+- Added generated Trellis operation aliases to `convexTestConfig()`:
+  `#trellis/api`, `#trellis/operation-runtime`,
+  `#trellis/operation-projections`, and all
+  `#trellis/operations/{client,server,testing,mcp}` paths.
+- Preserved caller alias overrides by merging generated object aliases before
+  existing object aliases, and by appending generated aliases after existing
+  array aliases.
+- Added a unit assertion that `convexTestConfig()` resolves the generated
+  operation testing alias into `.nuxt/trellis/operation-handles/testing.ts`.
+- Hard-cut example 07 runbook-create tests to
+  `ctx.asUser(...).operation(operations.runbooks.create).execute(...)` via
+  `#trellis/operations/testing`.
+- Removed the caller-authored replay/transport options from the forwarded-user
+  helper used by that operation path.
+- Removed the stale webhook service `allowedFunctionRefs` entry and kept
+  `allowedOperations: ['runbooks.create-from-webhook']` as the service target
+  authority.
+- Kept webhook test forwarding explicit and signed to
+  `targetFunctionRef: 'runbooks.create-from-webhook'` because webhook routes are
+  still an explicit service/transport boundary, not a normal product operation
+  test path.
+
+### Verification
+
+- Format check passed for touched files:
+  `pnpm exec oxfmt --check src/runtime/testing/index.ts tests/unit/testing.test.ts examples/07-mcp-reference/test/mcpReference.test.ts examples/07-mcp-reference/convex/auth/services.ts`.
+- Whitespace check passed: `git diff --check`.
+- Testing runtime unit tests passed:
+  `pnpm vitest run --project=unit tests/unit/testing.test.ts` reported one
+  passing test file and 3 passing tests.
+- Example 07 test suite passed:
+  `pnpm --dir examples/07-mcp-reference test` reported 3 passing test files and
+  20 passing tests.
+- Relevant lint gates passed:
+  `pnpm run lint:src:runtime:rest`, `pnpm run lint:tests`, and
+  `pnpm run lint:examples`.
+- Module build passed: `pnpm run build:module`.
+- Public type surface passed: `pnpm run test:types:public`.
+
+### Notes
+
+- `pnpm --dir examples/07-mcp-reference typecheck` still fails on existing
+  example handler ctx annotations that type `workspaceId` as branded
+  `Id<'workspaces'>` while the Trellis workspace lane exposes `workspaceId` as
+  `string`. This is a real follow-up, but it is broader than the generated
+  testing-handle resolver slice.
+- This slice intentionally does not hide webhook service transport proof behind
+  the product operation test helper. Server/webhook adapters stay explicit until
+  the RFC server-route adapter slice gives them a generated operation boundary.
+
 ## Next Slice Candidates
 
-1. Replace normal app-level test transport plumbing with product-level generated
-   operation handles, starting with a Trellis example before pushing the pattern
-   back into Ginko CMS.
-2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
+1. Fix the workspace ctx typing mismatch in maintained examples and starter
+   fixtures so `pnpm --dir examples/07-mcp-reference typecheck` can become a
+   reliable acceptance gate again.
+2. Push generated testing handles into Ginko CMS tests and delete
+   `handlerIdByFunctionRef` / destructive transport maps from the consumer.
+3. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
    operation files can be validated by package/consumer tests without virtual
    aliases.
-3. Start the explicit advanced projection helper design, using the example 08
-   bridge wrapper grammar as the proof case and avoiding another generic
-   adapter.
