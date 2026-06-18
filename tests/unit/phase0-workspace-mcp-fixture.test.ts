@@ -206,8 +206,8 @@ describe('phase0 workspace-mcp fixture', () => {
       ),
       'utf8',
     )
-    expect(domainSource).toContain('mutation.workspace(createProjectOperation)')
-    expect(domainSource).toContain('mutation.workspace.preview(deleteProjectOperation)')
+    expect(domainSource).toContain('mutation.workspace(createProjectOperation as never)')
+    expect(domainSource).toContain('mutation.workspace.preview(deleteProjectOperation as never)')
 
     const generatedApiTypes = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),

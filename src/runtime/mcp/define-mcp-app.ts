@@ -271,22 +271,24 @@ type AnyOperationDefinition = {
   kind?: OperationKind
 }
 
+type AnyToolOperation = AnyOperationDefinition | OperationHandle
+
 type OperationPreviewPayload = {
   [K in keyof OperationPreviewEnvelope]: OperationPreviewEnvelope[K]
 }
 
-type OperationProjectionId<TOperation extends AnyOperationDefinition> = Extract<
+type OperationProjectionId<TOperation extends AnyToolOperation> = Extract<
   OperationIdOf<TOperation>,
   string
 >
 
 type ExecuteProjectionRef<
-  TOperation extends AnyOperationDefinition,
+  TOperation extends AnyToolOperation,
   TRef extends AnyFunctionRef,
 > = OperationProjectionRef<TRef, OperationProjectionId<TOperation>, 'execute'>
 
 type PreviewProjectionRef<
-  TOperation extends AnyOperationDefinition,
+  TOperation extends AnyToolOperation,
   TRef extends AnyFunctionRef | undefined,
 > = TRef extends AnyFunctionRef
   ? OperationProjectionRef<TRef, OperationProjectionId<TOperation>, 'preview'>
@@ -295,7 +297,7 @@ type PreviewProjectionRef<
 export type McpDestructiveConfirmationMode = 'backend' | 'transport'
 
 export interface ToolOperationOptions<
-  TOperation extends AnyOperationDefinition,
+  TOperation extends AnyToolOperation,
   TCaller,
   TActingFor extends ActingFor,
   TAccess extends ProjectionAccessSnapshot | null,
@@ -377,7 +379,7 @@ type ToolFactory<
     tool: DirectToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
   ) => McpToolDefinition
   operation: <
-    TOperation extends AnyOperationDefinition,
+    TOperation extends AnyToolOperation,
     TExecute extends AnyFunctionRef = TOperation extends OperationHandle
       ? TOperation['executeRef'] extends AnyFunctionRef
         ? TOperation['executeRef']
@@ -924,7 +926,7 @@ export function defineMcpApp<
   const tool: ToolFactory<TCaller, TActingFor, TAccess, TRuntime> = {
     query: (definition) => createDirectTool('query', definition),
     operation: <
-      TOperation extends AnyOperationDefinition,
+      TOperation extends AnyToolOperation,
       TExecute extends AnyFunctionRef = AnyMutationRef,
       TPreview extends AnyFunctionRef | undefined = undefined,
     >(

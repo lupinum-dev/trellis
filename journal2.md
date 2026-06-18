@@ -3156,11 +3156,78 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - The next proof gap is a prepared Nuxt fixture or typecheck that imports
   generated operation handles while leaving permission codegen disabled.
 
+## Slice 57: Prove Nuxt MCP Operation Alias Without Permission Codegen
+
+### Proof
+
+- Slice 55 proved the operation codegen installer registers
+  `#trellis/operations/mcp` without `trellis.permissions.codegen`, but only at
+  the module-template level.
+- The existing phase0 workspace MCP fixture had permission codegen disabled in
+  Nuxt config, but its runtime unit tools imported committed generated handles
+  directly from `generated/operation-handles/mcp.ts`.
+- That left a real Nuxt prepare/typecheck gap: a source-backed fixture could
+  still fail to resolve `#trellis/operations/mcp`, or generated handles could
+  typecheck as raw operation definitions instead of operation handles.
+- The first `nuxi typecheck` attempt on the fixture exposed the expected nested
+  fixture issue: without a local `tsconfig.json`, Nuxt typecheck walked up into
+  the repo root TypeScript project and reported unrelated starter fixture
+  errors. A fixture-local tsconfig was required before the proof was meaningful.
+
+### Implementation
+
+- Added a phase0 MCP tool that imports operation handles from
+  `#trellis/operations/mcp` and binds `operations.projects.create` through
+  `tool.operation(...)`.
+- Added a focused unit smoke that runs `nuxi prepare` and `nuxi typecheck` for
+  the phase0 workspace MCP fixture with permission codegen disabled.
+- The smoke asserts that Nuxt emits `.nuxt/trellis/operation-handles/mcp.ts`,
+  wires `#trellis/operations/mcp` in `.nuxt/tsconfig.json`, keeps generated refs
+  bound to `#trellis/api`, and does not emit permission-codegen artifacts.
+- Added a fixture-local `tsconfig.json` extending `.nuxt/tsconfig.json` so the
+  typecheck proves the fixture instead of the whole repository.
+- Added source aliases for the phase0 fixture's Trellis subpath imports so the
+  proof does not depend on a prebuilt package `dist`.
+- Fixed the MCP `tool.operation(...)` type contract so generated
+  `OperationHandle` values are accepted directly, matching the runtime
+  implementation and RFC authoring target.
+- Narrowed registered operation projection type helpers so operations without a
+  preview or execute registration resolve to `never` instead of indexing
+  non-matching declaration-merge maps.
+
+### Verification
+
+- Focused Nuxt alias smoke passed:
+  `pnpm vitest run --project=unit tests/unit/operation-alias-no-permission-codegen.test.ts`
+  reported 1 passing test after running fixture `nuxi prepare` and
+  `nuxi typecheck`.
+- Adjacent phase0/codegen/MCP tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-alias-no-permission-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/operation-codegen-installer.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/mcp-index-exports.test.ts`
+  reported 5 passing test files and 19 passing tests.
+- Formatter check passed for touched runtime, fixture, and test files:
+  `pnpm exec oxfmt --check src/runtime/mcp/define-mcp-app.ts src/runtime/functions/index.ts tests/fixtures/phase0-workspace-mcp/nuxt.config.ts tests/fixtures/phase0-workspace-mcp/server/mcp/runtime.ts tests/fixtures/phase0-workspace-mcp/server/mcp/tools/create-project-from-virtual-alias.ts tests/fixtures/phase0-workspace-mcp/convex/features/projects/domain.ts tests/fixtures/phase0-workspace-mcp/tsconfig.json tests/unit/operation-alias-no-permission-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`.
+- Module build passed: `pnpm run build:module`.
+- Runtime MCP/functions lint passed: `pnpm run lint:src:runtime:functions-mcp`.
+- Test lint passed: `pnpm run lint:tests`.
+- Public type surface passed: `pnpm run test:types:public`.
+- Publish-surface check passed: `pnpm run check:publish-surface`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- The phase0 Convex projection file now casts implemented operations at the
+  projection call site so Nuxt typecheck can prove the generated handle import
+  path without turning this fixture into a full Convex backend type proof.
+- This keeps the scanner-visible shape as one direct exported lane call per
+  projection and avoids adding a second generated handle source.
+- The remaining release-level proof is still broader than this slice:
+  starter-fixture typecheck/build, Ginko consumer deletion of protocol maps,
+  explain/doctor inventory wiring, and the final `release:verify` gate remain
+  separate acceptance work.
+
 ## Next Slice Candidates
 
 1. Update RFC 0013 status and acceptance notes now that several implementation
    slices are complete, while keeping remaining release gates explicit.
-2. Add a Nuxt-level prepared fixture/typecheck that imports
-   `#trellis/operations/mcp` without enabling permission codegen.
-3. Audit whether `trellis explain app --json` should consume the always-on
+2. Audit whether `trellis explain app --json` should consume the always-on
    public-surface inventory artifact instead of only static CLI inventory.

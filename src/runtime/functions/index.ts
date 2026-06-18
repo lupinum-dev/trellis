@@ -206,9 +206,9 @@ export interface OperationProjectionRegistry {
 export type RegisteredOperationId = Extract<keyof OperationsById, string>
 export type RegisteredOperationDefinition<TId extends RegisteredOperationId> = OperationsById[TId]
 export type RegisteredOperationExecution<TId extends RegisteredOperationId> =
-  OperationExecutionsById[TId]
+  TId extends keyof OperationExecutionsById ? OperationExecutionsById[TId] : never
 export type RegisteredOperationPreview<TId extends RegisteredOperationId> =
-  OperationPreviewsById[TId]
+  TId extends keyof OperationPreviewsById ? OperationPreviewsById[TId] : never
 
 type AvailableOperationProjection<TId extends RegisteredOperationId> =
   | (TId extends keyof OperationExecutionsById ? 'execute' : never)
