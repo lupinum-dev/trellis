@@ -1605,6 +1605,59 @@ loops.
 - The next slice can use this durable generator while continuing to remove raw
   transport execute refs from Ginko tests and helpers.
 
+## Slice 31: Ginko Publish Flow Uses Generated Testing Handles
+
+### Proof
+
+- Used the generated operation registry against the real Ginko CMS package-root
+  output before changing behavior. The check command reported 16 operations, 28
+  projections, and no stale generated files.
+- Confirmed the archive entry operation already had a generated testing handle,
+  while `test/component/entries/publish.test.ts` still called the raw
+  `archiveEntryTransportExecute` transport mutation directly.
+- Confirmed `archiveEntryTransportExecute` had no remaining test call sites
+  after the cutover, so the archive-specific row in
+  `destructiveTransportExecuteFunctionRefs` was dead helper protocol knowledge.
+
+### Implementation
+
+- In Ginko CMS commit `c1f30f2`, committed the Trellis-generated package-root
+  operation files:
+  `packages/convex/src/generated/operation-refs.ts` and
+  `packages/convex/src/generated/operation-handles/testing.ts`.
+- Added `operation(...)` support to the Ginko component test caller by delegating
+  to Trellis testing's generated operation handle client.
+- Migrated the publish component test's publish, unpublish, and archive paths to
+  `owner.operation(operations.byId[...]).preview/execute(...)`.
+- Removed the now-unused archive transport-execute translation map row from the
+  Ginko test helper.
+
+### Verification
+
+- Ginko focused behavior proof passed:
+  `pnpm vitest run test/component/entries/publish.test.ts` reported 10 passing
+  tests.
+- Ginko package type/build proof passed:
+  `pnpm run typecheck`.
+- Trellis generated-registry drift proof against Ginko passed:
+  `node /Users/matthias/Git/workspace/trellis/dist/cli.mjs operations generate ... --check --json`
+  reported status `ok`, 16 operations, 28 projections, and no out-of-date
+  files.
+- Ginko whitespace proof passed:
+  `git diff --check`.
+
+### Notes
+
+- This is a hard consumer cutover for one vertical publish-flow test file, not a
+  compatibility shim. The old archive transport helper mapping was deleted once
+  no test needed it.
+- Ginko still has direct transport execute calls in other component tests and
+  still has translation-map rows for the operations those tests use. The next
+  slices should continue migrating one destructive operation family at a time
+  and delete each helper row as soon as its last caller is gone.
+- The Trellis package itself has no runtime code change in this slice; the
+  framework change was proven by the generated files and consumer test commit.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
