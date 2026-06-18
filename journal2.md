@@ -2610,6 +2610,64 @@ test/helpers.ts` had no matches except the candidate helper row before
 - If Trellis later introduces a first-class upload lane, this should be revisited
   as a hard cutover rather than a compatibility wrapper.
 
+## Slice 48: Maintained Example Typecheck Sweep
+
+### Proof
+
+- Ran the broader maintained-example typecheck sweep after example 07 became
+  type-green again.
+- Example 01 initially failed because `publicWrite.access` receives an
+  intentionally restricted database capability typed as `unknown`; the public
+  todo example was using it as a raw Convex writer.
+- Example 06 initially failed while Nuxt generated Trellis operation artifacts:
+  the operation registry rejected re-exported operation projections from feature
+  barrels such as `convex/features/memberships/index.ts`.
+- App and test call sites in example 06 already use direct Convex function
+  modules such as `api.features.projects.domain.list`, so the barrel exports
+  were only duplicate projection surfaces.
+
+### Implementation
+
+- Narrowed example 01 public-write access locally to `MutationCtx['db']` inside
+  each declared `publicWrite.access` block.
+- Removed example 06 barrel re-exports for Convex projection functions from the
+  dashboard, memberships, projects, and workspaces feature indexes.
+- Kept feature, permission, schema, and type exports in those barrels because
+  they remain normal composition imports rather than operation projection
+  surfaces.
+
+### Verification
+
+- Module build passed: `pnpm run build:module`.
+- Maintained example typechecks passed:
+  `pnpm --dir examples/01-public-todo typecheck`,
+  `pnpm --dir examples/02-auth-todo typecheck`,
+  `pnpm --dir examples/03-team-workspace typecheck`,
+  `pnpm --dir examples/04-saas-platform typecheck`,
+  `pnpm --dir examples/05-visibility-access typecheck`,
+  `pnpm --dir examples/06-multi-workspace typecheck`,
+  `pnpm --dir examples/07-mcp-reference typecheck`, and
+  `pnpm --dir examples/08-component-mini-cms typecheck`.
+- Focused example tests passed:
+  `pnpm --dir examples/01-public-todo test` reported one passing test file and
+  one passing test; `pnpm --dir examples/06-multi-workspace test` reported one
+  passing test file and 5 passing tests.
+- Format check passed for touched files:
+  `pnpm exec oxfmt --check examples/01-public-todo/convex/features/todos/domain.ts examples/06-multi-workspace/convex/features/memberships/index.ts examples/06-multi-workspace/convex/features/projects/index.ts examples/06-multi-workspace/convex/features/workspaces/index.ts examples/06-multi-workspace/convex/features/dashboard/index.ts`.
+- Example lint passed: `pnpm run lint:examples`.
+- Whitespace check passed: `git diff --check`.
+- Source scan found no remaining example 06 barrel projection exports:
+  `rg -n "export \\{ .*\\} from './domain'|export \\{ .*\\} from \\\"./domain\\\"" examples/06-multi-workspace/convex/features -g 'index.ts'`.
+
+### Notes
+
+- This keeps the operation registry fail-closed. Supporting projection
+  re-export chasing would add a second projection authoring path and weaken the
+  direct-module invariant the scanner now enforces.
+- The example 01 change preserves the restricted public-write boundary: Trellis
+  still exposes only the declared table capability, while the app fixture
+  narrows to its local Convex writer type at the access edge.
+
 ## Next Slice Candidates
 
 1. Push generated testing handles into Ginko CMS tests and delete
@@ -2617,5 +2675,5 @@ test/helpers.ts` had no matches except the candidate helper row before
 2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
    operation files can be validated by package/consumer tests without virtual
    aliases.
-3. Run a broader maintained-example typecheck/build sweep now that example 07
-   has become type-green again.
+3. Update RFC 0013 status and acceptance notes now that several implementation
+   slices are complete, while keeping remaining release gates explicit.
