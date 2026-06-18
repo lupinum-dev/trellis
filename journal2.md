@@ -1713,7 +1713,7 @@ loops.
   multiple lines. That would make generated files either format-clean or
   drift-clean, but not both.
 - Also caught a pnpm argument-forwarding issue: `pnpm run operations:generate --
-  --check --json` passed a literal `--` to Trellis, so the CLI stayed in write
+--check --json` passed a literal `--` to Trellis, so the CLI stayed in write
   mode. The working form is `pnpm run operations:generate --check --json`.
 
 ### Implementation
@@ -1917,7 +1917,7 @@ loops.
   that belongs to preview because the operation refuses to produce confirmation
   without a matching backup artifact.
 - After migrating backup, `rg -n "deleteEntryTransportExecute" -S test
-  test/helpers.ts` had no matches except the candidate helper row before
+test/helpers.ts` had no matches except the candidate helper row before
   deletion.
 
 ### Implementation
@@ -1957,11 +1957,86 @@ loops.
 - Next high-value slices are versioning rollback and draft revert, because each
   can remove another helper row once the corresponding tests are migrated.
 
+## Slice 38: Preserve Generated Execute Forwarding Targets
+
+### Proof
+
+- Migrating Ginko versioning rollback tests to generated testing operation
+  handles failed with
+  `Invalid identity forwarding envelope: function-ref.`.
+- The generated rollback execute ref stamped
+  `functionRef: 'ginko-cms.rollback-version'`, but the operation declared
+  `executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute'`.
+- Runtime target resolution already treats `executeFunctionRef` as canonical
+  for operation execute forwarding, so the scanner/codegen path was the
+  inconsistent source of truth.
+- Added failing Trellis regression coverage for an execute projection that
+  spreads the operation, overrides `id` to the operation id, and declares a real
+  `executeFunctionRef`.
+
+### Implementation
+
+- In Trellis commit `c2acccf`, changed public-surface operation projection
+  target derivation so execute projections prefer `operation.executeFunctionRef`
+  before projection-local `id` overrides.
+- Kept preview projection behavior unchanged: explicit preview `id` overrides
+  still define the preview function target.
+- Added scanner and registry-codegen tests proving generated execute refs and
+  preview `executeFunctionRef` metadata use the real execute function target.
+- Rebuilt Trellis before regenerating Ginko operation files from the local
+  package.
+- In Ginko CMS commit `fa4742b`, regenerated operation refs, added a shared
+  `rollbackVersion(...)` test helper backed by
+  `operations.byId['ginko-cms.rollback-version']`, migrated versioning tests
+  away from rollback transport execute calls, and deleted the rollback transport
+  helper map row.
+
+### Verification
+
+- The new Trellis regression tests failed before the implementation change with
+  generated execute target `ginko-cms.rollback-version`.
+- Focused Trellis codegen proof passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`
+  reported 16 passing tests.
+- Adjacent Trellis CLI/codegen proof passed:
+  `pnpm vitest run --project=unit tests/unit/cli-operations.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/phase0-starter-manifest.test.ts`
+  reported 9 passing tests.
+- Trellis package build passed: `pnpm run build:module`.
+- Trellis lint, type, and API-surface gates passed:
+  `pnpm run lint:src:core`, `pnpm run lint:tests`,
+  `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm run check:publish-surface`, and
+  `pnpm run check:docs:api-surface`.
+- Ginko operation generation and drift check passed:
+  `pnpm run operations:generate && pnpm run operations:check` reported 16
+  operations, 28 projections, and no out-of-date files after regeneration.
+- Focused Ginko rollback proof passed:
+  `pnpm vitest run test/component/entries/versioning.test.ts` reported 5
+  passing tests.
+- Full Ginko package proof passed: `pnpm run typecheck`.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Ginko lint and static guards passed: `pnpm run lint`.
+- Whitespace checks passed with `git diff --check` in both repos and targeted
+  Trellis `oxfmt --check` for the touched source/test files.
+
+### Notes
+
+- A parallel verification attempt briefly failed `cli-operations.test.ts`
+  because `pnpm run build:module` cleaned `dist` while the CLI test was running.
+  The same CLI/codegen tests passed when rerun sequentially after the build.
+- The raw `TransportExecute` count in Ginko tests dropped from 46 to 36.
+- The rollback transport helper map row is gone. Remaining test helper map rows
+  are publish, unpublish, and revert-draft-to-published.
+- The next high-value migration slice is draft revert, because it can delete the
+  remaining draft transport helper map row and further prove destructive
+  confirmation handling through generated operation handles.
+
 ## Next Slice Candidates
 
-1. Continue the Ginko CMS destructive test migration from transport execute refs
-   to generated testing operation handles, then delete the corresponding helper
-   maps.
+1. Migrate Ginko draft revert tests from transport execute refs to generated
+   operation handles, then delete the revert-draft-to-published helper map row.
 2. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
 3. Make `trellis operations generate` easier to install into generated/consumer
