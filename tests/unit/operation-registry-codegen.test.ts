@@ -281,4 +281,52 @@ describe('operation registry codegen', () => {
       'convex/features/tasks/domain',
     )
   })
+
+  it('maps implemented operation projections back to shared descriptors', () => {
+    const rootDir = createFixture({
+      'shared/features/tasks/operations.ts': `
+        import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+
+        export const archiveTaskDescriptor = defineOperationDescriptor({
+          id: 'tasks.archive',
+          kind: 'safe',
+          args: {},
+        })
+      `,
+      'convex/features/tasks/operations.ts': `
+        import { implementOperation } from '@lupinum/trellis/backend'
+        import { archiveTaskDescriptor } from '../../../shared/features/tasks/operations'
+
+        export const archiveTaskOperation = implementOperation(archiveTaskDescriptor, {
+          handler: async () => null,
+        })
+      `,
+      'convex/features/tasks/domain.ts': `
+        import { mutation } from '../../functions'
+        import { archiveTaskOperation } from './operations'
+
+        export const archiveTask = mutation.workspace(archiveTaskOperation)
+      `,
+    })
+
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(rootDir))
+
+    expect(registry.operations).toEqual([
+      {
+        id: 'tasks.archive',
+        exportName: 'archiveTaskDescriptor',
+        file: 'shared/features/tasks/operations.ts',
+        kind: 'safe',
+        line: expect.any(Number),
+        execute: {
+          apiPath: ['features', 'tasks', 'domain', 'archiveTask'],
+          exportName: 'archiveTask',
+          file: 'convex/features/tasks/domain.ts',
+          functionRef: 'features/tasks/domain:archiveTask',
+          line: expect.any(Number),
+          projection: 'execute',
+        },
+      },
+    ])
+  })
 })

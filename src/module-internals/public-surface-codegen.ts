@@ -342,6 +342,35 @@ function extractOperationDefinitions(
   return operations
 }
 
+function extractOperationImplementationAliases(
+  sourceFile: SourceFile,
+  operationsByExport: Map<string, OperationDefinitionMetadata>,
+): Map<string, OperationDefinitionMetadata> {
+  const aliases = new Map<string, OperationDefinitionMetadata>()
+
+  for (const declaration of sourceFile.getVariableDeclarations()) {
+    if (!declaration.getVariableStatement()?.isExported()) continue
+
+    const initializer = unwrapExpression(declaration.getInitializer())
+    if (!initializer || !Node.isCallExpression(initializer)) continue
+
+    const callee = unwrapExpression(initializer.getExpression())
+    if (!callee || !Node.isIdentifier(callee) || callee.getText() !== 'implementOperation') {
+      continue
+    }
+
+    const descriptor = unwrapExpression(initializer.getArguments()[0])
+    if (!descriptor || !Node.isIdentifier(descriptor)) continue
+
+    const operation = operationsByExport.get(descriptor.getText())
+    if (!operation) continue
+
+    aliases.set(declaration.getName(), operation)
+  }
+
+  return aliases
+}
+
 function extractProjectionBinding(
   rootDir: string,
   declaration: VariableDeclaration,
@@ -431,6 +460,11 @@ function extractProjectionDiagnostic(
   if (!Node.isCallExpression(initializer)) return null
 
   const [firstArg] = initializer.getArguments()
+  const callee = unwrapExpression(initializer.getExpression())
+  if (callee && Node.isIdentifier(callee) && callee.getText() === 'implementOperation') {
+    return null
+  }
+
   const projectionCallKind = readCanonicalProjectionCallKind(initializer)
   if (projectionCallKind) {
     const operationIdentifier = readExecuteOperationIdentifier(firstArg)
@@ -605,23 +639,46 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
       .filter((operation) => operationExportCounts.get(operation.exportName) === 1)
       .map((operation) => [operation.exportName, operation]),
   )
+  const projectionOperationsByExport = new Map(operationsByExport)
+
+  for (const sourceFile of project.getSourceFiles()) {
+    if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+
+    for (const [alias, operation] of extractOperationImplementationAliases(
+      sourceFile,
+      operationsByExport,
+    )) {
+      if (!projectionOperationsByExport.has(alias)) {
+        projectionOperationsByExport.set(alias, operation)
+      }
+    }
+  }
 
   for (const sourceFile of project.getSourceFiles()) {
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
 
     for (const declaration of sourceFile.getVariableDeclarations()) {
-      const binding = extractProjectionBinding(rootDir, declaration, operationsByExport)
+      const binding = extractProjectionBinding(rootDir, declaration, projectionOperationsByExport)
       if (binding) {
         projections.push(binding)
         continue
       }
 
-      const diagnostic = extractProjectionDiagnostic(rootDir, declaration, operationsByExport)
+      const diagnostic = extractProjectionDiagnostic(
+        rootDir,
+        declaration,
+        projectionOperationsByExport,
+      )
       if (diagnostic) diagnostics.push(diagnostic)
     }
 
     for (const exportAssignment of sourceFile.getExportAssignments()) {
-      const tool = readToolMetadata(rootDir, sourceFile, exportAssignment, operationsByExport)
+      const tool = readToolMetadata(
+        rootDir,
+        sourceFile,
+        exportAssignment,
+        projectionOperationsByExport,
+      )
       if (tool) tools.push(tool)
     }
   }

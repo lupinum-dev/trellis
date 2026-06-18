@@ -258,6 +258,46 @@ loops.
 - The next slice should make a maintained fixture or starter consume the
   registry-rendered files rather than manifest-authored refs/handles.
 
+## Slice 6: Implemented Operation Projection Aliases
+
+### Proof
+
+- Added a failing registry test for the realistic split where shared
+  `defineOperationDescriptor(...)` exports are implemented in Convex via
+  `implementOperation(descriptor, ...)`, then projected from the implemented
+  operation export.
+- The initial run failed because the projection scanner treated
+  `mutation.workspace(archiveTaskOperation)` as an unsupported dynamic
+  operation reference.
+- After adding alias lookup, the next run exposed a second bug: exported
+  `implementOperation(...)` declarations were themselves being diagnosed as
+  unsupported projection calls.
+
+### Implementation
+
+- Added a projection-only alias map for exported
+  `implementOperation(descriptor, ...)` bindings. Projection scanning can now
+  resolve implementation exports back to their shared descriptor metadata
+  without adding duplicate operation ids to the operation inventory.
+- Excluded `implementOperation(...)` declarations from projection diagnostics;
+  they are implementation bindings, not surface projections.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts -t "implemented operation projections"`.
+- After implementation,
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/cli-explain.test.ts`
+  passed.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- This completes the scanner prerequisite for moving the phase0 workspace-MCP
+  fixture toward canonical projections while keeping generated handles pointed
+  at shared descriptors instead of Convex implementation files.
+
 ## Next Slice Candidates
 
 1. Replace one maintained fixture/starter with registry-rendered refs and
