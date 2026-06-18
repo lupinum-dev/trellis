@@ -596,3 +596,10 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   preset/ladder equivalence out of remaining drift in
   `meta/0.2-implementation-note.md`; the CLI unit suite proves this by
   comparing generated preset trees against composed `trellis add` ladder output.
+- 2026-06-18: `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts -t "initializes a first-class workspace MCP app via the preset|fails doctor when MCP surfaces lack effective Nitro async context"`,
+  `pnpm exec vitest run --project=unit tests/unit/mcp-convex-caller.test.ts tests/unit/use-mcp-session.test.ts`,
+  and `pnpm exec vitest run --project=e2e tests/e2e/mcp-smoke.e2e.test.ts`
+  passed while reviewing the Phase 6 MCP generated-slice drift. Moved that
+  drift to resolved evidence instead of adding new MCP framework code because
+  the generated preset already gates async context and bearer auth, while the
+  e2e smoke proves real `tools/list` and `tools/call` behavior.
