@@ -419,6 +419,41 @@ describe('defineMcpApp middleware forwarding', () => {
     delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
   })
 
+  it('uses the canonical MCP Convex caller when callConvex is omitted', async () => {
+    vi.mocked(serverConvexQuery).mockResolvedValueOnce({ ok: true })
+
+    const event = createEvent()
+    const caller = {
+      kind: 'agent' as const,
+      agentId: 'assistant-bot',
+      subject: 'agent:assistant-bot',
+    }
+    const actingFor = {
+      subject: 'user:user_1',
+    }
+    const mcp = defineMcpApp({
+      resolveCaller: async () => caller,
+      resolveActingFor: async () => actingFor,
+    })
+
+    const ctx = await mcp.resolve(event)
+    await ctx.convex.query('runbooks:getWorkspace' as never, { id: 'runbook_1' } as never)
+
+    expect(serverConvexQuery).toHaveBeenCalledWith(
+      event,
+      'runbooks:getWorkspace',
+      { id: 'runbook_1' },
+      {
+        auth: {
+          transport: 'mcp',
+          caller,
+          actingFor,
+          identityForwardingKey: 'test-identity-forwarding-key',
+        },
+      },
+    )
+  })
+
   it('uses the projected trusted caller inside middleware query helpers', async () => {
     vi.mocked(serverConvexQuery).mockResolvedValueOnce({ ok: true })
 

@@ -1,4 +1,4 @@
-import { createMcpConvexCaller, defineMcpApp, deniedMcpAccessSnapshot } from '@lupinum/trellis/mcp'
+import { defineMcpApp, deniedMcpAccessSnapshot } from '@lupinum/trellis/mcp'
 import type { H3Event } from 'h3'
 import type { WorkspaceCaller } from '~~/convex/auth/caller'
 import { todoPermissions } from '~~/convex/features/todos'
@@ -27,13 +27,6 @@ function getMcpCaller(event: H3Event): WorkspaceCaller {
 }
 
 export const mcpRuntime = defineMcpApp<WorkspaceCaller>({
-  callConvex: async (event, { caller, actingFor }) =>
-    createMcpConvexCaller(event, {
-      caller,
-      actingFor,
-      isForwardedCaller: (candidate): candidate is Extract<WorkspaceCaller, { kind: 'agent' }> =>
-        candidate.kind === 'agent',
-    }),
   resolveCaller: async (event) => getMcpCaller(event),
   resolveAccess: async ({ caller, convex }) =>
     caller.kind === 'agent'

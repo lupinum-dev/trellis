@@ -45,6 +45,7 @@ import {
 } from '../server/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
+import { createMcpConvexCaller } from './create-mcp-convex-caller.js'
 import { defineConvexToolInternal } from './define-convex-tool.js'
 import {
   assertProductionConfirmationStore,
@@ -129,7 +130,7 @@ export interface DefineMcpAppOptions<
   TActingFor extends ActingFor = ActingFor,
   TRuntime = Record<string, never>,
 > {
-  callConvex: (
+  callConvex?: (
     event: H3Event,
     caller: { caller: TCaller; actingFor: TActingFor | null },
   ) => MaybePromise<McpConvexCaller>
@@ -520,6 +521,10 @@ export function defineMcpApp<
   TActingFor extends ActingFor = ActingFor,
   TRuntime = Record<string, never>,
 >(options: DefineMcpAppOptions<TCaller, TAccess, TActingFor, TRuntime>) {
+  const callConvex =
+    options.callConvex ??
+    ((event: H3Event, { caller, actingFor }: { caller: TCaller; actingFor: TActingFor | null }) =>
+      createMcpConvexCaller(event, { caller, actingFor }))
   const callerKeyResolver = options.callerKey ?? defaultCallerKey
   const appTenantKeyResolver = options.scopeKey
   const appRateLimitStore = options.rateLimitStore
@@ -572,7 +577,7 @@ export function defineMcpApp<
           },
         })
         const caller = await options.resolveCaller(event)
-        const preDelegationConvex = await options.callConvex(event, {
+        const preDelegationConvex = await callConvex(event, {
           caller,
           actingFor: null,
         })
@@ -583,7 +588,7 @@ export function defineMcpApp<
               convex: preDelegationConvex,
             })
           : null
-        const convex = await options.callConvex(event, {
+        const convex = await callConvex(event, {
           caller,
           actingFor,
         })
@@ -1477,7 +1482,7 @@ export function defineMcpApp<
 
   return {
     resolve,
-    callConvex: options.callConvex,
+    callConvex,
     tool,
   }
 }

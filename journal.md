@@ -603,3 +603,13 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   drift to resolved evidence instead of adding new MCP framework code because
   the generated preset already gates async context and bearer auth, while the
   e2e smoke proves real `tools/list` and `tools/call` behavior.
+- 2026-06-18: Made `defineMcpApp(...)` own the default MCP Convex caller by
+  delegating to `createMcpConvexCaller(...)` when `callConvex` is omitted.
+  Removed generated/example `callConvex` and `isForwardedCaller` boilerplate
+  from the workspace-MCP starter, MCP reference example, harness MCP runtime,
+  and mini-CMS MCP runtime. `callConvex` remains an advanced override for
+  non-canonical caller shapes. `pnpm exec tsc -p tsconfig.types.json --noEmit`,
+  `pnpm run test:types`, `pnpm --dir examples/07-mcp-reference test`,
+  `pnpm --dir examples/08-component-mini-cms test`, and
+  `pnpm exec vitest run --project=unit tests/unit/mcp-convex-caller.test.ts tests/unit/define-convex-tool.test.ts tests/unit/cli-doctor.test.ts -t "initializes a first-class workspace MCP app via the preset|defineMcpApp|createMcpConvexCaller|canonical MCP Convex caller"`
+  passed after rebuilding the CLI fixture copy with `pnpm run build:cli`.

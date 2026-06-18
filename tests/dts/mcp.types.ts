@@ -10,7 +10,6 @@ import {
   createMcpConvexCaller,
   defineMcpApp,
   deniedMcpAccessSnapshot,
-  type McpConvexCaller,
   type McpConfirmationRedeemInput,
   type ValidateMcpToolOptions,
   type ValidateToolArgs,
@@ -30,7 +29,7 @@ import { expectTypeOf } from 'vitest'
 // Intentional 0.3.0 MCP type boundary coverage: removed aliases and direct
 // MCP write helpers appear only as negative public-surface assertions.
 
-type Caller = { kind: 'agent'; id: string }
+type Caller = { kind: 'agent'; id: string; subject: `agent:${string}` }
 type RecordAccess = { publishEntry: boolean }
 type _confirmationRedeemInput = McpConfirmationRedeemInput
 
@@ -50,13 +49,7 @@ const publishPermission = definePermission({
 })
 
 const runtime = defineMcpApp<Caller, RecordAccess>({
-  callConvex: async (_event: H3Event) =>
-    ({
-      query: async () => ({ ok: true }),
-      mutation: async () => ({ archived: true as const }),
-      action: async () => ({ ok: true }),
-    }) as unknown as McpConvexCaller,
-  resolveCaller: async () => ({ kind: 'agent', id: 'run-1' }),
+  resolveCaller: async () => ({ kind: 'agent', id: 'run-1', subject: 'agent:run-1' }),
   resolveAccess: async () => ({ publishEntry: true }),
 })
 

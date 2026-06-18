@@ -7,7 +7,7 @@ import { mcpManage as mcpManagePermission } from '~~/convex/features/mcpKeys/per
 import { runbookPermissions } from '~~/convex/features/runbooks/permissions'
 
 import { api } from '#trellis/api'
-import { createMcpConvexCaller, defineMcpApp, deniedMcpAccessSnapshot } from '#trellis/mcp'
+import { defineMcpApp, deniedMcpAccessSnapshot } from '#trellis/mcp'
 import { requireDelegationBinding } from '#trellis/server'
 
 import { mcpRateLimitStore } from './rate-limit-store'
@@ -66,15 +66,6 @@ export const mcpRuntime = defineMcpApp<
   McpRuntimeContext
 >({
   rateLimitStore: mcpRateLimitStore,
-  callConvex: async (event, { caller, actingFor }) =>
-    createMcpConvexCaller(event, {
-      caller,
-      actingFor,
-      isForwardedCaller: (
-        candidate,
-      ): candidate is Extract<McpReferencePrincipal, { kind: 'agent' }> =>
-        candidate.kind === 'agent',
-    }),
   resolveCaller: async (event) => getMcpCaller(event),
   resolveActingFor: async ({ event }) => getMcpDelegation(event),
   resolveAccess: async ({ caller, convex }) => {
