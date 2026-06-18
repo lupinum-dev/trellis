@@ -10,6 +10,7 @@ import {
   defineOperationHandle,
   projectOperationRef,
 } from '../../src/runtime/functions/operation-metadata'
+import { verifyIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
 import { convexTestConfig, createTestContext } from '../../src/runtime/testing'
 
 const identityForwardingKey = 'operation-testing-helper-identity-forwarding-key'
@@ -146,5 +147,49 @@ describe('convexTestConfig', () => {
       confirmationToken: 'confirm-token',
       forwarded: true,
     })
+  })
+
+  it('defaults replay metadata for direct forwarded mutations', async () => {
+    const schema = defineSchema({})
+    const modules = {
+      '/convex/tasks.ts': async () => ({
+        create: mutationGeneric({
+          args: {
+            title: v.string(),
+            _trellisForwarding: v.optional(v.string()),
+          },
+          handler: async (_ctx, args) => ({
+            forwarding: args._trellisForwarding,
+          }),
+        }),
+      }),
+    }
+    const ctx = createTestContext({
+      schema,
+      modules,
+      identityForwardingKey,
+    })
+
+    const result = await ctx
+      .asUser({ userId: 'owner-1' })
+      .mutation(
+        makeFunctionReference<'mutation', { title: string }, { forwarding?: string }>(
+          'tasks:create',
+        ),
+        { title: 'Ship direct write' },
+      )
+
+    expect(result.forwarding).toEqual(expect.any(String))
+    const payload = verifyIdentityForwardingEnvelope(result.forwarding!, {
+      keys: { default: identityForwardingKey },
+      expectedIssuer: 'trellis://server',
+      expectedAudience: 'trellis://convex',
+      expectedPurpose: 'mutation',
+      expectedTransport: 'server',
+      functionRef: 'tasks:create',
+      args: { title: 'Ship direct write' },
+    })
+
+    expect(payload.replayMode).toBe('jti-redemption')
   })
 })

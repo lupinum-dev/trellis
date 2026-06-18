@@ -453,6 +453,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   ) {
     if (principalMode === 'trusted') {
       const signedArgs = callerOptions.signedArgs ?? args
+      const replayMode = callerOptions.replayMode ?? defaultReplayMode(kind)
       const forwardingArgs = createIdentityForwardingEnvelopeArgs({
         args: signedArgs,
         caller: {
@@ -467,7 +468,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         key: effectiveIdentityForwardingKey,
         ...(callerOptions.keyId ? { keyId: callerOptions.keyId } : {}),
         transport: callerOptions.transport ?? 'server',
-        ...(callerOptions.replayMode ? { replayMode: callerOptions.replayMode } : {}),
+        ...(replayMode ? { replayMode } : {}),
         ...(callerOptions.replayKey ? { replayKey: callerOptions.replayKey } : {}),
         ...(callerOptions.replayTarget ? { replayTarget: callerOptions.replayTarget } : {}),
         ...(callerOptions.jti ? { jti: callerOptions.jti } : {}),

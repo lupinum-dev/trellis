@@ -3664,11 +3664,75 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   MCP tool whose name or operation id contains a search/list/resolve verb plus
   the target table token satisfies the doctor finding.
 
+## Slice 66: Default Test Forwarding Replay Metadata
+
+### Proof
+
+- RFC 0013 requires product-level tests to stop maintaining forwarding
+  purpose, target handler ids, replay modes, and preview/execute refs when they
+  can be derived by Trellis.
+- Trellis already had `ctx.asCaller(...).operation(handle).preview/execute`
+  for generated operation handles, and Ginko CMS was already using it for
+  destructive operation flows.
+- The remaining Ginko helper still carried direct Convex wrapper metadata for
+  normal `query`, `mutation`, and `action` calls:
+  - custom function-ref extraction from Convex refs
+  - `targetFunctionRef`
+  - replay-mode selection for writes
+- A Trellis proof test showed that `ctx.asUser(...).mutation(fn, args)` could
+  derive the target function ref but emitted a trusted forwarding envelope
+  without replay metadata. The proof failed with
+  `payload.replayMode === undefined` before this slice.
+- A Ginko experiment deleting the helper-level `targetFunctionRef` and
+  replay-mode plumbing failed until the Trellis testing runtime was rebuilt
+  with this slice.
+
+### Implementation
+
+- `createTestContext(...).asCaller/asUser/asService` now defaults replay
+  metadata for direct trusted test forwarding:
+  - mutation calls use `jti-redemption`
+  - action calls use `domain-idempotency`
+  - query calls remain replay-free
+- Explicit `TestCallerOptions.replayMode`, `replayKey`, and `replayTarget`
+  still override or extend the default for advanced tests.
+- Added a unit proof that verifies the signed forwarding envelope for a direct
+  mutation carries `replayMode: 'jti-redemption'` without caller-authored
+  replay options.
+
+### Verification
+
+- The new Trellis proof first failed because direct forwarded mutations had no
+  replay metadata, then passed after defaulting replay mode by call kind.
+- Trellis testing suite passed:
+  `pnpm vitest run --project=unit tests/unit/testing.test.ts` reported 1
+  passing test file and 4 passing tests.
+- Runtime rest lint passed: `pnpm run lint:src:runtime:rest`.
+- Test lint passed: `pnpm run lint:tests`.
+- Contract type tests passed: `pnpm run test:types:contracts`.
+- Formatter/whitespace check passed:
+  `pnpm exec oxfmt --check src/runtime/testing/index.ts tests/unit/testing.test.ts && git diff --check`.
+- Trellis module build passed: `pnpm run build:module`.
+- Ginko CMS consumer proof passed after removing direct helper-level
+  `targetFunctionRef`/replay plumbing:
+  `pnpm vitest run test/refactor/workflow-vertical-slice.test.ts test/component/entries/publish.test.ts`
+  reported 2 passing test files and 38 passing tests.
+
+### Notes
+
+- This does not add another testing transport path. It makes the existing
+  trusted test caller default the same replay policy that Ginko was
+  hand-maintaining.
+- Operation-level test helpers still own destructive preview/confirm/execute
+  behavior through generated operation handles.
+- The Ginko cleanup was committed separately in `ginko-cms` as
+  `4f3f901 test: rely on trellis test forwarding defaults`.
+
 ## Next Slice Candidates
 
-1. Start the product-level testing helper/Ginko acceptance slice: prove where
-   Ginko still maintains target handler and destructive transport maps, then
-   move that protocol knowledge into generated operation/testing handles.
+1. Run a broader Ginko check against local Trellis, then decide whether the
+   next consumer gate should be Ginko package packing or the `i18n-cms` app
+   smoke/E2E pass.
 2. Extend explain output to display field-level contract metadata and record-id
    resolution hints for operation-backed MCP tools.
 3. Audit the remaining `release:verify` gates from the current branch and run
