@@ -39,6 +39,11 @@ const normalMaintainedExampleRoots = [
   'examples/07-mcp-reference',
 ] as const
 
+const harnessExecuteRefCoverageFiles = [
+  'apps/harness/convex/notes.ts',
+  'apps/harness/convex/posts.ts',
+] as const
+
 const ignoredExampleSourceDirectories = new Set([
   '.convex',
   '.nuxt',
@@ -48,7 +53,7 @@ const ignoredExampleSourceDirectories = new Set([
   'node_modules',
 ])
 
-function collectExampleSourceFiles(root: string): string[] {
+function collectSourceFiles(root: string): string[] {
   const files: string[] = []
   const walk = (directory: string) => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -156,10 +161,20 @@ describe('MCP operation boundary', () => {
 
   it('keeps normal maintained examples free of app-authored execute refs', () => {
     const offenders = normalMaintainedExampleRoots.flatMap((example) =>
-      collectExampleSourceFiles(resolve(process.cwd(), example))
+      collectSourceFiles(resolve(process.cwd(), example))
         .filter((file) => readFileSync(file, 'utf8').includes('executeFunctionRef'))
         .map((file) => relative(process.cwd(), file)),
     )
+
+    expect(offenders).toEqual([])
+  })
+
+  it('keeps harness execute refs scoped to runtime coverage files', () => {
+    const allowed = new Set<string>(harnessExecuteRefCoverageFiles)
+    const offenders = collectSourceFiles(resolve(process.cwd(), 'apps/harness'))
+      .filter((file) => readFileSync(file, 'utf8').includes('executeFunctionRef'))
+      .map((file) => relative(process.cwd(), file))
+      .filter((file) => !allowed.has(file))
 
     expect(offenders).toEqual([])
   })

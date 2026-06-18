@@ -1136,11 +1136,43 @@ loops.
   RFC acceptance criterion instead of overreaching into advanced package and
   bridge surfaces before their replacement design exists.
 
+## Slice 23: Harness Execute Ref Coverage Classification
+
+### Proof
+
+- Ran the operation-registry builder against `apps/harness`. It failed on
+  `convex/posts.ts` because the harness uses object-spread projection metadata
+  for `removeWithConfirmation`.
+- The harness is not a normal maintained example. It imports the backend
+  Trellis runtime directly and owns repo-level Convex/runtime tests, MCP smoke
+  coverage, identity forwarding, and destructive confirmation edge cases.
+- Existing harness MCP boundary tests already keep advanced tool files on
+  projected refs without importing Convex domain implementation modules.
+
+### Implementation
+
+- Added a boundary assertion that permits harness `executeFunctionRef` strings
+  only in `apps/harness/convex/posts.ts` and `apps/harness/convex/notes.ts`.
+- Reused the source scanner from the normal-example guard, excluding build and
+  generated directories.
+
+### Verification
+
+- MCP boundary, normal-example guard, and harness execute-ref guard passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-descriptor-boundary.test.ts`.
+- Focused formatting check passed for the boundary test.
+
+### Notes
+
+- This is a classification guard, not a permanent design endorsement. The
+  harness refs remain acceptable only because they cover Trellis runtime edges
+  that normal examples and Ginko-like consumers must not author.
+- If a future slice gives the harness generated runtime handles for these
+  low-level cases, deleting the allow-list should be straightforward.
+
 ## Next Slice Candidates
 
-1. Review harness explicit operation refs and decide which are advanced test
-   coverage versus deletion targets.
-2. Define the bridge-generated operation handle shape needed to replace
+1. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
-3. Start the broader registry-runtime work: filtered generated handles for
+2. Start the broader registry-runtime work: filtered generated handles for
    client/server/testing and `trellis prepare` lifecycle hardening.
