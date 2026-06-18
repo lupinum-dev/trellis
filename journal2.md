@@ -333,10 +333,57 @@ loops.
 - This closes the mismatch between the RFC/scanner syntax and runtime support.
   The phase0 fixture can now be hard-cut to canonical projection exports.
 
+## Slice 8: Phase0 Fixture Registry-Generated Artifacts
+
+### Proof
+
+- Replaced the phase0 fixture manifest test target first. The initial run showed
+  registry-rendered output drift: generated refs now include the generated
+  banner and derive `deleteProjectRef` from the execute projection export
+  instead of the old hand-authored `executeDeleteProjectRef`.
+- After switching the fixture preview projection to the canonical mutation lane,
+  the MCP behavior test failed because mutation preview calls carry replay
+  metadata. That proved the fixture was now exercising the stronger mutation
+  preview path instead of the old query-preview path.
+
+### Implementation
+
+- Added `operationRegistry` fixture-manifest generation. The manifest now names
+  generated artifact paths/imports/runtimes only; it no longer duplicates
+  operation ids, Convex api paths, ref names, or handle bindings.
+- Hard-cut `phase0-workspace-mcp` domain exports to canonical projections:
+  `mutation.workspace(operation)` and
+  `mutation.workspace.preview(operation)`.
+- Added local fixture Trellis lane setup in `convex/functions.ts`.
+- Updated checked-in generated refs/handles to match registry-rendered output.
+- Updated the delete-project MCP tool to call its destructive preview via
+  mutation and updated the fixture runtime mock/expectations for replay-bearing
+  mutation preview calls.
+
+### Verification
+
+- Initial proof run:
+  `pnpm vitest run --project=unit tests/unit/operation-ref-codegen.test.ts -t "registry-derived"`
+  failed with expected generated-output drift.
+- After implementation,
+  `pnpm vitest run --project=unit tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+  passed.
+- Broader focused suite passed:
+  `pnpm vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/cli-explain.test.ts`.
+- `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` passed.
+- `pnpm run lint:src:core`, `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- The fixture still sets `previewOperation: 'mutation'` manually on the MCP
+  tool. A later generated-handle/runtime slice should carry projection function
+  kind so the common one-line MCP binding can infer this.
+
 ## Next Slice Candidates
 
-1. Replace one maintained fixture/starter with registry-rendered refs and
-   handles.
+1. Carry execute/preview Convex function kind through registry-generated handles
+   so MCP one-line binding can infer mutation previews.
 2. Add scanner diagnostics for re-exported projection forms.
-3. Replace one maintained MCP example with generated handles after scan-backed
-   handles exist.
+3. Wire registry-generated artifacts into Nuxt/module prepare output.

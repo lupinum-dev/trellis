@@ -168,9 +168,12 @@ describe('phase0 workspace-mcp fixture', () => {
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
       'utf8',
     )
+    expect(operationRefsSource).toContain('// AUTO-GENERATED. Do not edit.')
     expect(operationRefsSource).toContain("from '@lupinum/trellis/mcp'")
     expect(operationRefsSource).toContain("from '../convex/_generated/api'")
     expect(operationRefsSource).toContain('createProjectRef')
+    expect(operationRefsSource).toContain('deleteProjectRef')
+    expect(operationRefsSource).not.toContain('executeDeleteProjectRef')
     expect(operationRefsSource).not.toContain('{} as never')
     expect(operationRefsSource).not.toContain('src/runtime')
 
@@ -185,9 +188,20 @@ describe('phase0 workspace-mcp fixture', () => {
     expect(operationHandlesSource).toContain("from '../operation-refs'")
     expect(operationHandlesSource).toContain('operations = {')
     expect(operationHandlesSource).toContain("'projects.create': createProjectHandle")
+    expect(operationHandlesSource).toContain('executeRef: deleteProjectRef')
     expect(operationHandlesSource).not.toContain('/convex/')
     expect(operationHandlesSource).not.toContain('convex/features')
     expect(operationHandlesSource).not.toContain('src/runtime')
+
+    const domainSource = readFileSync(
+      resolve(
+        process.cwd(),
+        'tests/fixtures/phase0-workspace-mcp/convex/features/projects/domain.ts',
+      ),
+      'utf8',
+    )
+    expect(domainSource).toContain('mutation.workspace(createProjectOperation)')
+    expect(domainSource).toContain('mutation.workspace.preview(deleteProjectOperation)')
 
     const generatedApiTypes = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),
@@ -227,17 +241,25 @@ describe('phase0 workspace-mcp fixture', () => {
 
     expect(convexCalls).toEqual([
       {
-        operation: 'query',
+        operation: 'mutation',
         args: { id: 'project-1' },
         options: {
           purpose: 'operation-preview',
+          replay: {
+            mode: 'jti-redemption',
+            jti: expect.any(String),
+          },
         },
       },
       {
-        operation: 'query',
+        operation: 'mutation',
         args: { id: 'project-1' },
         options: {
           purpose: 'operation-preview',
+          replay: {
+            mode: 'jti-redemption',
+            jti: expect.any(String),
+          },
         },
       },
       {

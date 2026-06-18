@@ -12,6 +12,7 @@ import type * as features_projects_domain from "../features/projects/domain.js";
 import type * as features_projects_index from "../features/projects/index.js";
 import type * as features_projects_operations from "../features/projects/operations.js";
 import type * as features_projects_permissions from "../features/projects/permissions.js";
+import type * as functions from "../functions.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   "features/projects/index": typeof features_projects_index;
   "features/projects/operations": typeof features_projects_operations;
   "features/projects/permissions": typeof features_projects_permissions;
+  "functions": typeof functions;
 }>;
 
 /**

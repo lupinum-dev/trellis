@@ -25,6 +25,9 @@ export const mcpRuntime = defineMcpApp({
     },
     mutation: async (_ref, args, options) => {
       convexCalls.push({ operation: 'mutation', args, options })
+      if ((options as { purpose?: unknown } | undefined)?.purpose === 'operation-preview') {
+        return operationPreview({ summary: 'Delete project', confirm: { id: 'project-1' } })
+      }
       return { deleted: true }
     },
     action: async (_ref, args, options) => {

@@ -16,58 +16,13 @@
   "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**"],
   "generated": [
     {
-      "kind": "operationRefs",
-      "path": "generated/operation-refs.ts",
+      "kind": "operationRegistry",
+      "operationRefsPath": "generated/operation-refs.ts",
+      "operationHandlesPath": "generated/operation-handles/mcp.ts",
       "projectOperationRefImport": "@lupinum/trellis/mcp",
-      "apiImport": "../convex/_generated/api",
-      "descriptorImport": "../shared/features/projects/operations",
-      "descriptors": ["createProjectDescriptor", "deleteProjectDescriptor"],
-      "refs": [
-        {
-          "exportName": "createProjectRef",
-          "descriptorName": "createProjectDescriptor",
-          "projection": "execute",
-          "apiPath": ["features", "projects", "domain", "createProject"]
-        },
-        {
-          "exportName": "executeDeleteProjectRef",
-          "descriptorName": "deleteProjectDescriptor",
-          "projection": "execute",
-          "apiPath": ["features", "projects", "domain", "deleteProject"]
-        },
-        {
-          "exportName": "previewDeleteProjectRef",
-          "descriptorName": "deleteProjectDescriptor",
-          "projection": "preview",
-          "apiPath": ["features", "projects", "domain", "previewDeleteProject"]
-        }
-      ]
-    },
-    {
-      "kind": "operationHandles",
-      "path": "generated/operation-handles/mcp.ts",
       "defineOperationHandleImport": "@lupinum/trellis/mcp",
-      "descriptorImport": "../../shared/features/projects/operations",
-      "refsImport": "../operation-refs",
-      "descriptors": ["createProjectDescriptor", "deleteProjectDescriptor"],
-      "refs": ["createProjectRef", "executeDeleteProjectRef", "previewDeleteProjectRef"],
-      "handles": [
-        {
-          "exportName": "createProjectHandle",
-          "operationId": "projects.create",
-          "descriptorName": "createProjectDescriptor",
-          "executeRefName": "createProjectRef",
-          "runtimes": ["mcp", "testing"]
-        },
-        {
-          "exportName": "deleteProjectHandle",
-          "operationId": "projects.delete",
-          "descriptorName": "deleteProjectDescriptor",
-          "executeRefName": "executeDeleteProjectRef",
-          "previewRefName": "previewDeleteProjectRef",
-          "runtimes": ["mcp", "testing"]
-        }
-      ]
+      "apiImport": "../convex/_generated/api",
+      "runtimes": ["mcp", "testing"]
     }
   ]
 }

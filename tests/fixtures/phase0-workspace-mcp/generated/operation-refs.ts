@@ -1,3 +1,4 @@
+// AUTO-GENERATED. Do not edit.
 import { projectOperationRef } from '@lupinum/trellis/mcp'
 
 import { api } from '../convex/_generated/api'
@@ -13,7 +14,7 @@ export const createProjectRef = projectOperationRef(
   { functionRef: 'features/projects/domain:createProject' },
 )
 
-export const executeDeleteProjectRef = projectOperationRef(
+export const deleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,
   'execute',
   api.features.projects.domain.deleteProject,

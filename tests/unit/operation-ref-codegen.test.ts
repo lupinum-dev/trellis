@@ -13,11 +13,11 @@ import {
 describe('operation ref codegen', () => {
   const fixtureRoot = resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp')
 
-  it('renders explicit checked operation bindings from the phase0 starter manifest', () => {
+  it('renders registry-derived operation bindings from the phase0 starter manifest', () => {
     const manifest = JSON.parse(
       readFileSync(resolve(fixtureRoot, 'starter.manifest.json'), 'utf8'),
     ) as StarterFixtureManifest
-    const rendered = renderStarterGeneratedFiles(manifest)
+    const rendered = renderStarterGeneratedFiles(manifest, fixtureRoot)
 
     const operationRefsFixture = readFileSync(
       resolve(fixtureRoot, 'generated/operation-refs.ts'),
@@ -32,6 +32,8 @@ describe('operation ref codegen', () => {
       { path: 'generated/operation-refs.ts', content: operationRefsFixture },
       { path: 'generated/operation-handles/mcp.ts', content: operationHandlesFixture },
     ])
+    expect(JSON.stringify(manifest)).not.toContain('executeDeleteProjectRef')
+    expect(JSON.stringify(manifest)).not.toContain('createProjectHandle')
   })
 
   it('renders a fixture-backed workspace-mcp starter file set from the manifest', () => {

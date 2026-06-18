@@ -7,7 +7,7 @@ import {
 } from '../../shared/features/projects/operations'
 import {
   createProjectRef,
-  executeDeleteProjectRef,
+  deleteProjectRef,
   previewDeleteProjectRef,
 } from '../operation-refs'
 
@@ -17,7 +17,7 @@ export const createProjectHandle = defineOperationHandle(createProjectDescriptor
 })
 
 export const deleteProjectHandle = defineOperationHandle(deleteProjectDescriptor, {
-  executeRef: executeDeleteProjectRef,
+  executeRef: deleteProjectRef,
   previewRef: previewDeleteProjectRef,
   runtimes: ['mcp', 'testing'],
 })

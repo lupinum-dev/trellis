@@ -9,6 +9,11 @@ import {
   renderOperationRefsModule,
   type OperationRefBindingInput,
 } from './operation-ref-codegen.js'
+import {
+  buildOperationRegistry,
+  renderOperationRegistryGeneratedFiles,
+} from './operation-registry-codegen.js'
+import { extractPublicSurfaceCodegenMetadata } from './public-surface-codegen.js'
 
 export type StarterOperationRefsGeneratedFile = {
   kind: 'operationRefs'
@@ -31,9 +36,20 @@ export type StarterOperationHandlesGeneratedFile = {
   handles: readonly OperationHandleBindingInput[]
 }
 
+export type StarterOperationRegistryGeneratedFile = {
+  kind: 'operationRegistry'
+  operationRefsPath: string
+  operationHandlesPath: string
+  projectOperationRefImport: string
+  defineOperationHandleImport: string
+  apiImport: string
+  runtimes?: readonly ('client' | 'server' | 'mcp' | 'testing' | 'internal')[]
+}
+
 export type StarterGeneratedFile =
   | StarterOperationRefsGeneratedFile
   | StarterOperationHandlesGeneratedFile
+  | StarterOperationRegistryGeneratedFile
 
 export interface StarterFixtureManifest {
   name: string
@@ -50,8 +66,19 @@ export interface RenderedStarterFile {
 
 export function renderStarterGeneratedFiles(
   manifest: StarterFixtureManifest,
+  rootDir?: string,
 ): RenderedStarterFile[] {
-  return (manifest.generated ?? []).map((file) => {
+  return (manifest.generated ?? []).flatMap((file) => {
+    if (file.kind === 'operationRegistry') {
+      if (!rootDir) {
+        throw new Error('operationRegistry generated files require a fixture rootDir.')
+      }
+      return renderOperationRegistryGeneratedFiles(
+        buildOperationRegistry(extractPublicSurfaceCodegenMetadata(rootDir)),
+        file,
+      )
+    }
+
     if (file.kind === 'operationHandles') {
       return {
         path: file.path,
@@ -133,7 +160,9 @@ export function renderStarterFixtureFiles(
   rootDir: string,
   manifest: StarterFixtureManifest,
 ): RenderedStarterFile[] {
-  const generated = new Map(renderStarterGeneratedFiles(manifest).map((file) => [file.path, file]))
+  const generated = new Map(
+    renderStarterGeneratedFiles(manifest, rootDir).map((file) => [file.path, file]),
+  )
   const selected = new Set<string>()
 
   for (const searchRoot of includeSearchRoots(manifest.include)) {
