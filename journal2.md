@@ -2136,10 +2136,84 @@ test/helpers.ts` had no matches except the candidate helper row before
   replacing production transport execute exports if they are no longer needed by
   generated/public bridge surfaces.
 
+## Slice 41: Delete Ginko Production Transport Execute Projections
+
+### Proof
+
+- After Slice 40, `rg` showed no non-test callers for Ginko production
+  `*TransportExecute` exports. Bridge code already referenced
+  `*OperationExecute` and preview operation refs.
+- `packages/convex/src/_generated/component.ts` still advertised transport
+  execute functions only because the production exports still existed.
+- Generated operation handles originally lived under
+  `packages/convex/src/generated/operation-handles`, which Convex codegen
+  rejects because hyphenated path components are not valid Convex module paths.
+- Moving the generated operation files to `packages/convex/src/generated` with
+  Convex-safe names let Convex codegen run, but then `_generated/api.ts`
+  imported `operationRefs`, and `operationRefs` imported `api`, creating a
+  circular type surface.
+- The stable layout is `packages/convex/generated`: tracked generated
+  operation metadata outside Convex `src`, imported only by tests, with Convex
+  codegen owning `packages/convex/src/_generated`.
+
+### Implementation
+
+- In Ginko CMS commit `2841175`, deleted all production transport execute
+  projections:
+  `deleteAssetTransportExecute`, `deleteSiteDataBlockTransportExecute`,
+  `deleteEntryTransportExecute`, `publishEntryTransportExecute`,
+  `unpublishEntryTransportExecute`, `archiveEntryTransportExecute`,
+  `rollbackVersionTransportExecute`, and
+  `revertDraftToPublishedTransportExecute`.
+- Removed `callerTransportMutation` and `callerInternalTransportMutation` from
+  the component runtime exports.
+- Regenerated Convex component types so the public component API no longer
+  exposes transport execute functions.
+- Moved generated operation refs and testing handles from
+  `packages/convex/src/generated/...` to `packages/convex/generated/...`.
+- Updated `pnpm run operations:generate` to write operation metadata outside
+  Convex `src` and import Convex API refs through
+  `../src/_generated/api.js`.
+- Updated test helpers to import generated operation handles from the new
+  package-local generated path.
+
+### Verification
+
+- Initial `pnpm --filter @lupinum/ginko-cms-convex prepare:component` failed on
+  `src/generated/operation-handles/testing.ts` because Convex disallows
+  hyphenated module path components.
+- Retrying with `src/generated/operationRefs.ts` and
+  `src/generated/operationHandles/testing.ts` made component codegen pass but
+  `pnpm run typecheck` failed with circular `_generated/api.ts` references.
+- Final layout under `packages/convex/generated` passed:
+  `pnpm run operations:generate && pnpm run operations:check`.
+- Convex component codegen passed:
+  `pnpm --filter @lupinum/ginko-cms-convex prepare:component`.
+- Ginko format, type, lint, and static gates passed:
+  `pnpm run format:check`, `pnpm run typecheck`, and `pnpm run lint`.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Whitespace and transport-source invariant checks passed:
+  `git diff --check` and
+  `rg -n "TransportExecute|callerTransportMutation|callerInternalTransportMutation|transportExecute" packages/convex/src packages/cms/src scripts test --glob '!**/dist/**'`
+  now report only MCP bridge negative assertions and one MCP project-tool mock.
+
+### Notes
+
+- Ginko no longer has direct test callers, test helper translation maps, or
+  production Convex exports for transport execute paths.
+- The remaining `transportExecuteOperationRef` symbol is Trellis API/test
+  surface and a Ginko MCP project-tool mock; no Ginko production Convex function
+  uses it.
+- The next hard-cut cleanup should be in Trellis: decide whether
+  `transportExecuteOperationRef` remains useful as a public API now that the
+  only consumer moved to operation execute refs.
+
 ## Next Slice Candidates
 
-1. Audit Ginko production `*TransportExecute` exports and bridge surfaces. Delete
-   exports that are no longer part of a verified public bridge contract.
+1. Audit Trellis `transportExecuteOperationRef` public API and examples. Delete
+   it if no verified consumer requirement remains.
 2. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
 3. Make `trellis operations generate` easier to install into generated/consumer
