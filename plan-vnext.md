@@ -65,7 +65,9 @@ policy, tenant checks, destructive confirmation, ID resolution, or audit rules.
 - [ ] Do not expose raw database tools as the normal agent write path.
 - [ ] Do not add Studio, full eject, generic migrations, or full AI sandboxing before the core gates pass.
 - [ ] Every generated artifact must be rebuildable and drift-checked.
-- [ ] Every phase must end with `doctor` or `explain` proving what was built.
+- [ ] Every phase must end with the strongest available verification for that phase.
+- [ ] Do not fake `doctor` output before `doctor` exists.
+- [ ] Do not build broad compiler machinery before the first thin vertical slice passes.
 
 ## What Counts As Done
 
@@ -89,6 +91,58 @@ vNext is considered foundationally complete when all of these are true:
 - [ ] `trellis doctor` catches stale generated files and unsafe paths.
 - [ ] `trellis explain action ...` is useful without reading source code.
 - [ ] Example apps verify the architecture end to end.
+
+## Release Tracks
+
+The plan has one long checklist, but delivery must be staged. Do not let later
+lanes block the core foundation.
+
+### Core Alpha
+
+Core Alpha proves the smallest real action loop.
+
+- [ ] Feature file to graph.
+- [ ] Graph to Convex schema and generated function projection.
+- [ ] Generated testing handle.
+- [ ] One test creates and lists a project.
+- [ ] `trellis explain action projects.create`.
+- [ ] No auth.
+- [ ] No UI.
+- [ ] No server adapter.
+- [ ] No MCP.
+- [ ] No AI.
+- [ ] No destructive confirmation.
+
+### Workspace Beta
+
+Workspace Beta proves a real browser app.
+
+- [ ] Membership-native workspace model.
+- [ ] Better Auth.
+- [ ] Nuxt client handles.
+- [ ] Project list/create/archive UI.
+- [ ] Generated invariant tests.
+- [ ] `doctor` and `explain`.
+- [ ] Server route adapter.
+
+### MCP Preview
+
+MCP Preview proves external agent-facing tools without changing the core action
+model.
+
+- [ ] MCP disabled by default.
+- [ ] Explicit MCP exposure.
+- [ ] Resolver/disambiguation.
+- [ ] Caller-scoped capabilities.
+- [ ] Destructive preview/execute.
+
+### Trellis AI Preview
+
+Trellis AI Preview proves in-app assistants through Convex Agent. It must not
+block Core Alpha or Workspace Beta.
+
+- [ ] Convex Agent owns threads, messages, streaming, tool calls, approvals, files, and usage.
+- [ ] Trellis owns generated action tools, policy, workspace scope, redaction, audit, and Nuxt DX.
 
 ## Non-Goals For This Plan
 
@@ -168,6 +222,7 @@ When an LLM works from this file, it must follow this loop:
 - [ ] Do not check a box without verification evidence.
 - [ ] Do not advance to the next phase until the phase gate passes.
 - [ ] Do not add compatibility paths unless the plan is explicitly changed.
+- [ ] Treat decision tasks differently from implementation tasks.
 
 Evidence format:
 
@@ -178,6 +233,33 @@ Evidence:
 - notes: proves strict feature fixture compiles and unsupported fixture fails
 ```
 
+### Decision Tasks
+
+Some tasks are architectural decisions, not implementation chores. An LLM may
+propose options and draft an ADR, but a maintainer must approve the decision
+before the checkbox is checked.
+
+Decision tasks include:
+
+- [ ] Package names.
+- [ ] Generated alias names.
+- [ ] Compiler evaluation model.
+- [ ] Schema ownership strategy.
+- [ ] Runtime action ABI.
+- [ ] Membership table shape.
+- [ ] System table naming rules.
+- [ ] Confirmation receipt persistence model.
+- [ ] Error taxonomy.
+- [ ] Public bridge/package-author surface.
+
+Decision task rule:
+
+- [ ] Write an ADR draft.
+- [ ] List rejected alternatives.
+- [ ] List acceptance criteria.
+- [ ] Wait for maintainer approval.
+- [ ] Only then mark the decision checkbox as complete.
+
 ## Phase 0: Foundation Decisions
 
 Goal: lock the architecture before code grows.
@@ -187,6 +269,14 @@ Goal: lock the architecture before code grows.
 - [ ] Create `/Users/matthias/Git/workspace/trellis2`.
 - [ ] Create an explicit `README.md` in `trellis2` explaining that `/Users/matthias/Git/workspace/trellis` is reference-only.
 - [ ] Document `/Users/matthias/Git/workspace/ginko-cms` as bridge/consumer validation only.
+- [ ] Create `docs/adr/` in `trellis2`.
+- [ ] Create `docs/adr/0001-greenfield-boundary.md`.
+- [ ] Create `docs/adr/0002-feature-grammar.md`.
+- [ ] Create `docs/adr/0003-generated-module-aliases.md`.
+- [ ] Create `docs/adr/0004-runtime-action-abi.md`.
+- [ ] Create `docs/adr/0005-membership-model.md`.
+- [ ] Create `docs/adr/0006-confirmation-receipts.md`.
+- [ ] Create `docs/adr/0007-scoped-db-index-rules.md`.
 - [ ] Add a boundary rule: vNext may not import old Trellis runtime code.
 - [ ] Add a boundary rule: vNext may not import Ginko CMS internals.
 - [ ] Add a boundary verification script.
@@ -246,7 +336,123 @@ Acceptance:
 - [ ] The compiler can print a clear error for every rejected fixture.
 - [ ] The accepted grammar is documented before implementation goes broad.
 
-### 0.3 Package And Import Shape
+### 0.3 Compiler Evaluation Model
+
+This is a decision task. Do not implement broad compiler behavior until the ADR
+is approved.
+
+Recommended decision:
+
+```text
+Hybrid compiler model:
+  Static metadata is extracted through AST preflight.
+  Handler implementations are ordinary TypeScript named functions.
+  Generated Convex projections import or reference handlers by symbol.
+  Runtime handles never import handlers.
+```
+
+Why this is needed:
+
+- Trellis needs static metadata for graph, codegen, doctor, and explain.
+- Convex needs real runtime functions for `run`, `load`, `preview`, and `authorize`.
+- Build-time prepare must not execute handler bodies.
+- Runtime handles must not serialize or import handler closures.
+
+Required accepted shape:
+
+```ts
+export default feature('projects', {
+  table: table.workspace({ ... }),
+  policy: policy.roles({ ... }),
+  actions: {
+    create: op.mutation({
+      args: { name: v.string() },
+      policy: 'create',
+      writes: ['projects'],
+      run: createProject,
+    }),
+  },
+})
+
+async function createProject(ctx, args) {
+  return await ctx.db.projects.insert({
+    name: args.name,
+  })
+}
+```
+
+AST preflight must reject:
+
+- [ ] Dynamic feature names.
+- [ ] Computed action keys.
+- [ ] Computed exposure lists.
+- [ ] Environment-dependent metadata.
+- [ ] Broad wrappers around table, policy, or exposure.
+- [ ] Top-level filesystem reads.
+- [ ] Top-level network calls.
+- [ ] Top-level process mutation.
+- [ ] Unsupported dynamic imports.
+
+Controlled evaluation, if used, may only happen after AST preflight and must
+only collect Trellis builder metadata. It must not call handler bodies.
+
+Generated Convex projection rule:
+
+- [ ] Generated projection imports the named handler or feature module.
+- [ ] Generated projection calls the handler through the runtime ABI.
+- [ ] Generated runtime handles never import the handler.
+- [ ] Tests prove client/testing handles do not pull handler code into their bundle.
+
+Acceptance:
+
+- [ ] ADR `0002-feature-grammar.md` or equivalent records the evaluation model.
+- [ ] A feature with named handler symbols compiles.
+- [ ] A feature with top-level side effects fails.
+- [ ] A feature with dynamic metadata fails.
+- [ ] Prepare does not execute handler bodies.
+
+### 0.4 Schema Ownership And System Tables
+
+These are decision tasks.
+
+Recommended schema ownership:
+
+```ts
+// convex/schema.ts, scaffolded once and user-owned
+import { defineSchema } from 'convex/server'
+import { trellisTables } from './_trellis/schema'
+
+export default defineSchema({
+  ...trellisTables,
+})
+```
+
+Rules:
+
+- [ ] Trellis owns `convex/_trellis/schema.ts`.
+- [ ] The app owns `convex/schema.ts`.
+- [ ] `convex/schema.ts` is scaffolded once.
+- [ ] Doctor fails if the Trellis schema import is missing.
+- [ ] Doctor fails if the Trellis schema import is stale.
+- [ ] Trellis does not overwrite user-owned custom schema content silently.
+
+Recommended table naming:
+
+- [ ] Trellis-owned app foundation tables reserve `users`, `workspaces`, `memberships`, and `workspaceInvites`.
+- [ ] Trellis-owned framework internals use `trellis` prefix.
+- [ ] Destructive confirmations table: `trellisDestructiveConfirmations`.
+- [ ] Framework audit table: `trellisAuditEvents`.
+- [ ] Trusted replay/idempotency table: `trellisTrustedReplay`.
+- [ ] Product audit table, if an app wants one, is app-owned, for example `auditEvents`.
+- [ ] Feature table names may not collide with reserved Trellis table names.
+
+Acceptance:
+
+- [ ] ADR records schema ownership.
+- [ ] ADR records reserved table names.
+- [ ] Compiler rejects feature table names that collide with reserved names.
+
+### 0.5 Package And Import Shape
 
 - [ ] Decide package names for vNext internals.
 - [ ] Decide generated alias names.
@@ -254,7 +460,7 @@ Acceptance:
 - [ ] Decide which generated artifacts are JSON inspection files.
 - [ ] Decide generated-file ownership headers.
 
-Required generated aliases:
+Reserved generated aliases:
 
 ```text
 #trellis/actions/client
@@ -265,26 +471,141 @@ Required generated aliases:
 #trellis/permissions
 ```
 
+Generation is staged:
+
+- [ ] Core Alpha generates only `#trellis/actions/client`, `#trellis/actions/testing`, and `#trellis/permissions`.
+- [ ] Workspace Beta adds `#trellis/actions/server`.
+- [ ] MCP Preview adds `#trellis/actions/mcp`.
+- [ ] Trellis AI Preview adds `#trellis/actions/agent`.
+- [ ] Do not generate empty MCP or agent modules before there is a real consumer.
+
 Acceptance:
 
 - [ ] Runtime imports have stable resolution in dev, tests, CI, and examples.
 - [ ] `.trellis/generated` is not used casually for importable TypeScript unless module resolution is proven.
+- [ ] Minimal Nuxt fixture can import `#trellis/actions/client`.
+- [ ] Minimal test fixture can import `#trellis/actions/testing`.
+- [ ] Client bundle does not pull backend handler implementation code.
 
-### 0.4 Phase 0 Verification
+### 0.6 Phase 0 Verification
 
 - [ ] Run vNext boundary check.
 - [ ] Run grammar fixture tests.
+- [ ] Run compiler evaluation negative fixtures.
+- [ ] Run alias smoke tests.
 - [ ] Run formatting check.
 - [ ] Run typecheck if code exists.
 - [ ] Update this plan with command evidence.
 
 Phase gate:
 
-- [ ] Phase 0 passes only when a strict source grammar and import boundary are documented and tested.
+- [ ] Phase 0 passes only when strict source grammar, compiler evaluation model, schema ownership, alias staging, and import boundaries are documented and tested.
+
+## Phase 0.5: One Project Action End To End
+
+Goal: prove the most dangerous architectural question before broadening the
+compiler.
+
+Question:
+
+```text
+Can one feature file compile into Convex-compatible code and generated handles
+without hand-maintained projection glue?
+```
+
+This phase should be ugly but real. It may hardcode narrow assumptions for the
+Project fixture, but it must run through the real file/codegen/runtime boundary.
+
+Input:
+
+```text
+convex/features/projects.feature.ts
+```
+
+Required output:
+
+- [ ] Generated product graph.
+- [ ] Generated Convex schema for `projects`.
+- [ ] Generated Convex query for `projects.list`.
+- [ ] Generated Convex mutation for `projects.create`.
+- [ ] Generated testing handle for `projects.list`.
+- [ ] Generated testing handle for `projects.create`.
+- [ ] One test that creates a project.
+- [ ] One test that lists projects.
+- [ ] `trellis explain action projects.create`.
+
+Explicit non-goals:
+
+- [ ] No auth.
+- [ ] No workspace membership.
+- [ ] No Nuxt UI.
+- [ ] No server route.
+- [ ] No MCP.
+- [ ] No Trellis AI.
+- [ ] No destructive confirmation.
+- [ ] No broad grammar support.
+- [ ] No generic query builder.
+
+### 0.5.1 Minimal Feature
+
+- [ ] Add only `projects.feature.ts`.
+- [ ] Define `projects` table with `name`, `createdAt`, and `updatedAt`.
+- [ ] Define `projects.create`.
+- [ ] Define `projects.list`.
+- [ ] Use named handler functions.
+- [ ] Prove prepare does not execute handler bodies.
+
+Acceptance:
+
+- [ ] Feature metadata is read statically.
+- [ ] Generated projection can call the named handler.
+- [ ] Runtime testing handle does not import handler implementation.
+
+### 0.5.2 Minimal Runtime Shell
+
+- [ ] Add just enough action execution envelope for query and mutation.
+- [ ] Add just enough args validation for `name: string`.
+- [ ] Add just enough structured error shape for test failures.
+- [ ] Add just enough generated projection calling convention.
+- [ ] Do not add policy.
+- [ ] Do not add auth.
+- [ ] Do not add scoped DB.
+
+Acceptance:
+
+- [ ] Generated query can execute.
+- [ ] Generated mutation can execute.
+- [ ] Test handle can call both through generated refs.
+
+### 0.5.3 Minimal Explain
+
+- [ ] Explain `projects.create` source.
+- [ ] Explain action kind.
+- [ ] Explain args.
+- [ ] Explain generated projection.
+- [ ] Explain testing exposure.
+
+Acceptance:
+
+- [ ] `trellis explain action projects.create` proves the action path without reading generated code.
+
+### 0.5.4 Phase 0.5 Verification
+
+- [ ] Run prepare.
+- [ ] Run Convex codegen or equivalent generated-code validation.
+- [ ] Run create/list test.
+- [ ] Run `trellis explain action projects.create`.
+- [ ] Run negative fixture proving handler body is not executed during prepare.
+- [ ] Update this plan with command evidence.
+
+Phase gate:
+
+- [ ] Phase 0.5 passes only when one Project create/list action works end to end through generated code and testing handles.
 
 ## Phase 1: Compiler Spine
 
-Goal: compile one feature file into a derived product graph.
+Goal: broaden the Phase 0.5 compiler spine without losing the proven vertical
+path.
 
 ### 1.1 Feature Reader
 
@@ -395,9 +716,99 @@ Phase gate:
 
 - [ ] Phase 1 passes only when one feature compiles into a deterministic graph and explain can describe it.
 
-## Phase 2: Generated Backend Artifacts
+## Phase 1.5: Runtime ABI Contract
 
-Goal: generate Convex schema and action projections from the graph.
+Goal: freeze the generated projection ABI before backend codegen expands.
+
+Phase 2 may generate dummy files without this, but it cannot safely generate
+real Convex projections until these contracts are explicit.
+
+### 1.5.1 Action Handle Contract
+
+- [ ] Define `ActionHandle` shape.
+- [ ] Define client handle metadata.
+- [ ] Define testing handle metadata.
+- [ ] Define server handle metadata as reserved, not implemented yet.
+- [ ] Define MCP handle metadata as reserved, not implemented yet.
+- [ ] Define agent handle metadata as reserved, not implemented yet.
+- [ ] Define what metadata is safe for client bundles.
+- [ ] Define what metadata is server-only.
+
+Acceptance:
+
+- [ ] Client/testing handles can be generated against stable types.
+- [ ] Server/MCP/AI handle contracts are reserved without creating fake modules.
+
+### 1.5.2 Generated Convex Projection ABI
+
+- [ ] Define generated query projection function signature.
+- [ ] Define generated mutation projection function signature.
+- [ ] Define future destructive preview projection signature.
+- [ ] Define future destructive execute projection signature.
+- [ ] Define how generated projections import handler symbols.
+- [ ] Define how generated projections pass context to handlers.
+- [ ] Define how generated projections normalize args and results.
+
+Acceptance:
+
+- [ ] Generated projection ABI can call named handlers from feature files.
+- [ ] Generated handles do not import handler symbols.
+
+### 1.5.3 Handler Context Shape
+
+- [ ] Define minimal handler context for Core Alpha.
+- [ ] Reserve workspace handler context for Phase 3.
+- [ ] Reserve service caller context for Phase 7.
+- [ ] Reserve agent principal context for Phase 9.
+- [ ] Define how scoped DB capability is injected later.
+
+Acceptance:
+
+- [ ] Handler context can evolve by adding capabilities without changing the projection ABI.
+
+### 1.5.4 Error Envelope
+
+- [ ] Define structured error type.
+- [ ] Define validation error shape.
+- [ ] Define not-found error shape.
+- [ ] Define permission error shape.
+- [ ] Define availability/blocker error shape.
+- [ ] Define stale-confirmation error shape.
+- [ ] Define unsafe-escape diagnostic shape.
+
+Acceptance:
+
+- [ ] Runtime, tests, doctor, and UI can reason about errors without string matching.
+
+### 1.5.5 Confirmation ABI Reservation
+
+- [ ] Define preview/execute ABI for destructive actions.
+- [ ] Define confirmation receipt storage contract.
+- [ ] Define receipt redemption contract.
+- [ ] Define action fingerprint metadata.
+- [ ] Define state fingerprint metadata.
+- [ ] Do not implement full destructive runtime until Phase 3.
+
+Acceptance:
+
+- [ ] Phase 2 codegen can reserve destructive projection shapes without inventing token plumbing later.
+
+### 1.5.6 Phase 1.5 Verification
+
+- [ ] Add type tests for action handles.
+- [ ] Add type tests for projection ABI.
+- [ ] Add tests proving generated handles do not import handlers.
+- [ ] Add ADR `0004-runtime-action-abi.md`.
+- [ ] Update this plan with command evidence.
+
+Phase gate:
+
+- [ ] Phase 1.5 passes only when runtime ABI, projection calling convention, error envelope, and future confirmation ABI are recorded and type-tested.
+
+## Phase 2: Runtime ABI And Generated Backend Artifacts
+
+Goal: generate Convex schema and action projections from the graph against the
+Phase 1.5 runtime ABI.
 
 ### 2.1 Convex Schema Generation
 
@@ -408,12 +819,19 @@ Goal: generate Convex schema and action projections from the graph.
 - [ ] Generate created/updated timestamp fields.
 - [ ] Mark generated schema files as generated.
 - [ ] Add schema diff reporting during `prepare`.
+- [ ] Generate `convex/_trellis/schema.ts`.
+- [ ] Scaffold user-owned `convex/schema.ts` once.
+- [ ] Make `convex/schema.ts` import `trellisTables` from `./_trellis/schema`.
+- [ ] Add doctor/check failure when the Trellis schema import is missing.
+- [ ] Add doctor/check failure when the Trellis schema import is stale.
+- [ ] Reject feature table names that collide with reserved Trellis table names.
 
 Acceptance:
 
 - [ ] A simple `projects` table is generated from the feature file.
 - [ ] Schema generation is deterministic.
 - [ ] Dangerous diffs require explicit acknowledgement.
+- [ ] User-owned custom schema content is not overwritten silently.
 
 Dangerous diffs:
 
@@ -429,8 +847,10 @@ Dangerous diffs:
 
 - [ ] Generate Convex query projection for `projects.list`.
 - [ ] Generate Convex mutation projection for `projects.create`.
-- [ ] Generate destructive preview projection for `projects.archive`.
-- [ ] Generate destructive execute projection for `projects.archive`.
+- [ ] Generate destructive preview projection shape for `projects.archive`.
+- [ ] Generate destructive execute projection shape for `projects.archive`.
+- [ ] Keep destructive projections compile-only until Phase 3 implements execution semantics.
+- [ ] Generate projections against the Phase 1.5 ABI.
 - [ ] Keep implementation closures out of runtime handle modules.
 - [ ] Generate source maps or source metadata for diagnostics.
 
@@ -442,10 +862,11 @@ Acceptance:
 ### 2.3 Runtime Handle Generation
 
 - [ ] Generate `#trellis/actions/client`.
-- [ ] Generate `#trellis/actions/server`.
 - [ ] Generate `#trellis/actions/testing`.
-- [ ] Generate empty or unavailable `#trellis/actions/mcp` until MCP is enabled.
-- [ ] Generate empty or unavailable `#trellis/actions/agent` until AI is enabled.
+- [ ] Generate `#trellis/permissions`.
+- [ ] Do not generate `#trellis/actions/server` until Workspace Beta/server phase.
+- [ ] Do not generate `#trellis/actions/mcp` until MCP Preview.
+- [ ] Do not generate `#trellis/actions/agent` until Trellis AI Preview.
 - [ ] Filter handles by exposure.
 - [ ] Include action metadata required by each runtime.
 - [ ] Exclude backend closures and secrets from all handle modules.
@@ -453,9 +874,11 @@ Acceptance:
 Acceptance:
 
 - [ ] Client handles contain only client-exposed actions.
-- [ ] Server handles contain only server-exposed actions.
 - [ ] Testing handles contain test-exposed actions.
 - [ ] Non-exposed actions are absent, not present-but-failing.
+- [ ] Minimal Nuxt fixture imports client handles.
+- [ ] Minimal test fixture imports testing handles.
+- [ ] Client bundle does not include handler implementation code.
 
 ### 2.4 Drift Checks
 
@@ -470,17 +893,70 @@ Acceptance:
 - [ ] Manual edit to generated file fails `trellis check`.
 - [ ] Regeneration fixes the failure.
 
-### 2.5 Phase 2 Verification
+### 2.6 Phase 2 Verification
 
 - [ ] Run Convex codegen for the generated backend.
 - [ ] Run vNext unit tests.
 - [ ] Run typecheck.
+- [ ] Run alias smoke tests.
 - [ ] Run generated-file drift checks.
 - [ ] Update this plan with command evidence.
 
 Phase gate:
 
 - [ ] Phase 2 passes only when backend artifacts and runtime handles are generated, deterministic, and drift-checked.
+
+## Phase 2.5: Workspace Security Contract
+
+Goal: write the runtime security contract before implementing the dangerous
+semantics.
+
+This contract should become test names. Do not let it stay prose.
+
+### 2.5.1 Contract Rules
+
+- [ ] Workspace resources are never returned across workspace boundaries.
+- [ ] Cross-workspace by-id reads return public `NotFound`.
+- [ ] Dev/test diagnostics may reveal `CrossWorkspaceDenied`.
+- [ ] All workspace resource indexes used through scoped DB start with `workspaceId`, unless the operation loads by document id and verifies the loaded document's `workspaceId`.
+- [ ] Preview and execute both rerun validation.
+- [ ] Preview and execute both rerun caller resolution.
+- [ ] Preview and execute both rerun workspace resolution.
+- [ ] Preview and execute both rerun role policy.
+- [ ] Preview and execute both rerun load.
+- [ ] Preview and execute both rerun authorize.
+- [ ] Preview and execute both rerun availability.
+- [ ] Confirmation receipts are redeemed atomically with execute.
+- [ ] A redeemed receipt cannot be reused even if execute throws after business writes start.
+- [ ] Domain invariants are still enforced in handlers.
+- [ ] `_can` is a hint only.
+- [ ] Unsafe escapes require reason, affected tables, and tests.
+
+### 2.5.2 Contract Tests
+
+- [ ] Add pending or failing test for cross-workspace by-id read returning public not found.
+- [ ] Add pending or failing test for workspace index missing `workspaceId`.
+- [ ] Add pending or failing test for preview and execute rerunning policy.
+- [ ] Add pending or failing test for confirmation receipt atomic redemption.
+- [ ] Add pending or failing test for `_can` not being a security source.
+- [ ] Add pending or failing test for unsafe escape requiring reason and affected tables.
+
+Acceptance:
+
+- [ ] Security contract exists as an ADR or test spec.
+- [ ] Every contract rule maps to a test name.
+- [ ] Phase 3 implementation cannot pass without satisfying the contract tests.
+
+### 2.5.3 Phase 2.5 Verification
+
+- [ ] Add ADR for workspace security contract.
+- [ ] Add contract test file.
+- [ ] Run contract tests and record expected failing/pending state.
+- [ ] Update this plan with command evidence.
+
+Phase gate:
+
+- [ ] Phase 2.5 passes only when workspace security rules are written as executable or pending tests before runtime implementation.
 
 ## Phase 3: Runtime Action Path
 
@@ -528,16 +1004,41 @@ Acceptance:
 - [ ] Implement `db.projects.insert`.
 - [ ] Implement `db.projects.patch`.
 - [ ] Implement `db.projects.delete`.
-- [ ] Implement `db.projects.query.byWorkspace`.
-- [ ] Implement `db.projects.query.byIndex`.
+- [ ] Implement `db.projects.list.byIndex('by_status', { status }).paginate(opts)`.
 - [ ] Automatically apply workspace scope.
 - [ ] Make cross-workspace records look missing by default.
 - [ ] Make raw `ctx.db` unavailable or flagged inside normal workspace actions.
+- [ ] Do not add a fluent query builder in v1.
+- [ ] Do not add arbitrary `query.byIndex` in v1.
+- [ ] Validate every supported scoped query shape at compile time.
+
+Workspace index rules:
+
+- [ ] Every workspace table index used through scoped DB must start with `workspaceId`.
+- [ ] By-document-id operations may use the id only if Trellis verifies the loaded document's `workspaceId` before returning it.
+- [ ] Non-workspace-first indexes require explicit global/unsafe declaration and reason.
+- [ ] Compiler fails when scoped DB uses a non-workspace-prefixed index.
+- [ ] Error includes the index name, table name, and fix.
+
+Required failure:
+
+```text
+FAIL tasks.by_project is used through scoped DB but index does not start with workspaceId.
+
+Fix:
+  .index('by_workspace_project', ['workspaceId', 'projectId'])
+
+Or:
+  load parent project through db.projects.require(projectId) first,
+  then query tasks with a workspace-prefixed index.
+```
 
 Acceptance:
 
 - [ ] Cross-workspace by-ID read fails.
 - [ ] Cross-workspace write fails.
+- [ ] `byIndex` cannot return a record from another workspace even if the indexed field is guessed.
+- [ ] Workspace index missing `workspaceId` fails compilation.
 - [ ] Normal handler code does not need to remember `workspaceId`.
 
 ### 3.4 Policy, Authorization, Availability, Invariants
@@ -559,6 +1060,9 @@ Acceptance:
 ### 3.5 Destructive Preview And Confirmation
 
 - [ ] Implement preview.
+- [ ] Implement framework-owned `confirmation` config.
+- [ ] Implement `confirmation.bind`.
+- [ ] Implement `confirmation.staleWhen`.
 - [ ] Implement confirmation receipt.
 - [ ] Bind receipt to action id.
 - [ ] Bind receipt to action fingerprint.
@@ -573,6 +1077,49 @@ Acceptance:
 - [ ] Reject wrong actor.
 - [ ] Reject wrong workspace.
 - [ ] Reject changed args.
+- [ ] Redeem receipt atomically with execute.
+- [ ] Define audit/retry semantics when receipt redemption succeeds but handler later fails.
+
+Required app-facing shape:
+
+```ts
+archive: op.destructive({
+  load: async ({ db }, args) => {
+    const project = await db.projects.require(args.project)
+    return { project }
+  },
+
+  preview: async (_ctx, _args, { project }) => ({
+    summary: `Archive "${project.name}"`,
+    effects: [
+      { resource: 'projects', count: 1, action: 'archive' },
+    ],
+  }),
+
+  confirmation: {
+    bind: async ({ db }, _args, { project }) => ({
+      projectUpdatedAt: project.updatedAt,
+      taskCount: await db.tasks.countByProject(project._id),
+    }),
+    staleWhen: async ({ db }, _args, { project }, bound) => {
+      return (
+        project.updatedAt !== bound.projectUpdatedAt ||
+        (await db.tasks.countByProject(project._id)) !== bound.taskCount
+      )
+    },
+  },
+
+  run: async ({ db }, _args, { project }) => {
+    await db.projects.patch(project._id, { status: 'archived' })
+  },
+})
+```
+
+Rule:
+
+- [ ] App code must not manually create or compare confirmation tokens.
+- [ ] Trellis owns receipt creation, hashing, expiry, replay prevention, and stale-state checking.
+- [ ] App code owns preview meaning, bound state, stale predicate, and business mutation.
 
 Acceptance:
 
@@ -589,6 +1136,12 @@ Acceptance:
 - [ ] Add unit tests for destructive preview/execute.
 - [ ] Add unit tests for stale confirmation.
 - [ ] Add unit tests for structured errors.
+- [ ] Generate invariant test: owner/admin can create.
+- [ ] Generate invariant test: viewer can read.
+- [ ] Generate invariant test: viewer cannot create.
+- [ ] Generate invariant test: cross-workspace get fails.
+- [ ] Generate invariant test: archive requires confirmation.
+- [ ] Generate invariant test: reused confirmation fails.
 - [ ] Run vNext unit tests.
 - [ ] Run typecheck.
 - [ ] Update this plan with command evidence.
@@ -607,15 +1160,17 @@ Goal: prove the foundation in a working workspace app.
 - [ ] Create `workspaces`.
 - [ ] Create `memberships`.
 - [ ] Create `workspaceInvites` placeholder.
-- [ ] Create `workspaceRelations` placeholder.
-- [ ] Use one membership model for business, team, agency, and client workspaces.
+- [ ] Do not create `workspaceRelations` in Core Alpha or Workspace Beta.
+- [ ] Document relation-aware access as a later milestone.
+- [ ] Use one membership model for workspace access.
 - [ ] Do not add separate `businessMembers`, `teamMembers`, `agencyMembers`, or `clientMembers`.
 
 Acceptance:
 
 - [ ] One user can belong to multiple workspaces.
 - [ ] One user can have different roles per workspace.
-- [ ] A workspace has a kind but not a separate membership system.
+- [ ] A workspace has one membership system.
+- [ ] No relation-aware permission logic is required for the first workspace release.
 
 ### 4.2 Better Auth Integration
 
@@ -662,6 +1217,7 @@ Acceptance:
 
 ### 4.5 Phase 4 Verification
 
+- [ ] Start `examples/01-project-workspace`.
 - [ ] Run starter typecheck.
 - [ ] Run starter unit tests.
 - [ ] Run starter build.
@@ -846,6 +1402,7 @@ Acceptance:
 
 ### 7.3 Server Example
 
+- [ ] Start or update `examples/03-server-route`.
 - [ ] Add example `projects/export.get.ts`.
 - [ ] Add example `webhooks/stripe.post.ts` or fake provider webhook.
 - [ ] Add tests for verified and rejected webhook.
@@ -950,6 +1507,7 @@ Acceptance:
 
 ### 8.6 Phase 8 Verification
 
+- [ ] Start or update `examples/04-mcp-projects`.
 - [ ] Run MCP unit tests.
 - [ ] Run MCP integration test with project resource.
 - [ ] Run destructive MCP tests.
@@ -1102,6 +1660,7 @@ Acceptance:
 
 ### 9.9 Phase 9 Verification
 
+- [ ] Start or update `examples/05-ai-project-assistant`.
 - [ ] Run AI unit tests.
 - [ ] Run project assistant integration test.
 - [ ] Run destructive AI tool approval test.
@@ -1116,9 +1675,21 @@ Phase gate:
 
 ## Phase 10: Example E2E Applications
 
-Goal: verify real use cases, not only isolated units.
+Goal: run the final example sweep and catch regressions across surfaces.
 
-Each example is an acceptance test. If an example fails, the architecture is not done.
+Examples should start in the phase that proves them:
+
+- [ ] Project Workspace starts in Phase 4 and evolves through Phase 6.
+- [ ] Server Route starts in Phase 7.
+- [ ] MCP Projects starts in Phase 8.
+- [ ] Trellis AI Project Assistant starts in Phase 9.
+- [ ] Agency With Client Workspaces is a later relation-access milestone, not a Core Alpha/Beta dependency.
+
+Phase 10 is not the first time examples become real. It is the final "all
+examples still pass" sweep.
+
+Each included example is an acceptance test. If an included example fails, the
+architecture is not done.
 
 ### 10.1 Example: Project Workspace
 
@@ -1159,6 +1730,13 @@ Purpose:
 
 ```text
 Proves one workspace/membership/relation model supports agency/client topology.
+```
+
+Status:
+
+```text
+Later relation-access milestone. Do not block Core Alpha, Workspace Beta, MCP
+Preview, or Trellis AI Preview on this example.
 ```
 
 Tasks:
@@ -1477,6 +2055,10 @@ These must stay true during every phase:
 - [ ] One source of truth for destructive preview.
 - [ ] One source of truth for MCP exposure.
 - [ ] One source of truth for agent exposure.
+- [ ] Workspace scoped indexes start with `workspaceId` unless explicitly global/unsafe.
+- [ ] By-id workspace reads verify the loaded document's `workspaceId` before returning it.
+- [ ] Runtime handles never import handler implementations.
+- [ ] MCP and agent aliases are not generated before their lanes exist.
 - [ ] Generated files are rebuildable.
 - [ ] Generated files are drift-checked.
 - [ ] UI does not own backend invariants.
@@ -1498,8 +2080,28 @@ matrix updated with real commands.
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 typecheck`
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 test`
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 test:e2e`
+- [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 test:fixtures:invalid`
+- [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 test:doctor:failures`
+- [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 test:boundaries`
+- [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 test:drift`
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 trellis prepare --check`
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/trellis2 trellis doctor`
+
+### Negative Fixture Matrix
+
+Trellis is a safety compiler. Failure behavior matters as much as happy-path
+behavior.
+
+Required broken fixtures:
+
+- [ ] `bad-ui-imports-backend`.
+- [ ] `bad-dynamic-exposure`.
+- [ ] `bad-mcp-ref-without-resolver`.
+- [ ] `bad-generated-file-edit`.
+- [ ] `bad-cross-workspace-index`.
+- [ ] `bad-destructive-no-preview`.
+- [ ] `bad-feature-top-level-side-effect`.
+- [ ] `bad-client-bundle-imports-handler`.
 
 ### Current Repo Reference Commands
 
@@ -1517,6 +2119,19 @@ the relevant public or experimental Trellis vNext surface exists:
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/ginko-cms typecheck`
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/ginko-cms test`
 - [ ] `pnpm --dir /Users/matthias/Git/workspace/ginko-cms build`
+
+## Kill Criteria
+
+These are stop/rethink triggers. If one is hit, pause feature work and redesign
+the relevant foundation before continuing.
+
+- [ ] If `trellis prepare` cannot stay under 2 seconds for the Project fixture by Phase 2, pause and redesign codegen/cache.
+- [ ] If strict grammar rejects common feature shapes from three real examples, pause before adding escape hatches.
+- [ ] If scoped DB requires raw Convex for more than 20% of Project/Task example operations, redesign scoped DB.
+- [ ] If generated handles require importing backend closures into client/server bundles, stop release.
+- [ ] If destructive confirmation cannot be tested without private runtime knowledge, redesign the test API.
+- [ ] If `explain action` cannot clearly show source, exposure, policy, generated projection, and tests by Phase 1, pause diagnostics work.
+- [ ] If Ginko consumer validation requires Ginko-specific Trellis core code, reject the change and redesign the public bridge surface.
 
 ## Risk Register
 
@@ -1595,6 +2210,12 @@ Record major changes here.
   Evidence: all runtime handles generated from graph.
 - [ ] Decision: Trellis AI follows Convex Agent instead of replacing it.
   Evidence: Phase 9 requires Convex Agent owns threads/messages/streaming.
+- [ ] Decision: Feature compiler uses hybrid static metadata plus named handler symbols.
+  Evidence: ADR `0002-feature-grammar.md` and Phase 0 compiler evaluation tests.
+- [ ] Decision: Runtime ABI is frozen before generated backend artifacts expand.
+  Evidence: ADR `0004-runtime-action-abi.md` and Phase 1.5 type tests.
+- [ ] Decision: Core Alpha proves one Project create/list vertical slice before broad compiler work.
+  Evidence: Phase 0.5 gate.
 
 ## Progress Log
 
@@ -1617,8 +2238,11 @@ YYYY-MM-DD
 vNext foundational release can be called complete when:
 
 - [ ] Phase 0 gate passed.
+- [ ] Phase 0.5 gate passed.
 - [ ] Phase 1 gate passed.
+- [ ] Phase 1.5 gate passed.
 - [ ] Phase 2 gate passed.
+- [ ] Phase 2.5 gate passed.
 - [ ] Phase 3 gate passed.
 - [ ] Phase 4 gate passed.
 - [ ] Phase 5 gate passed.
