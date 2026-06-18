@@ -69,6 +69,7 @@ describe('operation registry codegen', () => {
           apiPath: ['features', 'tasks', 'operations', 'archiveTask'],
           exportName: 'archiveTask',
           file: 'convex/features/tasks/operations.ts',
+          functionKind: 'mutation',
           functionRef: 'features/tasks/operations:archiveTask',
           line: expect.any(Number),
           projection: 'execute',
@@ -77,6 +78,7 @@ describe('operation registry codegen', () => {
           apiPath: ['features', 'tasks', 'operations', 'previewArchiveTask'],
           exportName: 'previewArchiveTask',
           file: 'convex/features/tasks/operations.ts',
+          functionKind: 'mutation',
           functionRef: 'features/tasks/operations:previewArchiveTask',
           line: expect.any(Number),
           projection: 'preview',
@@ -92,6 +94,7 @@ describe('operation registry codegen', () => {
           apiPath: ['features', 'tasks', 'operations', 'listTasks'],
           exportName: 'listTasks',
           file: 'convex/features/tasks/operations.ts',
+          functionKind: 'query',
           functionRef: 'features/tasks/operations:listTasks',
           line: expect.any(Number),
           projection: 'execute',
@@ -123,13 +126,16 @@ describe('operation registry codegen', () => {
     expect(buildOperationHandleBindingsFromRegistry(registry)).toEqual([
       {
         descriptorName: 'archiveTaskOp',
+        executeOperation: 'mutation',
         executeRefName: 'archiveTaskRef',
         exportName: 'archiveTaskHandle',
         operationId: 'tasks.archive',
+        previewOperation: 'mutation',
         previewRefName: 'previewArchiveTaskRef',
       },
       {
         descriptorName: 'listTasksOp',
+        executeOperation: 'query',
         executeRefName: 'listTasksRef',
         exportName: 'listTasksHandle',
         operationId: 'tasks.list',
@@ -277,6 +283,15 @@ describe('operation registry codegen', () => {
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
       "runtimes: ['mcp', 'testing']",
     )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
+      "executeOperation: 'mutation'",
+    )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
+      "previewOperation: 'mutation'",
+    )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
+      "executeOperation: 'query'",
+    )
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).not.toContain(
       'convex/features/tasks/domain',
     )
@@ -322,6 +337,7 @@ describe('operation registry codegen', () => {
           apiPath: ['features', 'tasks', 'domain', 'archiveTask'],
           exportName: 'archiveTask',
           file: 'convex/features/tasks/domain.ts',
+          functionKind: 'mutation',
           functionRef: 'features/tasks/domain:archiveTask',
           line: expect.any(Number),
           projection: 'execute',

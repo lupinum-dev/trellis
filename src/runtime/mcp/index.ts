@@ -104,6 +104,7 @@ export type {
 
 export type {
   OperationHandle,
+  OperationHandleFunctionKind,
   OperationHandleProjection,
   OperationHandleRuntime,
 } from '../functions/operation-metadata.js'

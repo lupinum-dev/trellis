@@ -55,6 +55,7 @@ export type {
   McpWriteSafety,
   OperationDescriptor,
   OperationHandle,
+  OperationHandleFunctionKind,
   OperationHandleProjection,
   OperationHandleRuntime,
   OperationMetadataDefinition,

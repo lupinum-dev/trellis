@@ -28,6 +28,7 @@ export interface OperationProjectionBindingMetadata {
   file: string
   line: number
   projection: 'execute' | 'preview'
+  functionKind: 'query' | 'mutation' | 'action'
 }
 
 export interface ToolDefinitionMetadata {
@@ -156,14 +157,15 @@ function readExecuteOperationIdentifier(expression: Node | undefined): string | 
   return null
 }
 
-type CanonicalProjectionCallKind = 'execute' | 'preview'
+type CanonicalProjectionCall = {
+  projection: 'execute' | 'preview'
+  functionKind: 'query' | 'mutation' | 'action'
+}
 
 const canonicalProjectionRoots = new Set(['mutation', 'query', 'action'])
 const canonicalPreviewProjectionRoots = new Set(['mutation'])
 
-function readCanonicalProjectionCallKind(
-  expression: Node | undefined,
-): CanonicalProjectionCallKind | null {
+function readCanonicalProjectionCall(expression: Node | undefined): CanonicalProjectionCall | null {
   const unwrappedExpression = unwrapExpression(expression)
   if (!unwrappedExpression || !Node.isCallExpression(unwrappedExpression)) return null
 
@@ -175,19 +177,30 @@ function readCanonicalProjectionCallKind(
     if (!laneExpression || !Node.isPropertyAccessExpression(laneExpression)) return null
 
     const rootExpression = unwrapExpression(laneExpression.getExpression())
-    return rootExpression &&
-      Node.isIdentifier(rootExpression) &&
-      canonicalPreviewProjectionRoots.has(rootExpression.getText())
-      ? 'preview'
-      : null
+    if (
+      !rootExpression ||
+      !Node.isIdentifier(rootExpression) ||
+      !canonicalPreviewProjectionRoots.has(rootExpression.getText())
+    ) {
+      return null
+    }
+
+    return { projection: 'preview', functionKind: rootExpression.getText() as 'mutation' }
   }
 
   const rootExpression = unwrapExpression(callee.getExpression())
-  return rootExpression &&
-    Node.isIdentifier(rootExpression) &&
-    canonicalProjectionRoots.has(rootExpression.getText())
-    ? 'execute'
-    : null
+  if (
+    !rootExpression ||
+    !Node.isIdentifier(rootExpression) ||
+    !canonicalProjectionRoots.has(rootExpression.getText())
+  ) {
+    return null
+  }
+
+  return {
+    projection: 'execute',
+    functionKind: rootExpression.getText() as 'query' | 'mutation' | 'action',
+  }
 }
 
 function hasProjectionLikeExpression(
@@ -205,7 +218,7 @@ function hasProjectionLikeExpression(
   }
 
   if (!Node.isCallExpression(unwrappedExpression)) return false
-  if (readCanonicalProjectionCallKind(unwrappedExpression)) return true
+  if (readCanonicalProjectionCall(unwrappedExpression)) return true
 
   const [firstArg] = unwrappedExpression.getArguments()
   const executeOperationIdentifier = readExecuteOperationIdentifier(firstArg)
@@ -385,10 +398,10 @@ function extractProjectionBinding(
   const unwrappedFirstArg = unwrapExpression(firstArg)
   if (!unwrappedFirstArg) return null
 
-  const projectionCallKind = readCanonicalProjectionCallKind(initializer)
-  if (!projectionCallKind) return null
+  const projectionCall = readCanonicalProjectionCall(initializer)
+  if (!projectionCall) return null
 
-  if (projectionCallKind === 'preview') {
+  if (projectionCall.projection === 'preview') {
     const previewOperationIdentifier = readExecuteOperationIdentifier(unwrappedFirstArg)
     if (!previewOperationIdentifier) return null
 
@@ -402,6 +415,7 @@ function extractProjectionBinding(
       file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
       line: declaration.getNameNode().getStartLineNumber(),
       projection: 'preview',
+      functionKind: projectionCall.functionKind,
     }
   }
 
@@ -417,6 +431,7 @@ function extractProjectionBinding(
       file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
       line: declaration.getNameNode().getStartLineNumber(),
       projection: 'preview',
+      functionKind: projectionCall.functionKind,
     }
   }
 
@@ -433,6 +448,7 @@ function extractProjectionBinding(
     file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
     line: declaration.getNameNode().getStartLineNumber(),
     projection: 'execute',
+    functionKind: projectionCall.functionKind,
   }
 }
 
@@ -465,8 +481,8 @@ function extractProjectionDiagnostic(
     return null
   }
 
-  const projectionCallKind = readCanonicalProjectionCallKind(initializer)
-  if (projectionCallKind) {
+  const projectionCall = readCanonicalProjectionCall(initializer)
+  if (projectionCall) {
     const operationIdentifier = readExecuteOperationIdentifier(firstArg)
     return operationIdentifier && !operationsByExport.has(operationIdentifier)
       ? createProjectionDiagnostic(

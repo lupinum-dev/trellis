@@ -89,6 +89,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'createTodo',
         file: 'convex/features/todos/domain.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'createTodoOp',
         operationId: 'todos.create',
@@ -97,6 +98,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'listTodos',
         file: 'convex/features/todos/domain.ts',
+        functionKind: 'query',
         line: expect.any(Number),
         operationExportName: 'listTodosOp',
         operationId: 'todos.list',
@@ -105,6 +107,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'removeTodo',
         file: 'convex/features/todos/domain.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'removeTodoOp',
         operationId: 'todos.remove',
@@ -113,6 +116,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'previewRemoveTodo',
         file: 'convex/features/todos/domain.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'removeTodoOp',
         operationId: 'todos.remove',
@@ -172,6 +176,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'archiveTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
@@ -180,6 +185,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'previewArchiveTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
@@ -245,6 +251,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'archiveTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
@@ -253,6 +260,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'previewArchiveTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',
@@ -261,6 +269,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'removeTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'removeTaskOp',
         operationId: 'tasks.remove',
@@ -269,6 +278,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'previewRemoveTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'removeTaskOp',
         operationId: 'tasks.remove',
@@ -316,6 +326,7 @@ describe('public surface codegen', () => {
       {
         exportName: 'archiveTask',
         file: 'convex/features/tasks/operations.ts',
+        functionKind: 'mutation',
         line: expect.any(Number),
         operationExportName: 'archiveTaskOp',
         operationId: 'tasks.archive',

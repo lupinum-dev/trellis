@@ -4,6 +4,8 @@ export interface OperationHandleBindingInput {
   descriptorName: string
   executeRefName: string
   previewRefName?: string
+  executeOperation?: 'query' | 'mutation' | 'action'
+  previewOperation?: 'query' | 'mutation' | 'action'
   projection?: 'default-app' | 'internal' | 'service' | 'bridge' | 'component'
   runtimes?: readonly ('client' | 'server' | 'mcp' | 'testing' | 'internal')[]
 }
@@ -24,11 +26,10 @@ export interface OperationHandlesModuleInput {
 }
 
 function renderImport(names: readonly string[], from: string): string {
-  if (names.length > 1) {
-    return [`import {`, ...names.map((name) => `  ${name},`), `} from '${from}'`].join('\n')
-  }
+  const singleLineImport = `import { ${names.join(', ')} } from '${from}'`
+  if (singleLineImport.length <= 100) return singleLineImport
 
-  return `import { ${names.join(', ')} } from '${from}'`
+  return [`import {`, ...names.map((name) => `  ${name},`), `} from '${from}'`].join('\n')
 }
 
 function toCamelCase(segment: string): string {
@@ -113,6 +114,14 @@ function renderHandle(handle: OperationHandleBindingInput): string[] {
 
   if (handle.previewRefName) {
     lines.push(`  previewRef: ${handle.previewRefName},`)
+  }
+
+  if (handle.executeOperation) {
+    lines.push(`  executeOperation: '${handle.executeOperation}',`)
+  }
+
+  if (handle.previewOperation) {
+    lines.push(`  previewOperation: '${handle.previewOperation}',`)
   }
 
   if (handle.projection && handle.projection !== 'default-app') {

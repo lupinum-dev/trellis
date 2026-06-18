@@ -134,6 +134,8 @@ describe('phase0 workspace-mcp fixture', () => {
       expect(toolSource).toContain("from '../../../generated/operation-handles/mcp'")
       expect(toolSource).not.toContain('operation-refs')
       expect(toolSource).not.toContain('Descriptor')
+      expect(toolSource).not.toContain('previewOperation')
+      expect(toolSource).not.toContain('executeOperation')
     }
 
     const publicSurfaceFiles = [
@@ -189,6 +191,8 @@ describe('phase0 workspace-mcp fixture', () => {
     expect(operationHandlesSource).toContain('operations = {')
     expect(operationHandlesSource).toContain("'projects.create': createProjectHandle")
     expect(operationHandlesSource).toContain('executeRef: deleteProjectRef')
+    expect(operationHandlesSource).toContain("executeOperation: 'mutation'")
+    expect(operationHandlesSource).toContain("previewOperation: 'mutation'")
     expect(operationHandlesSource).not.toContain('/convex/')
     expect(operationHandlesSource).not.toContain('convex/features')
     expect(operationHandlesSource).not.toContain('src/runtime')

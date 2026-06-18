@@ -979,6 +979,12 @@ export function defineMcpApp<
         ...inputOptions,
         execute: executeRef,
         ...(previewRef !== undefined ? { preview: previewRef } : {}),
+        executeOperation:
+          inputOptions.executeOperation ??
+          (isOperationHandle(operation) ? operation.executeOperation : undefined),
+        previewOperation:
+          inputOptions.previewOperation ??
+          (isOperationHandle(operation) ? operation.previewOperation : undefined),
       } as ToolOperationOptions<
         TOperation,
         TCaller,

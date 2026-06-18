@@ -381,9 +381,64 @@ loops.
   tool. A later generated-handle/runtime slice should carry projection function
   kind so the common one-line MCP binding can infer this.
 
+## Slice 9: Generated Handle Function Kinds
+
+### Proof
+
+- The phase0 fixture still needed `previewOperation: 'mutation'` in the MCP
+  tool even though the registry already knew the preview projection was
+  `mutation.workspace.preview(...)`. That was a second source of truth between
+  Convex projections and MCP transport calls.
+- The initial focused run failed because scanner and registry snapshots did not
+  include a Convex function kind on projection facts.
+- After adding function kind to canonical preview calls, the next focused run
+  exposed a real omission: legacy `mutation.workspace(previewOf(op))` projection
+  scanning did not carry the outer function kind into preview metadata.
+
+### Implementation
+
+- Added `functionKind: 'query' | 'mutation' | 'action'` to scanned projection
+  metadata and registry projections.
+- Carried execute/preview function kind from the registry into generated
+  operation-handle bindings.
+- Added `executeOperation` and `previewOperation` metadata to
+  `OperationHandle`, re-exported the public type, and made `tool.operation(...)`
+  use generated handle metadata as the default call kind.
+- Removed the manual `previewOperation: 'mutation'` override from the phase0 MCP
+  delete tool; the one-line generated-handle binding now drives the mutation
+  preview call.
+- Made operation-handle import rendering formatter-stable for named imports that
+  fit on one line.
+
+### Verification
+
+- `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`
+  passed after fixing the legacy `previewOf(...)` function-kind path.
+- `pnpm vitest run --project=unit tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+  passed after removing the manual MCP preview override.
+- Broader focused suite passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/functions-defineTrellis.test.ts`.
+- `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm run lint:src:core`, and `pnpm run lint:src:runtime:functions-mcp`
+  passed.
+- `pnpm run check:publish-surface` and `pnpm run check:docs:api-surface`
+  passed.
+- `pnpm exec oxfmt --check ...` and `git diff --check` passed for the touched
+  files.
+
+### Notes
+
+- The phase0 fixture now proves the common MCP path is generated-handle driven:
+  the tool file imports no Convex implementation, no operation refs, no
+  descriptors, and no tool-local execute/preview operation-kind override.
+- Remaining explicit `previewOperation` / `executeOperation` uses in examples and
+  starter resources should be revisited when registry-generated artifacts are
+  wired into the Nuxt/module prepare output. Until then, keep them as advanced
+  explicit package/example boundaries, not the canonical greenfield path.
+
 ## Next Slice Candidates
 
-1. Carry execute/preview Convex function kind through registry-generated handles
-   so MCP one-line binding can infer mutation previews.
-2. Add scanner diagnostics for re-exported projection forms.
-3. Wire registry-generated artifacts into Nuxt/module prepare output.
+1. Add scanner diagnostics for re-exported projection forms.
+2. Wire registry-generated artifacts into Nuxt/module prepare output.
+3. Hard-cut remaining starter resources and examples to generated handles where
+   the registry can own projection refs and MCP operation kinds.

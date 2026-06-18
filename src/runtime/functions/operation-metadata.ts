@@ -34,6 +34,8 @@ export type TrellisOperationProjectionMetadata = {
 
 export type OperationHandleRuntime = 'client' | 'server' | 'mcp' | 'testing' | 'internal'
 
+export type OperationHandleFunctionKind = 'query' | 'mutation' | 'action'
+
 export type OperationHandleProjection =
   | 'default-app'
   | 'internal'
@@ -90,6 +92,8 @@ export type OperationHandle<
   readonly runtimes: readonly OperationHandleRuntime[]
   readonly executeRef: TExecuteRef
   readonly previewRef?: TPreviewRef
+  readonly executeOperation?: OperationHandleFunctionKind
+  readonly previewOperation?: OperationHandleFunctionKind
   readonly [trellisOperationHandleKey]: true
 }
 
@@ -123,6 +127,8 @@ export function defineOperationHandle<
   options: {
     executeRef: TExecuteRef
     previewRef?: TPreviewRef
+    executeOperation?: OperationHandleFunctionKind
+    previewOperation?: OperationHandleFunctionKind
     projection?: OperationHandleProjection
     runtimes?: readonly OperationHandleRuntime[]
   },
@@ -144,6 +150,8 @@ export function defineOperationHandle<
     runtimes: options.runtimes ?? (['mcp', 'testing'] as const),
     executeRef: options.executeRef,
     ...(options.previewRef !== undefined ? { previewRef: options.previewRef } : {}),
+    ...(options.executeOperation ? { executeOperation: options.executeOperation } : {}),
+    ...(options.previewOperation ? { previewOperation: options.previewOperation } : {}),
     [trellisOperationMetadataKey]: descriptor[trellisOperationMetadataKey],
     [trellisOperationHandleKey]: true,
   }) as OperationHandle<TDescriptor, TExecuteRef, TPreviewRef>

@@ -18,6 +18,7 @@ export interface OperationRegistryProjection {
   file: string
   line: number
   projection: OperationRegistryProjectionKind
+  functionKind: 'query' | 'mutation' | 'action'
   apiPath: string[]
   functionRef: string
 }
@@ -82,6 +83,7 @@ function toRegistryProjection(
     file: projection.file,
     line: projection.line,
     projection: projection.projection,
+    functionKind: projection.functionKind,
     apiPath,
     functionRef: renderConvexFunctionRef(apiPath),
   }
@@ -304,6 +306,8 @@ export function buildOperationHandleBindingsFromRegistry(
     descriptorName: operation.exportName,
     executeRefName: getOperationRefExportName(operation.execute),
     ...(operation.preview ? { previewRefName: getOperationRefExportName(operation.preview) } : {}),
+    executeOperation: operation.execute.functionKind,
+    ...(operation.preview ? { previewOperation: operation.preview.functionKind } : {}),
     ...(options.runtimes ? { runtimes: options.runtimes } : {}),
   }))
 }
