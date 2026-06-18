@@ -4480,5 +4480,40 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 
 ## Next Slice Candidates
 
-1. Run the final full `pnpm run release:verify` gate on the completed RFC tree.
-2. Regenerate local tarballs, then rerun the CMS and i18n consumer proofs.
+1. Regenerate local tarballs, then rerun the CMS and i18n consumer proofs.
+
+## Slice 79: Final RFC Release Gate
+
+### Goal
+
+- Prove the completed RFC tree with the full release verification gate after
+  the backend-only destructive exposure slice landed.
+
+### Verification
+
+- `pnpm run release:verify` completed successfully.
+- The gate included:
+  - format, lint, publish-surface, compatibility-matrix, type, and contract
+    checks
+  - `test:security`, which passed 26 files and 299 tests
+  - maintained example doctor checks with no failures
+  - starter fixture doctor validation with no warnings or failures
+  - full repo tests: unit, Convex, Nuxt, server, and browser projects
+  - prepared example tests for all maintained examples
+  - e2e tests: 4 files and 13 tests passed
+  - starter fixture typecheck/build validation for public, personal, workspace,
+    workspace-MCP, and the workspace-MCP add-entity path
+  - generated Convex drift check: 25 tracked `_generated` files checked with no
+    drift
+  - packed tarball workspace-reference check for `@lupinum/trellis@0.3.1` and
+    `@lupinum/trellis-bridge@0.3.1`
+  - `pnpm audit --prod --audit-level low`, which reported no known
+    vulnerabilities
+  - final module, devtools client, and CLI builds
+
+### Notes
+
+- The release gate produced local pack-check tarballs under `.pack-check/` but
+  left no new tracked changes.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
