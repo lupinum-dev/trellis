@@ -2341,11 +2341,101 @@ test/helpers.ts` had no matches except the candidate helper row before
   host bridge wrapper refs. That should be handled by an explicit bridge or
   component projection contract rather than by scanner inference.
 
+## Slice 44: Generate Component Bridge MCP Handles From Host Projections
+
+### Proof
+
+- After Slice 43, scanning example 08 component projections directly exposed the
+  wrong authority boundary: generated operation refs pointed at
+  `api.components...`, while MCP callers need host bridge projections that carry
+  the host app forwarding proof.
+- Component-local projections are implementation internals. Letting the default
+  app scanner infer from `convex/components/**` would create a second candidate
+  execute path for the same operation id and make the registry choose by file
+  layout instead of authority.
+- The component barrel re-export of `previewPublish` also proved that the
+  scanner should stay strict. Re-exported projection tracing remains unsupported
+  because it hides the projection lane and target from the local source file.
+- The safe bridge shape is explicit: host files export scanner-readable wrapper
+  projections whose inner lane call is a real Convex query, mutation, or action.
+  The generated handle then binds MCP to the host projection, not the component
+  implementation.
+- Enabling operation aliases in Nuxt exposed two type gaps before runtime:
+  `permissions: { codegen: true }` needed to be valid without an access-context
+  query, and wrapped projection exports needed to preserve their Convex function
+  reference type.
+
+### Implementation
+
+- Added a default operation codegen exclude for `convex/components/**`, keeping
+  component internals out of app operation registries unless a caller opts in.
+- Extended public-surface codegen to recognize explicit
+  `executeOperationRef(...)` and `previewOperationRef(...)` projection wrappers
+  around direct lane calls or same-file projection aliases.
+- Moved example 08 page operation descriptors into
+  `shared/features/pages/operations.ts` so host and component code share a
+  runtime-neutral contract instead of importing implementation operations across
+  the boundary.
+- Rewrote component implementations to use `implementOperation(...)` against the
+  shared descriptors, leaving component-local lane exports as internals.
+- Rewrote host page bridge exports as typed projection aliases wrapped with
+  `executeOperationRef(...)` / `previewOperationRef(...)`, preserving scanner
+  metadata and Convex function ref types.
+- Deleted the root browser `publish` mutation. The single host execute
+  projection for `pages.publish` is now `publishAction`.
+- Wired example 08 `defineTrellis(...)` to the generated
+  `operationProjectionRegistry` and enabled Nuxt permission/operation codegen.
+- Hard-cut example 08 MCP page tools to generated
+  `#trellis/operations/mcp` handles. They no longer import component operation
+  implementations, component APIs, or handwritten operation refs.
+- Updated tests to assert the generated host action/preview refs, absence of
+  component API refs in MCP tools, and sync of the tracked operation projection
+  registry.
+
+### Verification
+
+- Touched-code format check passed:
+  `pnpm exec oxfmt --check src/module-internals/options.ts src/module-internals/public-surface-codegen.ts examples/08-component-mini-cms/convex/functions.ts examples/08-component-mini-cms/convex/features/pages/domain.ts examples/08-component-mini-cms/convex/features/pages/index.ts examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts examples/08-component-mini-cms/convex/components/miniCms/features/pages/index.ts examples/08-component-mini-cms/convex/components/miniCms/features/pages/operations.ts examples/08-component-mini-cms/shared/features/pages/operations.ts examples/08-component-mini-cms/server/mcp/tools/create-page.ts examples/08-component-mini-cms/server/mcp/tools/save-draft.ts examples/08-component-mini-cms/server/mcp/tools/publish-page.ts examples/08-component-mini-cms/test/componentMiniCms.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts`.
+- Whitespace check passed: `git diff --check`.
+- Focused scanner/registry/install tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/permission-codegen-installer.test.ts`
+  reported 4 passing test files and 26 passing tests.
+- Module build passed: `pnpm run build:module`.
+- Source, test, and example lint passed:
+  `pnpm run lint:src:core`, `pnpm run lint:tests`, and
+  `pnpm run lint:examples`.
+- Example 08 tests passed:
+  `pnpm --dir examples/08-component-mini-cms test` reported one passing test
+  file and 10 passing tests.
+- Example 08 typecheck passed:
+  `pnpm --dir examples/08-component-mini-cms typecheck`.
+- Nuxt-generated operation files are in sync:
+  `node dist/cli.mjs operations generate --cwd examples/08-component-mini-cms --operation-refs .nuxt/trellis/operation-refs.ts --operation-handles .nuxt/trellis/operation-handles/mcp.ts --operation-projections .nuxt/trellis/operation-projections.ts --project-operation-ref-import '#trellis/operation-runtime' --define-operation-handle-import '#trellis/operation-runtime' --api-import '#trellis/api' --runtime mcp --check --json`
+  returned `status: "ok"`.
+- The tracked host Convex projection registry is in sync:
+  `node dist/cli.mjs operations generate --cwd examples/08-component-mini-cms --operation-refs .nuxt/trellis/operation-refs.ts --operation-handles .nuxt/trellis/operation-handles/mcp.ts --operation-projections generated/operation-projections.ts --project-operation-ref-import '#trellis/operation-runtime' --define-operation-handle-import '#trellis/operation-runtime' --api-import '#trellis/api' --runtime mcp --check --json`
+  returned `status: "ok"`.
+
+### Notes
+
+- This is still an explicit advanced bridge shape, not arbitrary TypeScript
+  inference. The scanner accepts a small wrapper grammar and rejects hidden
+  re-export/dynamic forms.
+- `executeOperationRef(...)` and `previewOperationRef(...)` remain advanced
+  backend metadata helpers. The normal MCP surface now imports generated handles.
+- The root publish mutation deletion is intentional: keeping both mutation and
+  action execute projections would leave two host execute paths for
+  `pages.publish`.
+- `dream-spec.md` has unrelated local changes and was left out of this slice.
+
 ## Next Slice Candidates
 
-1. Define the bridge-generated operation handle shape needed to replace
-   component mini-CMS explicit refs without bypassing host bridge authority.
-2. Make `trellis operations generate` easier to install into generated/consumer
-   projects without introducing a second config source of truth.
-3. Hard-cut one maintained MCP example to generated operation handles once the
-   runtime-safe handle import path is proven.
+1. Replace normal app-level test transport plumbing with product-level generated
+   operation handles, starting with a Trellis example before pushing the pattern
+   back into Ginko CMS.
+2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
+   operation files can be validated by package/consumer tests without virtual
+   aliases.
+3. Start the explicit advanced projection helper design, using the example 08
+   bridge wrapper grammar as the proof case and avoiding another generic
+   adapter.
