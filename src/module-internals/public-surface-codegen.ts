@@ -365,12 +365,14 @@ function deriveProjectionTargetFunctionRef(
   projection: 'execute' | 'preview',
   projectionExpression: Node,
 ): string {
+  if (projection === 'execute' && operation.executeFunctionRef) return operation.executeFunctionRef
+
   const explicitId = readExplicitIdOverride(projectionExpression)
   if (explicitId) return explicitId
 
   if (projection === 'preview') return `${operation.id}:preview`
 
-  return operation.executeFunctionRef ?? operation.id
+  return operation.id
 }
 
 function readNestedStringProperty(

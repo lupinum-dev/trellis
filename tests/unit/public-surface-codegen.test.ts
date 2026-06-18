@@ -297,6 +297,68 @@ describe('public surface codegen', () => {
     ])
   }, 15_000)
 
+  it('prefers operation executeFunctionRef over execute projection id overrides', () => {
+    const rootDir = createFixture({
+      'src/entries/publish.ts': `
+        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+        import { callerMutation } from '../functions'
+
+        export const rollbackVersionOperation = defineOperation({
+          id: 'ginko-cms.rollback-version',
+          name: 'rollback-version',
+          kind: 'destructive',
+          executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
+          args: {},
+          handler: async () => ({ rolledBack: true }),
+          preview: async () => ({ confirmation: { token: 'confirm', expiresAt: 1 } }),
+        })
+
+        export const rollbackVersionOperationExecute = callerMutation.protected({
+          ...rollbackVersionOperation,
+          id: 'ginko-cms.rollback-version',
+        })
+        export const previewRollbackVersionOperation = callerMutation.protected(
+          Object.assign(previewOf(rollbackVersionOperation), {
+            id: 'editor:previewRollbackVersionOperation',
+          }),
+        )
+      `,
+      'src/functions.ts': `
+        export const callerMutation = { protected: (definition: unknown) => definition }
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir, {
+      operationInclude: ['src/**/*.ts'],
+      projectionRoots: [
+        { name: 'callerMutation', functionKind: 'mutation', supportsPreview: true },
+      ],
+    })
+
+    expect(metadata.projections).toEqual([
+      {
+        exportName: 'rollbackVersionOperationExecute',
+        file: 'src/entries/publish.ts',
+        functionKind: 'mutation',
+        line: expect.any(Number),
+        operationExportName: 'rollbackVersionOperation',
+        operationId: 'ginko-cms.rollback-version',
+        projection: 'execute',
+        targetFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
+      },
+      {
+        exportName: 'previewRollbackVersionOperation',
+        file: 'src/entries/publish.ts',
+        functionKind: 'mutation',
+        line: expect.any(Number),
+        operationExportName: 'rollbackVersionOperation',
+        operationId: 'ginko-cms.rollback-version',
+        projection: 'preview',
+        targetFunctionRef: 'editor:previewRollbackVersionOperation',
+      },
+    ])
+  }, 15_000)
+
   it('reports unsupported operation projection syntax', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

@@ -484,4 +484,69 @@ describe('operation registry codegen', () => {
       "from '../../entries/publish'",
     )
   })
+
+  it('renders explicit executeFunctionRef for execute projections with operation id overrides', () => {
+    const rootDir = createFixture({
+      'src/entries/publish.ts': `
+        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+        import { callerMutation } from '../functions'
+
+        export const rollbackVersionOperation = defineOperation({
+          id: 'ginko-cms.rollback-version',
+          name: 'rollback-version',
+          kind: 'destructive',
+          executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute',
+          args: {},
+          handler: async () => ({ rolledBack: true }),
+          preview: async () => ({ confirmation: { token: 'confirm', expiresAt: 1 } }),
+        })
+
+        export const rollbackVersionOperationExecute = callerMutation.protected({
+          ...rollbackVersionOperation,
+          id: 'ginko-cms.rollback-version',
+        })
+        export const previewRollbackVersionOperation = callerMutation.protected(
+          Object.assign(previewOf(rollbackVersionOperation), {
+            id: 'editor:previewRollbackVersionOperation',
+          }),
+        )
+      `,
+      'src/functions.ts': `
+        export const callerMutation = { protected: (definition: unknown) => definition }
+      `,
+    })
+
+    const registry = buildOperationRegistry(
+      extractPublicSurfaceCodegenMetadata(rootDir, {
+        operationInclude: ['src/**/*.ts'],
+        projectionRoots: [
+          { name: 'callerMutation', functionKind: 'mutation', supportsPreview: true },
+        ],
+      }),
+      { convexSourceRoot: 'src' },
+    )
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '../_generated/api.js',
+      defineOperationHandleImport: '@lupinum/trellis/mcp',
+      descriptorMode: 'generated-metadata',
+      operationDescriptorTypeImport: '@lupinum/trellis/backend',
+      operationHandlesPath: 'src/generated/operation-handles/testing.ts',
+      operationRefsPath: 'src/generated/operation-refs.ts',
+      projectOperationRefImport: '@lupinum/trellis/mcp',
+      relativeImportExtension: '.js',
+      runtimes: ['testing'],
+    })
+    const refs = rendered.find((file) => file.path === 'src/generated/operation-refs.ts')?.content
+
+    expect(registry.operations[0]?.execute.functionRef).toBe(
+      'entries/publish:rollbackVersionOperationExecute',
+    )
+    expect(registry.operations[0]?.preview?.functionRef).toBe(
+      'editor:previewRollbackVersionOperation',
+    )
+    expect(refs).toContain("{ functionRef: 'entries/publish:rollbackVersionOperationExecute' }")
+    expect(refs).toContain("executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute'")
+    expect(refs).not.toContain("functionRef: 'ginko-cms.rollback-version'")
+    expect(refs).not.toContain("executeFunctionRef: 'ginko-cms.rollback-version'")
+  })
 })
