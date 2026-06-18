@@ -2210,11 +2210,90 @@ test/helpers.ts` had no matches except the candidate helper row before
   `transportExecuteOperationRef` remains useful as a public API now that the
   only consumer moved to operation execute refs.
 
+## Slice 42: Remove Trellis Transport Execute Ref Alias
+
+### Proof
+
+- Ginko CMS no longer has production transport execute projections, test helper
+  translation maps, or direct test callers for `*TransportExecute`.
+- `transportExecuteOperationRef(...)` was only a public alias for
+  `projectOperationRef(operation, 'execute', ref, options)`. It did not encode
+  different runtime semantics from `executeOperationRef(...)`.
+- Transport confirmation remains modeled by `tool.operation(..., {
+  confirmationMode: 'transport' })` and the transport mutation lane, so a
+  separate public execute-ref helper had become a second name for the same
+  projection fact.
+- A wide source search after implementation confirmed no exact
+  `transportExecuteOperationRef` reference remains in Trellis source, tests,
+  examples, docs, scripts, security contract, README, or changelog. Only
+  historical journal/review notes still mention the old symbol.
+
+### Implementation
+
+- Removed `transportExecuteOperationRef(...)` from operation metadata and all
+  public re-export entrypoints.
+- Updated transport-mutation tests to use `executeOperationRef(...)` while
+  preserving transport lane runtime coverage.
+- Removed the helper from MCP entrypoint export expectations.
+- Updated component mini-CMS example MCP binding and source assertions to use
+  `executeOperationRef(...)`.
+- Updated docs, skill references, security source policy, and regenerated the
+  security contract so public surfaces no longer advertise or police the
+  removed alias.
+- In Ginko CMS companion commit `4b8ba2b`, deleted the stale
+  `transportExecuteOperationRef` mock and stale negative string assertion.
+
+### Verification
+
+- Trellis focused unit proof passed:
+  `pnpm vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/mcp-index-exports.test.ts tests/unit/mcp-operation-binding.test.ts tests/unit/security-contract.test.ts`
+  reported 4 passing test files and 86 passing tests.
+- Trellis security policy and generated contract checks passed:
+  `pnpm run check:security:source-policy` and
+  `pnpm run check:security:contract`.
+- Trellis docs API surface check passed: `pnpm run check:docs:api-surface`.
+- Trellis build and public type surface checks passed:
+  `pnpm run build:module`, `pnpm run check:publish-surface`,
+  `pnpm run test:types:public`, and `pnpm run test:types:contracts`.
+- Trellis lint/format gates passed:
+  `pnpm run format:check`, `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run lint:src:runtime:rest`, `pnpm run lint:tests`, and
+  `pnpm run lint:examples`.
+- Trellis full security gate passed: `pnpm run test:security` reported 26
+  passing test files and 293 passing tests.
+- Trellis tarball was refreshed with `pnpm pack --pack-destination .pack`.
+- Ginko focused consumer proof passed:
+  `pnpm vitest run test/runtime/mcp-project-tool.test.ts test/shared/mcp-tools.test.ts`
+  reported 2 passing test files and 18 passing tests.
+- Ginko generated operation drift check passed: `pnpm run operations:check`
+  reported 16 operations, 28 projections, and no out-of-date files.
+- Ginko static gates passed: `pnpm run format:check`, `pnpm run lint`, and
+  `pnpm run typecheck`.
+- Ginko full test suite passed on a serial rerun:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Whitespace checks passed in both repos: `git diff --check`.
+
+### Notes
+
+- An initial Ginko full test run failed while Trellis `test:security` was
+  concurrently rebuilding and cleaning the linked local `dist`. Manual Node
+  import checks for `@lupinum/trellis/backend` from both Ginko and
+  `packages/trellis-bridge` succeeded after the rebuild, and the serial Ginko
+  rerun passed.
+- Exact `transportExecuteOperationRef` source references are now gone from the
+  active Trellis and Ginko code paths. Remaining `TransportExecute` references
+  in Trellis are historical RFC 0012 text and registry fixtures that prove
+  ignored legacy projection roots stay ignored.
+- This removes one duplicated public helper but does not complete RFC 0013.
+  The next hard-cut slice should replace manual MCP execute/preview binding in
+  normal examples with generated operation handles.
+
 ## Next Slice Candidates
 
-1. Audit Trellis `transportExecuteOperationRef` public API and examples. Delete
-   it if no verified consumer requirement remains.
-2. Define the bridge-generated operation handle shape needed to replace
+1. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
-3. Make `trellis operations generate` easier to install into generated/consumer
+2. Make `trellis operations generate` easier to install into generated/consumer
    projects without introducing a second config source of truth.
+3. Hard-cut one maintained MCP example to generated operation handles once the
+   runtime-safe handle import path is proven.
