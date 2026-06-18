@@ -45,7 +45,9 @@ The next release should compress the current model:
 
 ```text
 App authors declare the business operation.
-Trellis owns projection, transport, test, and agent machinery.
+Trellis owns projection, transport protocol translation, test helpers, and
+agent-facing machinery.
+Each runtime surface still owns its boundary semantics.
 ```
 
 ## Problem
@@ -149,8 +151,8 @@ The dream Trellis version should feel like Nuxt:
 
 Nuxt-native means concrete developer affordances, not only backend codegen:
 
-- virtual imports such as `#trellis/operations` for runtime-safe operation
-  handles
+- virtual imports such as `#trellis/operations/client` and
+  `#trellis/operations/mcp` for runtime-safe operation handles
 - auto-imported composables such as `useTrellisOperation`
 - Nitro helpers for explicit server-route adapters
 - `trellis prepare` wired into the Nuxt/Convex prepare loop
@@ -220,7 +222,7 @@ export const previewRemove = mutation.workspace.preview(removeRunbookOp)
 MCP common case becomes operation-only:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/mcp'
 
 export default tool.operation(operations.runbooks.remove, {
   group: 'workspace',
@@ -235,12 +237,14 @@ destructive operation is missing a projection.
 Tests call product-level operations:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/testing'
 
 const owner = ctx.asUser({ authKey: 'owner-1' })
 
-await owner.operation(operations.runbooks.remove).preview({ id })
-await owner.operation(operations.runbooks.remove).execute({ id }, { confirm })
+const preview = await owner.operation(operations.runbooks.remove).preview({ id })
+await owner
+  .operation(operations.runbooks.remove)
+  .execute({ id }, { confirmation: preview.confirmation })
 ```
 
 Low-level forwarding tests may still exist inside Trellis, but normal app and
@@ -248,57 +252,147 @@ consumer tests should not construct transport options.
 
 ## Proposal
 
-### 1. Operation Projection Registry
+### 1. Source Ownership
 
-Extend the existing public-surface/inventory codegen so each projected
-operation is recorded once:
+Every important concept gets one source of truth:
 
-- operation id
-- operation export
-- feature owner when known
-- execute function ref
-- preview function ref when destructive
-- projection kind
-- source file and line
-- MCP tools that project it
+- operation definitions own business metadata: id, args, return validator,
+  scope, permission, safety, load, authorization, preview, and handler
+- Convex projection exports own executable Convex surface: which operation is
+  exported as which query/mutation/action lane
+- feature manifests own feature grouping, package ownership, schema,
+  permissions, record helpers, and inventory metadata
+- the generated operation registry owns projection facts: operation id to
+  execute/preview refs, projection kind, source location, and source hash
+- the generated surface inventory owns surface usage: MCP tools, server-route
+  adapters, UI usage, tests, explain output, and agent context
 
-This must be derived from existing operation metadata, function projections,
-feature manifests, and public-surface extraction. Do not add a handwritten
-`trellis.config.ts` or a second app manifest.
+Feature manifests must not manually duplicate operation projection facts.
+Operation lists in manifests are either generated, package metadata, or
+high-level grouping only. App authors should not have to update
+`operations.ts`, `domain.ts`, `feature.ts`, app inventory, and registry by hand
+for one operation.
 
-The registry can be emitted as generated code, JSON, or both, but it is derived
-output. The canonical source remains operation definitions plus projected
-Convex exports.
+### 2. Operation Registry, Runtime Handles, And Surface Inventory
 
-Generated registry artifacts are do-not-edit output. They may explain and
-project operations, but backend handlers remain the only authority.
+Split generated output into separate artifacts so codegen has no cycle:
 
-### 2. Registry Contract And Codegen Lifecycle
+- core operation registry: analysis artifact with operation id, operation
+  export, source file/line, projection kind, execute ref, preview ref, feature
+  owner, and source hash
+- runtime operation handles: importable TypeScript generated from the core
+  registry; no backend implementation imports
+- surface inventory: derived after handles exist, recording which MCP tools,
+  server-route adapters, UI files, and tests reference each handle
+- agent context: optional filtered output generated from registry plus surface
+  inventory
 
-The registry is the backbone for MCP, tests, UI operation composables, doctor,
-explain, and agent context. It cannot be best-effort. It must be deterministic,
-strict, inspectable, and fail-closed.
+The analysis registry may know source files and operation exports. The runtime
+handle modules must not import `convex/features/**/operations.ts`,
+`convex/features/**/domain.ts`, handler closures, raw DB helpers, permission
+implementations, secrets, route verification internals, or unsafe/cross-tenant
+reasons unless those are explicitly marked safe for the importing runtime.
 
-Trellis recognizes the canonical projection form first:
+Suggested generated artifacts:
+
+```text
+.trellis/generated/operation-registry.json
+.trellis/generated/operation-handles.ts
+.trellis/generated/surface-inventory.json
+.trellis/generated/agent-context.json
+```
+
+Names can change, but the distinction must not: registry, runtime handles,
+surface inventory, and agent context are different artifacts.
+
+Generation order:
+
+```text
+1. Convex codegen emits generated `api` refs.
+2. Trellis scans canonical Convex projection exports only.
+3. Trellis emits the core operation registry and operation handles.
+4. Nuxt, MCP, server, Vue, and test files import operation handles.
+5. Trellis scans surfaces that reference generated handles.
+6. Trellis emits surface inventory, explain output, and optional agent context.
+7. Typecheck, tests, doctor, and release verification validate drift.
+```
+
+This avoids the bootstrapping cycle where MCP files import
+`#trellis/operations` while the registry also needs to scan MCP files to exist.
+
+`trellis prepare` owns or coordinates this lifecycle and is wired into the Nuxt
+prepare path. It should handle cold starts and watch mode deterministically:
+
+- no `convex/_generated/api` yet: run or instruct Convex codegen, then retry the
+  Trellis scan
+- operation exists but projection export is missing: fail with the operation id
+  and supported projection forms
+- projection export exists but Convex codegen has not seen it: rerun Convex
+  codegen or fail with a stale-codegen diagnostic
+- Convex codegen succeeds but Trellis scan fails: do not emit partial handles
+- generated registry exists but source hash changed: fail drift checks and tell
+  the user to run `trellis prepare`
+- watch mode sees a new operation/projection pair: regenerate registry, handles,
+  then surface inventory in that order
+
+Doctor explains failures and suggests fixes, but doctor is not the first safety
+line. `trellis prepare`, typecheck, test setup, and runtime startup should catch
+invalid generated state before production requests.
+
+### 3. Registry Contract And Canonical Scanner Grammar
+
+The registry is the backbone for MCP, tests, UI operation composables, server
+adapters, doctor, explain, and agent context. It cannot be best-effort. It must
+be deterministic, strict, inspectable, and fail-closed.
+
+Supported v1 projection forms:
 
 ```ts
+export const create = mutation.workspace(createProjectOp)
+export const previewArchive = mutation.workspace.preview(archiveProjectOp)
+export const list = query.workspace(listProjectsOp)
+export const create = mutation.public(createTodoOp)
+```
+
+Unsupported v1 forms:
+
+```ts
+const lane = mutation.workspace
+export const create = lane(createProjectOp)
+
+const op = makeProjectOp()
+export const create = mutation.workspace(op)
+
+export { create } from './generated-domain'
+
+export const create = condition
+  ? mutation.workspace(createProjectOp)
+  : mutation.workspace(otherProjectOp)
+```
+
+Unsupported forms fail with targeted diagnostics:
+
+```text
+Could not trace projection for projects.archive.
+Use one of the supported forms:
 export const archive = mutation.workspace(archiveProjectOp)
 export const previewArchive = mutation.workspace.preview(archiveProjectOp)
 ```
 
-For the initial implementation, Trellis should not infer arbitrary TypeScript.
-Generated registry derivation supports top-level exported canonical lane calls
-in canonical feature files. Dynamic projections, conditional registration,
-untraceable aliases, re-export chains the scanner cannot prove, and duplicate
-projections require an advanced explicit helper or fail during preparation.
-
 Required invariants:
 
 - operation ids are globally unique within an app
-- package-owned operation ids are namespaced, for example
-  `ginko.entries.publish`
-- one normal execute projection is recorded per operation id
-- destructive operations require exactly one preview projection unless
+- app-owned operation ids use short feature namespaces such as
+  `projects.archive` or `tasks.remove`
+- package-owned operation ids use package namespaces such as
+  `ginko.entries.publish` and may not use short app ids
+- Trellis-owned operation ids use the reserved `trellis.*` namespace
+- app code may not define `ginko.*`, `trellis.*`, or other package namespaces
+  without an explicit package namespace declaration
+- one default app execute projection is recorded per operation id
+- additional execute projections require an explicit projection kind and cannot
+  be selected implicitly
+- destructive operations require exactly one default preview projection unless
   explicitly marked backend-only
 - preview projections without a matching execute projection fail
 - execute projections that cannot be traced to generated Convex refs fail
@@ -307,40 +401,164 @@ Required invariants:
 - MCP, test, UI, or server-route adapter references to missing operations fail
   before runtime
 
-Generation order:
+Advanced package, component, bridge, internal, or service projections must be
+explicitly named by projection kind. They do not weaken the default app rule:
+normal app code still sees one canonical execute projection per operation id.
 
-```text
-1. App exports Convex function projections.
-2. Convex codegen emits generated `api` refs.
-3. Trellis public-surface scan derives operation/projection/tool metadata.
-4. Trellis emits runtime-safe operation handles and optional JSON inventory.
-5. Typecheck, tests, doctor, and release verification validate drift.
+### 4. Generated Operation Handle Contract
+
+The generated handle is the normal cross-runtime object. It is not the backend
+operation implementation.
+
+Conceptual shape:
+
+```ts
+type OperationHandle<TArgs, TResult> = {
+  readonly id: string
+  readonly key: string
+  readonly feature: string | null
+  readonly kind: 'query' | 'mutation' | 'destructive'
+  readonly scope: 'public' | 'session' | 'authenticated' | 'workspace'
+  readonly safety: 'read' | 'bounded-write' | 'destructive-write' | 'external-side-effect'
+  readonly projection: 'default-app' | 'internal' | 'service' | 'bridge' | 'component'
+  readonly executeRef: unknown
+  readonly previewRef?: unknown
+  readonly contract?: ClientSafeContractMetadata
+  readonly idResolution?: Record<string, IdResolutionHint>
+}
 ```
 
-`trellis prepare` should own or coordinate this lifecycle and be wired into the
-Nuxt prepare path. Doctor explains failures, but doctor is not the first safety
-line.
+The exact Convex ref types can be refined during implementation, but the fields
+must stay runtime-safe. Handles must not contain handler closures, raw DB access,
+permission implementations, service subject policy, internal function refs,
+confirmation hashing internals, secrets, HMAC material, or route verification
+metadata.
 
-### 3. Runtime Boundaries
+Generated modules must be filtered by runtime:
+
+```ts
+import { operations } from '#trellis/operations/client'
+import { operations } from '#trellis/operations/server'
+import { operations } from '#trellis/operations/mcp'
+import { operations } from '#trellis/operations/testing'
+```
+
+The root `#trellis/operations` may exist only if the Nuxt module can resolve it
+to the correct runtime-safe target. Documentation should prefer explicit
+subpaths outside trivial examples.
+
+Client-facing handles exclude backend-only, MCP-only, server-route-only,
+internal, service, bridge, and unsafe operation handles unless they are
+explicitly marked client-safe. Server/MCP/testing handles may expose more
+projection metadata, but still never expose backend implementation code or
+secrets.
+
+Generated handles expose both a canonical id map and ergonomic paths:
+
+```ts
+operations.byId['projects.archive']
+operations.projects.archive
+```
+
+`byId` is the canonical access path and must always exist. Ergonomic object
+paths are generated only when operation ids normalize without collision. If
+`tasks.bulk-update-status` and another id normalize to the same property, the
+colliding ergonomic path is omitted or generation fails with a targeted doctor
+message; `operations.byId[...]` remains the stable path.
+
+The generated handles must resolve in Nuxt, Nitro, MCP runtime, Vitest, package
+tests, and Ginko-like consumers. If a runtime does not support Nuxt virtual
+aliases, Trellis must emit a concrete generated module or resolver path instead
+of forcing downstream projects to recreate function-ref maps.
+
+### 5. Runtime Boundaries
 
 Normal Nuxt server, MCP, Vue, and app-level test code must not import Convex
 handler implementation files to bind operations.
 
-Preferred runtime boundary:
+Preferred runtime boundaries:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/client'
+import { operations } from '#trellis/operations/mcp'
+import { operations } from '#trellis/operations/testing'
 ```
 
-The generated operation handle is runtime-safe metadata plus generated refs. It
-does not carry Convex handler closures, raw DB access, or server-only policy
-internals. Convex owns handlers. Nuxt, MCP, tests, and server routes own
-transport. The registry is the bridge.
+Convex owns handlers. Trellis owns generated projection metadata, transport
+protocol translation, and safety metadata. Nuxt, MCP, tests, and server routes
+own boundary-specific verification and delivery semantics. The registry and
+runtime handles are the bridge.
 
 Raw backend operation objects remain available inside Convex implementation
 files and Trellis unit tests. They are not the normal cross-runtime public path.
 
-### 4. Remove Stringly Execute Refs From Normal App Code
+### 6. Destructive Confirmation Binding
+
+Removing app-authored `executeFunctionRef` must not weaken destructive
+confirmation. The generated path replaces handwritten refs with generated
+binding, not with implicit trust.
+
+Destructive previews are mutation projections because they may create
+confirmation state, bind preview/execute paths, hash args, issue tokens, and
+record replay/idempotency metadata. They are business-read previews, not
+database-read-only queries.
+
+The Convex runtime must use a Convex-safe generated binding artifact, not the
+Nuxt virtual module, to pair preview and execute projections. A preview token is
+bound to:
+
+- operation id
+- preview function ref
+- execute function ref
+- projection kind
+- registry version or projection fingerprint
+- caller / acting-for subject
+- workspace or tenant scope when present
+- args hash
+- confirmation payload hash
+- expiry, JTI, and replay/idempotency key
+
+Execute validates the token against the current generated binding before
+running the handler. If an execute export is renamed, removed, or remapped after
+a preview token is issued, execute fails with a drift or stale-confirmation
+error. It must never silently fall back to operation id only.
+
+Public examples use one confirmation vocabulary:
+
+```ts
+const preview = await op.preview(args)
+await op.execute(args, { confirmation: preview.confirmation })
+```
+
+Avoid mixing `confirm`, `confirmation`, `_confirmationToken`, and transport
+token names in public API examples. Low-level names can stay internal.
+
+### 7. Backend-Only Destructive Operations
+
+`backend-only` is a narrow exception, not a bypass.
+
+Backend-only destructive operations require:
+
+- explicit exposure metadata such as `exposure: 'backend-only'`
+- a human-readable `backendOnlyReason`
+- an internal or service projection kind
+- doctor and explain visibility
+
+Backend-only destructive operations:
+
+- are excluded from client, MCP, server-route adapter, and normal product test
+  handles
+- cannot be used by `useTrellisOperation`
+- cannot be exposed through normal MCP operation binding
+- cannot be called through normal product-level test helpers unless explicitly
+  requested through an internal testing surface
+- fail `doctor --agent` if any public/server/MCP projection exposes them
+
+Legitimate examples include migrations, retention cleanup, component internals,
+and verified service jobs. They should be visible and uncomfortable, not a
+casual flag.
+
+### 8. Remove Stringly Execute Refs From Normal App Code
 
 `executeFunctionRef` may remain as internal metadata for runtime confirmation
 validation, but ordinary app authors should not type it.
@@ -359,7 +577,40 @@ doctor must fail with a targeted message that names the missing projection.
 Do not keep the old and new projection paths side by side in examples after the
 new path passes.
 
-### 5. One-Line MCP Operation Binding
+### 9. Advanced Explicit Projection Helper
+
+Canonical app code should not need an escape hatch. Non-canonical package,
+bridge, component, internal, or service projections still need one explicit
+path so Trellis does not grow arbitrary TypeScript inference.
+
+The exact API can change, but the helper contract must require:
+
+- operation id or operation object
+- explicit projection kind
+- lane
+- execute projection
+- preview projection for destructive operations unless backend-only
+- runtime exposure
+- reason when the projection is not the default app projection
+
+Sketch:
+
+```ts
+export const archive = defineOperationProjection({
+  operation: archiveProjectOp,
+  kind: 'bridge',
+  lane: 'workspace',
+  exposure: 'server',
+  reason: 'Package bridge projection for CMS host apps.',
+  execute: mutation.workspace(archiveProjectOp),
+  preview: mutation.workspace.preview(archiveProjectOp),
+})
+```
+
+Advanced projections must not silently replace the default app projection. They
+are addressable only by explicit projection kind and appear in doctor/explain.
+
+### 10. One-Line MCP Operation Binding
 
 `tool.operation(operationHandle, options)` should use the generated registry for
 execute and preview refs in the common case.
@@ -371,7 +622,7 @@ docs, starters, examples, and Ginko-like consumers should not need them.
 Acceptance target:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/mcp'
 
 export default tool.operation(operations.runbooks.remove, {
   group: 'workspace',
@@ -387,16 +638,58 @@ tool. MCP-exposed writes that accept record ids must either declare an
 id-resolution source or be paired with a generated/search/list/resolve tool so
 agents are not forced to guess raw ids.
 
-### 6. Product-Level Test Client
+Preferred contract-level id-resolution metadata:
+
+```ts
+export const archiveProjectArgs = defineArgs({
+  description: 'Archive a project.',
+  args: {
+    id: v.id('projects'),
+  },
+  meta: {
+    id: {
+      label: 'Project',
+      description: 'The project to archive.',
+      resolveWith: 'projects.search',
+      displayField: 'name',
+    },
+  },
+})
+```
+
+MCP tools may override this when the tool provides a better surface-specific
+resolver:
+
+```ts
+tool.operation(operations.projects.archive, {
+  resolveIds: {
+    id: operations.projects.search,
+  },
+})
+```
+
+If an MCP-exposed write accepts a record id and no resolver is appropriate, the
+tool must carry an explicit waiver:
+
+```ts
+agent: {
+  idResolution: false,
+  reason: 'IDs are selected from a UI-generated menu, not free-form LLM input.',
+}
+```
+
+### 11. Product-Level Test Client
 
 Add operation-aware test helpers on top of the existing testing runtime:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/testing'
 
 const owner = ctx.asUser({ authKey: 'owner-1' })
-await owner.operation(operations.entries.publish).preview(args)
-await owner.operation(operations.entries.publish).execute(args, { confirm })
+const preview = await owner.operation(operations.entries.publish).preview(args)
+await owner
+  .operation(operations.entries.publish)
+  .execute(args, { confirmation: preview.confirmation })
 ```
 
 The helper resolves forwarding purpose, target handler id, replay mode, and
@@ -407,7 +700,7 @@ function-ref translation maps. If Ginko still has to maintain
 `handlerIdByFunctionRef` or destructive transport maps, Trellis has not
 absorbed enough.
 
-### 7. Server Route Operation Adapters
+### 12. Server Route Operation Adapters
 
 Server routes are not automatic operation projections. Routes have HTTP-specific
 responsibilities: headers, status codes, body parsing, downloads, streaming,
@@ -418,10 +711,23 @@ Trellis should provide explicit helpers for route-owned adapters to call
 operation-backed Convex functions through the generated registry:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/server'
 
 await serverOperation(event, operations.webhooks.ingest).execute(args, {
   transport: transportProof.webhook(...),
+})
+```
+
+The adapter should support operation kind explicitly:
+
+```ts
+await serverOperation(event, operations.projects.export).query(args, options)
+await serverOperation(event, operations.webhooks.ingest).execute(args, options)
+
+const preview = await serverOperation(event, operations.projects.archive).preview(args, options)
+await serverOperation(event, operations.projects.archive).execute(args, {
+  ...options,
+  confirmation: preview.confirmation,
 })
 ```
 
@@ -429,7 +735,16 @@ Route verification remains route-owned unless it is explicitly modeled in an
 operation contract. This avoids hiding HMAC, replay, body parsing, and response
 format decisions behind generic projection magic.
 
-### 8. Generated Resource Slices Become Product-Grade
+`serverOperation(...)` is the preferred adapter when a route wants the normal
+operation authorization model. It is not the only valid route-to-Convex pattern:
+
+- browser/session routes may call normal operations with user auth
+- verified external webhook routes may call operations with service or acting-for
+  proof
+- narrow internal mutation routes may remain intentionally route-owned when they
+  do not use the public operation path
+
+### 13. Generated Resource Slices Become Product-Grade
 
 `trellis add entity` / resource generation should become the main feature
 authoring loop, not a side scaffold.
@@ -466,8 +781,11 @@ resources in the first pass.
 `defineArgs` should grow enough metadata for generated forms and MCP schemas:
 labels, descriptions, examples, enum hints, id-resolution hints, and return
 metadata where needed. This does not require a second contract framework.
+Rich metadata is required for MCP-exposed operations, a warning for generated
+UI, and optional for private/internal operations that are not surfaced to
+agents or generated forms.
 
-### 9. `useTrellisOperation`
+### 14. `useTrellisOperation`
 
 Destructive UI flows should not manually preview, extract tokens, cast args,
 and execute.
@@ -475,12 +793,12 @@ and execute.
 Add a composable that owns the boring Vue lifecycle:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/client'
 
 const removeTask = useTrellisOperation(operations.tasks.remove)
 
 const preview = await removeTask.preview({ id })
-await removeTask.execute({ id }, preview.confirmation)
+await removeTask.execute({ id }, { confirmation: preview.confirmation })
 ```
 
 It should expose preview state, warnings, blockers, confirmation token, execute
@@ -489,10 +807,12 @@ state, drift errors, and typed result. The backend remains authoritative.
 A `confirmAndRun` convenience helper may exist later, but the primary API should
 keep the destructive confirmation boundary visible.
 
-### 10. Explain And Agent Context From Existing Inventory
+### 15. Explain And Agent Context From Existing Inventory
 
 Keep `defineFeature(...)`, `composeFeatures(...)`, `defineAppInventory(...)`,
-public-surface metadata, and doctor inventory as the source of truth.
+operation registry, surface inventory, and doctor inventory in their own source
+ownership lanes. Do not turn explain or agent context into a new handwritten app
+manifest.
 
 Add projections from that truth:
 
@@ -509,7 +829,17 @@ If a committed `.trellis/agent-context.json` is useful, it must be generated,
 rebuildable, and checked for drift. It must not become a handwritten app
 manifest.
 
-### 11. Documentation And Starter Trust Cleanup
+Generated agent context should support privacy modes:
+
+- `public`: safe for OSS examples and docs
+- `developer`: useful for local coding agents; may include operation inventory
+  and non-secret implementation hints
+- `internal`: full local project context, still without secrets
+
+Secrets are never included. Internal-only operations may be redacted from public
+or developer output unless explicitly marked safe to share.
+
+### 16. Documentation And Starter Trust Cleanup
 
 Fix high-impact drift before larger work:
 
@@ -522,21 +852,24 @@ Fix high-impact drift before larger work:
 - beginner docs hide `defineTrellis`, identity forwarding, services, raw
   transport mutation, and unsafe until the app needs them
 
-### 12. First Implementation Slice
+### 17. First Implementation Slice
 
 This RFC is intentionally larger than the first build. The first implementation
-should prove one vertical slice before expanding:
+is the registry foundation slice, not the full Nuxt-native release. It should
+prove one vertical slice before expanding:
 
 1. canonical workspace projection API
-2. generated operation registry and `#trellis/operations`
+2. generated operation registry and runtime-filtered operation handles
 3. fail-closed registry drift and duplicate-id checks
 4. one-line MCP binding through generated handles
 5. product-level test helper through the same handles
-6. one maintained workspace example hard-cut to the new path
-7. Ginko CMS deleting protocol maps as the consumer proof
+6. minimal Nuxt/Vue smoke proving client-safe handles import in app code
+7. one maintained workspace example hard-cut to the new path
+8. Ginko CMS deleting protocol maps as the consumer proof
 
 Only after that slice is green should Trellis add `useTrellisOperation`, richer
-resource generation, server-route adapters, and full agent-context output.
+resource generation, server-route adapters, and full agent-context output. The
+Vue composable slice is required before marketing the release as Nuxt-native.
 
 ## Non-Goals
 
@@ -647,11 +980,7 @@ export const archiveProject = operation.destructive({
   permission: projectArchive,
   safety: 'destructive-write',
   load: async (ctx, args) => {
-    const project = await ctx.db.get(args.id)
-    requireRecord(project, 'Project')
-    if (project.workspaceId !== ctx.workspaceId) {
-      throw new Error('Project not found')
-    }
+    const project = await ctx.workspace.get('projects', args.id)
     return { project }
   },
   authorize: {
@@ -661,10 +990,10 @@ export const archiveProject = operation.destructive({
     operationPreview({
       summary: `Archive ${project.name}`,
       effects: [operationEffect({ kind: 'projects', summary: 'Project archived', count: 1 })],
-      confirm: { projectId: project._id },
+      confirmation: { projectId: project._id },
     }),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { status: 'archived', updatedAt: Date.now() })
+  handler: async (ctx, _args, { project }) => {
+    await ctx.db.patch(project._id, { status: 'archived', updatedAt: Date.now() })
   },
 })
 ```
@@ -679,7 +1008,7 @@ export const previewArchive = mutation.workspace.preview(archiveProject)
 MCP projection should be boring:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/mcp'
 
 export default tool.operation(operations.projects.archive, {
   group: 'workspace',
@@ -690,23 +1019,25 @@ export default tool.operation(operations.projects.archive, {
 Vue usage should be boring:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/client'
 
 const archiveProject = useTrellisOperation(operations.projects.archive)
 
 const preview = await archiveProject.preview({ id })
-await archiveProject.execute({ id }, preview.confirmation)
+await archiveProject.execute({ id }, { confirmation: preview.confirmation })
 ```
 
 Tests should be boring:
 
 ```ts
-import { operations } from '#trellis/operations'
+import { operations } from '#trellis/operations/testing'
 
 const owner = ctx.asUser({ authKey: 'owner-1' })
 
-await owner.operation(operations.projects.archive).preview({ id })
-await owner.operation(operations.projects.archive).execute({ id }, { confirm })
+const preview = await owner.operation(operations.projects.archive).preview({ id })
+await owner
+  .operation(operations.projects.archive)
+  .execute({ id }, { confirmation: preview.confirmation })
 ```
 
 What stays explicit in 1.0 app code:
@@ -750,12 +1081,15 @@ Trellis should not be called 1.0 until:
 - `@lupinum/trellis` exports are intentionally semver-stable
 - `@lupinum/trellis-bridge` remains separate and stable for package authors
 - Ginko CMS passes after deleting Trellis protocol helper maps
+- `useTrellisOperation` exists before the release is marketed as Nuxt-native
 - release verification passes without special handling
 
-The short 1.0 rule:
+The short 1.0 rules:
 
 ```text
 The secure path is also the shortest path.
+The generated path is deterministic, inspectable, runtime-filtered, and
+impossible to partially drift.
 ```
 
 ## Acceptance Criteria
@@ -788,19 +1122,42 @@ The secure path is also the shortest path.
 ### Registry And Runtime Boundary
 
 - Operation ids are globally unique and package-owned ids are namespaced.
-- Canonical exported lane calls generate operation handles in
-  `#trellis/operations`.
+- Canonical exported lane calls generate operation handles in filtered modules
+  such as `#trellis/operations/client`, `#trellis/operations/mcp`, and
+  `#trellis/operations/testing`.
+- Generated handles expose canonical `operations.byId[...]`; ergonomic object
+  paths are generated only when normalization has no collisions.
 - Duplicate operation ids, untraceable projection exports, missing destructive
   previews, preview-without-execute pairs, and stale generated registry output
   fail before runtime.
-- `trellis prepare` coordinates Convex codegen, public-surface scanning,
-  operation handle emission, and drift checks.
+- Noncanonical package/bridge/component/internal/service projections use an
+  explicit advanced projection helper, declare projection kind, and appear in
+  doctor/explain.
+- `trellis prepare` coordinates Convex codegen, Convex projection scanning,
+  operation registry and handle emission, surface inventory scanning, and drift
+  checks in separate phases.
 - Generated operation handles are safe to import from Nuxt server, MCP, Vue, and
   tests without pulling Convex handler closures or raw DB access into those
   runtimes.
+- Client-facing operation handle exports exclude backend-only, MCP-only,
+  server-route-only, internal, service, bridge, and unsafe handles unless
+  explicitly marked client-safe.
+- Generated handles resolve in Nuxt, Nitro, MCP runtime, Vitest, package tests,
+  and Ginko-like consumers without downstream function-ref maps.
+- Destructive confirmation tokens bind operation id, preview ref, execute ref,
+  projection kind, registry fingerprint, caller/scope, args hash, confirmation
+  payload hash, expiry, JTI, and replay/idempotency key.
+- Public preview/execute examples consistently use
+  `{ confirmation: preview.confirmation }` and do not mix confirmation
+  vocabulary.
+- Backend-only destructive operations require explicit reason metadata, appear
+  in doctor/explain, and are blocked from normal client/MCP/server-route/test
+  handles.
 - Server routes use explicit operation adapters; webhook/HMAC/body parsing,
   idempotency, headers, and response shape remain route-owned unless modeled by
   a specific operation contract.
+- Scanner golden tests cover supported canonical forms and rejected dynamic,
+  aliased, conditional, and re-exported projection forms.
 
 ### Ginko CMS
 
@@ -821,6 +1178,11 @@ The secure path is also the shortest path.
 - `trellis doctor --agent` reports missing operation metadata, missing contract
   descriptions for MCP-exposed args, missing destructive projections, and stale
   generated agent context if that artifact is used.
+- `trellis doctor --agent` fails or warns when an MCP-exposed write accepts a
+  record id without id-resolution metadata, a paired search/list/resolve tool,
+  or an explicit waiver reason.
+- `trellis explain app --json` supports public, developer, and internal privacy
+  modes and never includes secrets.
 
 ### Verification
 
