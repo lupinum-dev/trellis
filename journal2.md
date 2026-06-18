@@ -4150,11 +4150,62 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 74: Workspace Entity Generator Invariant Tests
+
+### Proof
+
+- RFC 0013 says `trellis add entity project --workspace --mcp` should produce a
+  complete operation slice with tests for tenant isolation and role denial.
+- The current workspace resource generator already emitted same-tenant owner
+  update and same-tenant ownership-denial tests, but it did not explicitly emit:
+  - a cross-tenant isolation test
+  - a role-denial test for a lower-privilege workspace role
+- Added failing generator assertions that the generated
+  `convex/features/projects/tests.ts` contains:
+  - `keeps tenants isolated from each other`
+  - a cross-tenant `get` denial through
+    `beta.users.member.query(api.features.projects.domain.get, ...)`
+  - `denies a viewer creating a project`
+- The initial focused run failed because those tests were absent from the
+  generated workspace resource slice.
+
+### Implementation
+
+- Extended the workspace resource test template in `src/cli/lib/resource.ts`.
+- The generated test file now includes:
+  - cross-tenant list isolation for two seeded workspaces
+  - cross-tenant by-id `get` denial
+  - viewer-role create denial
+- No generator state, new manifest, compatibility path, or runtime abstraction
+  was added. This is a direct strengthening of the generated invariant tests.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "workspace resource slice"`.
+- Focused proof passed after implementation:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "workspace resource slice"`.
+- Full add-resource suite passed with 9 tests:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts`.
+- Focused lint passed:
+  `pnpm exec eslint src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts`.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts`.
+
+### Notes
+
+- This closes the narrow RFC generator gap around tenant-isolation and
+  role-denial test generation. It does not claim the whole resource generator is
+  product-grade yet.
+- The next generator audit should look at generated-file classification and
+  first-run starter validation for `trellis add entity project --workspace --mcp`.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
-1. Audit `trellis add entity project --workspace --mcp` against the RFC
-   product-grade starter criteria, then either hard-cut the generator output or
-   write failing proof tests for the missing pieces.
+1. Continue the `trellis add entity project --workspace --mcp` audit for
+   generated-file classification and first-run starter validation.
 2. Close the backend-only destructive exposure requirement with explicit
    metadata, doctor/explain visibility, and filtered handle generation, if the
    current operation registry cannot already prove it.

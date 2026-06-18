@@ -573,6 +573,50 @@ describe('${ctx.tableName}', () => {
       tenant.users.other.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Denied' }),
     ).rejects.toThrow(/Forbidden/)
   })
+
+  it('keeps tenants isolated from each other', async () => {
+    const ctx = createCtx()
+    const alpha = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        member: { role: 'member' as const },
+      },
+    })
+    const beta = await ctx.seedTenant({
+      name: 'Beta',
+      users: {
+        member: { role: 'member' as const },
+      },
+    })
+
+    const alphaId = await alpha.users.member.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Alpha only' })
+    await beta.users.member.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Beta only' })
+
+    const alphaRows = await alpha.users.member.query(api.features.${ctx.tableName}.domain.list, {})
+    const betaRows = await beta.users.member.query(api.features.${ctx.tableName}.domain.list, {})
+
+    expect(alphaRows).toHaveLength(1)
+    expect(alphaRows[0]?.name).toBe('Alpha only')
+    expect(betaRows).toHaveLength(1)
+    expect(betaRows[0]?.name).toBe('Beta only')
+    await expect(
+      beta.users.member.query(api.features.${ctx.tableName}.domain.get, { id: alphaId }),
+    ).rejects.toThrow(/Forbidden/)
+  })
+
+  it('denies a viewer creating a ${ctx.singularCamel}', async () => {
+    const ctx = createCtx()
+    const tenant = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        viewer: { role: 'viewer' as const },
+      },
+    })
+
+    await expect(
+      tenant.users.viewer.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Denied' }),
+    ).rejects.toThrow(/Forbidden/)
+  })
 })
 `.trimStart()
   }

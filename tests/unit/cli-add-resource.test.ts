@@ -230,6 +230,15 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
     ).resolves.toContain('seedTenant')
     await expect(
+      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+    ).resolves.toContain('keeps tenants isolated from each other')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+    ).resolves.toContain('beta.users.member.query(api.features.projects.domain.get')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+    ).resolves.toContain('denies a viewer creating a project')
+    await expect(
       readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
     ).resolves.toContain("id: v.id('projects')")
   })
