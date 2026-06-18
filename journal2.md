@@ -1003,13 +1003,63 @@ loops.
   bridge-generated handle can represent host bridge authority and component
   implementation binding as one checked artifact.
 
+## Slice 20: SaaS Platform Projection Registry
+
+### Proof
+
+- Ran the operation-registry builder against `examples/04-saas-platform` before
+  editing. It failed on `convex/features/members/index.ts` because the feature
+  barrel re-exported the `list` projection from `domain.ts`.
+- Reviewed the other feature barrels and found additional duplicate function
+  surfaces: file upload, destructive previews, destructive operation objects,
+  and the internal webhook mutation were re-exported even though app code,
+  tests, and routes call the canonical `domain.ts` or `webhooks.ts` modules
+  directly.
+- After deleting those duplicate re-exports, the scanner derived the full
+  registry, including `projects.archive` and `tasks.remove` preview/execute
+  pairs, without handwritten operation refs.
+
+### Implementation
+
+- Removed duplicate Convex function and operation re-exports from the files,
+  members, projects, and tasks feature barrels.
+- Removed app-authored `executeFunctionRef` strings from
+  `archiveProjectOp` and `removeTaskOp`.
+- Generated `examples/04-saas-platform/generated/operation-projections.ts`
+  and wired `convex/functions.ts` to
+  `operationProjections: operationProjectionRegistry`.
+- Added `examples/04-saas-platform` to the maintained projection-registry drift
+  test.
+- Switched the example Vitest config to import Trellis testing helpers from the
+  source tree and alias the runtime subpaths used by the example.
+- Regenerated the security contract so `projects.archive` and `tasks.remove`
+  no longer carry app-authored execute refs in the operation inventory.
+
+### Verification
+
+- SaaS platform example tests passed after Nuxt prepare:
+  `pnpm --dir examples/04-saas-platform test`.
+- MCP boundary and projection-registry drift test passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-descriptor-boundary.test.ts`.
+- Focused formatting check passed for the changed example, generated registry,
+  and boundary test files.
+- Source scan confirmed no remaining `executeFunctionRef` strings under
+  `examples/04-saas-platform`.
+
+### Notes
+
+- The strict scanner rejected duplicate feature-barrel function surfaces as
+  intended; the fix was deletion, not broader inference.
+- `examples/04-saas-platform` no longer has normal-path app-authored
+  `executeFunctionRef` metadata.
+- The remaining normal maintained-example `executeFunctionRef` string is in
+  `examples/05-visibility-access`.
+
 ## Next Slice Candidates
 
-1. Wire `examples/04-saas-platform` to a generated projection registry and
-   remove its normal destructive operation `executeFunctionRef` strings.
-2. Wire `examples/05-visibility-access` to a generated projection registry and
+1. Wire `examples/05-visibility-access` to a generated projection registry and
    remove its normal destructive operation `executeFunctionRef` string.
-3. Review harness explicit operation refs and decide which are advanced test
+2. Review harness explicit operation refs and decide which are advanced test
    coverage versus deletion targets.
-4. Define the bridge-generated operation handle shape needed to replace
+3. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.

@@ -1,5 +1,6 @@
 import { defineTrellis } from '@lupinum/trellis/app'
 
+import { operationProjectionRegistry } from '../generated/operation-projections'
 import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getAppIdentityFromCaller } from './auth/appIdentity'
@@ -27,6 +28,7 @@ export const { mutation, query, unsafe } = defineTrellis(
       tables: isolatedTables,
       sharedTables: explicitlySharedTables,
     },
+    operationProjections: operationProjectionRegistry,
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',

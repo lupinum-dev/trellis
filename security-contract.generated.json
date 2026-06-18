@@ -3038,7 +3038,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "executeFunctionRef": "features/projects/domain:archive",
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
@@ -3150,7 +3150,7 @@
       "hasPublicWrite": false,
       "hasPreview": true,
       "hasExecute": false,
-      "executeFunctionRef": "features/tasks/domain:remove",
+      "executeFunctionRef": null,
       "identityForwardingTransport": null
     },
     {
