@@ -2732,16 +2732,72 @@ test/helpers.ts` had no matches except the candidate helper row before
 - The next slices should delete those consumer-owned protocol maps instead of
   adding compatibility paths.
 
+## Slice 50: Delete Ginko Root Test Function-Ref Maps
+
+### Proof
+
+- After the workflow vertical slice moved to generated testing handles, Ginko's
+  shared `test/helpers.ts` still kept two consumer-owned protocol maps:
+  `destructiveExecuteFunctionRefs` and `handlerIdByFunctionRef`.
+- Those maps existed only to translate ordinary operation-backed direct mutation
+  calls such as `api.editor.createEntry`, `api.editor.saveEntryDraft`, and
+  `api.assets.moveAsset` into Trellis operation handler targets.
+- Generated testing handles already contained the canonical execute refs for
+  those operations, so keeping handwritten maps made Ginko a second source of
+  truth for operation transport metadata.
+
+### Implementation
+
+- Removed `destructiveExecuteFunctionRefs`, `handlerIdByFunctionRef`, and
+  `toHandlerId(...)` from Ginko's shared test helper.
+- Changed generic `query` / `mutation` / `action` forwarding in the helper to
+  use the literal function ref it is given.
+- Added operation-backed helper methods for safe operations that tests commonly
+  call directly: `createEntry`, `saveEntryDraft`, `moveAsset`, and
+  `unarchiveEntry`.
+- Mechanically moved affected component tests from direct safe-operation
+  mutation calls to those operation-backed helper methods.
+- Left direct destructive execute calls as mutation calls only where tests are
+  intentionally checking missing-confirmation behavior; those targets are real
+  execute function refs and no longer need a map.
+
+### Verification
+
+- Format check passed for all touched Ginko files:
+  `pnpm exec oxfmt --check test/helpers.ts test/component/assets.test.ts test/component/backup.test.ts test/component/entries/draft.test.ts test/component/entries/publish.test.ts test/component/entries/read.test.ts test/component/entries/tree.test.ts test/component/entries/versioning.test.ts test/component/integration.test.ts test/component/public-api.test.ts`.
+- Focused affected component tests passed:
+  `pnpm vitest run test/component/assets.test.ts test/component/backup.test.ts test/component/entries/draft.test.ts test/component/entries/publish.test.ts test/component/entries/read.test.ts test/component/entries/tree.test.ts test/component/entries/versioning.test.ts test/component/integration.test.ts test/component/public-api.test.ts`
+  reported 9 passing test files and 108 passing tests.
+- Full Ginko component suite passed:
+  `pnpm vitest run test/component` reported 31 passing test files and 231
+  passing tests.
+- Ginko generated operation artifacts were current:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko typecheck passed: `pnpm run typecheck`.
+- Ginko whitespace check passed: `git diff --check`.
+- Source scan found no remaining root test helper maps or direct safe-operation
+  mutation refs:
+  `rg -n "handlerIdByFunctionRef|destructiveExecuteFunctionRefs|toHandlerId|targetFunctionRef: toHandlerId|api\\.(editor\\.(createEntry|saveEntryDraft)|assets\\.moveAsset|entries\\.publish\\.unarchiveEntry|entries\\.tree\\.createEntry|entries\\.draft\\.saveEntryDraft)" test --glob '*.ts'`
+  returned no matches.
+
+### Notes
+
+- This is still an interim consumer cleanup, not the final Trellis-owned test
+  API. Ginko now avoids handwritten protocol maps, but the helper still carries
+  CMS-specific convenience methods until Trellis exposes a more ergonomic
+  generated test client.
+- The remaining major Ginko protocol leak is MCP project tool binding:
+  `project-tool-runtime.ts` still hand-binds `executeOperationRef(...)` and
+  `previewOperationRef(...)` for ordinary operation-backed tools.
+
 ## Next Slice Candidates
 
-1. Delete the remaining Ginko root test helper `handlerIdByFunctionRef` /
-   destructive transport maps by moving ordinary tests onto generated operation
-   handles or a Trellis-owned helper.
-2. Cut Ginko MCP project tools over to one-line generated operation binding so
+1. Cut Ginko MCP project tools over to one-line generated operation binding so
    ordinary tools no longer hand-bind `executeOperationRef(...)` /
    `previewOperationRef(...)`.
-3. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
+2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
    operation files can be validated by package/consumer tests without virtual
    aliases.
-4. Update RFC 0013 status and acceptance notes now that several implementation
+3. Update RFC 0013 status and acceptance notes now that several implementation
    slices are complete, while keeping remaining release gates explicit.
