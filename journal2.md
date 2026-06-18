@@ -4202,6 +4202,63 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 75: Generated Operation Descriptor Return Contracts
+
+### Proof
+
+- RFC 0013 pushes MCP-facing writes through shared operation descriptors, so the
+  generated descriptor is the public contract boundary for tools and server
+  callers.
+- The `trellis add entity project` workspace-MCP generator emitted descriptors
+  with `args`, `permission`, and `safety`, but it did not emit explicit result
+  validators:
+  - create returned a Convex document id without `returns`
+  - destructive remove returned `null` without `returns`
+  - destructive remove preview returned a confirmation payload without
+    `previewReturns`
+- Added failing assertions to the existing workspace-MCP add-resource proof for
+  the generated `shared/features/projects/operations.ts` contract:
+  - import `operationPreviewValidator`
+  - import Convex `v`
+  - create descriptor has `returns: v.id('projects')`
+  - remove descriptor has `previewReturns: operationPreviewValidator(...)`
+  - remove descriptor has `returns: v.null()`
+- The initial focused proof failed because the generated descriptor only
+  imported `defineOperationDescriptor`.
+
+### Implementation
+
+- Updated `resourceOperationDescriptorTemplate` in `src/cli/lib/resource.ts`.
+- Generated MCP-facing resource descriptors now include:
+  - `returns: v.id('<table>')` for create operations
+  - `previewReturns: operationPreviewValidator({ confirm: ... })` for
+    destructive remove previews
+  - `returns: v.null()` for remove execution
+- No duplicate implementation metadata was added. The descriptor remains the
+  source of truth, and `implementOperation(...)` already validates drift and
+  carries descriptor-owned return metadata into the concrete operation.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "MCP-facing resource"`.
+- Focused proof passed after implementation:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "MCP-facing resource"`.
+- Full add-resource suite passed with 9 tests:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts`.
+- Focused lint passed:
+  `pnpm exec eslint src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts`.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts journal2.md`.
+
+### Notes
+
+- This closes the generator contract gap for operation return metadata. It does
+  not close generated-file classification, first-run starter validation, or the
+  backend-only destructive exposure audit.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
 1. Continue the `trellis add entity project --workspace --mcp` audit for

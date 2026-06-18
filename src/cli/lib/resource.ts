@@ -379,7 +379,8 @@ export const previewRemove${ctx.singularPascal} = mutation.${lane}(previewOf(rem
 
 function resourceOperationDescriptorTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
+import { v } from 'convex/values'
 
 import {
   create${ctx.singularPascal},
@@ -396,6 +397,7 @@ export const create${ctx.singularPascal}Descriptor = defineOperationDescriptor({
   args: create${ctx.singularPascal}.args,
   permission: ${ctx.singularCamel}CreateKey,
   safety: 'bounded-write',
+  returns: v.id('${ctx.tableName}'),
 })
 
 export const remove${ctx.singularPascal}Descriptor = defineOperationDescriptor({
@@ -405,6 +407,16 @@ export const remove${ctx.singularPascal}Descriptor = defineOperationDescriptor({
   args: delete${ctx.singularPascal}.args,
   permission: ${ctx.singularCamel}DeleteKey,
   safety: 'destructive-write',
+  previewReturns: operationPreviewValidator({
+    confirm: v.object({
+      operation: v.literal('${ctx.tableName}.remove'),
+      targetId: v.id('${ctx.tableName}'),
+      affectedCounts: v.object({
+        ${ctx.tableName}: v.number(),
+      }),
+    }),
+  }),
+  returns: v.null(),
 })
 `.trimStart()
 }

@@ -320,12 +320,21 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('permission: projectDeletePermission')
-    await expect(
-      readFile(resolve(cwd, 'shared/features/projects/operations.ts'), 'utf8'),
-    ).resolves.toContain('defineOperationDescriptor')
-    await expect(
-      readFile(resolve(cwd, 'shared/features/projects/operations.ts'), 'utf8'),
-    ).resolves.toContain('removeProjectDescriptor')
+    const sharedOperationsSource = await readFile(
+      resolve(cwd, 'shared/features/projects/operations.ts'),
+      'utf8',
+    )
+    expect(sharedOperationsSource).toContain(
+      'import { defineOperationDescriptor, operationPreviewValidator }',
+    )
+    expect(sharedOperationsSource).toContain("import { v } from 'convex/values'")
+    expect(sharedOperationsSource).toContain('defineOperationDescriptor')
+    expect(sharedOperationsSource).toContain('removeProjectDescriptor')
+    expect(sharedOperationsSource).toContain("returns: v.id('projects')")
+    expect(sharedOperationsSource).toContain('previewReturns: operationPreviewValidator({')
+    expect(sharedOperationsSource).toContain("operation: v.literal('projects.remove')")
+    expect(sharedOperationsSource).toContain("targetId: v.id('projects')")
+    expect(sharedOperationsSource).toContain('returns: v.null()')
     await expect(
       readFile(resolve(cwd, 'shared/features/projects/permissions.ts'), 'utf8'),
     ).resolves.toContain('definePermissionKey')
