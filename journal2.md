@@ -1853,6 +1853,60 @@ loops.
   because it can reuse the publish/unpublish helpers and start proving the
   delete-entry operation helper path.
 
+## Slice 36: Ginko Tree Deletion Uses Operation Helpers
+
+### Proof
+
+- Inspected `test/component/entries/tree.test.ts`; it had six direct transport
+  or preview refs in the tree lifecycle:
+  publish, unpublish, four delete-entry transport executes, and direct
+  `previewDeleteEntryOperation` calls.
+- Confirmed generated testing handles include `ginko-cms.delete-entry` with
+  execute and preview refs.
+- Confirmed delete-entry operation args are exactly
+  `{ entryId, exportArtifactId, assetMode? }`, so a narrow helper could wrap the
+  operation without hiding domain behavior.
+
+### Implementation
+
+- In Ginko CMS commit `06257ab`, added shared `previewDeleteEntry(...)` and
+  `deleteEntry(...)` helpers backed by
+  `operations.byId['ginko-cms.delete-entry']`.
+- Re-exported the delete helpers through `test/component/entries/helpers.ts`.
+- Migrated tree tests from direct publish/unpublish/delete transport calls to
+  shared operation helpers.
+- Changed the blocked public-route delete case to assert the blocked preview
+  state and then stop. That matches the intended operation workflow: blocked
+  preview prevents execution instead of forcing a known-blocked destructive
+  execute call.
+
+### Verification
+
+- Focused tree proof passed:
+  `pnpm vitest run test/component/entries/tree.test.ts` reported 12 passing
+  tests.
+- Ginko operation registry drift check passed:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko package type/build proof passed:
+  `pnpm run typecheck`.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Ginko lint and static guards passed:
+  `pnpm run lint`.
+- Ginko whitespace proof passed:
+  `git diff --check`.
+
+### Notes
+
+- The raw `TransportExecute` count in Ginko tests dropped from 55 to 49.
+- The `entries/tree:deleteEntryTransportExecute` helper map row is still
+  required by `test/component/backup.test.ts`.
+- The next deletion-focused slice should migrate the two backup test delete
+  calls, then delete the `deleteEntryTransportExecute` translation row from
+  `test/helpers.ts`.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
