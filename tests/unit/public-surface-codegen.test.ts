@@ -343,6 +343,64 @@ describe('public surface codegen', () => {
     ])
   }, 15_000)
 
+  it('resolves generated operation handle paths in MCP tool metadata', () => {
+    const rootDir = createFixture({
+      'shared/features/projects/operations.ts': `
+        import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+
+        export const createProjectDescriptor = defineOperationDescriptor({
+          id: 'projects.create',
+          args: {},
+        })
+      `,
+      'convex/features/projects/domain.ts': `
+        import { mutation } from '../../functions'
+        import { createProjectDescriptor } from '../../../shared/features/projects/operations'
+
+        export const createProject = mutation.workspace(createProjectDescriptor)
+      `,
+      'server/mcp/tools/create-project.ts': `
+        import { operations } from '#trellis/operations/mcp'
+        import { tool } from '../runtime'
+
+        export default tool.operation(operations.projects.create, {
+          meta: {
+            name: 'create-project',
+          },
+        })
+      `,
+      'server/mcp/tools/create-project-by-id.ts': `
+        import { operations } from '#trellis/operations/mcp'
+        import { tool } from '../runtime'
+
+        export default tool.operation(operations.byId['projects.create'], {
+          name: 'create-project-by-id',
+        })
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.tools).toEqual([
+      {
+        file: 'server/mcp/tools/create-project.ts',
+        line: expect.any(Number),
+        name: 'create-project',
+        operationExportName: 'createProjectDescriptor',
+        operationId: 'projects.create',
+        source: 'operation',
+      },
+      {
+        file: 'server/mcp/tools/create-project-by-id.ts',
+        line: expect.any(Number),
+        name: 'create-project-by-id',
+        operationExportName: 'createProjectDescriptor',
+        operationId: 'projects.create',
+        source: 'operation',
+      },
+    ])
+  })
+
   it('extracts canonical lane preview projections', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

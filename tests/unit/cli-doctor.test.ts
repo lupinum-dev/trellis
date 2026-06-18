@@ -257,6 +257,8 @@ type DoctorInventoryJsonReport = {
         name: string
         source: 'tool' | 'operation' | 'defineMcpTool'
         sourceLocation: { path: string; line: number }
+        operationId?: string
+        operationExportName?: string
       }>
     }
     findings: []
@@ -2969,6 +2971,182 @@ export default tool.operation(purgeTodoOp, {
       status: 'pass',
       message: expect.stringContaining('operation-backed MCP tool'),
     })
+  })
+
+  it('passes agent doctor for generated-handle MCP operation metadata', () => {
+    const cwd = createTempDir('trellis-doctor-agent-workspace-mcp-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
+    ])
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.inventory.publicSurface.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'create-todo',
+          source: 'operation',
+          operationId: 'todos.create',
+          operationExportName: 'createTodoDescriptor',
+        }),
+      ]),
+    )
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-operation-metadata')).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        message: expect.stringContaining('operation-backed MCP tool'),
+      }),
+    )
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-operation-projections')).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        message: expect.stringContaining('required execute projections'),
+      }),
+    )
+  })
+
+  it('fails agent doctor when an operation-backed MCP tool lacks operation metadata', () => {
+    const appRoot = createTempDir('trellis-doctor-agent-missing-operation-metadata-')
+    mkdirSync(resolve(appRoot, '.nuxt/trellis'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, '.nuxt/trellis/public-surface.json'),
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'projects.create',
+              exportName: 'createProjectDescriptor',
+              kind: 'safe',
+              file: 'shared/features/projects/operations.ts',
+              line: 7,
+            },
+          ],
+          projections: [
+            {
+              operationId: 'projects.create',
+              operationExportName: 'createProjectDescriptor',
+              exportName: 'createProject',
+              file: 'convex/features/projects/domain.ts',
+              line: 5,
+              projection: 'execute',
+              functionKind: 'mutation',
+              targetFunctionRef: 'projects.create',
+            },
+          ],
+          tools: [
+            {
+              name: 'create-project',
+              file: 'server/mcp/tools/create-project.ts',
+              line: 3,
+              source: 'operation',
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{
+        id: string
+        status: string
+        message: string
+        sources?: FindingSourceJson[]
+      }>
+    }
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-operation-metadata')).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('without resolvable operation metadata'),
+        sources: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'inventory',
+            inventoryPath: 'publicSurface.tools',
+            locations: [
+              expect.objectContaining({
+                path: 'server/mcp/tools/create-project.ts',
+                line: 3,
+              }),
+            ],
+          }),
+        ]),
+      }),
+    )
+  })
+
+  it('fails agent doctor when an operation-backed MCP tool lacks execute projection metadata', () => {
+    const appRoot = createTempDir('trellis-doctor-agent-missing-projection-')
+    mkdirSync(resolve(appRoot, '.nuxt/trellis'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, '.nuxt/trellis/public-surface.json'),
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'projects.create',
+              exportName: 'createProjectDescriptor',
+              kind: 'safe',
+              file: 'shared/features/projects/operations.ts',
+              line: 7,
+            },
+          ],
+          projections: [],
+          tools: [
+            {
+              name: 'create-project',
+              file: 'server/mcp/tools/create-project.ts',
+              line: 3,
+              source: 'operation',
+              operationId: 'projects.create',
+              operationExportName: 'createProjectDescriptor',
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string; fixHint: string }>
+    }
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-operation-projections')).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('without complete generated projections'),
+        fixHint: expect.stringContaining('rerun `trellis prepare`'),
+      }),
+    )
   })
 
   it('fails doctor when a destructive MCP tool skips tool.operation', () => {

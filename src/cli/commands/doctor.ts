@@ -40,6 +40,11 @@ export const doctorCommand = defineCommand({
       description: 'Treat deploy-time safety warnings as failures',
       default: false,
     },
+    agent: {
+      type: 'boolean',
+      description: 'Include agent-facing MCP and operation diagnostics',
+      default: false,
+    },
   },
   async run({ args }) {
     const cwd = resolve(args.cwd || process.cwd())
@@ -55,7 +60,10 @@ export const doctorCommand = defineCommand({
     logger?.debug(`Inspecting ${cwd}`)
     loadingSpinner?.start(`Running static diagnostics for ${cwd}`)
 
-    const report = await buildDoctorReport(cwd, { production: Boolean(args.production) })
+    const report = await buildDoctorReport(cwd, {
+      production: Boolean(args.production),
+      agent: Boolean(args.agent),
+    })
 
     loadingSpinner?.stop('Static diagnostics complete')
     logger?.debug(`Found ${report.summary.fail} failures and ${report.summary.warn} warnings`)

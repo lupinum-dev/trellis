@@ -471,3 +471,106 @@ export function collectInventoryDoctorFindings(inventory: TrellisCliInventory): 
     createMcpCustomAppWriteBypassFinding(inventory),
   ]
 }
+
+function createAgentMcpOperationMetadataFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const operationsById = new Map(
+    inventory.publicSurface.operations.map((operation) => [operation.id, operation]),
+  )
+  const operationBackedTools = inventory.publicSurface.tools.filter(
+    (tool) => tool.source === 'operation',
+  )
+  const toolsWithMissingMetadata = operationBackedTools.filter(
+    (tool) =>
+      !tool.operationId ||
+      !tool.operationExportName ||
+      (tool.operationId ? !operationsById.has(tool.operationId) : false),
+  )
+  const locations =
+    toolsWithMissingMetadata.length > 0
+      ? toolsWithMissingMetadata.map((tool) => tool.sourceLocation)
+      : operationBackedTools.map((tool) => tool.sourceLocation)
+
+  return {
+    id: 'agent-mcp-operation-metadata',
+    category: 'advanced',
+    title: 'Agent MCP operation metadata',
+    status: toolsWithMissingMetadata.length > 0 ? 'fail' : 'pass',
+    message:
+      operationBackedTools.length === 0
+        ? 'No operation-backed MCP tools were found in public-surface metadata.'
+        : toolsWithMissingMetadata.length > 0
+          ? `Found operation-backed MCP tools without resolvable operation metadata at ${formatInventoryLocations(locations)}.`
+          : `Found ${operationBackedTools.length} operation-backed MCP tool${operationBackedTools.length === 1 ? '' : 's'} with resolvable operation metadata.`,
+    fixHint:
+      toolsWithMissingMetadata.length > 0
+        ? 'Bind MCP writes through generated operation handles from `#trellis/operations/mcp` or a directly visible operation export so doctor can resolve operation id and export metadata.'
+        : 'Keep operation-backed MCP tools resolvable through generated handles or direct operation exports.',
+    sources: [findingInventorySource('publicSurface.tools', locations)],
+  }
+}
+
+function createAgentMcpOperationProjectionFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const operationsById = new Map(
+    inventory.publicSurface.operations.map((operation) => [operation.id, operation]),
+  )
+  const executeOperationIds = new Set(
+    inventory.publicSurface.projections
+      .filter((projection) => projection.projection === 'execute')
+      .map((projection) => projection.operationId),
+  )
+  const previewOperationIds = new Set(
+    inventory.publicSurface.projections
+      .filter((projection) => projection.projection === 'preview')
+      .map((projection) => projection.operationId),
+  )
+  const operationBackedTools = inventory.publicSurface.tools.filter(
+    (tool) =>
+      tool.source === 'operation' && tool.operationId && operationsById.has(tool.operationId),
+  )
+  const toolsMissingExecute = operationBackedTools.filter(
+    (tool) => !!tool.operationId && !executeOperationIds.has(tool.operationId),
+  )
+  const destructiveToolsMissingPreview = operationBackedTools.filter((tool) => {
+    if (!tool.operationId) return false
+    const operation = operationsById.get(tool.operationId)
+    return operation?.kind === 'destructive' && !previewOperationIds.has(tool.operationId)
+  })
+  const failingTools = [...toolsMissingExecute, ...destructiveToolsMissingPreview].filter(
+    (tool, index, tools) => tools.findIndex((entry) => entry.name === tool.name) === index,
+  )
+  const locations =
+    failingTools.length > 0
+      ? failingTools.map((tool) => tool.sourceLocation)
+      : operationBackedTools.map((tool) => tool.sourceLocation)
+
+  return {
+    id: 'agent-mcp-operation-projections',
+    category: 'advanced',
+    title: 'Agent MCP operation projections',
+    status: failingTools.length > 0 ? 'fail' : 'pass',
+    message:
+      operationBackedTools.length === 0
+        ? 'No resolvable operation-backed MCP tools were found in public-surface metadata.'
+        : failingTools.length > 0
+          ? `Found operation-backed MCP tools without complete generated projections at ${formatInventoryLocations(locations)}.`
+          : `Found ${operationBackedTools.length} operation-backed MCP tool${operationBackedTools.length === 1 ? '' : 's'} with required execute projections and destructive previews.`,
+    fixHint:
+      failingTools.length > 0
+        ? 'Export the operation execute projection, and export a preview projection for destructive operations, then rerun `trellis prepare` so generated handles and public-surface metadata agree.'
+        : 'Keep generated operation projections present before exposing operations to agents through MCP.',
+    sources: [
+      findingInventorySource('publicSurface.tools', locations),
+      findingInventorySource(
+        'publicSurface.projections',
+        inventory.publicSurface.projections.map((projection) => projection.source),
+      ),
+    ],
+  }
+}
+
+export function collectAgentDoctorFindings(inventory: TrellisCliInventory): DoctorFinding[] {
+  return [
+    createAgentMcpOperationMetadataFinding(inventory),
+    createAgentMcpOperationProjectionFinding(inventory),
+  ]
+}

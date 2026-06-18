@@ -3468,11 +3468,71 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - The remaining agent-facing CLI gap is now concentrated in `doctor --agent`
   diagnostics and the later Ginko consumer proof.
 
+## Slice 63: Start Agent Doctor Operation Metadata
+
+### Proof
+
+- RFC 0013 requires `trellis doctor --agent` to report missing operation
+  metadata and missing generated contracts for operation-backed MCP tools.
+- Before this slice, the `doctor` command had no `--agent` option.
+- A workspace-MCP probe also showed a lower-level inventory gap: the canonical
+  generated-handle form `tool.operation(operations.todos.create, ...)` was
+  detected as operation-backed, but the tool metadata did not include
+  `operationId` or `operationExportName`.
+- The direct operation form `tool.operation(archiveTaskOp, ...)` already
+  resolved metadata, so the gap was specifically generated handle-path
+  resolution rather than MCP tool discovery.
+
+### Implementation
+
+- Exported the operation-handle path derivation helper from operation handle
+  codegen and reused it in public-surface scanning.
+- Public-surface scanning now resolves both ergonomic generated handles such as
+  `operations.projects.create` and indexed handles such as
+  `operations.byId['projects.create']` back to known operation metadata when
+  the path/id is unambiguous.
+- Added `trellis doctor --agent` as an opt-in profile that appends
+  agent-facing findings without changing default doctor output.
+- Added `agent-mcp-operation-metadata` to fail when operation-backed MCP tools
+  cannot be resolved to operation id/export metadata.
+- Added `agent-mcp-operation-projections` to fail when a resolvable
+  operation-backed MCP tool lacks an execute projection, or when a destructive
+  MCP-exposed operation lacks a preview projection.
+
+### Verification
+
+- The generated-handle scanner proof first failed because
+  `operations.projects.create` produced no operation metadata, then passed
+  after scanner changes.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/cli/commands/doctor.ts src/cli/lib/doctor-report.ts src/cli/lib/inventory-findings.ts src/module-internals/public-surface-codegen.ts src/module-internals/operation-handle-codegen.ts tests/unit/public-surface-codegen.test.ts tests/unit/cli-doctor.test.ts`.
+- CLI build passed: `pnpm run build:cli`.
+- Public-surface/codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/public-surface-codegen-installer.test.ts tests/unit/operation-codegen-installer.test.ts tests/unit/operation-registry-codegen.test.ts`
+  reported 4 passing test files and 22 passing tests.
+- Full doctor suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` reported 1
+  passing test file and 65 passing tests.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Test lint passed: `pnpm run lint:tests`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This is still derived from public-surface inventory. It does not add an
+  agent manifest, MCP manifest, feature flag, or compatibility path.
+- A manual `doctor --agent --json` probe against the workspace-MCP starter
+  reports both new agent findings as pass, and the `create-todo` generated
+  handle now resolves to `todos.create`.
+- The remaining `doctor --agent` acceptance work is MCP argument contract
+  description diagnostics, record-id resolution/search/waiver diagnostics, and
+  stale generated agent-context handling if such an artifact is introduced.
+
 ## Next Slice Candidates
 
-1. Extend `trellis doctor --agent` around operation metadata, missing generated
-   contracts, MCP argument-shape warnings, and privacy-safe agent context.
-2. Audit the remaining `release:verify` gates from the current branch and run
+1. Extend `doctor --agent` with MCP argument contract description diagnostics
+   from existing `defineArgs(...)` / operation descriptor metadata.
+2. Add the record-id resolution/search/waiver warning required for MCP-exposed
+   writes that accept record ids.
+3. Audit the remaining `release:verify` gates from the current branch and run
    the next broad gate that is likely to expose RFC-specific drift.
-3. Start the Ginko CMS protocol-map deletion proof against the local Trellis
-   tarball once the agent-facing doctor gap is closed.

@@ -6,7 +6,7 @@ import {
 } from '../../runtime/identity-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from './findings.js'
 import { summarizeFindings } from './findings.js'
-import { collectInventoryDoctorFindings } from './inventory-findings.js'
+import { collectAgentDoctorFindings, collectInventoryDoctorFindings } from './inventory-findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
@@ -576,12 +576,15 @@ function applyProductionProfile(findings: DoctorFinding[]): DoctorFinding[] {
 
 export async function buildDoctorReport(
   cwd: string,
-  options: { production?: boolean } = {},
+  options: { production?: boolean; agent?: boolean } = {},
 ): Promise<DoctorReport> {
   const project = inspectProject(cwd)
   const inventoryFacts = collectTrellisCliInventoryFacts(project)
   const inventory = collectTrellisCliInventory(project, inventoryFacts)
-  const baseFindings = createDoctorFindings(project, inventory, inventoryFacts)
+  const baseFindings = [
+    ...createDoctorFindings(project, inventory, inventoryFacts),
+    ...(options.agent ? collectAgentDoctorFindings(inventory) : []),
+  ]
   const findings = options.production ? applyProductionProfile(baseFindings) : baseFindings
   return {
     cwd,

@@ -11,6 +11,8 @@ import {
   type VariableDeclaration,
 } from 'ts-morph'
 
+import { operationIdToHandlePath } from './operation-handle-codegen.js'
+
 export const DEFAULT_OPERATION_CODEGEN_INCLUDE = ['convex/**/*.ts', 'shared/**/*.ts'] as const
 export const DEFAULT_OPERATION_CODEGEN_EXCLUDE = ['convex/components/**'] as const
 export const DEFAULT_MCP_TOOL_CODEGEN_INCLUDE = ['server/mcp/tools/**/*.ts'] as const
@@ -467,6 +469,77 @@ function readNestedStringProperty(
   return readStringProperty(initializer, childName)
 }
 
+function readPropertyPath(expression: Node | undefined): string[] | null {
+  const unwrapped = unwrapExpression(expression)
+  if (!unwrapped) return null
+  if (Node.isIdentifier(unwrapped)) return [unwrapped.getText()]
+
+  if (Node.isPropertyAccessExpression(unwrapped)) {
+    const parent = readPropertyPath(unwrapped.getExpression())
+    return parent ? [...parent, unwrapped.getName()] : null
+  }
+
+  return null
+}
+
+function readStringLiteralExpression(expression: Node | undefined): string | null {
+  const unwrapped = unwrapExpression(expression)
+  if (!unwrapped) return null
+  if (Node.isStringLiteral(unwrapped) || Node.isNoSubstitutionTemplateLiteral(unwrapped)) {
+    return unwrapped.getLiteralText()
+  }
+
+  return null
+}
+
+function createOperationsByHandlePath(
+  operations: OperationDefinitionMetadata[],
+): Map<string, OperationDefinitionMetadata> {
+  const pathCounts = new Map<string, number>()
+  const pathEntries = operations.map((operation) => {
+    const path = operationIdToHandlePath(operation.id).join('.')
+    pathCounts.set(path, (pathCounts.get(path) ?? 0) + 1)
+    return [path, operation] as const
+  })
+
+  return new Map(pathEntries.filter(([path]) => pathCounts.get(path) === 1))
+}
+
+function createOperationsById(
+  operations: OperationDefinitionMetadata[],
+): Map<string, OperationDefinitionMetadata> {
+  const idCounts = new Map<string, number>()
+  for (const operation of operations) {
+    idCounts.set(operation.id, (idCounts.get(operation.id) ?? 0) + 1)
+  }
+
+  return new Map(
+    operations
+      .filter((operation) => idCounts.get(operation.id) === 1)
+      .map((operation) => [operation.id, operation]),
+  )
+}
+
+function readOperationHandleMetadata(
+  expression: Node | undefined,
+  operationsByHandlePath: Map<string, OperationDefinitionMetadata>,
+  operationsById: Map<string, OperationDefinitionMetadata>,
+): OperationDefinitionMetadata | undefined {
+  const unwrapped = unwrapExpression(expression)
+  if (!unwrapped) return undefined
+
+  if (Node.isElementAccessExpression(unwrapped)) {
+    const path = readPropertyPath(unwrapped.getExpression())
+    if (path?.join('.') !== 'operations.byId') return undefined
+    const operationId = readStringLiteralExpression(unwrapped.getArgumentExpression())
+    return operationId ? operationsById.get(operationId) : undefined
+  }
+
+  const path = readPropertyPath(unwrapped)
+  if (!path || path[0] !== 'operations' || path.length < 2) return undefined
+  return operationsByHandlePath.get(path.slice(1).join('.'))
+}
+
 type ReadOperationDefinitionResult = {
   definition: ObjectLiteralExpression
   kind?: 'safe' | 'destructive'
@@ -849,6 +922,8 @@ function readToolMetadata(
   sourceFile: SourceFile,
   exportAssignment: ExportAssignment,
   operationsByExport: Map<string, OperationDefinitionMetadata>,
+  operationsByHandlePath: Map<string, OperationDefinitionMetadata>,
+  operationsById: Map<string, OperationDefinitionMetadata>,
 ): ToolDefinitionMetadata | null {
   const expression = unwrapExpression(exportAssignment.getExpression())
   if (!expression || !Node.isCallExpression(expression)) return null
@@ -870,6 +945,8 @@ function readToolMetadata(
       const firstArg = unwrapExpression(expression.getArguments()[0])
       if (firstArg && Node.isIdentifier(firstArg)) {
         operation = operationsByExport.get(firstArg.getText())
+      } else {
+        operation = readOperationHandleMetadata(firstArg, operationsByHandlePath, operationsById)
       }
     } else if (['query', 'mutation', 'action'].includes(callee.getName())) {
       source = 'tool'
@@ -982,6 +1059,8 @@ export function extractPublicSurfaceCodegenMetadata(
       .filter((operation) => operationExportCounts.get(operation.exportName) === 1)
       .map((operation) => [operation.exportName, operation]),
   )
+  const operationsByHandlePath = createOperationsByHandlePath(operations)
+  const operationsById = createOperationsById(operations)
   const projectionOperationsByExport = new Map(operationsByExport)
 
   for (const sourceFile of project.getSourceFiles()) {
@@ -1038,6 +1117,8 @@ export function extractPublicSurfaceCodegenMetadata(
         sourceFile,
         exportAssignment,
         projectionOperationsByExport,
+        operationsByHandlePath,
+        operationsById,
       )
       if (tool) tools.push(tool)
     }

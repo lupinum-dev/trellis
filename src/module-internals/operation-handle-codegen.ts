@@ -48,7 +48,7 @@ function toCamelCase(segment: string): string {
     .join('')
 }
 
-function toOperationPath(operationId: string): string[] {
+export function operationIdToHandlePath(operationId: string): string[] {
   const segments = operationId.split('.').map(toCamelCase).filter(Boolean)
   if (segments.length === 0) {
     throw new Error(`Operation handle id "${operationId}" does not produce a valid object path.`)
@@ -235,7 +235,7 @@ export function renderOperationHandlesModule(input: OperationHandlesModuleInput)
   for (const handle of input.handles) {
     setNestedPath(
       ergonomicRoot,
-      toOperationPath(handle.operationId),
+      operationIdToHandlePath(handle.operationId),
       handle.exportName,
       handle.operationId,
     )
