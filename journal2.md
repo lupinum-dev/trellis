@@ -2572,12 +2572,50 @@ test/helpers.ts` had no matches except the candidate helper row before
 - `pnpm --dir examples/07-mcp-reference typecheck` is now a usable acceptance
   gate for the MCP reference app again.
 
+## Slice 47: Audit Remaining Raw Unsafe Example Entrypoints
+
+### Proof
+
+- Searched maintained examples, CLI fixtures, runtime source, and tests for raw
+  unsafe registrations and unsafe permits:
+  `rg -n "\\.unsafe\\(|unsafe\\.(query|mutation|action)|unsafe as unsafePermit|permit:\\s*unsafe|unsafe\\.permit|unsafePermit" examples src/cli/starter-fixtures tests/fixtures src -g'*.ts'`.
+- Searched operation registrations in maintained MCP/component fixtures to catch
+  stale operation objects routed through raw unsafe lanes:
+  `rg -n "mutation\\.authenticated\\(|mutation\\.workspace\\(|query\\.workspace\\(|operation\\.mutation\\(|operation\\.query\\(" src/cli/starter-fixtures examples/07-mcp-reference examples/08-component-mini-cms tests/fixtures -g'*.ts'`.
+- The only maintained product/fixture raw unsafe handlers found are upload URL
+  generation in example 04 and the `add uploads` fixture.
+
+### Implementation
+
+- No source conversion was needed. The remaining raw unsafe handlers are not
+  operation-backed product actions; they generate Convex upload URLs before a
+  concrete tenant-scoped record exists.
+- Kept their explicit `unsafe.permit(...)` metadata and comments because they
+  are intentional escape hatches with reviewable scope.
+- Confirmed the stale example 07 bootstrap pattern removed in Slice 46 was the
+  only operation object still registered through `mutation.unsafe(...)`.
+
+### Verification
+
+- Search results show no operation-backed example/starter registration remains
+  on a raw unsafe lane.
+- Existing checks from Slice 46 already covered the touched type/runtime surface
+  after deleting the stale example 07 unsafe bootstrap registration.
+
+### Notes
+
+- Keeping upload URL generation as raw unsafe is the simpler correct model for
+  now. Turning it into an operation would add a product operation boundary around
+  a storage URL primitive without a tenant record to authorize yet.
+- If Trellis later introduces a first-class upload lane, this should be revisited
+  as a hard cutover rather than a compatibility wrapper.
+
 ## Next Slice Candidates
 
-1. Sweep maintained examples and starter fixtures for remaining raw unsafe
-   operation registrations or stale operation/bootstrap patterns.
-2. Push generated testing handles into Ginko CMS tests and delete
+1. Push generated testing handles into Ginko CMS tests and delete
    `handlerIdByFunctionRef` / destructive transport maps from the consumer.
-3. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
+2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
    operation files can be validated by package/consumer tests without virtual
    aliases.
+3. Run a broader maintained-example typecheck/build sweep now that example 07
+   has become type-green again.
