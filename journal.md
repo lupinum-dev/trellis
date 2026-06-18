@@ -613,3 +613,9 @@ signedArgs })` when the internal Convex bridge wrapper differs from the
   `pnpm --dir examples/08-component-mini-cms test`, and
   `pnpm exec vitest run --project=unit tests/unit/mcp-convex-caller.test.ts tests/unit/define-convex-tool.test.ts tests/unit/cli-doctor.test.ts -t "initializes a first-class workspace MCP app via the preset|defineMcpApp|createMcpConvexCaller|canonical MCP Convex caller"`
   passed after rebuilding the CLI fixture copy with `pnpm run build:cli`.
+- 2026-06-18: Reviewed the remaining auth-bootstrap tracker drift against the
+  current runtime and tests. No new code was needed: `plugin.client` installs
+  configured auth bootstrap by default when auth is enabled, `auth.bootstrap`
+  set to `false` is the explicit escape hatch, generated starters only export the
+  internal `createUserIfNeeded` mutation, and doctor fails app-owned bootstrap
+  plugins. Moved the drift to resolved evidence.
