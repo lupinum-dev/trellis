@@ -78,7 +78,7 @@ Examples `03` through `05` use the repo's canonical single-workspace contract:
 - `workspaceId` as the tenant foreign key
 - `by_workspace` as the tenant index name
 - `users.authKey`, `users.role`, and `users.workspaceId`
-- `ownerId` storing the auth-subject string
+- `ownerId` storing the local `users._id`
 - `createdAt` / `updatedAt` as millisecond timestamps
 
 `06-multi-workspace` is the explicit architectural fork when the canonical single-workspace model is

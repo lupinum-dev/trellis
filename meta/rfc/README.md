@@ -21,6 +21,7 @@ material.
 - [0010: Inventory-Backed Explain Commands](./0010-inventory-backed-explain-commands.md)
 - [0011: Hard-Cut Operation Ladder Release](./0011-hard-cut-operation-ladder-release.md)
 - [0012: Type-Safe App Framework For Secure Nuxt And Convex Apps](./0012-type-safe-app-framework.md)
+- [0013: Nuxt-Native Operation Framework](./0013-nuxt-native-operation-framework.md)
 
 ## Template
 

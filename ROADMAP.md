@@ -38,7 +38,7 @@ operation descriptors, MCP wrappers, tenant isolation internals, or bridge mecha
 pnpm dlx @lupinum/trellis init my-app
 cd my-app
 pnpm install
-pnpm dev
+pnpm dev:local
 ```
 
 Then add capabilities as needed:
@@ -107,13 +107,61 @@ export default defineNuxtConfig({
   product setup.
 - `pnpm run release:verify` passes.
 
-## 0.3: Explicit Grants And Denies
+## 0.3: Nuxt-Native DX Compression
+
+Primary RFC: [0013: Nuxt-Native Operation Framework](./meta/rfc/0013-nuxt-native-operation-framework.md)
+
+### Goal
+
+Make the current secure operation model feel like a Nuxt framework path instead of an expert toolkit.
+
+The feedback after the 0.2/0.3 operation work is consistent: Trellis has the right foundation, but
+ordinary app code and Ginko-style integrations still see protocol details that the framework should own.
+The next release should compress the authoring surface before adding new authorization state.
+
+### Scope
+
+- Remove handwritten `executeFunctionRef` strings from normal app operations.
+- Derive operation execute/preview refs from projected Convex function exports.
+- Make one-line `tool.operation(operation, options)` the normal MCP binding path.
+- Add operation-aware test clients so app and consumer tests stop maintaining forwarding maps.
+- Promote `trellis add entity` into a product-grade feature slice generator with tests and strong
+  contract metadata.
+- Add `useTrellisOperation` for preview/confirm/execute UI flows.
+- Expand `trellis explain` and `doctor --agent` from existing inventory rather than adding a new
+  app manifest.
+- Keep Ginko CMS as the real consumer gate: Ginko should delete its Trellis protocol helper maps.
+- Fix first-run and identity documentation drift before larger runtime changes.
+
+### Non-Goals
+
+- No permission grant/deny tables.
+- No tenant role overlays.
+- No record-sharing tables.
+- No permission audit-event tables.
+- No generic `trellis.config.ts`.
+- No new handwritten app manifest parallel to `defineFeature(...)`, `composeFeatures(...)`, and
+  `defineAppInventory(...)`.
+- No compatibility shims for unreleased internal authoring paths.
+
+### Acceptance Gate
+
+- Maintained examples no longer require stringly operation execute refs in normal app code.
+- MCP reference tools use one-line operation binding for the common case.
+- Generated workspace-MCP entity slices include tests and operation-backed MCP tools without manual
+  ref binding.
+- `trellis explain operation <id>` can show execute projection, preview projection, feature owner, and
+  MCP tool exposure.
+- `trellis doctor --agent` reports missing operation projections and missing MCP contract metadata.
+- Ginko CMS check passes after removing downstream function-ref translation maps.
+- `pnpm run release:verify` passes.
+
+## Later: Explicit Grants And Denies
 
 Primary future issue: [#7](https://github.com/lupinum-dev/trellis/issues/7)
 
-Add the smallest useful extra authorization state: explicit permission grants and denies.
-
-This phase may add a generated table, but only after 0.2 proves the base permission graph is explainable.
+Add the smallest useful extra authorization state only after 0.3 proves the base operation graph is
+native-feeling, explainable, and projected from one source of truth.
 
 Required before implementation:
 
@@ -124,11 +172,11 @@ Required before implementation:
 - `explainPermission(...)` integration
 - generated invariant tests
 
-## 0.4: Permission Audit Events
+## Later: Permission Audit Events
 
 Primary future issue: [#11](https://github.com/lupinum-dev/trellis/issues/11)
 
-Add audit events for authorization changes introduced in 0.3.
+Add audit events for authorization changes after explicit grants and denies exist.
 
 This should log changes, not every permission check.
 

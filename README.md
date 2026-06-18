@@ -33,7 +33,7 @@ Create a starter app:
 pnpm dlx @lupinum/trellis init my-app
 cd my-app
 pnpm install
-pnpm dev
+pnpm dev:local
 ```
 
 Choose a first-class lane when the default public app is not the right baseline:
@@ -55,6 +55,9 @@ trellis add mcp
 Presets remain shortcuts for generated fixtures, but the normal path is the ladder: start public,
 then add auth and workspace as real requirements appear. If agents are already a
 product requirement, start directly with `workspace-mcp`.
+
+Use `pnpm dev` when you want to connect a generated app to a hosted Convex dev
+deployment.
 
 If you are adding Trellis to an existing Nuxt app instead:
 
