@@ -1,11 +1,11 @@
 # 0013: Nuxt-Native Operation Framework
 
-Status: Proposed
+Status: Accepted for implementation; in progress
 Date: 2026-06-18
-Owner: Trellis maintainers; assign one implementation owner before build starts
+Owner: Trellis maintainers
 Review basis: Trellis 0.3.1 source, maintained examples, Ginko CMS integration, RFC 0012 closure notes, static DX reviews
-Review stance: accept the direction, revise the implementation contract before
-building
+Review stance: accepted direction and implementation contract; build continues
+in proof-sized slices
 
 ## Summary
 
@@ -49,6 +49,40 @@ Trellis owns projection, transport protocol translation, test helpers, and
 agent-facing machinery.
 Each runtime surface still owns its boundary semantics.
 ```
+
+## Implementation Status
+
+Current state: accepted and partially implemented. This RFC is no longer only a
+proposal, but the release is not complete until the acceptance criteria and
+consumer gates below are green.
+
+Completed foundation slices:
+
+- generated MCP operation descriptors are exported for package and consumer
+  handle generation
+- operation projection surfaces are narrowed to generated runtime handles
+- normal docs, starter, and maintained example guidance points ordinary MCP
+  tools at `#trellis/operations/mcp`
+- source projection-registry drift can be checked outside Nuxt prepare
+- operation handle codegen is always installed by the Nuxt module and no longer
+  depends on `trellis.permissions.codegen`
+- public-surface inventory codegen is always installed separately from
+  permission metadata codegen
+- a prepared Nuxt workspace-MCP fixture imports `#trellis/operations/mcp`,
+  typechecks with permission codegen disabled, and proves no permission-codegen
+  artifacts are emitted
+- generated `OperationHandle` values are accepted directly by
+  `tool.operation(...)`
+
+Still open before release acceptance:
+
+- update explain/doctor to consume the generated operation and public-surface
+  inventory without adding a handwritten manifest
+- prove starter fixture typecheck/build after the always-on operation/public
+  surface codegen split
+- keep Ginko CMS green against local Trellis tarballs and verify it no longer
+  copies Trellis protocol maps or hand-binds ordinary MCP execute/preview refs
+- run the full local `pnpm run release:verify` gate on the final tree
 
 ## Problem
 
@@ -1093,6 +1127,9 @@ impossible to partially drift.
 ```
 
 ## Acceptance Criteria
+
+These are release acceptance criteria, not a claim that the current branch has
+already satisfied every item.
 
 ### Trellis Examples
 

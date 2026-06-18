@@ -3225,9 +3225,43 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   explain/doctor inventory wiring, and the final `release:verify` gate remain
   separate acceptance work.
 
+## Slice 58: Mark RFC 0013 Accepted And In Progress
+
+### Proof
+
+- RFC 0013 was still marked `Status: Proposed` with a review stance saying the
+  implementation contract needed revision before building.
+- That no longer matched the branch: multiple implementation slices have landed
+  and the current work is already proceeding under the accepted proof-first
+  implementation loop.
+- Leaving the status stale made the RFC look less authoritative than the
+  journal and commit history, while changing it to complete would overstate the
+  release state.
+
+### Implementation
+
+- Changed RFC 0013 status to `Accepted for implementation; in progress`.
+- Simplified the owner/review stance to reflect that the implementation
+  contract is accepted and build continues in proof-sized slices.
+- Added an implementation status section that separates completed foundation
+  slices from open release acceptance work.
+- Added a note before the acceptance criteria clarifying that the checklist is
+  the release target, not a claim that the current branch has satisfied every
+  item.
+
+### Verification
+
+- RFC formatting passed:
+  `pnpm exec oxfmt --check meta/rfc/0013-nuxt-native-operation-framework.md`.
+- Docs link check passed: `pnpm run check:docs:links`.
+
+### Notes
+
+- This is intentionally a status alignment slice only. It does not relax the
+  remaining acceptance gates: explain/doctor inventory wiring, starter
+  typecheck/build, Ginko consumer proof, and full `release:verify` remain open.
+
 ## Next Slice Candidates
 
-1. Update RFC 0013 status and acceptance notes now that several implementation
-   slices are complete, while keeping remaining release gates explicit.
-2. Audit whether `trellis explain app --json` should consume the always-on
+1. Audit whether `trellis explain app --json` should consume the always-on
    public-surface inventory artifact instead of only static CLI inventory.
