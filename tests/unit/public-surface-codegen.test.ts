@@ -276,6 +276,76 @@ describe('public surface codegen', () => {
     ])
   }, 15_000)
 
+  it('reports unsupported operation projection syntax', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/operations.ts': `
+        import { defineOperation } from '@lupinum/trellis/backend'
+        import { mutation } from '../../functions'
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const removeTaskOp = defineOperation({
+          id: 'tasks.remove',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+
+        const workspaceMutation = mutation.workspace
+        const selectedOperation = archiveTaskOp
+        declare const condition: boolean
+        export const aliasArchiveTask = workspaceMutation(archiveTaskOp)
+        export const dynamicArchiveTask = mutation.workspace(selectedOperation)
+        export const conditionalArchiveTask = condition
+          ? mutation.workspace(archiveTaskOp)
+          : mutation.workspace(removeTaskOp)
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.projections).toEqual([
+      {
+        exportName: 'archiveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        operationExportName: 'archiveTaskOp',
+        operationId: 'tasks.archive',
+        projection: 'execute',
+      },
+    ])
+    expect(metadata.diagnostics).toEqual([
+      {
+        code: 'unsupported-projection-call',
+        exportName: 'aliasArchiveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        message: expect.stringContaining('Use a direct lane call'),
+      },
+      {
+        code: 'unsupported-projection-operation-reference',
+        exportName: 'dynamicArchiveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        message: expect.stringContaining('Pass the operation export directly'),
+      },
+      {
+        code: 'unsupported-projection-conditional',
+        exportName: 'conditionalArchiveTask',
+        file: 'convex/features/tasks/operations.ts',
+        line: expect.any(Number),
+        message: expect.stringContaining('Conditional operation projections are unsupported'),
+      },
+    ])
+  }, 15_000)
+
   it('renders additive module augmentation types for generated operation and tool maps', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `

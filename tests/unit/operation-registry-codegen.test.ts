@@ -186,4 +186,30 @@ describe('operation registry codegen', () => {
       /Destructive operation "tasks.archive" requires exactly one preview projection/,
     )
   })
+
+  it('fails when scanner diagnostics report unsupported projection syntax', () => {
+    const rootDir = createFixture({
+      'convex/features/tasks/operations.ts': `
+        import { defineOperation } from '@lupinum/trellis/backend'
+        import { mutation } from '../../functions'
+
+        export const archiveTaskOp = defineOperation({
+          id: 'tasks.archive',
+          kind: 'safe',
+          args: {},
+          handler: async () => null,
+        })
+
+        const workspaceMutation = mutation.workspace
+        export const aliasArchiveTask = workspaceMutation(archiveTaskOp)
+      `,
+    })
+
+    const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
+
+    expect(metadata.diagnostics).toHaveLength(1)
+    expect(() => buildOperationRegistry(metadata)).toThrow(
+      /Cannot build operation registry with unsupported projection syntax/,
+    )
+  })
 })

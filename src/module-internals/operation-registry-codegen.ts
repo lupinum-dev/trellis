@@ -92,6 +92,13 @@ function getOperationRefExportName(projection: OperationRegistryProjection): str
 }
 
 export function buildOperationRegistry(metadata: PublicSurfaceCodegenMetadata): OperationRegistry {
+  if (metadata.diagnostics.length > 0) {
+    const [firstDiagnostic] = metadata.diagnostics
+    throw new Error(
+      `Cannot build operation registry with unsupported projection syntax at ${firstDiagnostic.file}:${firstDiagnostic.line}. ${firstDiagnostic.message}`,
+    )
+  }
+
   const operationsById = new Map<string, MutableOperationRegistryOperation>()
 
   for (const operation of metadata.operations) {

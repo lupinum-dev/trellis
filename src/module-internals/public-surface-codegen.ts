@@ -39,6 +39,19 @@ export interface ToolDefinitionMetadata {
   operationExportName?: string
 }
 
+export type PublicSurfaceCodegenDiagnosticCode =
+  | 'unsupported-projection-call'
+  | 'unsupported-projection-conditional'
+  | 'unsupported-projection-operation-reference'
+
+export interface PublicSurfaceCodegenDiagnostic {
+  code: PublicSurfaceCodegenDiagnosticCode
+  exportName: string
+  file: string
+  line: number
+  message: string
+}
+
 export interface PublicSurfaceCodegenMetadata {
   include: {
     operations: string[]
@@ -47,6 +60,7 @@ export interface PublicSurfaceCodegenMetadata {
   operations: OperationDefinitionMetadata[]
   projections: OperationProjectionBindingMetadata[]
   tools: ToolDefinitionMetadata[]
+  diagnostics: PublicSurfaceCodegenDiagnostic[]
 }
 
 function toPosixPath(value: string): string {
@@ -174,6 +188,46 @@ function readCanonicalProjectionCallKind(
     canonicalProjectionRoots.has(rootExpression.getText())
     ? 'execute'
     : null
+}
+
+function hasProjectionLikeExpression(
+  expression: Node | undefined,
+  operationsByExport: Map<string, OperationDefinitionMetadata>,
+): boolean {
+  const unwrappedExpression = unwrapExpression(expression)
+  if (!unwrappedExpression) return false
+
+  if (Node.isConditionalExpression(unwrappedExpression)) {
+    return (
+      hasProjectionLikeExpression(unwrappedExpression.getWhenTrue(), operationsByExport) ||
+      hasProjectionLikeExpression(unwrappedExpression.getWhenFalse(), operationsByExport)
+    )
+  }
+
+  if (!Node.isCallExpression(unwrappedExpression)) return false
+  if (readCanonicalProjectionCallKind(unwrappedExpression)) return true
+
+  const [firstArg] = unwrappedExpression.getArguments()
+  const executeOperationIdentifier = readExecuteOperationIdentifier(firstArg)
+  if (executeOperationIdentifier && operationsByExport.has(executeOperationIdentifier)) return true
+
+  const previewOperationIdentifier = readPreviewOperationIdentifier(firstArg)
+  return !!previewOperationIdentifier && operationsByExport.has(previewOperationIdentifier)
+}
+
+function createProjectionDiagnostic(
+  rootDir: string,
+  declaration: VariableDeclaration,
+  code: PublicSurfaceCodegenDiagnosticCode,
+  message: string,
+): PublicSurfaceCodegenDiagnostic {
+  return {
+    code,
+    exportName: declaration.getName(),
+    file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
+    line: declaration.getNameNode().getStartLineNumber(),
+    message,
+  }
 }
 
 function readStringProperty(node: ObjectLiteralExpression, name: string): string | undefined {
@@ -350,6 +404,66 @@ function extractProjectionBinding(
   }
 }
 
+function extractProjectionDiagnostic(
+  rootDir: string,
+  declaration: VariableDeclaration,
+  operationsByExport: Map<string, OperationDefinitionMetadata>,
+): PublicSurfaceCodegenDiagnostic | null {
+  if (!declaration.getVariableStatement()?.isExported()) return null
+
+  const initializer = unwrapExpression(declaration.getInitializer())
+  if (!initializer) return null
+
+  if (Node.isConditionalExpression(initializer)) {
+    return hasProjectionLikeExpression(initializer, operationsByExport)
+      ? createProjectionDiagnostic(
+          rootDir,
+          declaration,
+          'unsupported-projection-conditional',
+          `Conditional operation projections are unsupported for "${declaration.getName()}". Use one direct exported lane call per operation projection.`,
+        )
+      : null
+  }
+
+  if (!Node.isCallExpression(initializer)) return null
+
+  const [firstArg] = initializer.getArguments()
+  const projectionCallKind = readCanonicalProjectionCallKind(initializer)
+  if (projectionCallKind) {
+    const operationIdentifier = readExecuteOperationIdentifier(firstArg)
+    return operationIdentifier && !operationsByExport.has(operationIdentifier)
+      ? createProjectionDiagnostic(
+          rootDir,
+          declaration,
+          'unsupported-projection-operation-reference',
+          `Unsupported operation projection "${declaration.getName()}". Pass the operation export directly to the lane call.`,
+        )
+      : null
+  }
+
+  const executeOperationIdentifier = readExecuteOperationIdentifier(firstArg)
+  if (executeOperationIdentifier && operationsByExport.has(executeOperationIdentifier)) {
+    return createProjectionDiagnostic(
+      rootDir,
+      declaration,
+      'unsupported-projection-call',
+      `Unsupported operation projection "${declaration.getName()}". Use a direct lane call such as mutation.workspace(${executeOperationIdentifier}).`,
+    )
+  }
+
+  const previewOperationIdentifier = readPreviewOperationIdentifier(firstArg)
+  if (previewOperationIdentifier && operationsByExport.has(previewOperationIdentifier)) {
+    return createProjectionDiagnostic(
+      rootDir,
+      declaration,
+      'unsupported-projection-call',
+      `Unsupported operation projection "${declaration.getName()}". Use a direct lane preview call such as mutation.workspace.preview(${previewOperationIdentifier}).`,
+    )
+  }
+
+  return null
+}
+
 function toKebabCase(value: string): string {
   return value
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
@@ -466,6 +580,7 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
   const operations: OperationDefinitionMetadata[] = []
   const projections: OperationProjectionBindingMetadata[] = []
   const tools: ToolDefinitionMetadata[] = []
+  const diagnostics: PublicSurfaceCodegenDiagnostic[] = []
 
   for (const sourceFile of project.getSourceFiles()) {
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
@@ -493,7 +608,13 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
 
     for (const declaration of sourceFile.getVariableDeclarations()) {
       const binding = extractProjectionBinding(rootDir, declaration, operationsByExport)
-      if (binding) projections.push(binding)
+      if (binding) {
+        projections.push(binding)
+        continue
+      }
+
+      const diagnostic = extractProjectionDiagnostic(rootDir, declaration, operationsByExport)
+      if (diagnostic) diagnostics.push(diagnostic)
     }
 
     for (const exportAssignment of sourceFile.getExportAssignments()) {
@@ -510,6 +631,10 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
       a.file.localeCompare(b.file),
   )
   tools.sort((a, b) => a.name.localeCompare(b.name) || a.file.localeCompare(b.file))
+  diagnostics.sort(
+    (a, b) =>
+      a.file.localeCompare(b.file) || a.line - b.line || a.exportName.localeCompare(b.exportName),
+  )
 
   return {
     include: {
@@ -519,6 +644,7 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
     operations,
     projections,
     tools,
+    diagnostics,
   }
 }
 

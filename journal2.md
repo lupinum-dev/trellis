@@ -165,10 +165,51 @@ loops.
   generated artifact, then remove duplicated projection data from the fixture
   manifest.
 
+## Slice 4: Unsupported Projection Diagnostics
+
+### Proof
+
+- Added a failing scanner test for unsupported projection syntax:
+  aliased lane calls, dynamic operation identifiers, and conditional projection
+  expressions.
+- The initial focused run failed because `PublicSurfaceCodegenMetadata` had no
+  diagnostics lane, so unsupported forms were only ignored.
+
+### Implementation
+
+- Added `diagnostics` to public-surface metadata with targeted codes for
+  unsupported projection calls, dynamic operation references, and conditional
+  projections.
+- The scanner keeps canonical registry facts clean while reporting unsupported
+  exported forms with file, line, export name, and a targeted correction.
+- `buildOperationRegistry(...)` now refuses to run when scanner diagnostics are
+  present, preventing later generated registry/handle output from silently
+  ignoring invalid projection authoring.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts -t "unsupported operation projection syntax"`.
+- After implementation,
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts`
+  passed.
+- `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/cli-explain.test.ts tests/unit/operation-ref-codegen.test.ts`
+  passed.
+- `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` passed.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- Re-exported projection diagnostics remain for a later scanner pass. The
+  current slice covers the unsupported forms that were already causing false or
+  missing projection facts in variable declarations.
+- The next generated-artifact slice can now rely on the registry builder to
+  stop when unsupported projection syntax is present.
+
 ## Next Slice Candidates
 
 1. Generate runtime-filtered handle modules from scanned projection facts.
-2. Add scanner/registry diagnostics for rejected dynamic, aliased,
-   conditional, and re-exported forms.
+2. Add scanner diagnostics for re-exported projection forms.
 3. Replace one maintained MCP example with generated handles after scan-backed
    handles exist.
