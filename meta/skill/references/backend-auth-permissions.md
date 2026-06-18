@@ -201,8 +201,14 @@ Projection helpers include:
 - `projectOperationRef(operation, projection, ref)`
 - `previewOf(operation)`
 
-MCP operation bindings must use real execute/preview projections of the same
-operation. Tests reject mismatched refs.
+These are low-level backend/function projection helpers. Ordinary MCP files
+should import generated handles from `#trellis/operations/mcp` and call
+`mcp.tool.operation(handle, options)` without hand-binding execute or preview
+refs. Use the helpers directly only inside Trellis internals, generated
+operation-ref modules, or explicitly reviewed package bridge code.
+
+MCP operation bindings must still resolve to real execute/preview projections of
+the same operation. Tests reject mismatched refs.
 
 ## Features And Visibility
 

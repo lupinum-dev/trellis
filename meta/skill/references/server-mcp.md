@@ -160,10 +160,15 @@ Common `mcp.tool.query(...)` and `mcp.tool.operation(...)` options include:
 - `group`
 - `tags`
 
-`mcp.tool.operation(operation, options)` replaces `call` with operation
-projections such as `execute`, optional `preview`, `executeOperation`,
-`previewOperation`, `previewResult`, `confirmationMode`, and per-tool
-`scopeKey`.
+`mcp.tool.operation(operationHandle, options)` is the normal operation-backed
+write path. Pass a generated handle from `#trellis/operations/mcp`; do not pass
+`call`, `execute`, or `preview` in ordinary app MCP tools. The generated handle
+owns the execute and preview projection refs.
+
+Low-level operation objects with explicit `execute`, optional `preview`,
+`executeOperation`, `previewOperation`, `previewResult`, `confirmationMode`, and
+per-tool `scopeKey` are advanced package/runtime-boundary tools only. Keep that
+shape out of beginner docs, starters, and ordinary app MCP files.
 
 `enabled` controls visibility/availability. It is not backend authorization.
 
@@ -174,31 +179,19 @@ Do not implement destructive generic tools through `defineMcpTool`. Use
 stay bound to one operation identity.
 
 Trellis rejects destructive operation bindings without the required preview
-projection and confirmation scope. Keep preview and execute refs as real
-exported projections of the same operation.
+projection and confirmation scope. In the normal path, generated operation
+handles carry those refs and Trellis validates them before tool execution.
 
-Use `executeOperationRef(operation, ref)` and
-`previewOperationRef(operation, ref)` from the functions surface when
-projecting operation-backed tools. In app code, import them from
-`@lupinum/trellis/backend`. Do not hand-construct operation references. Set
-`scopeKey` on the tool or app for destructive operation tools; use `'global'`
-only for truly unscoped app-level operations.
+Do not hand-construct operation references in MCP files. Set `scopeKey` on the
+tool or app for destructive operation tools when a generated scope is not
+available; use `'global'` only for truly unscoped app-level operations.
 
 Canonical destructive binding shape:
 
 ```ts
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '#trellis/api'
-import { removeRunbookDescriptor } from '~~/shared/features/runbooks/contract'
-
-export default mcpRuntime.tool.operation(removeRunbookDescriptor, {
-  execute: executeOperationRef(removeRunbookDescriptor, api.features.runbooks.domain.remove),
-  preview: previewOperationRef(
-    removeRunbookDescriptor,
-    api.features.runbooks.operations.previewRemove,
-  ),
-  previewOperation: 'mutation',
+export default mcpRuntime.tool.operation(operations.runbooks.remove, {
   scopeKey: ({ args }) => `runbook:${String(args.id)}`,
   meta: {
     name: 'delete-runbook',
@@ -206,9 +199,11 @@ export default mcpRuntime.tool.operation(removeRunbookDescriptor, {
 })
 ```
 
-Import the shared operation descriptor and generated Convex refs in MCP files.
-Do not import Convex implementation modules into MCP tool files just to
-duplicate business behavior.
+Import generated operation handles in MCP files. Do not import Convex
+implementation modules into MCP tool files just to duplicate business behavior.
+Manual `executeOperationRef(...)` and `previewOperationRef(...)` imports belong
+to backend/functions internals or explicitly reviewed package bridge code, not
+to the first-reader MCP path.
 
 ## Result And Session Helpers
 

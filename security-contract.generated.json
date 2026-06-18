@@ -288,7 +288,7 @@
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
       "testName": "applies the same create permission rules to delegated service principals",
       "evidenceFor": ["backend-owned delivery idempotency", "duplicate delivery rejection"],
-      "line": 338
+      "line": 337
     },
     {
       "id": "example07-webhook-forged-binding",
@@ -299,7 +299,7 @@
         "wrong service rejection",
         "wrong purpose rejection"
       ],
-      "line": 443
+      "line": 442
     }
   ],
   "serverRoutes": [
@@ -502,7 +502,7 @@
     },
     {
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
-      "line": 74,
+      "line": 71,
       "serviceId": null,
       "purpose": "mcp-session",
       "grantSource": "mcp-key-binding",
@@ -514,7 +514,7 @@
     },
     {
       "file": "examples/07-mcp-reference/test/mcpReference.test.ts",
-      "line": 90,
+      "line": 87,
       "serviceId": "runbook-webhook",
       "purpose": "runbook-webhook:create",
       "grantSource": "workspace-service-policy",
@@ -601,7 +601,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 19,
+      "line": 20,
       "exportName": "list",
       "reads": ["todos"]
     },
@@ -655,44 +655,38 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 110,
+      "line": 103,
       "exportName": "getPublished",
-      "reads": ["pages"]
+      "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 91,
-      "exportName": "listPublished",
-      "reads": ["pages"]
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 108,
-      "exportName": "listDraft",
-      "reads": []
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 196,
-      "exportName": "previewPublish",
-      "reads": []
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 54,
+      "line": 86,
       "exportName": "listPublished",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 72,
+      "line": 109,
       "exportName": "getPublished",
       "reads": []
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 90,
+      "line": 133,
       "exportName": "listStudio",
+      "reads": []
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 220,
+      "exportName": "publishAction",
+      "reads": []
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 85,
+      "exportName": "listPublished",
       "reads": []
     },
     {
@@ -743,7 +737,7 @@
         "source": "verifiedWebhook",
         "purpose": "runbook-webhook:create",
         "allowedOperations": ["runbooks.create-from-webhook"],
-        "allowedFunctionRefs": ["features/runbooks/webhooks:createRunbookFromWebhookMutation"],
+        "allowedFunctionRefs": [],
         "replayMode": "domain-idempotency",
         "actingFor": true,
         "auditEvent": "runbook.webhook.created",
@@ -1211,7 +1205,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 19,
+      "line": 20,
       "exportName": "list",
       "functionType": "query",
       "lane": "public",
@@ -1223,7 +1217,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 41,
+      "line": 45,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "public",
@@ -1235,7 +1229,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 64,
+      "line": 72,
       "exportName": "toggle",
       "functionType": "mutation",
       "lane": "public",
@@ -1247,7 +1241,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 81,
+      "line": 92,
       "exportName": "remove",
       "functionType": "mutation",
       "lane": "public",
@@ -2183,10 +2177,10 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 122,
+      "line": 115,
       "exportName": "createWorkspaceMutation",
       "functionType": "mutation",
-      "lane": "unsafe",
+      "lane": "authenticated",
       "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
@@ -2195,11 +2189,11 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 110,
+      "line": 103,
       "exportName": "getPublished",
       "functionType": "query",
       "lane": "public",
-      "operationBacked": "none",
+      "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -2207,7 +2201,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 124,
+      "line": 114,
       "exportName": "listStudio",
       "functionType": "query",
       "lane": "authenticated",
@@ -2219,7 +2213,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 143,
+      "line": 130,
       "exportName": "listDraft",
       "functionType": "query",
       "lane": "authenticated",
@@ -2231,7 +2225,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 175,
+      "line": 159,
       "exportName": "create",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -2243,7 +2237,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 194,
+      "line": 175,
       "exportName": "save",
       "functionType": "mutation",
       "lane": "authenticated",
@@ -2255,7 +2249,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 196,
+      "line": 177,
       "exportName": "publish",
       "functionType": "transportMutation",
       "lane": "authenticated",
@@ -2267,11 +2261,11 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 91,
+      "line": 86,
       "exportName": "listPublished",
       "functionType": "query",
       "lane": "public",
-      "operationBacked": "none",
+      "operationBacked": "referenced",
       "guard": null,
       "authorize": false,
       "publicWrite": false,
@@ -2279,7 +2273,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/operations.ts",
-      "line": 94,
+      "line": 75,
       "exportName": "previewPublish",
       "functionType": "query",
       "lane": "authenticated",
@@ -2291,91 +2285,7 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 108,
-      "exportName": "listDraft",
-      "functionType": "query",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 126,
-      "exportName": "create",
-      "functionType": "mutation",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 143,
-      "exportName": "save",
-      "functionType": "mutation",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 160,
-      "exportName": "publish",
-      "functionType": "mutation",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 179,
-      "exportName": "publishAction",
-      "functionType": "action",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 196,
-      "exportName": "previewPublish",
-      "functionType": "query",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 54,
-      "exportName": "listPublished",
-      "functionType": "query",
-      "lane": "public",
-      "operationBacked": "none",
-      "guard": null,
-      "authorize": false,
-      "publicWrite": false,
-      "crossTenant": false
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 72,
+      "line": 109,
       "exportName": "getPublished",
       "functionType": "query",
       "lane": "public",
@@ -2387,8 +2297,68 @@
     },
     {
       "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
-      "line": 90,
+      "line": 133,
       "exportName": "listStudio",
+      "functionType": "query",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 155,
+      "exportName": "listDraft",
+      "functionType": "mutation",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 176,
+      "exportName": "create",
+      "functionType": "mutation",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 197,
+      "exportName": "save",
+      "functionType": "action",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 220,
+      "exportName": "publishAction",
+      "functionType": "query",
+      "lane": "public",
+      "operationBacked": "none",
+      "guard": null,
+      "authorize": false,
+      "publicWrite": false,
+      "crossTenant": false
+    },
+    {
+      "file": "examples/08-component-mini-cms/convex/features/pages/domain.ts",
+      "line": 85,
+      "exportName": "listPublished",
       "functionType": "query",
       "lane": "public",
       "operationBacked": "none",
@@ -2721,7 +2691,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 11,
+      "line": 12,
       "exportName": "listTodosOp",
       "type": "query",
       "id": "todos.list",
@@ -2735,7 +2705,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 21,
+      "line": 22,
       "exportName": "createTodoOp",
       "type": "publicMutation",
       "id": "todos.create",
@@ -2749,7 +2719,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 43,
+      "line": 47,
       "exportName": "toggleTodoOp",
       "type": "publicMutation",
       "id": "todos.toggle",
@@ -2763,7 +2733,7 @@
     },
     {
       "file": "examples/01-public-todo/convex/features/todos/domain.ts",
-      "line": 66,
+      "line": 74,
       "exportName": "removeTodoOp",
       "type": "publicMutation",
       "id": "todos.remove",
@@ -3603,7 +3573,7 @@
     },
     {
       "file": "examples/07-mcp-reference/convex/features/workspaces/domain.ts",
-      "line": 17,
+      "line": 16,
       "exportName": "createWorkspaceOp",
       "type": "mutation",
       "id": "workspaces.create",
@@ -3614,104 +3584,6 @@
       "hasExecute": false,
       "executeFunctionRef": null,
       "identityForwardingTransport": null
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 112,
-      "exportName": "listStudioPagesOp",
-      "type": "query",
-      "id": "pages.list-studio",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:listStudio",
-      "identityForwardingTransport": "bridge"
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 126,
-      "exportName": "listDraftPagesOp",
-      "type": "query",
-      "id": "pages.list-draft",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:listDraft",
-      "identityForwardingTransport": "bridge"
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 145,
-      "exportName": "createPageOp",
-      "type": "mutation",
-      "id": "pages.create",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:create",
-      "identityForwardingTransport": "bridge"
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 177,
-      "exportName": "saveDraftOp",
-      "type": "mutation",
-      "id": "pages.save-draft",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:save",
-      "identityForwardingTransport": "bridge"
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 74,
-      "exportName": "listPublishedPagesOp",
-      "type": "query",
-      "id": "pages.list-published",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:listPublished",
-      "identityForwardingTransport": "bridge"
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/domain.ts",
-      "line": 93,
-      "exportName": "getPublishedPageOp",
-      "type": "query",
-      "id": "pages.get-published",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": false,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:getPublished",
-      "identityForwardingTransport": "bridge"
-    },
-    {
-      "file": "examples/08-component-mini-cms/convex/components/miniCms/features/pages/operations.ts",
-      "line": 25,
-      "exportName": "publishPageOp",
-      "type": "destructive",
-      "id": "pages.publish",
-      "hasGuard": false,
-      "hasAuthorize": false,
-      "hasPublicWrite": false,
-      "hasPreview": true,
-      "hasExecute": false,
-      "executeFunctionRef": "features/pages/domain:publish",
-      "identityForwardingTransport": "bridge"
     },
     {
       "file": "src/cli/starter-fixtures/personal/convex/features/todos/domain.ts",
@@ -4110,7 +3982,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 10
+          "line": 7
         }
       ],
       "usesBackendOperation": true,
@@ -4162,7 +4034,7 @@
       "toolKinds": [
         {
           "kind": "operation",
-          "line": 10
+          "line": 7
         }
       ],
       "usesBackendOperation": true,

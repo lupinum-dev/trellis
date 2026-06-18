@@ -2220,7 +2220,7 @@ test/helpers.ts` had no matches except the candidate helper row before
   `projectOperationRef(operation, 'execute', ref, options)`. It did not encode
   different runtime semantics from `executeOperationRef(...)`.
 - Transport confirmation remains modeled by `tool.operation(..., {
-  confirmationMode: 'transport' })` and the transport mutation lane, so a
+confirmationMode: 'transport' })` and the transport mutation lane, so a
   separate public execute-ref helper had become a second name for the same
   projection fact.
 - A wide source search after implementation confirmed no exact
@@ -2921,6 +2921,64 @@ test/helpers.ts` had no matches except the candidate helper row before
 - The practical consumer proof is Ginko: its generated MCP refs import only
   `projectOperationRef` from `@lupinum/trellis/mcp`, and its MCP tool runtime
   imports only the MCP app/runtime types it needs.
+
+## Slice 53: Teach Generated MCP Handles In Docs And Skills
+
+### Proof
+
+- After removing manual projection helpers from the first-reader MCP entrypoint,
+  user-facing docs and skill references still taught `executeOperationRef(...)`
+  / `previewOperationRef(...)` as the canonical destructive MCP binding shape.
+- The stale text contradicted RFC 0013's generated-handle target and the Ginko
+  consumer proof from Slice 51.
+- `pnpm run test:security` also exposed stale generated
+  `security-contract.generated.json` output and a stale security-contract unit
+  expectation for the runbook webhook service. The current service definition is
+  operation-allowlisted and no longer declares an explicit `allowedFunctionRefs`
+  fallback.
+
+### Implementation
+
+- Updated the MCP API reference to teach generated operation handles from
+  `#trellis/operations/mcp` for ordinary MCP tools.
+- Updated the destructive MCP tools guide to show generated operation-handle
+  binding for both backend and transport confirmation modes.
+- Updated Trellis skill references so future agents do not reintroduce manual
+  execute/preview binding in ordinary app MCP files.
+- Updated the 0.2 implementation note to distinguish normal MCP tool imports
+  from generated operation-ref module imports.
+- Regenerated `security-contract.generated.json` from the current source tree.
+- Updated the security-contract test expectation for the runbook webhook service
+  to expect `allowedOperations` with no duplicate `allowedFunctionRefs`.
+
+### Verification
+
+- Formatter check passed for touched docs, skill references, the security
+  contract test, and generated security contract:
+  `pnpm exec oxfmt --check tests/unit/security-contract.test.ts apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/14.mcp-tools/4.destructive-tools.md meta/0.2-implementation-note.md meta/skill/references/backend-auth-permissions.md meta/skill/references/server-mcp.md security-contract.generated.json`.
+- Docs links passed: `pnpm run check:docs:links`.
+- Full security gate passed: `pnpm run test:security` reported security source
+  policy pass, security contract up to date, module build pass, packed export
+  policy pass, and 26 passing unit test files with 293 passing tests.
+- Focused docs/starter/MCP tests passed:
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/api-surface-doc.test.ts`
+  reported 3 passing test files and 16 passing tests before the full security
+  gate was rerun.
+- Stale-guidance scan found no remaining docs or skill references that teach
+  manual MCP projection refs as canonical:
+  `rg -n 'operation ref helpers from|Import operation ref helpers|executeOperationRef\\(removeRunbook|previewOperationRef\\(removeRunbook|executeOperationRef\\(publishPage|previewOperationRef\\(publishPage|from .@lupinum/trellis/mcp.*executeOperationRef|from .@lupinum/trellis/mcp.*previewOperationRef' meta/skill meta/0.2-implementation-note.md README.md apps examples src/cli --glob '!dist' --glob '!node_modules'`.
+  The only matches were the explicitly advanced component mini-CMS source
+  projections.
+
+### Notes
+
+- This does not delete low-level projection helpers from backend/functions
+  surfaces. Those remain for Trellis internals, generated refs, and explicit
+  package bridge boundaries.
+- The regenerated security contract also captured existing source inventory
+  drift from earlier slices, such as current line numbers and operation-backed
+  component mini-CMS projections. The contract generator and full security gate
+  now agree on the current tree.
 
 ## Next Slice Candidates
 

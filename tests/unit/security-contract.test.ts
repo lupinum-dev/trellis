@@ -216,7 +216,7 @@ describe('security contract generator', () => {
             source: 'verifiedWebhook',
             purpose: 'runbook-webhook:create',
             allowedOperations: ['runbooks.create-from-webhook'],
-            allowedFunctionRefs: ['features/runbooks/webhooks:createRunbookFromWebhookMutation'],
+            allowedFunctionRefs: [],
             replayMode: 'domain-idempotency',
             actingFor: true,
             auditEvent: 'runbook.webhook.created',
