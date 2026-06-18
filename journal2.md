@@ -3728,12 +3728,71 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
 - The Ginko cleanup was committed separately in `ginko-cms` as
   `4f3f901 test: rely on trellis test forwarding defaults`.
 
+## Slice 67: Broader Ginko Check Against Local Trellis
+
+### Proof
+
+- RFC 0013 requires Ginko CMS to consume the generated Trellis operation path
+  without copying Trellis protocol internals.
+- A broad Ginko CMS check against the local Trellis workspace initially failed
+  in `operations:check`: `packages/convex/generated/operationHandles/testing.ts`
+  was out of date.
+- Regenerating the testing and MCP operation handles changed only the trailing
+  `operations` object assertion from `} as const` to `}`. That matches the
+  Trellis build-safe operation handle generator behavior from
+  `75b024e fix: make operation handles build safe`, and Trellis already has a
+  unit expectation that generated Nuxt operation-handle modules do not contain
+  the trailing `} as const`.
+- The next broad check reached the full Vitest suite and failed one
+  package-boundary allowlist: `@lupinum/ginko-cms-convex` exports
+  `./operation-handles/mcp`, and Ginko MCP tools already import that canonical
+  generated handle module.
+
+### Implementation
+
+- Committed the Ginko consumer sync separately in `ginko-cms`:
+  `787a650 test: sync operation handle boundaries`.
+- Regenerated the two derived Ginko operation-handle files:
+  - `packages/convex/generated/operationHandles/testing.ts`
+  - `packages/convex/src/generated/operationHandles/mcp.ts`
+- Updated Ginko's package-boundary contract test to include the intentional
+  `./operation-handles/mcp` Convex package export.
+
+### Verification
+
+- The initial Ginko broad gate failed as expected:
+  `pnpm run check` stopped at `operations:check` with
+  `generated/operationHandles/testing.ts` out of date.
+- Generated drift check passed after regeneration:
+  `pnpm run operations:check`.
+- Focused package-boundary test passed:
+  `pnpm vitest run test/module/package-boundaries.test.ts` reported 1 passing
+  test file and 19 passing tests.
+- Formatter/whitespace check passed:
+  `pnpm exec oxfmt --check test/module/package-boundaries.test.ts packages/convex/generated/operationHandles/testing.ts packages/convex/src/generated/operationHandles/mcp.ts && git diff --check`.
+- Full Ginko check passed:
+  `pnpm run check` reported 90 passing test files, 1 skipped test file, 713
+  passing tests, and 1 skipped test.
+- The full check also exercised package typecheck/build and playground Nuxt
+  prepare. The playground generated Trellis virtual operation modules for
+  client, server, testing, MCP, operation refs, operation runtime, and operation
+  projections without import-resolution failures.
+
+### Notes
+
+- This does not add a compatibility path or a second source of truth. It keeps
+  Ginko's committed derived handles aligned with Trellis' current generator and
+  acknowledges the already-used public MCP operation-handle export.
+- The broad local-workspace Ginko consumer gate is now green. Remaining
+  consumer proof still needs package/tarball verification and the `i18n-cms`
+  app smoke/E2E pass when that slice starts.
+
 ## Next Slice Candidates
 
-1. Run a broader Ginko check against local Trellis, then decide whether the
-   next consumer gate should be Ginko package packing or the `i18n-cms` app
-   smoke/E2E pass.
-2. Extend explain output to display field-level contract metadata and record-id
+1. Run the next Trellis-side broad release gate, preferably `pnpm run
+   release:verify`, or a narrower leading subset if runtime makes the full gate
+   impractical in one slice.
+2. Run Ginko package/tarball verification against the local Trellis tarball
+   before moving to `i18n-cms`.
+3. Extend explain output to display field-level contract metadata and record-id
    resolution hints for operation-backed MCP tools.
-3. Audit the remaining `release:verify` gates from the current branch and run
-   the next broad gate that is likely to expose RFC-specific drift.
