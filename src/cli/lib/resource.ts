@@ -307,6 +307,7 @@ function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
     tenantSource: ctx.tenantField ? 'ctx' : 'appIdentity',
   })
   const lane = resourceBackendLane(ctx)
+  const identityType = ctx.kind === 'workspace' ? 'AccessIdentity' : 'AppIdentity'
   const operationOwnerCheck = ctx.tenantField
     ? `${ctx.singularCamel}.${ctx.tenantField} === appIdentity.workspaceId`
     : `${ctx.singularCamel}.${ctx.ownerField} === appIdentity.userId`
@@ -316,6 +317,8 @@ function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
   const scopeProperty = ctx.tenantField ? `  scope: workspaceScope(),\n` : ''
 
   return `
+import type { Doc } from '../../_generated/dataModel'
+import type { ${identityType} } from '../../auth/appIdentity'
 import { requireAuth, requireRecord } from '@lupinum/trellis/auth'
 ${workspaceScopeImport}import {
   implementOperation,
@@ -334,6 +337,9 @@ import {
   ${ctx.singularCamel}DeletePermission,
 } from './permissions'
 import { mutation } from '../../functions'
+
+type ${ctx.singularPascal}OperationIdentity = NonNullable<${identityType}>
+type Loaded${ctx.singularPascal} = { ${ctx.singularCamel}: Doc<'${ctx.tableName}'> }
 
 export const create${ctx.singularPascal}Operation = implementOperation(create${ctx.singularPascal}Descriptor, {
   permission: ${ctx.singularCamel}CreatePermission,
@@ -355,7 +361,10 @@ ${scopeProperty}  load: async (ctx, args) => {
     return { ${ctx.singularCamel} }
   },
   authorize: {
-    check: async (appIdentity, { ${ctx.singularCamel} }) => ${operationOwnerCheck},
+    check: async (
+      appIdentity: ${ctx.singularPascal}OperationIdentity,
+      { ${ctx.singularCamel} }: Loaded${ctx.singularPascal},
+    ) => ${operationOwnerCheck},
   },
   preview: async (_ctx, _args, { ${ctx.singularCamel} }) => operationPreview({
     summary: \`Will permanently delete "\${${ctx.singularCamel}.name}"\`,
@@ -441,6 +450,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   const removeExport = ctx.hasMcp
     ? `export const remove = mutation.${lane}(remove${ctx.singularPascal}Operation)\n`
     : `export const remove = mutation.${lane}({
+  id: '${ctx.tableName}.remove',
   args: delete${ctx.singularPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}DeletePermission`)}  load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
@@ -458,6 +468,7 @@ ${resourcePermissionProperty(ctx, `${ctx.singularCamel}DeletePermission`)}  load
   const createExport = ctx.hasMcp
     ? `export const create = mutation.${lane}(create${ctx.singularPascal}Operation)\n`
     : `export const create = mutation.${lane}({
+  id: '${ctx.tableName}.create',
   args: create${ctx.singularPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}CreatePermission`)}  handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
@@ -488,6 +499,7 @@ import { mutation, query } from '../../functions'
 ${ctx.hasMcp ? `import { create${ctx.singularPascal}Operation, remove${ctx.singularPascal}Operation } from './operations'\n` : ''}
 
 export const list = query.${lane}({
+  id: '${ctx.tableName}.list',
   args: list${ctx.pluralPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  handler: async (ctx) => {
     const appIdentity = await ctx.appIdentity()
@@ -501,6 +513,7 @@ ${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  handle
 })
 
 export const get = query.${lane}({
+  id: '${ctx.tableName}.get',
   args: get${ctx.singularPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  load: async (ctx, args) => {
     const loaded = await ctx.db.get(args.id)
@@ -516,6 +529,7 @@ ${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  load: 
 ${createExport}
 
 export const update = mutation.${lane}({
+  id: '${ctx.tableName}.update',
   args: update${ctx.singularPascal}.args,
 ${resourcePermissionProperty(ctx, `${ctx.singularCamel}ReadPermission`)}  load: async (ctx, args) => {
     const loaded = await ctx.db.get(args.id)
@@ -1000,7 +1014,7 @@ export async function buildResourceTemplateSet(
       ownership: 'authored',
     },
     {
-      path: `convex/features/${ctx.tableName}/tests.ts`,
+      path: `convex/features/${ctx.tableName}/tests.test.ts`,
       content: resourceTestTemplate(ctx),
       ownership: 'authored',
     },

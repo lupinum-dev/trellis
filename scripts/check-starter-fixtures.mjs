@@ -360,14 +360,7 @@ function rewriteGeneratedPackageDependency(appRoot, trellisTarballPath) {
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
 }
 
-function runGeneratedValidation(template, appRoot, trellisTarballPath) {
-  rewriteGeneratedPackageDependency(appRoot, trellisTarballPath)
-
-  const install = runCommand('pnpm', ['install', '--ignore-scripts', '--no-frozen-lockfile'], {
-    cwd: appRoot,
-  })
-  assert(install.status === 0, formatCommandFailure(`${template} install`, install))
-
+function runGeneratedRuntimeChecks(template, appRoot) {
   const codegen = runCommand(
     'pnpm',
     ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck=disable'],
@@ -401,6 +394,20 @@ function runGeneratedValidation(template, appRoot, trellisTarballPath) {
     prepare: 'pass',
     typecheck: 'pass',
     build: build ? 'pass' : null,
+  }
+}
+
+function runGeneratedValidation(template, appRoot, trellisTarballPath) {
+  rewriteGeneratedPackageDependency(appRoot, trellisTarballPath)
+
+  const install = runCommand('pnpm', ['install', '--ignore-scripts', '--no-frozen-lockfile'], {
+    cwd: appRoot,
+  })
+  assert(install.status === 0, formatCommandFailure(`${template} install`, install))
+
+  return {
+    install: 'pass',
+    ...runGeneratedRuntimeChecks(template, appRoot),
   }
 }
 
@@ -439,6 +446,92 @@ function assertStarterOperationRegistryCurrent(template, appRoot) {
       result.status === 0,
       formatCommandFailure(`${template} operation registry check`, result),
     )
+  }
+}
+
+function assertWorkspaceMcpAddEntityFirstRun(appRoot) {
+  const result = runCli(['add', 'entity', 'project', '--cwd', appRoot, '--json'])
+  assert(result.status === 0, formatCommandFailure('workspace-mcp add entity', result))
+
+  const report = parseJson(result.stdout, 'workspace-mcp add entity')
+  assert(report.status === 'ok', 'workspace-mcp add entity did not return ok status.')
+  assert(report.label === 'add:entity:project', 'workspace-mcp add entity returned wrong label.')
+  assertSameSet(
+    report.generated,
+    ['generated/operation-projections.ts'],
+    'workspace-mcp add entity generated files',
+  )
+
+  const requiredAuthored = [
+    'shared/features/projects/contract.ts',
+    'shared/features/projects/operations.ts',
+    'convex/features/projects/domain.ts',
+    'convex/features/projects/operations.ts',
+    'server/mcp/tools/create-project.ts',
+    'server/mcp/tools/delete-project.ts',
+  ]
+  for (const path of requiredAuthored) {
+    assert(report.authored.includes(path), `workspace-mcp add entity did not report ${path}.`)
+    assert(existsSync(resolve(appRoot, path)), `workspace-mcp add entity did not write ${path}.`)
+  }
+  assert(
+    !report.authored.includes('generated/operation-projections.ts'),
+    'workspace-mcp add entity reported generated projections as authored.',
+  )
+
+  const sharedOperations = readFileSync(
+    resolve(appRoot, 'shared/features/projects/operations.ts'),
+    'utf8',
+  )
+  assert(
+    sharedOperations.includes('operationPreviewValidator'),
+    'workspace-mcp add entity descriptor is missing preview return validation.',
+  )
+  assert(
+    sharedOperations.includes("returns: v.id('projects')"),
+    'workspace-mcp add entity create descriptor is missing a return validator.',
+  )
+  assert(
+    sharedOperations.includes('returns: v.null()'),
+    'workspace-mcp add entity remove descriptor is missing a return validator.',
+  )
+
+  const createTool = readFileSync(resolve(appRoot, 'server/mcp/tools/create-project.ts'), 'utf8')
+  assert(
+    createTool.includes("import { operations } from '#trellis/operations/mcp'"),
+    'workspace-mcp add entity create tool did not use the virtual operation handle alias.',
+  )
+
+  const operationProjections = readFileSync(
+    resolve(appRoot, 'generated/operation-projections.ts'),
+    'utf8',
+  )
+  assert(
+    operationProjections.includes('// AUTO-GENERATED. Do not edit.'),
+    'workspace-mcp add entity projections are missing the generated banner.',
+  )
+  assert(
+    operationProjections.includes("'projects.create': 'features/projects/domain:create'"),
+    'workspace-mcp add entity projections are missing project create.',
+  )
+  assert(
+    operationProjections.includes("'projects.remove': 'features/projects/domain:remove'"),
+    'workspace-mcp add entity projections are missing project remove.',
+  )
+  assert(
+    operationProjections.includes(
+      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
+    ),
+    'workspace-mcp add entity projections are missing project remove preview.',
+  )
+
+  const doctorSummary = assertDoctorPass('workspace-mcp add entity', appRoot)
+  assertStarterOperationRegistryCurrent('workspace-mcp', appRoot)
+
+  return {
+    command: 'pass',
+    doctor: doctorSummary,
+    operationRegistry: 'pass',
   }
 }
 
@@ -503,11 +596,19 @@ try {
     const validationSummary = shouldInstallGeneratedApps
       ? runGeneratedValidation(template, appRoot, trellisTarballPath)
       : null
+    const addEntitySummary =
+      template === 'workspace-mcp' ? assertWorkspaceMcpAddEntityFirstRun(appRoot) : null
+    const addEntityValidationSummary =
+      template === 'workspace-mcp' && shouldInstallGeneratedApps
+        ? runGeneratedRuntimeChecks('workspace-mcp add entity', appRoot)
+        : null
     summaries.push({
       template,
       files: expectedFiles.length,
       doctor: doctorSummary,
       validation: validationSummary,
+      addEntity: addEntitySummary,
+      addEntityValidation: addEntityValidationSummary,
     })
   }
 
@@ -531,6 +632,23 @@ try {
         `typecheck ${summary.validation.typecheck}`,
       )
       if (summary.validation.build) details.push(`build ${summary.validation.build}`)
+    }
+    if (summary.addEntity) {
+      details.push(
+        `add entity ${summary.addEntity.command}`,
+        `add entity doctor ${summary.addEntity.doctor.pass} pass / ${summary.addEntity.doctor.warn} warn / ${summary.addEntity.doctor.fail} fail`,
+        `add entity operation registry ${summary.addEntity.operationRegistry}`,
+      )
+    }
+    if (summary.addEntityValidation) {
+      details.push(
+        `add entity codegen ${summary.addEntityValidation.codegen}`,
+        `add entity prepare ${summary.addEntityValidation.prepare}`,
+        `add entity typecheck ${summary.addEntityValidation.typecheck}`,
+      )
+      if (summary.addEntityValidation.build) {
+        details.push(`add entity build ${summary.addEntityValidation.build}`)
+      }
     }
     console.log(`${summary.template}: ${details.join(', ')}`)
   }

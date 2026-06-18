@@ -21,6 +21,7 @@ import { v } from 'convex/values'
 
 import { defineAppIdentity, type DefaultAppIdentity } from '../auth/define-app-identity.js'
 import type { authRequired } from '../auth/define-guard.js'
+import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny, type open } from '../auth/index.js'
 import {
@@ -1219,6 +1220,40 @@ type AuthenticatedStructuredQueryBuilder<
     >,
   ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>)
 
+type WorkspaceStructuredQueryBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = DefinedOperationQueryBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never; permission: ErasedPermissionDefinition<string> }
+    >,
+  ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>)
+
 type StructuredMutationBuilder<
   TCtx extends {
     caller: () => Promise<unknown>
@@ -1320,6 +1355,40 @@ type AuthenticatedStructuredMutationBuilder<
         >,
         'guard'
       > & { guard?: never }
+    >,
+  ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
+
+type WorkspaceStructuredMutationBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = DefinedOperationMutationBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never; permission: ErasedPermissionDefinition<string> }
     >,
   ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
 
@@ -1497,6 +1566,40 @@ type AuthenticatedStructuredActionBuilder<
         >,
         'guard'
       > & { guard?: never }
+    >,
+  ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>)
+
+type WorkspaceStructuredActionBuilder<
+  TCtx extends {
+    caller: () => Promise<unknown>
+    actingFor: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = DefinedOperationActionBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never; permission: ErasedPermissionDefinition<string> }
     >,
   ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>)
 
@@ -2677,7 +2780,7 @@ type QueryWithBackendLanes<
     Visibility,
     TActor
   >
-  workspace: AuthenticatedStructuredQueryBuilder<
+  workspace: WorkspaceStructuredQueryBuilder<
     WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
     Visibility,
     TActor
@@ -2712,7 +2815,7 @@ type MutationWithBackendLanes<
     >
   >
   workspace: MutationPreviewProjectionBuilder<
-    AuthenticatedStructuredMutationBuilder<
+    WorkspaceStructuredMutationBuilder<
       WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
       Visibility,
       TActor
@@ -2745,7 +2848,7 @@ type ActionWithBackendLanes<
     Visibility,
     TActor
   >
-  workspace: AuthenticatedStructuredActionBuilder<
+  workspace: WorkspaceStructuredActionBuilder<
     WorkspaceCtx<ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
     Visibility,
     TActor
@@ -3697,7 +3800,7 @@ function buildTrellisRuntime<
       QueryVisibility,
       TActor
     >
-    workspace: AuthenticatedStructuredQueryBuilder<
+    workspace: WorkspaceStructuredQueryBuilder<
       WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
       QueryVisibility,
       TActor
@@ -3725,7 +3828,7 @@ function buildTrellisRuntime<
       >
     >
     workspace: MutationPreviewProjectionBuilder<
-      AuthenticatedStructuredMutationBuilder<
+      WorkspaceStructuredMutationBuilder<
         WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
         MutationVisibility,
         TActor
@@ -3755,7 +3858,7 @@ function buildTrellisRuntime<
           InternalQueryVisibility,
           TActor
         >
-        workspace: AuthenticatedStructuredQueryBuilder<
+        workspace: WorkspaceStructuredQueryBuilder<
           WorkspaceCtx<QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
           InternalQueryVisibility,
           TActor
@@ -3785,7 +3888,7 @@ function buildTrellisRuntime<
           >
         >
         workspace: MutationPreviewProjectionBuilder<
-          AuthenticatedStructuredMutationBuilder<
+          WorkspaceStructuredMutationBuilder<
             WorkspaceCtx<MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
             InternalMutationVisibility,
             TActor
@@ -3808,7 +3911,7 @@ function buildTrellisRuntime<
             ActionVisibility,
             TActor
           >
-          workspace: AuthenticatedStructuredActionBuilder<
+          workspace: WorkspaceStructuredActionBuilder<
             WorkspaceCtx<ActionCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>, TActor>,
             ActionVisibility,
             TActor

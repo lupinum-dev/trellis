@@ -4315,13 +4315,84 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 77: Workspace MCP Add-Entity First-Run Validation
+
+### Proof
+
+- The release-gate starter validation covered clean `trellis init` apps, but it
+  did not validate the greenfield first-run path of adding a new entity to the
+  workspace-MCP starter.
+- Added workspace-MCP add-entity validation to
+  `scripts/check-starter-fixtures.mjs`:
+  - runs `trellis add entity project --json`
+  - asserts authored files and generated projection classification
+  - asserts generated operation descriptors have return/preview contracts
+  - asserts generated MCP tools use `#trellis/operations/mcp`
+  - asserts generated operation projections are current
+  - reruns doctor and operation-registry checks
+  - in typecheck/build modes, reruns Convex codegen, Nuxt prepare, typecheck, and
+    optional build after the entity is added
+- The first typecheck validation failed after the script extension. The failure
+  exposed real generated-app issues:
+  - generated raw workspace handlers lacked explicit `id` metadata
+  - raw workspace lane public types rejected `permission`, even though runtime
+    requires it
+  - generated destructive operation authorization had implicit `any` parameters
+  - generated feature tests were emitted as `tests.ts`, causing app typecheck to
+    pull in test-only Vite setup
+
+### Implementation
+
+- Added workspace-specific raw query, mutation, and action builder types in
+  `src/runtime/functions/index.ts`.
+- Workspace raw lane types now require
+  `permission: ErasedPermissionDefinition<string>`, matching runtime enforcement
+  instead of preserving an untyped permission side channel.
+- Updated the entity generator in `src/cli/lib/resource.ts`:
+  - raw list/get/create/update/remove handlers now emit explicit IDs
+  - MCP destructive operation authorization emits typed identity and loaded
+    record parameters
+  - generated feature tests now use `tests.test.ts` so app typecheck does not
+    include test-only files
+- Updated `tests/unit/cli-add-resource.test.ts` and
+  `tests/dts/functions.types.ts` to cover the generated IDs, operation type
+  imports, and raw workspace permission typing.
+
+### Verification
+
+- Initial add-resource proof failed as expected on missing generated handler IDs:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "workspace resource slice|MCP-facing resource"`.
+- Initial starter typecheck validation failed as expected after enabling the
+  add-entity first-run check:
+  `pnpm run check:starter-fixtures:typecheck`.
+- Full add-resource suite passed with 9 tests:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts`.
+- Type contract check passed:
+  `pnpm run test:types:contracts`.
+- Focused lint passed:
+  `pnpm exec eslint src/runtime/functions/index.ts src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts tests/dts/functions.types.ts scripts/check-starter-fixtures.mjs`.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/runtime/functions/index.ts src/cli/lib/init.ts src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts tests/dts/functions.types.ts scripts/check-starter-fixtures.mjs journal2.md`.
+- Starter fixture doctor validation passed and now reports the add-entity proof:
+  `node scripts/check-starter-fixtures.mjs`.
+- Starter fixture typecheck validation passed, including workspace-MCP after
+  `trellis add entity project`:
+  `pnpm run check:starter-fixtures:typecheck`.
+
+### Notes
+
+- This closes the first-run validation gap for
+  `trellis add entity project --workspace --mcp`.
+- The workspace raw lane type now matches the hardening runtime invariant:
+  workspace handlers require concrete permission definitions.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
-1. Continue the `trellis add entity project --workspace --mcp` audit for
-   first-run starter validation.
-2. Close the backend-only destructive exposure requirement with explicit
+1. Close the backend-only destructive exposure requirement with explicit
    metadata, doctor/explain visibility, and filtered handle generation, if the
    current operation registry cannot already prove it.
-3. After the remaining RFC slices are implemented, rerun full
+2. After the remaining RFC slices are implemented, rerun full
    `pnpm run release:verify`, regenerate local tarballs, and rerun the CMS and
    i18n consumer proofs.

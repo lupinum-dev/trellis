@@ -170,10 +170,10 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
     ).resolves.not.toContain('guard:')
     await expect(
-      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/tests.test.ts'), 'utf8'),
     ).resolves.toContain("ctx.asUser({ authKey: 'owner-1' })")
     await expect(
-      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/tests.test.ts'), 'utf8'),
     ).not.resolves.toContain('raw.withIdentity')
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       "import { projectsTables } from './features/projects'",
@@ -211,6 +211,21 @@ describe('trellis add entity', () => {
     ).resolves.toContain("q.eq('workspaceId', ctx.workspaceId)")
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.list'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.get'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.create'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.update'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.remove'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
     ).resolves.toContain('workspaceId: ctx.workspaceId')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
@@ -227,16 +242,16 @@ describe('trellis add entity', () => {
       'composeFeatures([workspacesFeature, usersFeature, todosFeature, projectsFeature])',
     )
     await expect(
-      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/tests.test.ts'), 'utf8'),
     ).resolves.toContain('seedTenant')
     await expect(
-      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/tests.test.ts'), 'utf8'),
     ).resolves.toContain('keeps tenants isolated from each other')
     await expect(
-      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/tests.test.ts'), 'utf8'),
     ).resolves.toContain('beta.users.member.query(api.features.projects.domain.get')
     await expect(
-      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/tests.test.ts'), 'utf8'),
     ).resolves.toContain('denies a viewer creating a project')
     await expect(
       readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
@@ -262,6 +277,15 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('removeProjectOperation')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain("import type { Doc } from '../../_generated/dataModel'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain("import type { AccessIdentity } from '../../auth/appIdentity'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain("type LoadedProject = { project: Doc<'projects'> }")
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.toContain('createProjectOperation')
@@ -292,6 +316,15 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
     ).resolves.toContain('mutation.workspace(createProjectOperation)')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.list'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.get'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain("id: 'projects.update'")
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).resolves.not.toContain('guard:')

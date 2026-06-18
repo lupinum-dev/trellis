@@ -77,6 +77,20 @@ runtime.mutation.workspace(archiveImplementation)
 runtime.mutation.workspace(previewOf(archiveImplementation))
 runtime.mutation.workspace.preview(archiveImplementation)
 
+runtime.query.workspace({
+  id: 'entries.list',
+  args: {},
+  permission: archivePermission,
+  handler: async () => [{ archived: true as const }],
+})
+
+// @ts-expect-error raw workspace handlers require concrete permission metadata.
+runtime.query.workspace({
+  id: 'entries.missing-permission',
+  args: {},
+  handler: async () => null,
+})
+
 implementOperation(archiveDescriptor, {
   // @ts-expect-error descriptor implementations carry permission metadata, not protected-lane guards.
   guard: true,
