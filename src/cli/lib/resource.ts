@@ -1,6 +1,11 @@
-import { access, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
+import {
+  buildOperationRegistry,
+  renderOperationRegistryGeneratedFiles,
+} from '../../module-internals/operation-registry-codegen.js'
+import { extractPublicSurfaceCodegenMetadata } from '../../module-internals/public-surface-codegen.js'
 import type { InitTemplateSet, TemplateFile } from './init.js'
 
 type ResourceAppKind = 'personal' | 'workspace' | 'author-owned'
@@ -344,7 +349,6 @@ ${scopeProperty}  handler: async (ctx, args) => {
 
 export const remove${ctx.singularPascal}Operation = implementOperation(remove${ctx.singularPascal}Descriptor, {
   permission: ${ctx.singularCamel}DeletePermission,
-  executeFunctionRef: 'features/${ctx.tableName}/domain:remove',
 ${scopeProperty}  load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')
@@ -850,6 +854,64 @@ async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Prom
   await writeFile(path, next)
 }
 
+async function patchOperationProjectionRegistryImport(cwd: string): Promise<void> {
+  const path = resolve(cwd, 'convex/functions.ts')
+  const source = await readFile(path, 'utf8')
+  const registryImport =
+    "import { operationProjectionRegistry } from '../generated/operation-projections'"
+
+  const withImport = source.includes(registryImport)
+    ? source
+    : source.replace(
+        /^(import \{ defineTrellis \} from '@lupinum\/trellis\/app'\n)/m,
+        `$1\n${registryImport}\n`,
+      )
+
+  if (!withImport.includes(registryImport)) {
+    throw new Error(
+      '[trellis] Could not patch convex/functions.ts. Expected a canonical defineTrellis import.',
+    )
+  }
+
+  if (withImport.includes('operationProjections: operationProjectionRegistry')) {
+    if (withImport !== source) {
+      await writeFile(path, withImport)
+    }
+    return
+  }
+
+  const optionsObjectStart = withImport.indexOf(',\n  {\n')
+  if (optionsObjectStart === -1) {
+    throw new Error(
+      '[trellis] Could not patch convex/functions.ts. Expected a canonical defineTrellis options object.',
+    )
+  }
+
+  const insertAt = optionsObjectStart + ',\n  {\n'.length
+  const next = `${withImport.slice(0, insertAt)}    operationProjections: operationProjectionRegistry,\n${withImport.slice(insertAt)}`
+  await writeFile(path, next)
+}
+
+async function refreshOperationProjectionRegistry(cwd: string): Promise<void> {
+  const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
+  const rendered = renderOperationRegistryGeneratedFiles(registry, {
+    apiImport: '../convex/_generated/api',
+    defineOperationHandleImport: '@lupinum/trellis/mcp',
+    operationHandlesPath: 'generated/operation-handles/mcp.ts',
+    operationProjectionsPath: 'generated/operation-projections.ts',
+    operationRefsPath: 'generated/operation-refs.ts',
+    projectOperationRefImport: '@lupinum/trellis/mcp',
+    runtimes: ['mcp'],
+  })
+  const projections = rendered.find((file) => file.path === 'generated/operation-projections.ts')
+  if (!projections) {
+    throw new Error('[trellis] Operation projection registry generation did not emit a root file.')
+  }
+
+  await mkdir(resolve(cwd, 'generated'), { recursive: true })
+  await writeFile(resolve(cwd, projections.path), projections.content, 'utf8')
+}
+
 export async function buildResourceTemplateSet(
   cwd: string,
   resourceName: string,
@@ -936,6 +998,10 @@ export async function buildResourceTemplateSet(
       await patchSchema(targetCwd, ctx)
       await patchFeatureManifest(targetCwd, ctx)
       await patchMcpRuntime(targetCwd, ctx)
+      if (ctx.hasMcp) {
+        await patchOperationProjectionRegistryImport(targetCwd)
+        await refreshOperationProjectionRegistry(targetCwd)
+      }
     },
   }
 }

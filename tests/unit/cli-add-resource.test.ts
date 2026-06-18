@@ -256,6 +256,9 @@ describe('trellis add entity', () => {
     ).resolves.toContain('implementOperation(createProjectDescriptor')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).not.resolves.toContain('executeFunctionRef')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
     ).not.resolves.toContain('operation.mutation')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
@@ -344,6 +347,21 @@ describe('trellis add entity', () => {
     await expect(readFile(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')).resolves.toContain(
       'api.permissions.context.getAccessContext',
     )
+    await expect(readFile(resolve(cwd, 'convex/functions.ts'), 'utf8')).resolves.toContain(
+      "import { operationProjectionRegistry } from '../generated/operation-projections'",
+    )
+    await expect(readFile(resolve(cwd, 'convex/functions.ts'), 'utf8')).resolves.toContain(
+      'operationProjections: operationProjectionRegistry',
+    )
+    const projectionSource = await readFile(
+      resolve(cwd, 'generated/operation-projections.ts'),
+      'utf8',
+    )
+    expect(projectionSource).toContain("'projects.create': 'features/projects/domain:create'")
+    expect(projectionSource).toContain("'projects.remove': 'features/projects/domain:remove'")
+    expect(projectionSource).toContain(
+      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
+    )
 
     const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
     expect(registry.operations).toContainEqual(
@@ -381,6 +399,7 @@ describe('trellis add entity', () => {
       apiImport: '../../convex/_generated/api',
       defineOperationHandleImport: '@lupinum/trellis/mcp',
       operationHandlesPath: '.trellis/generated/operation-handles/mcp.ts',
+      operationProjectionsPath: '.trellis/generated/operation-projections.ts',
       operationRefsPath: '.trellis/generated/operation-refs.ts',
       projectOperationRefImport: '@lupinum/trellis/mcp',
       runtimes: ['mcp'],
@@ -394,6 +413,14 @@ describe('trellis add entity', () => {
     expect(handles).toContain("previewOperation: 'mutation'")
     expect(handles).toContain('projects: {')
     expect(handles).toContain('remove: removeProjectHandle')
+    const projections = rendered.find((file) =>
+      file.path.endsWith('/operation-projections.ts'),
+    )?.content
+    expect(projections).toContain("'projects.create': 'features/projects/domain:create'")
+    expect(projections).toContain("'projects.remove': 'features/projects/domain:remove'")
+    expect(projections).toContain(
+      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
+    )
   })
 
   it('scaffolds an author-owned resource slice with the existing author convention', async () => {

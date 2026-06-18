@@ -757,10 +757,60 @@ loops.
   `executeFunctionRef` string until there is a refresh path for the root
   projection registry after adding new operations to an existing app.
 
+## Slice 16: Add-Resource Projection Registry Refresh
+
+### Proof
+
+- Added failing add-resource assertions for the maintained workspace-MCP path:
+  generated resource operation implementations should not contain
+  `executeFunctionRef`, `convex/functions.ts` should be wired to the root
+  projection registry, and `generated/operation-projections.ts` should include
+  the newly added resource execute and preview projections.
+- The initial focused run failed on the generated
+  `executeFunctionRef: 'features/projects/domain:remove'` line, proving the
+  add-resource path still relied on an app-authored execute target string after
+  the runtime had learned to read generated projection registries.
+
+### Implementation
+
+- Removed generated `executeFunctionRef` output from add-resource destructive
+  operation implementations.
+- Added an add-resource MCP after-write step that patches
+  `convex/functions.ts` with a Convex-safe relative
+  `operationProjectionRegistry` import and `defineTrellis(...)` option when
+  needed.
+- Rebuilt the root `generated/operation-projections.ts` file from the scanner
+  after new resource files are written, using the operation registry as the
+  single source of truth for confirmation execute and preview targets.
+- Kept this refresh scoped to the Convex-needed projection registry; Nuxt MCP
+  operation refs and handles remain module-generated from the same registry
+  during normal Nuxt prepare instead of becoming CLI-written duplicates.
+
+### Verification
+
+- Initial focused proof failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts -t "MCP-facing resource"`.
+- After implementation, the same focused proof passed.
+- Adjacent generated-artifact suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-add-resource.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/operation-registry-codegen.test.ts`.
+- Workspace-MCP CLI-init smoke passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts -t "first-class workspace MCP app"`.
+- `pnpm run build:cli`, `pnpm run lint:src:core`,
+  `pnpm run test:types:public`, and `pnpm run test:types:contracts` passed.
+- `pnpm exec oxfmt --check src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts journal2.md`
+  and `git diff --check` passed.
+- Source scan confirmed the removed add-resource `executeFunctionRef` template
+  is gone.
+
+### Notes
+
+- This closes the normal generated-resource path that was still duplicating
+  execute-target facts in app-authored operation code.
+- Remaining explicit `executeFunctionRef` and manual MCP ref bindings are now
+  concentrated in examples, tests for advanced/public APIs, harness code, and
+  component examples that still need a separate review or hard cut.
+
 ## Next Slice Candidates
 
-1. Add a CLI/module-owned refresh path for root `generated/operation-projections.ts`
-   after generated resources add new operation projections, then delete
-   add-resource `executeFunctionRef` output.
-2. Hard-cut maintained MCP examples to generated handles where the registry can
+1. Hard-cut maintained MCP examples to generated handles where the registry can
    own projection refs and MCP operation kinds.
