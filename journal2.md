@@ -207,9 +207,61 @@ loops.
 - The next generated-artifact slice can now rely on the registry builder to
   stop when unsupported projection syntax is present.
 
+## Slice 5: Registry-Rendered Refs And Handles
+
+### Proof
+
+- Added a failing proof for a runtime-safe authoring shape:
+  `shared/features/**/operations.ts` exports `defineOperationDescriptor(...)`
+  descriptors, while `convex/features/**/domain.ts` exports canonical
+  `query|mutation.<lane>(descriptor)` projections.
+- The first focused run failed because shared descriptors were not scanned, so
+  Convex projections imported from shared files looked like dynamic operation
+  references.
+- After adding shared descriptor scanning, the next focused run failed because
+  no registry-generated files renderer existed.
+
+### Implementation
+
+- Extended public-surface operation scanning to include `shared/**/*.ts` and
+  recognize `defineOperationDescriptor(...)` as operation metadata.
+- Updated public-surface watch refresh detection so shared descriptor edits
+  refresh generated public-surface artifacts.
+- Added registry rendering for `.trellis`-style generated operation refs and
+  operation handles.
+- Generated refs import descriptors from runtime-safe shared files, stamp
+  Convex refs with `projectOperationRef(...)`, and derive string `functionRef`
+  values from scanned projection source.
+- Generated handles import descriptors from shared files and refs from the
+  generated ref module; they do not import Convex handler/projection files.
+- Broadened the handle module renderer to support descriptor imports grouped by
+  source file while keeping the existing single-import manifest path working.
+
+### Verification
+
+- Initial proof run failed at the shared descriptor scanner boundary:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts -t "renders operation refs and handles"`.
+- After scanner support, the same proof failed at the missing renderer
+  boundary, then passed after implementing
+  `renderOperationRegistryGeneratedFiles(...)`.
+- `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+  passed.
+- `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` passed.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- This slice proves the safe descriptor import boundary and scan-derived
+  generated artifacts. It does not yet wire these generated files into the Nuxt
+  installer or remove fixture-manifest projection duplication.
+- The next slice should make a maintained fixture or starter consume the
+  registry-rendered files rather than manifest-authored refs/handles.
+
 ## Next Slice Candidates
 
-1. Generate runtime-filtered handle modules from scanned projection facts.
+1. Replace one maintained fixture/starter with registry-rendered refs and
+   handles.
 2. Add scanner diagnostics for re-exported projection forms.
 3. Replace one maintained MCP example with generated handles after scan-backed
    handles exist.

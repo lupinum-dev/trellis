@@ -1,4 +1,7 @@
+import { posix } from 'node:path'
+
 import type { OperationHandleBindingInput } from './operation-handle-codegen.js'
+import { renderOperationHandlesModule } from './operation-handle-codegen.js'
 import { renderConvexFunctionRef } from './operation-ref-codegen.js'
 import type { OperationRefBindingInput } from './operation-ref-codegen.js'
 import type {
@@ -6,6 +9,7 @@ import type {
   OperationProjectionBindingMetadata,
   PublicSurfaceCodegenMetadata,
 } from './public-surface-codegen.js'
+import { renderGeneratedApiPath } from './ref-codegen.js'
 
 export type OperationRegistryProjectionKind = 'execute' | 'preview'
 
@@ -31,6 +35,20 @@ export interface OperationRegistryOperation {
 
 export interface OperationRegistry {
   operations: OperationRegistryOperation[]
+}
+
+export interface OperationRegistryGeneratedFile {
+  path: string
+  content: string
+}
+
+export interface OperationRegistryGeneratedFilesOptions {
+  operationRefsPath: string
+  operationHandlesPath: string
+  projectOperationRefImport: string
+  defineOperationHandleImport: string
+  apiImport: string
+  runtimes?: OperationHandleBindingInput['runtimes']
 }
 
 type MutableOperationRegistryOperation = Omit<OperationRegistryOperation, 'execute'> & {
@@ -89,6 +107,101 @@ function getOperationHandleExportName(operationExportName: string): string {
 
 function getOperationRefExportName(projection: OperationRegistryProjection): string {
   return `${projection.exportName}Ref`
+}
+
+function renderImport(names: readonly string[], from: string): string {
+  if (names.length > 1) {
+    return [`import {`, ...names.map((name) => `  ${name},`), `} from '${from}'`].join('\n')
+  }
+
+  return `import { ${names.join(', ')} } from '${from}'`
+}
+
+function withoutExtension(path: string): string {
+  return path.replace(/\.[cm]?[jt]sx?$/u, '')
+}
+
+function toRelativeImport(fromFile: string, toFile: string): string {
+  const fromDirectory = posix.dirname(fromFile)
+  const relativePath = posix.relative(fromDirectory, withoutExtension(toFile))
+  if (relativePath.startsWith('.')) return relativePath
+  return `./${relativePath}`
+}
+
+function descriptorImportsFor(
+  operations: readonly OperationRegistryOperation[],
+  fromFile: string,
+): { from: string; names: string[] }[] {
+  const namesByFile = new Map<string, Set<string>>()
+  for (const operation of operations) {
+    const names = namesByFile.get(operation.file) ?? new Set<string>()
+    names.add(operation.exportName)
+    namesByFile.set(operation.file, names)
+  }
+
+  return [...namesByFile.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([file, names]) => ({
+      from: toRelativeImport(fromFile, file),
+      names: [...names].sort((left, right) => left.localeCompare(right)),
+    }))
+}
+
+function renderOperationRefsModuleFromRegistry(
+  registry: OperationRegistry,
+  options: Pick<
+    OperationRegistryGeneratedFilesOptions,
+    'apiImport' | 'operationRefsPath' | 'projectOperationRefImport'
+  >,
+): string {
+  if (registry.operations.length === 0) {
+    throw new Error('Operation registry refs module requires at least one operation')
+  }
+
+  const lines = [
+    '// AUTO-GENERATED. Do not edit.',
+    renderImport(['projectOperationRef'], options.projectOperationRefImport),
+    '',
+    renderImport(['api'], options.apiImport),
+  ]
+
+  for (const descriptorImport of descriptorImportsFor(
+    registry.operations,
+    options.operationRefsPath,
+  )) {
+    lines.push(renderImport(descriptorImport.names, descriptorImport.from))
+  }
+
+  lines.push('')
+
+  const refs = buildOperationRefBindingsFromRegistry(registry)
+  const projectionByRefName = new Map<string, OperationRegistryProjection>()
+  for (const operation of registry.operations) {
+    projectionByRefName.set(getOperationRefExportName(operation.execute), operation.execute)
+    if (operation.preview) {
+      projectionByRefName.set(getOperationRefExportName(operation.preview), operation.preview)
+    }
+  }
+
+  refs.forEach((ref, index) => {
+    const projection = projectionByRefName.get(ref.exportName)
+    if (!projection) {
+      throw new Error(`Operation registry projection for ref "${ref.exportName}" was not found.`)
+    }
+
+    lines.push(
+      `export const ${ref.exportName} = projectOperationRef(`,
+      `  ${ref.descriptorName},`,
+      `  '${ref.projection}',`,
+      `  ${renderGeneratedApiPath(ref.apiPath, 'Operation ref')},`,
+      `  { functionRef: '${projection.functionRef}' },`,
+      ')',
+    )
+    if (index < refs.length - 1) lines.push('')
+  })
+
+  lines.push('')
+  return lines.join('\n')
 }
 
 export function buildOperationRegistry(metadata: PublicSurfaceCodegenMetadata): OperationRegistry {
@@ -183,6 +296,7 @@ export function buildOperationRefBindingsFromRegistry(
 
 export function buildOperationHandleBindingsFromRegistry(
   registry: OperationRegistry,
+  options: { runtimes?: OperationHandleBindingInput['runtimes'] } = {},
 ): OperationHandleBindingInput[] {
   return registry.operations.map((operation) => ({
     exportName: getOperationHandleExportName(operation.exportName),
@@ -190,5 +304,33 @@ export function buildOperationHandleBindingsFromRegistry(
     descriptorName: operation.exportName,
     executeRefName: getOperationRefExportName(operation.execute),
     ...(operation.preview ? { previewRefName: getOperationRefExportName(operation.preview) } : {}),
+    ...(options.runtimes ? { runtimes: options.runtimes } : {}),
   }))
+}
+
+export function renderOperationRegistryGeneratedFiles(
+  registry: OperationRegistry,
+  options: OperationRegistryGeneratedFilesOptions,
+): OperationRegistryGeneratedFile[] {
+  const refs = buildOperationRefBindingsFromRegistry(registry)
+
+  return [
+    {
+      path: options.operationRefsPath,
+      content: renderOperationRefsModuleFromRegistry(registry, options),
+    },
+    {
+      path: options.operationHandlesPath,
+      content: renderOperationHandlesModule({
+        defineOperationHandleImport: options.defineOperationHandleImport,
+        descriptorImports: descriptorImportsFor(registry.operations, options.operationHandlesPath),
+        refsImport: toRelativeImport(options.operationHandlesPath, options.operationRefsPath),
+        descriptors: registry.operations.map((operation) => operation.exportName),
+        refs: refs.map((ref) => ref.exportName),
+        handles: buildOperationHandleBindingsFromRegistry(registry, {
+          runtimes: options.runtimes,
+        }),
+      }),
+    },
+  ]
 }

@@ -8,6 +8,7 @@ import {
   buildOperationHandleBindingsFromRegistry,
   buildOperationRefBindingsFromRegistry,
   buildOperationRegistry,
+  renderOperationRegistryGeneratedFiles,
 } from '../../src/module-internals/operation-registry-codegen'
 import { extractPublicSurfaceCodegenMetadata } from '../../src/module-internals/public-surface-codegen'
 
@@ -210,6 +211,74 @@ describe('operation registry codegen', () => {
     expect(metadata.diagnostics).toHaveLength(1)
     expect(() => buildOperationRegistry(metadata)).toThrow(
       /Cannot build operation registry with unsupported projection syntax/,
+    )
+  })
+
+  it('renders operation refs and handles from shared descriptors plus scanned projections', () => {
+    const rootDir = createFixture({
+      'shared/features/tasks/operations.ts': `
+        import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
+        import { v } from 'convex/values'
+
+        export const listTasksOp = defineOperationDescriptor({
+          id: 'tasks.list',
+          kind: 'safe',
+          args: {},
+          returns: v.array(v.object({ id: v.string() })),
+        })
+
+        export const archiveTaskOp = defineOperationDescriptor({
+          id: 'tasks.archive',
+          name: 'archiveTask',
+          kind: 'destructive',
+          args: { id: v.string() },
+          previewReturns: operationPreviewValidator({
+            confirm: v.object({ id: v.string() }),
+          }),
+          returns: v.object({ archived: v.boolean() }),
+        })
+      `,
+      'convex/features/tasks/domain.ts': `
+        import { mutation, query } from '../../functions'
+        import { archiveTaskOp, listTasksOp } from '../../../shared/features/tasks/operations'
+
+        export const listTasks = query.workspace(listTasksOp)
+        export const archiveTask = mutation.workspace(archiveTaskOp)
+        export const previewArchiveTask = mutation.workspace.preview(archiveTaskOp)
+      `,
+    })
+
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(rootDir))
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '../../convex/_generated/api',
+      defineOperationHandleImport: '@lupinum/trellis/mcp',
+      operationHandlesPath: '.trellis/generated/operation-handles/mcp.ts',
+      operationRefsPath: '.trellis/generated/operation-refs.ts',
+      projectOperationRefImport: '@lupinum/trellis/mcp',
+      runtimes: ['mcp', 'testing'],
+    })
+    const byPath = new Map(rendered.map((file) => [file.path, file.content]))
+
+    expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
+      "from '../../shared/features/tasks/operations'",
+    )
+    expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
+      'api.features.tasks.domain.archiveTask',
+    )
+    expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
+      "{ functionRef: 'features/tasks/domain:archiveTask' }",
+    )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
+      "from '../../../shared/features/tasks/operations'",
+    )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
+      "from '../operation-refs'",
+    )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
+      "runtimes: ['mcp', 'testing']",
+    )
+    expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).not.toContain(
+      'convex/features/tasks/domain',
     )
   })
 })

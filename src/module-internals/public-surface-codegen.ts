@@ -9,7 +9,7 @@ import {
   type VariableDeclaration,
 } from 'ts-morph'
 
-export const DEFAULT_OPERATION_CODEGEN_INCLUDE = ['convex/**/*.ts'] as const
+export const DEFAULT_OPERATION_CODEGEN_INCLUDE = ['convex/**/*.ts', 'shared/**/*.ts'] as const
 export const DEFAULT_MCP_TOOL_CODEGEN_INCLUDE = ['server/mcp/tools/**/*.ts'] as const
 
 export interface OperationDefinitionMetadata {
@@ -269,7 +269,10 @@ function readOperationDefinitionObject(
   if (!initializer || !Node.isCallExpression(initializer)) return null
 
   const callee = unwrapExpression(initializer.getExpression())
-  if (Node.isIdentifier(callee) && callee.getText() === 'defineOperation') {
+  if (
+    Node.isIdentifier(callee) &&
+    (callee.getText() === 'defineOperation' || callee.getText() === 'defineOperationDescriptor')
+  ) {
     const [arg] = initializer.getArguments()
     const unwrappedArg = unwrapExpression(arg)
     return unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg)
@@ -714,5 +717,9 @@ export function shouldRefreshPublicSurfaceCodegen(changedPath: string): boolean 
     return false
   }
 
-  return normalizedPath.startsWith('convex/') || normalizedPath.startsWith('server/mcp/tools/')
+  return (
+    normalizedPath.startsWith('convex/') ||
+    normalizedPath.startsWith('shared/') ||
+    normalizedPath.startsWith('server/mcp/tools/')
+  )
 }

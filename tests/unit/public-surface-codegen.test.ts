@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   extractPublicSurfaceCodegenMetadata,
   renderPublicSurfaceCodegenTypes,
+  shouldRefreshPublicSurfaceCodegen,
 } from '../../src/module-internals/public-surface-codegen'
 
 function createFixture(files: Record<string, string>) {
@@ -390,5 +391,12 @@ describe('public surface codegen', () => {
     expect(types).toContain(`declare module '@lupinum/trellis/mcp'`)
     expect(types).toContain('interface ToolsByName')
     expect(types).toContain('"archive-task": typeof __trellisTool0')
+  })
+
+  it('refreshes public-surface codegen for shared operation descriptors', () => {
+    expect(shouldRefreshPublicSurfaceCodegen('shared/features/tasks/operations.ts')).toBe(true)
+    expect(shouldRefreshPublicSurfaceCodegen('convex/features/tasks/domain.ts')).toBe(true)
+    expect(shouldRefreshPublicSurfaceCodegen('server/mcp/tools/archive-task.ts')).toBe(true)
+    expect(shouldRefreshPublicSurfaceCodegen('server/mcp/_runtime.ts')).toBe(false)
   })
 })

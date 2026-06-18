@@ -8,9 +8,15 @@ export interface OperationHandleBindingInput {
   runtimes?: readonly ('client' | 'server' | 'mcp' | 'testing' | 'internal')[]
 }
 
+export interface OperationHandleImportInput {
+  from: string
+  names: readonly string[]
+}
+
 export interface OperationHandlesModuleInput {
   defineOperationHandleImport: string
-  descriptorImport: string
+  descriptorImport?: string
+  descriptorImports?: readonly OperationHandleImportInput[]
   refsImport: string
   descriptors: readonly string[]
   refs: readonly string[]
@@ -122,8 +128,19 @@ function renderHandle(handle: OperationHandleBindingInput): string[] {
 }
 
 export function renderOperationHandlesModule(input: OperationHandlesModuleInput): string {
-  if (input.descriptors.length === 0) {
+  if (
+    input.descriptors.length === 0 &&
+    (!input.descriptorImports || input.descriptorImports.length === 0)
+  ) {
     throw new Error('Operation handles module requires at least one descriptor import')
+  }
+
+  if (
+    input.descriptors.length > 0 &&
+    input.descriptorImport === undefined &&
+    (!input.descriptorImports || input.descriptorImports.length === 0)
+  ) {
+    throw new Error('Operation handles module requires descriptorImport or descriptorImports')
   }
 
   if (input.refs.length === 0) {
@@ -153,10 +170,17 @@ export function renderOperationHandlesModule(input: OperationHandlesModuleInput)
     '// AUTO-GENERATED. Do not edit.',
     renderImport(['defineOperationHandle'], input.defineOperationHandleImport),
     '',
-    renderImport(input.descriptors, input.descriptorImport),
-    renderImport(input.refs, input.refsImport),
-    '',
   ]
+
+  if (input.descriptorImports && input.descriptorImports.length > 0) {
+    for (const descriptorImport of input.descriptorImports) {
+      lines.push(renderImport(descriptorImport.names, descriptorImport.from))
+    }
+  } else if (input.descriptorImport) {
+    lines.push(renderImport(input.descriptors, input.descriptorImport))
+  }
+
+  lines.push(renderImport(input.refs, input.refsImport), '')
 
   input.handles.forEach((handle, index) => {
     lines.push(...renderHandle(handle))
