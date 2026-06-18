@@ -2033,10 +2033,62 @@ test/helpers.ts` had no matches except the candidate helper row before
   remaining draft transport helper map row and further prove destructive
   confirmation handling through generated operation handles.
 
+## Slice 39: Delete Ginko Draft-Revert Transport Mapping
+
+### Proof
+
+- After Slice 38, `entries/draft:revertDraftToPublishedTransportExecute` was
+  still present only as a test-helper transport translation row and one direct
+  caller in `test/component/entries/draft.test.ts`.
+- Generated Ginko operation refs already had the correct execute and preview
+  metadata for `ginko-cms.revert-draft-to-published`, including
+  `executeFunctionRef: 'entries/draft:revertDraftToPublishedOperationExecute'`.
+- That meant the draft revert migration should be a consumer test/helper
+  cutover, not another Trellis generator change.
+
+### Implementation
+
+- In Ginko CMS commit `d11aa83`, added a shared
+  `revertDraftToPublished(...)` test helper backed by
+  `operations.byId['ginko-cms.revert-draft-to-published']`.
+- Re-exported the helper through `test/component/entries/helpers.ts`.
+- Migrated the draft revert test from direct transport execution to the
+  generated operation helper.
+- Replaced nearby draft-test publish/unpublish transport calls with the existing
+  `publishEntry(...)` and `unpublishEntry(...)` helpers so the file no longer
+  exercises transport execute paths for those workflows.
+- Deleted the now-dead
+  `entries/draft:revertDraftToPublishedTransportExecute` translation row from
+  `test/helpers.ts`.
+
+### Verification
+
+- Focused Ginko draft proof passed:
+  `pnpm vitest run test/component/entries/draft.test.ts` reported 16 passing
+  tests.
+- Ginko operation registry drift check passed:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko package type/build proof passed: `pnpm run typecheck`.
+- Ginko lint and static guards passed: `pnpm run lint`.
+- Full Ginko test suite passed:
+  `pnpm run test` reported 90 passing test files, 713 passing tests, and one
+  skipped test.
+- Ginko whitespace proof passed: `git diff --check`.
+
+### Notes
+
+- The raw `TransportExecute` count in Ginko tests dropped from 36 to 28.
+- The draft-revert transport helper map row is gone. Remaining test helper map
+  rows are publish and unpublish.
+- The next high-value migration slice is public API publish/unpublish coverage,
+  because that file contains most remaining direct publish transport calls.
+
 ## Next Slice Candidates
 
-1. Migrate Ginko draft revert tests from transport execute refs to generated
-   operation handles, then delete the revert-draft-to-published helper map row.
+1. Migrate Ginko public API publish/unpublish tests from transport execute refs
+   to generated operation helpers, then delete the remaining publish/unpublish
+   helper map rows when no callers remain.
 2. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
 3. Make `trellis operations generate` easier to install into generated/consumer
