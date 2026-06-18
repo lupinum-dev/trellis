@@ -2289,6 +2289,58 @@ test/helpers.ts` had no matches except the candidate helper row before
   The next hard-cut slice should replace manual MCP execute/preview binding in
   normal examples with generated operation handles.
 
+## Slice 43: Canonicalize Public Read Operation Projections
+
+### Proof
+
+- Example 08 still used `query.public({ ...operation, reads: [...] })` for public
+  read projections. That keeps projection metadata split between the operation
+  object and a wrapper object literal.
+- A scratch `trellis operations generate` run against the component mini-CMS
+  initially failed on that shape when projection roots were configured for the
+  component scan, so the spread form was getting in the way before the real
+  bridge/component projection issues could be isolated.
+- Public read tables are part of the backend lane definition. For greenfield
+  operation-first code, the simpler source of truth is the operation definition
+  itself, projected directly with `query.public(operation)`.
+
+### Implementation
+
+- Moved `reads: ['pages']` onto the `pages.list-published` and
+  `pages.get-published` operation definitions in example 08.
+- Changed their Convex projections from spread object literals to direct
+  `query.public(operation)` calls.
+- Updated public-surface codegen tests to teach the canonical direct public-read
+  projection shape.
+- Updated the beginner app operation runtime test to register a public query
+  operation directly rather than through a spread wrapper.
+
+### Verification
+
+- Focused Trellis scanner/runtime tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/functions-defineTrellis.test.ts`
+  reported 2 passing test files and 78 passing tests.
+- Example 08 test passed:
+  `pnpm --dir examples/08-component-mini-cms test` reported one passing test
+  file and 10 passing tests.
+- Example 08 typecheck passed:
+  `pnpm --dir examples/08-component-mini-cms typecheck`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This slice intentionally does not broaden the scanner to understand more
+  object-spread projections. The RFC wants the supported grammar to stay small.
+- The next scratch generation attempt for example 08 now gets past the public
+  read spread issue and fails at the next real boundary:
+  `convex/components/miniCms/features/pages/index.ts:2` re-exports
+  `previewPublish`. Re-exported operation projections are intentionally
+  unsupported.
+- The same scratch output also proves the larger bridge problem: generated refs
+  for component-local projections target component paths, while MCP tools need
+  host bridge wrapper refs. That should be handled by an explicit bridge or
+  component projection contract rather than by scanner inference.
+
 ## Next Slice Candidates
 
 1. Define the bridge-generated operation handle shape needed to replace
