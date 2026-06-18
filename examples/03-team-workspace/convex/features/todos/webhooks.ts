@@ -9,6 +9,7 @@ import { todoCreate } from './permissions'
 
 export const processTodoSyncWebhookOp = operation.mutation({
   id: 'todos.process-sync-webhook',
+  executeFunctionRef: 'features/todos/webhooks:processTodoSyncWebhookMutation',
   args: processTodoSyncWebhookContract.args,
   identityForwardingTransport: 'webhook',
   handler: async (ctx, args) => {

@@ -1,26 +1,17 @@
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/mcp'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '../../../convex/_generated/api'
-import { removePostDescriptor } from '../../../shared/schemas/post'
 import { tool } from '../runtime'
 
-const removeWithConfirmationRef = executeOperationRef(
-  removePostDescriptor,
-  Object.create(api.posts.removeWithConfirmation),
-)
-const previewRemoveRef = previewOperationRef(
-  removePostDescriptor,
-  Object.create(api.posts.previewRemove),
-)
+type DeletePostRespondCtx = {
+  args: unknown
+  ok: (data: unknown, summary?: string) => unknown
+}
 
-export default tool.operation(removePostDescriptor, {
-  execute: removeWithConfirmationRef,
-  preview: previewRemoveRef,
-  previewOperation: 'mutation',
+export default tool.operation(operations.byId['posts.remove'], {
   meta: {
     name: 'delete-post',
   },
-  respond: ({ args, ok }) => {
+  respond: ({ args, ok }: DeletePostRespondCtx) => {
     const request = args as { id: string }
     return ok({ deleted: true, id: request.id })
   },

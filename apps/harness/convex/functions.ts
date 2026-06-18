@@ -1,5 +1,6 @@
 import { defineTrellis } from '@lupinum/trellis/backend'
 
+import { operationProjectionRegistry } from '../generated/operation-projections'
 import { trellisObservability } from '../observability.config'
 import type { DataModel } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
@@ -62,6 +63,7 @@ export const { mutation, query, unsafe } = defineTrellis<
     trustedReplay: {
       table: 'trustedReplay' as never,
     },
+    operationProjections: operationProjectionRegistry,
     observability: trellisObservability,
   },
 )

@@ -123,6 +123,7 @@ export {
   trellisOperationProjectionMetadataKey,
 } from './define-operation.js'
 export type {
+  DefinedOperation,
   InferOperationLoaded,
   InferOperationResult,
   InferOperationPreview,
@@ -979,6 +980,54 @@ type UnsafeBuilder<TBuilder> =
 
 type RequireStructuredHandlerId<TDefinition> = TDefinition & { id: string }
 
+type DefinedLaneOperation<TArgsValidator extends PropertyValidators = PropertyValidators> = {
+  id: string
+  args: TArgsValidator
+  guard?: never
+  handler: (...args: never[]) => unknown
+  [trellisOperationMetadataKey]: TrellisOperationMetadata
+}
+
+type StructuredDefinitionObject = Record<string | symbol, unknown> & {
+  args?: PropertyValidators
+  authorize?: unknown
+  handler?: unknown
+  id?: string
+  identityForwardingTransport?: unknown
+  load?: unknown
+  preview?: unknown
+}
+
+type DefinedOperationQueryBuilder<Visibility extends FunctionVisibility> = <
+  const TDefinition extends DefinedLaneOperation,
+>(
+  definition: TDefinition,
+) => RegisteredQuery<
+  Visibility,
+  ObjectType<TDefinition['args']>,
+  Awaited<ReturnType<TDefinition['handler']>>
+>
+
+type DefinedOperationMutationBuilder<Visibility extends FunctionVisibility> = <
+  const TDefinition extends DefinedLaneOperation,
+>(
+  definition: TDefinition,
+) => RegisteredMutation<
+  Visibility,
+  ObjectType<TDefinition['args']>,
+  Awaited<ReturnType<TDefinition['handler']>>
+>
+
+type DefinedOperationActionBuilder<Visibility extends FunctionVisibility> = <
+  const TDefinition extends DefinedLaneOperation,
+>(
+  definition: TDefinition,
+) => RegisteredAction<
+  Visibility,
+  ObjectType<TDefinition['args']>,
+  Awaited<ReturnType<TDefinition['handler']>>
+>
+
 function wrapUnsafeBuilder<TBuilder extends (...args: never[]) => unknown>(
   builder: TBuilder,
   label: string,
@@ -1042,29 +1091,30 @@ type StructuredQueryBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    StructuredHandlerDefinition<
-      TCtx,
-      Awaited<ReturnType<TCtx['caller']>>,
-      Awaited<ReturnType<TCtx['actingFor']>>,
-      TActor,
-      TGuard,
-      TArgsValidator,
-      TLoaded,
-      TResult,
-      TCrossTenant,
-      TPublicWrite
-    >
-  >,
-) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationQueryBuilder<Visibility> &
+  (<
+    TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      StructuredHandlerDefinition<
+        TCtx,
+        Awaited<ReturnType<TCtx['caller']>>,
+        Awaited<ReturnType<TCtx['actingFor']>>,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded,
+        TResult,
+        TCrossTenant,
+        TPublicWrite
+      >
+    >,
+  ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type PublicStructuredQueryBuilder<
   TCtx extends {
@@ -1074,31 +1124,32 @@ type PublicStructuredQueryBuilder<
   Visibility extends FunctionVisibility,
   TActor,
   TReadTable extends string = string,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof open,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never; reads: readonly TReadTable[] }
-  >,
-) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationQueryBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof open,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never; reads: readonly TReadTable[] }
+    >,
+  ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type SessionStructuredQueryBuilder<
   TCtx extends {
@@ -1107,31 +1158,32 @@ type SessionStructuredQueryBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof open,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never; reads?: never }
-  >,
-) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationQueryBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof open,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never; reads?: never }
+    >,
+  ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type AuthenticatedStructuredQueryBuilder<
   TCtx extends {
@@ -1140,31 +1192,32 @@ type AuthenticatedStructuredQueryBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof authRequired,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never }
-  >,
-) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationQueryBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never }
+    >,
+  ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type StructuredMutationBuilder<
   TCtx extends {
@@ -1173,29 +1226,30 @@ type StructuredMutationBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    StructuredHandlerDefinition<
-      TCtx,
-      Awaited<ReturnType<TCtx['caller']>>,
-      Awaited<ReturnType<TCtx['actingFor']>>,
-      TActor,
-      TGuard,
-      TArgsValidator,
-      TLoaded,
-      TResult,
-      TCrossTenant,
-      TPublicWrite
-    >
-  >,
-) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationMutationBuilder<Visibility> &
+  (<
+    TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      StructuredHandlerDefinition<
+        TCtx,
+        Awaited<ReturnType<TCtx['caller']>>,
+        Awaited<ReturnType<TCtx['actingFor']>>,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded,
+        TResult,
+        TCrossTenant,
+        TPublicWrite
+      >
+    >,
+  ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type MutationPreviewProjectionBuilder<TBuilder> = TBuilder & {
   preview: TBuilder
@@ -1208,31 +1262,32 @@ type PublicStructuredMutationBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof open,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never }
-  >,
-) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationMutationBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof open,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never }
+    >,
+  ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type AuthenticatedStructuredMutationBuilder<
   TCtx extends {
@@ -1241,31 +1296,32 @@ type AuthenticatedStructuredMutationBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof authRequired,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never }
-  >,
-) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationMutationBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never }
+    >,
+  ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type StructuredTransportMutationBuilder<
   TCtx extends {
@@ -1274,29 +1330,30 @@ type StructuredTransportMutationBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    StructuredHandlerDefinition<
-      TCtx,
-      Awaited<ReturnType<TCtx['caller']>>,
-      Awaited<ReturnType<TCtx['actingFor']>>,
-      TActor,
-      TGuard,
-      TArgsValidator,
-      TLoaded,
-      TResult,
-      TCrossTenant,
-      TPublicWrite
-    >
-  >,
-) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationMutationBuilder<Visibility> &
+  (<
+    TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      StructuredHandlerDefinition<
+        TCtx,
+        Awaited<ReturnType<TCtx['caller']>>,
+        Awaited<ReturnType<TCtx['actingFor']>>,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded,
+        TResult,
+        TCrossTenant,
+        TPublicWrite
+      >
+    >,
+  ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type AuthenticatedStructuredTransportMutationBuilder<
   TCtx extends {
@@ -1305,31 +1362,32 @@ type AuthenticatedStructuredTransportMutationBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof authRequired,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never }
-  >,
-) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationMutationBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never }
+    >,
+  ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type TransportMutationWithBackendLanes<
   TCtx extends {
@@ -1349,29 +1407,30 @@ type StructuredActionBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    StructuredHandlerDefinition<
-      TCtx,
-      Awaited<ReturnType<TCtx['caller']>>,
-      Awaited<ReturnType<TCtx['actingFor']>>,
-      TActor,
-      TGuard,
-      TArgsValidator,
-      TLoaded,
-      TResult,
-      TCrossTenant,
-      TPublicWrite
-    >
-  >,
-) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationActionBuilder<Visibility> &
+  (<
+    TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['caller']>>, TActor>,
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      StructuredHandlerDefinition<
+        TCtx,
+        Awaited<ReturnType<TCtx['caller']>>,
+        Awaited<ReturnType<TCtx['actingFor']>>,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded,
+        TResult,
+        TCrossTenant,
+        TPublicWrite
+      >
+    >,
+  ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type PublicStructuredActionBuilder<
   TCtx extends {
@@ -1380,31 +1439,32 @@ type PublicStructuredActionBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof open,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never }
-  >,
-) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationActionBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof open,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never }
+    >,
+  ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type AuthenticatedStructuredActionBuilder<
   TCtx extends {
@@ -1413,31 +1473,32 @@ type AuthenticatedStructuredActionBuilder<
   },
   Visibility extends FunctionVisibility,
   TActor,
-> = <
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TCrossTenant = undefined,
-  TPublicWrite = undefined,
-  TResult = unknown,
->(
-  definition: RequireStructuredHandlerId<
-    Omit<
-      StructuredHandlerDefinition<
-        TCtx,
-        Awaited<ReturnType<TCtx['caller']>>,
-        Awaited<ReturnType<TCtx['actingFor']>>,
-        TActor,
-        typeof authRequired,
-        TArgsValidator,
-        TLoaded,
-        TResult,
-        TCrossTenant,
-        TPublicWrite
-      >,
-      'guard'
-    > & { guard?: never }
-  >,
-) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
+> = DefinedOperationActionBuilder<Visibility> &
+  (<
+    TArgsValidator extends PropertyValidators,
+    TLoaded extends StructuredLoadedValue = undefined,
+    TCrossTenant = undefined,
+    TPublicWrite = undefined,
+    TResult = unknown,
+  >(
+    definition: RequireStructuredHandlerId<
+      Omit<
+        StructuredHandlerDefinition<
+          TCtx,
+          Awaited<ReturnType<TCtx['caller']>>,
+          Awaited<ReturnType<TCtx['actingFor']>>,
+          TActor,
+          typeof authRequired,
+          TArgsValidator,
+          TLoaded,
+          TResult,
+          TCrossTenant,
+          TPublicWrite
+        >,
+        'guard'
+      > & { guard?: never }
+    >,
+  ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>)
 
 type RuntimeBundle<
   DataModel extends GenericDataModel,
@@ -2832,7 +2893,7 @@ function buildStructuredQueryRuntime<
     never
   >(builder as never, handlerIds)
 
-  return ((definition) => {
+  return ((definition: StructuredDefinitionObject) => {
     const metadata = getOperationMetadata(definition as never)
     const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive' || projectionMetadata?.projection !== 'preview') {
@@ -2890,7 +2951,7 @@ function buildStructuredQueryRuntime<
     }
 
     return structured(transformed as never)
-  }) as StructuredQueryBuilder<
+  }) as unknown as StructuredQueryBuilder<
     QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor
@@ -2920,7 +2981,7 @@ function buildStructuredMutationRuntime<
     never
   >(builder as never, handlerIds)
 
-  return ((definition) => {
+  return ((definition: StructuredDefinitionObject) => {
     const metadata = getOperationMetadata(definition as never)
     const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive') {
@@ -3348,7 +3409,7 @@ function buildStructuredMutationRuntime<
     }
 
     return structured(transformed as never)
-  }) as StructuredMutationBuilder<
+  }) as unknown as StructuredMutationBuilder<
     MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor
@@ -3378,7 +3439,7 @@ function buildStructuredTransportMutationRuntime<
     never
   >(builder as never, handlerIds)
 
-  const transportMutation = ((definition) => {
+  const transportMutation = ((definition: StructuredDefinitionObject) => {
     const metadata = getOperationMetadata(definition as never)
     const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive') {
@@ -3499,7 +3560,7 @@ function buildStructuredTransportMutationRuntime<
     }
 
     return structured(transformed as never)
-  }) as StructuredTransportMutationBuilder<
+  }) as unknown as StructuredTransportMutationBuilder<
     MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     Visibility,
     TActor

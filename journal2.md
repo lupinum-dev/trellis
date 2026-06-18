@@ -3787,12 +3787,88 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   consumer proof still needs package/tarball verification and the `i18n-cms`
   app smoke/E2E pass when that slice starts.
 
+## Slice 68: Trellis Release Gate And Operation Handle Cleanup
+
+### Proof
+
+- The full Trellis release gate exposed one remaining type-level leak before it
+  passed: direct lane registration of `implementOperation(...)` still required
+  consumer-side casts in the harness and workspace MCP fixture.
+- Removing those casts proved the gap. `pnpm run release:verify` initially
+  reached the harness server typecheck and failed on direct
+  `mutation.authenticated(...)` / `mutation.workspace(...)` operation
+  registrations.
+- A later release attempt caught an explicit-`any` lint regression in the new
+  lane overload types before the broader test phases ran.
+- After fixing both issues, the full release gate completed cleanly.
+
+### Implementation
+
+- Added a metadata-branded `DefinedOperation` return type for
+  `defineOperation(...)`, `defineOperation.withContext(...)`,
+  `implementOperation(...)`, and `previewOf(...)`.
+- Added lane overloads that accept metadata-branded defined operations directly
+  while keeping inline lane object definitions strict.
+- Removed positive-path `as never` casts from the harness and workspace MCP
+  fixture operation registrations.
+- Kept generated operation handles as the canonical import path for MCP tools
+  and starter fixtures.
+- Switched operation registry function refs to the generated Convex API path
+  instead of the source target ref.
+- Preserved identity-forwarding transport metadata through operation previews
+  so transport-backed destructive operations stay bound to their verified lane.
+- Kept the e2e harness on owned dynamic Convex/Nuxt ports so concurrent local
+  runs do not depend on stale fixed ports.
+
+### Verification
+
+- Harness server typecheck passed:
+  `pnpm exec tsc -p apps/harness/server/tsconfig.json --noEmit`.
+- Focused runtime lint passed:
+  `NODE_OPTIONS=--max-old-space-size=6144 pnpm exec eslint src/runtime/functions src/runtime/mcp --ignore-pattern '**/_generated/**'`.
+- Formatter check passed for the touched function runtime file:
+  `pnpm exec oxfmt --check src/runtime/functions/index.ts`.
+- Type contract tests passed: `pnpm run test:types:contracts`.
+- Focused operation/MCP tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-descriptor.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/mcp-descriptor-boundary.test.ts`
+  reported 4 passing test files and 90 passing tests.
+- Module build passed: `pnpm run build:module`.
+- Full release gate passed: `pnpm run release:verify` completed with exit code
+  0. The gate included format, lint, publish surface, compatibility matrix,
+  type contracts, security tests, example doctor checks, starter fixture
+  doctor/typecheck/build checks, full repo tests, e2e, generated Convex drift,
+  pack workspace-ref checks, production audit, and final build.
+- During the passing release gate, the broad repo test phase reported:
+  - 132 unit test files and 1248 tests passed
+  - 20 Convex test files and 121 tests passed
+  - 22 Nuxt test files and 168 tests passed
+  - 2 server test files and 21 tests passed
+  - 2 browser test files and 6 tests passed
+- The e2e phase reported 4 passing test files and 13 passing tests.
+- Starter fixture validation passed for `public`, `personal`, `workspace`, and
+  `workspace-mcp` across doctor, install, codegen, prepare, typecheck, and
+  build.
+- Convex generated drift check passed with 25 tracked generated files checked
+  and no drift.
+
+### Notes
+
+- This is a hard cut, not a compatibility layer. Defined operations are accepted
+  by lanes because they carry Trellis operation metadata, not because the lane
+  types became loose for arbitrary objects.
+- The generated operation handle and ref files remain derived artifacts. They
+  are committed only where the repo already treats starter/harness generated
+  files as release fixtures.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated formatter-only local
+  edits and should stay out of this workpackage unless a separate docs cleanup
+  is desired.
+
 ## Next Slice Candidates
 
-1. Run the next Trellis-side broad release gate, preferably `pnpm run
-   release:verify`, or a narrower leading subset if runtime makes the full gate
-   impractical in one slice.
-2. Run Ginko package/tarball verification against the local Trellis tarball
-   before moving to `i18n-cms`.
-3. Extend explain output to display field-level contract metadata and record-id
-   resolution hints for operation-backed MCP tools.
+1. Commit the Trellis RFC workpackage, excluding unrelated formatter-only docs
+   churn.
+2. Build and consume the local Trellis tarball from `ginko-cms` before moving
+   to the new `ginko-content` tarball.
+3. Run the `i18n-cms` browser smoke/E2E pass with login, sitemap, search,
+   content, and i18n switching after the CMS package graph is on local
+   tarballs.

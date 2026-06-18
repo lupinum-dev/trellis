@@ -11,11 +11,12 @@ import {
   readLocalConvexEnv,
 } from './auth-preflight'
 import { spawnManagedProcess } from './managed-process'
-import { terminateListeningPorts, waitForPort } from './ports'
+import { getFreePort, terminateListeningPorts, waitForPort } from './ports'
 
 interface ManagedLocalConvexHandle {
   port: number
   release: () => Promise<void>
+  sitePort: number
   url: string
 }
 
@@ -85,7 +86,7 @@ async function setManagedLocalConvexEnvVar(
 
 async function waitForManagedConvexEnv(
   cwd: string,
-  expectedPort: number,
+  expectedPort: number | null,
   timeoutMs: number,
 ): Promise<{ url: string; siteUrl: string }> {
   const started = Date.now()
@@ -96,7 +97,8 @@ async function waitForManagedConvexEnv(
     if (envFile.url && envFile.siteUrl) {
       try {
         const url = new URL(envFile.url)
-        if (Number.parseInt(url.port || '0', 10) === expectedPort) {
+        const port = Number.parseInt(url.port || '0', 10)
+        if (!Number.isNaN(port) && (expectedPort === null || port === expectedPort)) {
           return {
             url: envFile.url,
             siteUrl: envFile.siteUrl,
@@ -111,7 +113,9 @@ async function waitForManagedConvexEnv(
   }
 
   throw new Error(
-    `[e2e][managed-convex] Timed out waiting for .env.local to expose CONVEX_URL/CONVEX_SITE_URL for port ${expectedPort}.`,
+    expectedPort === null
+      ? '[e2e][managed-convex] Timed out waiting for .env.local to expose CONVEX_URL/CONVEX_SITE_URL.'
+      : `[e2e][managed-convex] Timed out waiting for .env.local to expose CONVEX_URL/CONVEX_SITE_URL for port ${expectedPort}.`,
   )
 }
 
@@ -167,6 +171,16 @@ function parseLocalPort(urlString: string): number | null {
   }
 }
 
+async function getDistinctFreePorts(count: number): Promise<number[]> {
+  const ports = new Set<number>()
+
+  while (ports.size < count) {
+    ports.add(await getFreePort())
+  }
+
+  return [...ports]
+}
+
 async function listFilesRecursive(root: string, current = root): Promise<string[]> {
   const entries = await readdir(current, { withFileTypes: true })
   const files: string[] = []
@@ -220,15 +234,22 @@ export async function ensureManagedLocalConvex(
 ): Promise<ManagedLocalConvexResult> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'apps/harness')
   const timeoutMs = options.timeoutMs ?? 60_000
-  const envFile = await readLocalConvexEnv(cwd)
+  const [generatedCloudPort, generatedSitePort] =
+    process.env.CONVEX_URL === undefined ? await getDistinctFreePorts(2) : [null, null]
   const resolved = parseManagedConvexUrl(
-    process.env.CONVEX_URL ?? envFile.url ?? 'http://127.0.0.1:3210',
+    process.env.CONVEX_URL ?? `http://127.0.0.1:${generatedCloudPort}`,
   )
   const initialSiteUrl =
     process.env.CONVEX_SITE_URL ??
-    envFile.siteUrl ??
-    deriveSiteUrlFromConvexUrl(resolved.url) ??
-    `http://127.0.0.1:${resolved.port + 1}`
+    (generatedSitePort === null
+      ? (deriveSiteUrlFromConvexUrl(resolved.url) ?? `http://127.0.0.1:${resolved.port + 1}`)
+      : `http://127.0.0.1:${generatedSitePort}`)
+  const sitePort = parseLocalPort(initialSiteUrl)
+  if (sitePort === null) {
+    throw new TypeError(
+      `[e2e][managed-convex] Managed local Convex requires a local CONVEX_SITE_URL, received: ${initialSiteUrl}`,
+    )
+  }
   const identityForwardingKey =
     process.env.CONVEX_IDENTITY_FORWARDING_KEY ?? INTERNAL_HARNESS_LOCAL_IDENTITY_FORWARDING_KEY
 
@@ -250,27 +271,22 @@ export async function ensureManagedLocalConvex(
     }
 
     await rm(path.join(cwd, '.convex', 'local', 'default'), { recursive: true, force: true })
-    const managedPorts = new Set<number>([resolved.port, resolved.port + 1])
-    for (const candidate of [resolved.url, initialSiteUrl]) {
-      try {
-        const parsed = new URL(candidate)
-        if (parsed.port) {
-          const parsedPort = Number.parseInt(parsed.port, 10)
-          if (!Number.isNaN(parsedPort)) {
-            managedPorts.add(parsedPort)
-          }
-        }
-      } catch (error) {
-        void error
-      }
-    }
-
-    await terminateListeningPorts([...managedPorts])
+    await rm(envFilePath, { force: true })
+    const managedBackendPorts = new Set([resolved.port, sitePort])
 
     const managedProcess = spawnManagedProcess({
       name: 'Managed local Convex',
       command: process.execPath,
-      args: [convexCliPath, 'dev', '--local', '--local-force-upgrade'],
+      args: [
+        convexCliPath,
+        'dev',
+        '--local',
+        '--local-force-upgrade',
+        '--local-cloud-port',
+        String(resolved.port),
+        '--local-site-port',
+        String(sitePort),
+      ],
       cwd,
       env: {
         ...process.env,
@@ -280,7 +296,6 @@ export async function ensureManagedLocalConvex(
           process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
         CONVEX_DEPLOYMENT: MANAGED_CONVEX_DEPLOYMENT,
         CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
-        CONVEX_LOCAL_BACKEND_PORT: String(resolved.port),
       },
     })
 
@@ -288,25 +303,35 @@ export async function ensureManagedLocalConvex(
       port: resolved.port,
       release: async () => {
         try {
-          await managedProcess.stop()
+          try {
+            await managedProcess.stop()
+          } finally {
+            await terminateListeningPorts([...managedBackendPorts])
+          }
         } finally {
           await restoreEnvFile()
           await restoreGenerated()
         }
       },
+      sitePort,
       url: resolved.url,
     }
 
     try {
-      await Promise.race([waitForPort(resolved.port, timeoutMs), managedProcess.unexpectedExit])
       const managedEnv = await Promise.race([
         waitForManagedConvexEnv(cwd, resolved.port, MANAGED_CONVEX_ENV_DISCOVERY_TIMEOUT_MS),
         managedProcess.unexpectedExit,
       ])
       activeHandle.url = managedEnv.url
+      const managedPort = parseManagedConvexUrl(managedEnv.url).port
+      activeHandle.port = managedPort
+      managedBackendPorts.add(managedPort)
+      await Promise.race([waitForPort(managedPort, timeoutMs), managedProcess.unexpectedExit])
       const managedSitePort = parseLocalPort(managedEnv.siteUrl)
 
       if (managedSitePort !== null) {
+        activeHandle.sitePort = managedSitePort
+        managedBackendPorts.add(managedSitePort)
         await Promise.race([waitForPort(managedSitePort, timeoutMs), managedProcess.unexpectedExit])
       }
 
@@ -344,7 +369,11 @@ export async function ensureManagedLocalConvex(
     } catch (error) {
       activeHandle = null
       try {
-        await managedProcess.stop()
+        try {
+          await managedProcess.stop()
+        } finally {
+          await terminateListeningPorts([...managedBackendPorts])
+        }
       } finally {
         await restoreEnvFile()
         await restoreGenerated()

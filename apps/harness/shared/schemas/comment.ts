@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 
+import { defineOperationDescriptor } from '../../../../src/runtime/functions/define-operation'
 import { defineArgs } from '../../../../src/runtime/schema'
 
 export const createComment = defineArgs({
@@ -12,4 +13,11 @@ export const createComment = defineArgs({
     postId: { label: 'Post', description: 'The post to comment on' },
     content: { label: 'Comment', description: 'The comment text' },
   },
+})
+
+export const createCommentDescriptor = defineOperationDescriptor({
+  id: 'comments.create',
+  name: 'createComment',
+  args: createComment.args,
+  permission: 'comment.create',
 })

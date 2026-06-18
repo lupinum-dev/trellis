@@ -1,15 +1,13 @@
-import { operation } from '@lupinum/trellis/app'
 import { deny } from '@lupinum/trellis/auth'
+import { implementOperation } from '@lupinum/trellis/backend'
 
-import { createComment } from '../shared/schemas/comment'
+import { createCommentDescriptor } from '../shared/schemas/comment'
 import { canCreateComment } from './auth/checks'
 import { commentCreatePermission } from './auth/permissions'
 import { loadResource } from './auth/scope'
 import { mutation } from './functions'
 
-export const createCommentOp = operation.mutation({
-  id: 'comments.create',
-  args: createComment.args,
+export const createCommentOp = implementOperation(createCommentDescriptor, {
   identityForwardingTransport: 'mcp',
   permission: commentCreatePermission,
   handler: async (ctx, args) => {

@@ -16,6 +16,12 @@ export const createPost = defineArgs({
   },
 })
 
+export const createPostDescriptor = defineOperationDescriptor({
+  id: 'posts.create',
+  name: 'createPost',
+  args: createPost.args,
+})
+
 export const updatePost = defineArgs({
   description: 'Update an existing blog post',
   args: {

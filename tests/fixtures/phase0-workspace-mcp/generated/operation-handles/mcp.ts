@@ -36,4 +36,4 @@ export const operations = {
       delete: deleteProjectHandle,
     },
   },
-} as const
+}

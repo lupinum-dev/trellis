@@ -357,9 +357,11 @@ describe('trellis add entity', () => {
       resolve(cwd, 'generated/operation-projections.ts'),
       'utf8',
     )
-    expect(projectionSource).toContain("'projects.create': 'projects.create'")
-    expect(projectionSource).toContain("'projects.remove': 'projects.remove'")
-    expect(projectionSource).toContain("'projects.remove': 'projects.remove:preview'")
+    expect(projectionSource).toContain("'projects.create': 'features/projects/domain:create'")
+    expect(projectionSource).toContain("'projects.remove': 'features/projects/domain:remove'")
+    expect(projectionSource).toContain(
+      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
+    )
 
     const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(cwd))
     expect(registry.operations).toContainEqual(
@@ -370,7 +372,7 @@ describe('trellis add entity', () => {
         execute: expect.objectContaining({
           file: 'convex/features/projects/domain.ts',
           functionKind: 'mutation',
-          functionRef: 'projects.create',
+          functionRef: 'features/projects/domain:create',
         }),
       }),
     )
@@ -383,12 +385,12 @@ describe('trellis add entity', () => {
         execute: expect.objectContaining({
           file: 'convex/features/projects/domain.ts',
           functionKind: 'mutation',
-          functionRef: 'projects.remove',
+          functionRef: 'features/projects/domain:remove',
         }),
         preview: expect.objectContaining({
           file: 'convex/features/projects/operations.ts',
           functionKind: 'mutation',
-          functionRef: 'projects.remove:preview',
+          functionRef: 'features/projects/operations:previewRemoveProject',
         }),
       }),
     )
@@ -414,9 +416,11 @@ describe('trellis add entity', () => {
     const projections = rendered.find((file) =>
       file.path.endsWith('/operation-projections.ts'),
     )?.content
-    expect(projections).toContain("'projects.create': 'projects.create'")
-    expect(projections).toContain("'projects.remove': 'projects.remove'")
-    expect(projections).toContain("'projects.remove': 'projects.remove:preview'")
+    expect(projections).toContain("'projects.create': 'features/projects/domain:create'")
+    expect(projections).toContain("'projects.remove': 'features/projects/domain:remove'")
+    expect(projections).toContain(
+      "'projects.remove': 'features/projects/operations:previewRemoveProject'",
+    )
   })
 
   it('scaffolds an author-owned resource slice with the existing author convention', async () => {
@@ -531,6 +535,11 @@ describe('trellis add mcp', () => {
     'AGENTS.md',
     'README.md',
     'app/features/workspace/components/WorkspaceStarterPage.vue',
+    'convex/features/todos/domain.ts',
+    'convex/features/todos/feature.ts',
+    'convex/features/todos/index.ts',
+    'convex/features/todos/operations.ts',
+    'convex/features/todos/permissions.ts',
     'server/middleware/mcp-auth.ts',
     'server/lib/mcp-invalid-bearer-throttle.ts',
     'server/mcp/index.ts',
@@ -538,6 +547,10 @@ describe('trellis add mcp', () => {
     'server/mcp/tools/list-todos.ts',
     'server/mcp/tools/create-todo.ts',
     'convex/features/mcpKeys/domain.ts',
+    'convex/functions.ts',
+    'generated/operation-projections.ts',
+    'shared/features/todos/operations.ts',
+    'shared/features/todos/permissions.ts',
   ] as const
 
   it('derives authored MCP files from the workspace-mcp fixture', async () => {

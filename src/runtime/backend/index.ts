@@ -50,6 +50,7 @@ export type {
   ActingFor,
   ActingForAccessor,
   ActingForDefinition,
+  DefinedOperation,
   FunctionsCtxExtension,
   InferOperationLoaded,
   InferOperationPreview,

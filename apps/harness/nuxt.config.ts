@@ -29,7 +29,29 @@ const harnessRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
 const harnessUrl = process.env.SITE_URL || 'http://localhost:3000'
-const localConvexUrl = 'http://127.0.0.1:3210'
+
+function parsePort(value: string | undefined, fallback: number, name: string): number {
+  if (value === undefined) return fallback
+
+  const port = Number.parseInt(value, 10)
+  if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+    throw new TypeError(`${name} must be a valid TCP port, received: ${value}`)
+  }
+
+  return port
+}
+
+const localConvexPort = parsePort(
+  process.env.CONVEX_LOCAL_BACKEND_PORT,
+  3210,
+  'CONVEX_LOCAL_BACKEND_PORT',
+)
+const localConvexSiteProxyPort = parsePort(
+  process.env.CONVEX_LOCAL_SITE_PROXY_PORT,
+  localConvexPort + 1,
+  'CONVEX_LOCAL_SITE_PROXY_PORT',
+)
+const localConvexUrl = process.env.CONVEX_URL || `http://127.0.0.1:${localConvexPort}`
 
 function appendOrigin(origins: string | undefined, origin: string): string {
   const values = new Set(
@@ -89,8 +111,8 @@ export default defineNuxtConfig({
         convexLocal({
           instanceName: 'trellis-internal-harness',
           stateIdSuffix: 'internal-harness-local-v1',
-          port: 3210,
-          siteProxyPort: 3211,
+          port: localConvexPort,
+          siteProxyPort: localConvexSiteProxyPort,
           projectDir: harnessRoot,
           convexDir: 'convex',
           reset: resetLocalBackend,

@@ -3,9 +3,11 @@ import {
   defineOperation,
   defineOperationDescriptor,
   defineOperationMetadata,
+  defineTrellis,
   executeOperationRef,
   implementOperation,
   operationPreview,
+  previewOf,
   previewOperationRef,
   type InferOperationResult,
   type OperationPreviewEnvelope,
@@ -52,6 +54,28 @@ const operation = defineOperation.withContext<{
 expectTypeOf<InferOperationResult<typeof operation>>().toEqualTypeOf<{
   archived: true
 }>()
+
+const runtime = defineTrellis({
+  query: ((definition: unknown) => definition) as never,
+  mutation: ((definition: unknown) => definition) as never,
+})
+
+const archiveImplementation = implementOperation(archiveDescriptor, {
+  permission: archivePermission,
+  preview: async () =>
+    operationPreview({
+      summary: 'Archive entry',
+      confirm: { operation: 'entries.archive', id: 'entry_1' },
+    }),
+  handler: async () => ({ archived: true as const }),
+})
+
+runtime.mutation.authenticated(archiveImplementation)
+runtime.mutation.authenticated(previewOf(archiveImplementation))
+runtime.mutation.authenticated.preview(archiveImplementation)
+runtime.mutation.workspace(archiveImplementation)
+runtime.mutation.workspace(previewOf(archiveImplementation))
+runtime.mutation.workspace.preview(archiveImplementation)
 
 implementOperation(archiveDescriptor, {
   // @ts-expect-error descriptor implementations carry permission metadata, not protected-lane guards.

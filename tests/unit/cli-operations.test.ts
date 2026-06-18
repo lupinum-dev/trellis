@@ -180,7 +180,7 @@ describe('operations CLI', () => {
       "import { api } from '../_generated/api.js'",
     )
     expect(read(appRoot, 'src/generated/operation-refs.ts')).toContain(
-      "functionRef: 'editor:previewPublishEntryOperation'",
+      "functionRef: 'entries/publish:previewPublishEntryOperation'",
     )
     expect(read(appRoot, 'src/generated/operation-refs.ts')).toContain(
       "executeFunctionRef: 'entries/publish:publishEntryOperationExecute'",

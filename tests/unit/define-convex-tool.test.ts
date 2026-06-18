@@ -685,6 +685,23 @@ describe('Destructive confirmation payload validation', () => {
     expect(tool.annotations?.destructiveHint).toBe(true)
   })
 
+  it('preserves identity forwarding transport on destructive preview projections', () => {
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      identityForwardingTransport: 'mcp',
+      permission: postOperationPermission,
+      preview: async () => deletePostPreview(),
+      handler: async () => ({ ok: true }),
+    })
+
+    expect(previewOf(operation).identityForwardingTransport).toBe('mcp')
+  })
+
   it('binds operation-first MCP tools from shared descriptors and projected refs', () => {
     const descriptor = defineOperationDescriptor({
       id: 'posts.delete',

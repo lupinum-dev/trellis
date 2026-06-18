@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 
+import { defineOperationDescriptor } from '../../../../src/runtime/functions/define-operation'
 import { defineArgs } from '../../../../src/runtime/schema'
 
 export const createNote = defineArgs({
@@ -20,6 +21,12 @@ export const createNote = defineArgs({
       examples: ['# My Note\nSome content here'],
     },
   },
+})
+
+export const addNoteDescriptor = defineOperationDescriptor({
+  id: 'notes.add',
+  name: 'addNote',
+  args: createNote.args,
 })
 
 export const searchNotes = defineArgs({

@@ -9,7 +9,13 @@ import {
 } from '../../src/module-internals/operation-registry-codegen'
 import { extractPublicSurfaceCodegenMetadata } from '../../src/module-internals/public-surface-codegen'
 
-const advancedOperationToolFiles = ['apps/harness/server/mcp/tools/delete-post.ts'] as const
+const harnessOperationToolFiles = [
+  'apps/harness/server/mcp/tools/add-task.ts',
+  'apps/harness/server/mcp/tools/create-comment.ts',
+  'apps/harness/server/mcp/tools/create-note.ts',
+  'apps/harness/server/mcp/tools/create-post.ts',
+  'apps/harness/server/mcp/tools/delete-post.ts',
+] as const
 
 const componentBridgeOperationToolFiles = [
   'examples/08-component-mini-cms/server/mcp/tools/create-page.ts',
@@ -38,6 +44,10 @@ const normalMaintainedExampleRoots = [
   'examples/05-visibility-access',
   'examples/06-multi-workspace',
   'examples/07-mcp-reference',
+] as const
+
+const maintainedExampleExecuteRefCoverageFiles = [
+  'examples/03-team-workspace/convex/features/todos/webhooks.ts',
 ] as const
 
 const harnessExecuteRefCoverageFiles = [
@@ -114,15 +124,41 @@ describe('MCP operation boundary', () => {
     )
   })
 
-  it('keeps advanced explicit MCP tools on projected refs without domain imports', () => {
-    for (const file of advancedOperationToolFiles) {
+  it('keeps harness MCP tools on generated operation handles', () => {
+    for (const file of harnessOperationToolFiles) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8')
 
-      expect(source, file).toMatch(/tool\.operation\([^)]*[,)]/)
-      expect(source, file).toMatch(/OperationRef\(/)
-      expect(source, file).not.toMatch(/from ['"].*convex\/.*\/domain['"]/)
-      expect(source, file).not.toMatch(/from ['"].*convex\/posts['"]/)
+      expect(source, file).toContain("from '#trellis/operations/mcp'")
+      expect(source, file).toContain('tool.operation(operations.byId[')
+      expect(source, file).not.toMatch(/OperationRef\(/)
+      expect(source, file).not.toContain("from '../../../convex/_generated/api'")
+      expect(source, file).not.toMatch(/from ['"].*convex\/(comments|notes|posts|tasks)['"]/)
     }
+
+    const harnessRoot = resolve(process.cwd(), 'apps/harness')
+    const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(harnessRoot))
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '#trellis/api',
+      defineOperationHandleImport: '#trellis/operation-runtime',
+      operationHandlesPath: '.nuxt/trellis/operation-handles/mcp.ts',
+      operationRefsPath: '.nuxt/trellis/operation-refs.ts',
+      projectOperationRefImport: '#trellis/operation-runtime',
+      runtimes: ['mcp'],
+    })
+    const handles = rendered.find((file) =>
+      file.path.endsWith('/operation-handles/mcp.ts'),
+    )?.content
+
+    expect(handles).toContain("from '../../../shared/schemas/comment'")
+    expect(handles).toContain("from '../../../shared/schemas/note'")
+    expect(handles).toContain("from '../../../shared/schemas/post'")
+    expect(handles).toContain("from '../../../shared/schemas/task'")
+    expect(handles).not.toContain("from '../../../convex/")
+    expect(handles).toContain("'comments.create': createCommentHandle")
+    expect(handles).toContain("'notes.add': addNoteHandle")
+    expect(handles).toContain("'posts.create': createPostHandle")
+    expect(handles).toContain("'posts.remove': removePostHandle")
+    expect(handles).toContain("'tasks.add': addTaskHandle")
   })
 
   it('keeps component bridge MCP tools on generated host bridge handles', () => {
@@ -162,8 +198,8 @@ describe('MCP operation boundary', () => {
     expect(handles).toContain("'pages.publish': publishPageHandle")
   })
 
-  it('keeps maintained generated operation projection registries in sync', () => {
-    for (const example of generatedProjectionRegistryExamples) {
+  for (const example of generatedProjectionRegistryExamples) {
+    it(`keeps ${example} generated operation projection registry in sync`, () => {
       const exampleRoot = resolve(process.cwd(), example)
       const registry = buildOperationRegistry(extractPublicSurfaceCodegenMetadata(exampleRoot))
       const rendered = renderOperationRegistryGeneratedFiles(registry, {
@@ -179,18 +215,21 @@ describe('MCP operation boundary', () => {
         (file) => file.path === 'generated/operation-projections.ts',
       )?.content
 
-      expect(projections, example).toBe(
+      expect(projections).toBe(
         readFileSync(resolve(exampleRoot, 'generated/operation-projections.ts'), 'utf8'),
       )
-    }
-  })
+    })
+  }
 
   it('keeps normal maintained examples free of app-authored execute refs', () => {
-    const offenders = normalMaintainedExampleRoots.flatMap((example) =>
-      collectSourceFiles(resolve(process.cwd(), example))
-        .filter((file) => readFileSync(file, 'utf8').includes('executeFunctionRef'))
-        .map((file) => relative(process.cwd(), file)),
-    )
+    const allowed = new Set<string>(maintainedExampleExecuteRefCoverageFiles)
+    const offenders = normalMaintainedExampleRoots
+      .flatMap((example) =>
+        collectSourceFiles(resolve(process.cwd(), example))
+          .filter((file) => readFileSync(file, 'utf8').includes('executeFunctionRef'))
+          .map((file) => relative(process.cwd(), file)),
+      )
+      .filter((file) => !allowed.has(file))
 
     expect(offenders).toEqual([])
   })

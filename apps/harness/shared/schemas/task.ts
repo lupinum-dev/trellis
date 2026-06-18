@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 
+import { defineOperationDescriptor } from '../../../../src/runtime/functions/define-operation'
 import { defineArgs } from '../../../../src/runtime/schema'
 
 export const addTask = defineArgs({
@@ -14,4 +15,10 @@ export const addTask = defineArgs({
       examples: ['Review MCP verification flow', 'Ship internal harness smoke tests'],
     },
   },
+})
+
+export const addTaskDescriptor = defineOperationDescriptor({
+  id: 'tasks.add',
+  name: 'addTask',
+  args: addTask.args,
 })

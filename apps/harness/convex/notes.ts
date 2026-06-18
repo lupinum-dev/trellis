@@ -1,7 +1,7 @@
-import { operation } from '@lupinum/trellis/app'
 import { defineArgs } from '@lupinum/trellis/args'
+import { implementOperation } from '@lupinum/trellis/backend'
 
-import { createNote, searchNotes } from '../shared/schemas/note'
+import { addNoteDescriptor, searchNotes } from '../shared/schemas/note'
 import type { DatabaseWriter } from './_generated/server'
 import { mutation, query } from './functions'
 
@@ -46,9 +46,7 @@ export const search = query.public({
   },
 })
 
-export const addNoteOp = operation.publicMutation({
-  id: 'notes.add',
-  args: createNote.args,
+export const addNoteOp = implementOperation(addNoteDescriptor, {
   executeFunctionRef: 'notes:add',
   identityForwardingTransport: 'mcp',
   publicWrite: {

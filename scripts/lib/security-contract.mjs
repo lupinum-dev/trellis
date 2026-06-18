@@ -223,8 +223,61 @@ function collectBackendFunctions(repoRoot, files) {
   )
 }
 
+function collectOperationDescriptors(repoRoot, files) {
+  const descriptors = new Map()
+
+  for (const file of files) {
+    const source = read(repoRoot, file)
+    for (const block of localExportBlocks(source)) {
+      if (!/\bdefineOperationDescriptor\s*\(/.test(block.source)) continue
+      const id = extractStringProperty(block.source, 'id')
+      if (!id) continue
+
+      descriptors.set(block.name, {
+        id,
+        kind: extractStringProperty(block.source, 'kind') ?? null,
+        executeFunctionRef: extractStringProperty(block.source, 'executeFunctionRef') ?? null,
+      })
+    }
+  }
+
+  return descriptors
+}
+
+function collectOperationRegistrations(repoRoot, files) {
+  const registrations = new Map()
+
+  for (const file of files) {
+    if (!file.includes('/convex/')) continue
+    const source = read(repoRoot, file)
+    for (const block of localExportBlocks(source)) {
+      const match = block.source.match(
+        /\b(query|mutation|action|transportMutation)\.(public|authenticated|workspace|protected|unsafe)\s*\(\s*([A-Za-z_$][\w$]*)\b/,
+      )
+      if (!match) continue
+      registrations.set(match[3], {
+        functionType: match[1],
+        lane: match[2],
+      })
+    }
+  }
+
+  return registrations
+}
+
+function implementedOperationType(block, descriptor, registration) {
+  if (descriptor?.kind === 'destructive') return 'destructive'
+  if (registration?.functionType === 'mutation' && registration.lane === 'public') {
+    return 'publicMutation'
+  }
+  return registration?.functionType ?? 'implemented'
+}
+
 function collectOperations(repoRoot, files) {
   const rows = []
+  const descriptors = collectOperationDescriptors(repoRoot, files)
+  const registrations = collectOperationRegistrations(repoRoot, files)
+
   for (const file of files) {
     if (!file.includes('/convex/')) continue
     const source = read(repoRoot, file)
@@ -232,19 +285,45 @@ function collectOperations(repoRoot, files) {
       const operation = block.source.match(
         /\boperation\.(query|mutation|destructive|publicMutation)\s*\(/,
       )
-      if (!operation) continue
+      if (operation) {
+        rows.push({
+          file,
+          line: block.line,
+          exportName: block.name,
+          type: operation[1],
+          id: extractStringProperty(block.source, 'id') ?? null,
+          hasGuard: block.source.includes('guard:'),
+          hasAuthorize: block.source.includes('authorize:'),
+          hasPublicWrite: block.source.includes('publicWrite:'),
+          hasPreview: block.source.includes('preview:'),
+          hasExecute: block.source.includes('execute:'),
+          executeFunctionRef: extractStringProperty(block.source, 'executeFunctionRef') ?? null,
+          identityForwardingTransport:
+            extractStringProperty(block.source, 'identityForwardingTransport') ?? null,
+        })
+        continue
+      }
+
+      const implemented = block.source.match(/\bimplementOperation\s*\(\s*([A-Za-z_$][\w$]*)\s*,/)
+      if (!implemented) continue
+      const descriptor = descriptors.get(implemented[1])
+      const registration = registrations.get(block.name)
+
       rows.push({
         file,
         line: block.line,
         exportName: block.name,
-        type: operation[1],
-        id: extractStringProperty(block.source, 'id') ?? null,
+        type: implementedOperationType(block.source, descriptor, registration),
+        id: extractStringProperty(block.source, 'id') ?? descriptor?.id ?? null,
         hasGuard: block.source.includes('guard:'),
         hasAuthorize: block.source.includes('authorize:'),
         hasPublicWrite: block.source.includes('publicWrite:'),
         hasPreview: block.source.includes('preview:'),
         hasExecute: block.source.includes('execute:'),
-        executeFunctionRef: extractStringProperty(block.source, 'executeFunctionRef') ?? null,
+        executeFunctionRef:
+          extractStringProperty(block.source, 'executeFunctionRef') ??
+          descriptor?.executeFunctionRef ??
+          null,
         identityForwardingTransport:
           extractStringProperty(block.source, 'identityForwardingTransport') ?? null,
       })

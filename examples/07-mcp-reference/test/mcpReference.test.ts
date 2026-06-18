@@ -21,6 +21,7 @@ import { modules } from '../convex/test.setup'
 const api = anyApi as any
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 const IDENTITY_FORWARDING_KEY = 'mcp-reference-test-identity-forwarding-key'
+const RUNBOOK_WEBHOOK_FUNCTION_REF = 'features/runbooks/webhooks:createRunbookFromWebhookMutation'
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
@@ -43,7 +44,7 @@ function webhookService(
     transport: 'webhook',
     purpose: 'mutation',
     replayMode: 'domain-idempotency',
-    targetFunctionRef: 'runbooks.create-from-webhook',
+    targetFunctionRef: RUNBOOK_WEBHOOK_FUNCTION_REF,
   })
 }
 

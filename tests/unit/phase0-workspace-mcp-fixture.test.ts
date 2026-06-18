@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type { H3Event } from 'h3'
@@ -6,11 +6,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { toAppInventoryJson } from '../../src/runtime/feature'
 import { getOperationMetadata } from '../../src/runtime/functions'
-import {
-  createProjectOperation,
-  deleteProjectOperation,
-} from '../fixtures/phase0-workspace-mcp/convex/features/projects/operations'
-import { appInventory } from '../fixtures/phase0-workspace-mcp/shared/app-inventory'
+
+const fixtureRoot = resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp')
 
 const { useEventMock } = vi.hoisted(() => ({
   useEventMock: vi.fn(),
@@ -79,12 +76,43 @@ function listSourceFiles(root: string): string[] {
   return files
 }
 
+function ensureFixtureNuxtTsconfig(): void {
+  const nuxtTsconfigPath = resolve(fixtureRoot, '.nuxt/tsconfig.json')
+  if (existsSync(nuxtTsconfigPath)) return
+
+  mkdirSync(resolve(fixtureRoot, '.nuxt'), { recursive: true })
+  writeFileSync(
+    nuxtTsconfigPath,
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          skipLibCheck: true,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  )
+}
+
 describe('phase0 workspace-mcp fixture', () => {
   it('builds inventory from shared descriptors and binds MCP tools without Convex implementation imports', async () => {
-    const { default: deleteProjectTool } =
-      await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
-    const { default: createProjectTool } =
-      await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/create-project')
+    ensureFixtureNuxtTsconfig()
+
+    const [
+      { createProjectOperation, deleteProjectOperation },
+      { appInventory },
+      { default: deleteProjectTool },
+      { default: createProjectTool },
+    ] = await Promise.all([
+      import('../fixtures/phase0-workspace-mcp/convex/features/projects/operations'),
+      import('../fixtures/phase0-workspace-mcp/shared/app-inventory'),
+      import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project'),
+      import('../fixtures/phase0-workspace-mcp/server/mcp/tools/create-project'),
+    ])
 
     expect(toAppInventoryJson(appInventory)).toEqual({
       schemaVersion: 1,
@@ -206,8 +234,8 @@ describe('phase0 workspace-mcp fixture', () => {
       ),
       'utf8',
     )
-    expect(domainSource).toContain('mutation.workspace(createProjectOperation as never)')
-    expect(domainSource).toContain('mutation.workspace.preview(deleteProjectOperation as never)')
+    expect(domainSource).toContain('mutation.workspace(createProjectOperation)')
+    expect(domainSource).toContain('mutation.workspace.preview(deleteProjectOperation)')
 
     const generatedApiTypes = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),
@@ -217,6 +245,8 @@ describe('phase0 workspace-mcp fixture', () => {
   })
 
   it('routes destructive execute through operation-execute forwarding options', async () => {
+    ensureFixtureNuxtTsconfig()
+
     const { default: deleteProjectTool } =
       await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
     const { convexCalls } = await import('../fixtures/phase0-workspace-mcp/server/mcp/runtime')

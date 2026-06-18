@@ -1,19 +1,20 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '../../../convex/_generated/api'
-import { addNoteOp } from '../../../convex/notes'
 import { createNote } from '../../../shared/schemas/note'
 import { tool } from '../runtime'
 
-const harnessApi = api as any
+type CreateNoteRespondCtx = {
+  args: unknown
+  result: unknown
+  ok: (data: unknown, summary?: string) => unknown
+}
 
-export default tool.operation(addNoteOp, {
+export default tool.operation(operations.byId['notes.add'], {
   schema: createNote,
-  execute: executeOperationRef(addNoteOp, harnessApi.notes.add),
   meta: {
     name: 'create-note',
   },
-  respond: ({ args, result, ok }) => {
+  respond: ({ args, result, ok }: CreateNoteRespondCtx) => {
     const request = args as { title: string }
     return ok({ id: result }, `Created note "${request.title}"`)
   },

@@ -265,6 +265,39 @@ describe('security contract generator', () => {
       ]),
     )
     expect(contract.operations.length).toBeGreaterThan(0)
+    expect(contract.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: 'apps/harness/convex/comments.ts',
+          exportName: 'createCommentOp',
+          id: 'comments.create',
+          type: 'mutation',
+          identityForwardingTransport: 'mcp',
+        }),
+        expect.objectContaining({
+          file: 'apps/harness/convex/notes.ts',
+          exportName: 'addNoteOp',
+          id: 'notes.add',
+          type: 'publicMutation',
+          identityForwardingTransport: 'mcp',
+        }),
+        expect.objectContaining({
+          file: 'apps/harness/convex/posts.ts',
+          exportName: 'removePostOp',
+          id: 'posts.remove',
+          type: 'destructive',
+          executeFunctionRef: 'posts:removeWithConfirmation',
+          identityForwardingTransport: 'mcp',
+        }),
+        expect.objectContaining({
+          file: 'examples/03-team-workspace/convex/features/todos/webhooks.ts',
+          exportName: 'processTodoSyncWebhookOp',
+          id: 'todos.process-sync-webhook',
+          executeFunctionRef: 'features/todos/webhooks:processTodoSyncWebhookMutation',
+          identityForwardingTransport: 'webhook',
+        }),
+      ]),
+    )
     expect(contract.mcpTools.length).toBeGreaterThan(0)
   })
 

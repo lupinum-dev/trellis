@@ -1,16 +1,17 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '../../../convex/_generated/api'
-import { createCommentOp } from '../../../convex/comments'
 import { createComment } from '../../../shared/schemas/comment'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 import { tool } from '../runtime'
 
-const harnessApi = api as any
+type CreateCommentRespondCtx = {
+  args: unknown
+  result: unknown
+  ok: (data: unknown, summary?: string) => unknown
+}
 
-export default tool.operation(createCommentOp, {
+export default tool.operation(operations.byId['comments.create'], {
   schema: createComment,
-  execute: executeOperationRef(createCommentOp, harnessApi.comments.create),
   enabled: async (ctx) => {
     const auth = await resolveHarnessMcpAuth(ctx.event)
     return !!auth?.workspaceId
@@ -18,7 +19,7 @@ export default tool.operation(createCommentOp, {
   meta: {
     name: 'create-comment',
   },
-  respond: ({ args, result, ok }) => {
+  respond: ({ args, result, ok }: CreateCommentRespondCtx) => {
     const request = args as { postId: string }
     return ok({ id: result, postId: request.postId }, `Added comment to post ${request.postId}`)
   },

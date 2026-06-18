@@ -1,16 +1,17 @@
-import { executeOperationRef } from '@lupinum/trellis/mcp'
+import { operations } from '#trellis/operations/mcp'
 
-import { api } from '../../../convex/_generated/api'
-import { createPostOp } from '../../../convex/posts'
 import { createPost } from '../../../shared/schemas/post'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 import { tool } from '../runtime'
 
-const harnessApi = api as any
+type CreatePostRespondCtx = {
+  args: unknown
+  result: unknown
+  ok: (data: unknown, summary?: string) => unknown
+}
 
-export default tool.operation(createPostOp, {
+export default tool.operation(operations.byId['posts.create'], {
   schema: createPost,
-  execute: executeOperationRef(createPostOp, harnessApi.posts.create),
   enabled: async (ctx) => {
     const auth = await resolveHarnessMcpAuth(ctx.event)
     return !!auth?.workspaceId && ['owner', 'admin', 'member'].includes(auth.role)
@@ -18,7 +19,7 @@ export default tool.operation(createPostOp, {
   meta: {
     name: 'create-post',
   },
-  respond: ({ args, result, ok }) => {
+  respond: ({ args, result, ok }: CreatePostRespondCtx) => {
     const request = args as { title: string }
     return ok({ id: result }, `Created post "${request.title}"`)
   },

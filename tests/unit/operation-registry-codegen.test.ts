@@ -70,7 +70,7 @@ describe('operation registry codegen', () => {
           exportName: 'archiveTask',
           file: 'convex/features/tasks/operations.ts',
           functionKind: 'mutation',
-          functionRef: 'tasks.archive',
+          functionRef: 'features/tasks/operations:archiveTask',
           line: expect.any(Number),
           projection: 'execute',
         },
@@ -79,7 +79,7 @@ describe('operation registry codegen', () => {
           exportName: 'previewArchiveTask',
           file: 'convex/features/tasks/operations.ts',
           functionKind: 'mutation',
-          functionRef: 'tasks.archive:preview',
+          functionRef: 'features/tasks/operations:previewArchiveTask',
           line: expect.any(Number),
           projection: 'preview',
         },
@@ -95,7 +95,7 @@ describe('operation registry codegen', () => {
           exportName: 'listTasks',
           file: 'convex/features/tasks/operations.ts',
           functionKind: 'query',
-          functionRef: 'tasks.list',
+          functionRef: 'features/tasks/operations:listTasks',
           line: expect.any(Number),
           projection: 'execute',
         },
@@ -276,13 +276,13 @@ describe('operation registry codegen', () => {
       'api.features.tasks.domain.archiveTask',
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "{ functionRef: 'tasks.archive' }",
+      "{ functionRef: 'features/tasks/domain:archiveTask' }",
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "functionRef: 'tasks.archive:preview'",
+      "functionRef: 'features/tasks/domain:previewArchiveTask'",
     )
     expect(byPath.get('.trellis/generated/operation-refs.ts')).toContain(
-      "executeFunctionRef: 'tasks.archive'",
+      "executeFunctionRef: 'features/tasks/domain:archiveTask'",
     )
     expect(byPath.get('.trellis/generated/operation-handles/mcp.ts')).toContain(
       "from '../../../shared/features/tasks/operations'",
@@ -312,10 +312,10 @@ describe('operation registry codegen', () => {
       "fingerprint: 'sha256:",
     )
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
-      "'tasks.archive': 'tasks.archive'",
+      "'tasks.archive': 'features/tasks/domain:archiveTask'",
     )
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
-      "'tasks.archive': 'tasks.archive:preview'",
+      "'tasks.archive': 'features/tasks/domain:previewArchiveTask'",
     )
     expect(byPath.get('.trellis/generated/operation-projections.ts')).toContain(
       'satisfies OperationProjectionRegistry',
@@ -327,7 +327,7 @@ describe('operation registry codegen', () => {
     expect(projectionOnly).toEqual([
       {
         path: '.trellis/generated/operation-projections.ts',
-        content: expect.stringContaining("'tasks.archive': 'tasks.archive'"),
+        content: expect.stringContaining("'tasks.archive': 'features/tasks/domain:archiveTask'"),
       },
     ])
   })
@@ -482,7 +482,7 @@ describe('operation registry codegen', () => {
           exportName: 'archiveTask',
           file: 'convex/features/tasks/domain.ts',
           functionKind: 'mutation',
-          functionRef: 'tasks.archive',
+          functionRef: 'features/tasks/domain:archiveTask',
           line: expect.any(Number),
           projection: 'execute',
         },
@@ -570,7 +570,7 @@ describe('operation registry codegen', () => {
           exportName: 'previewPublishEntryOperation',
           file: 'src/entries/publish.ts',
           functionKind: 'mutation',
-          functionRef: 'editor:previewPublishEntryOperation',
+          functionRef: 'entries/publish:previewPublishEntryOperation',
           line: expect.any(Number),
           projection: 'preview',
         },
@@ -661,7 +661,7 @@ describe('operation registry codegen', () => {
       'entries/publish:rollbackVersionOperationExecute',
     )
     expect(registry.operations[0]?.preview?.functionRef).toBe(
-      'editor:previewRollbackVersionOperation',
+      'entries/publish:previewRollbackVersionOperation',
     )
     expect(refs).toContain("{ functionRef: 'entries/publish:rollbackVersionOperationExecute' }")
     expect(refs).toContain("executeFunctionRef: 'entries/publish:rollbackVersionOperationExecute'")

@@ -3,6 +3,7 @@ import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/va
 
 import type { AuthRequiredGuard } from '../auth/define-guard.js'
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
+import type { IdentityForwardingTransport } from '../identity-forwarding/envelope.js'
 import type { AwaitedValue, FallbackIfUnknownOrNever } from '../types/type-utils.js'
 import type {
   StructuredCrossTenantCapability,
@@ -113,6 +114,7 @@ export type OperationDefinition<
         name?: string
         kind?: OperationKind
         executeFunctionRef?: string
+        identityForwardingTransport?: IdentityForwardingTransport
         permission?: PermissionKeyHandle<string>
         safety?: McpWriteSafety
         preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
@@ -136,6 +138,7 @@ export type OperationShape = {
   name?: string
   kind?: OperationKind
   executeFunctionRef?: string
+  identityForwardingTransport?: IdentityForwardingTransport
   permission?: PermissionKeyHandle<string>
   safety?: McpWriteSafety
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -245,6 +248,12 @@ type ResolvedOperationDefinition<TDefinition extends OperationShape> = Omit<
 export type ValidateOperationDefinition<TDefinition extends OperationShape> = TDefinition &
   ResolvedOperationDefinition<TDefinition>
 
+export type DefinedOperation<TDefinition extends OperationShape = OperationShape> =
+  ValidateOperationDefinition<TDefinition> & {
+    [trellisOperationMetadataKey]: TrellisOperationMetadata
+    [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
+  }
+
 type ContextBoundOperationShape<TCtx> = Omit<OperationShape, 'handler' | 'load' | 'preview'> & {
   handler: (ctx: TCtx, ...args: any[]) => unknown
   load?: (ctx: TCtx, ...args: any[]) => unknown
@@ -277,10 +286,10 @@ type DescriptorBoundOperationDefinition<
 type DefineOperationFn = {
   <const TDefinition extends OperationShape>(
     definition: ValidateOperationDefinition<TDefinition>,
-  ): ValidateOperationDefinition<TDefinition>
+  ): DefinedOperation<TDefinition>
   withContext: <TCtx>() => <const TDefinition extends ContextBoundOperationShape<TCtx>>(
     definition: ValidateOperationDefinition<TDefinition>,
-  ) => ValidateOperationDefinition<TDefinition>
+  ) => DefinedOperation<TDefinition>
 }
 
 /**
@@ -292,7 +301,7 @@ type DefineOperationFn = {
  */
 function defineOperationImpl<const TDefinition extends OperationShape>(
   definition: ValidateOperationDefinition<TDefinition>,
-): ValidateOperationDefinition<TDefinition> {
+): DefinedOperation<TDefinition> {
   const permissionKey =
     definition.permission === undefined ? undefined : resolvePermissionKey(definition.permission)
   const metadata = {
@@ -317,7 +326,7 @@ function defineOperationImpl<const TDefinition extends OperationShape>(
           },
         }
       : {}),
-  }) as ValidateOperationDefinition<TDefinition>
+  }) as DefinedOperation<TDefinition>
 }
 
 export const defineOperation = Object.assign(defineOperationImpl, {
@@ -371,7 +380,7 @@ export function implementOperation<
 >(
   descriptor: TDescriptor,
   definition: TDefinition,
-): ValidateOperationDefinition<DescriptorBoundOperationDefinition<TDescriptor, TDefinition>> {
+): DefinedOperation<DescriptorBoundOperationDefinition<TDescriptor, TDefinition>> {
   assertDescriptorValue(descriptor, 'id', descriptor.id, definition.id)
   assertDescriptorValue(descriptor, 'name', descriptor.name, definition.name)
   assertDescriptorValue(descriptor, 'kind', descriptor.kind, definition.kind)
@@ -428,6 +437,7 @@ export function previewOf<
     load?: (...args: any[]) => unknown
     authorize?: unknown
     executeFunctionRef?: string
+    identityForwardingTransport?: IdentityForwardingTransport
     [trellisOperationMetadataKey]?: TrellisOperationMetadata
     [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
   },
@@ -449,6 +459,9 @@ export function previewOf<
   id: string
   guard?: never
   permission?: TDefinition['permission']
+  identityForwardingTransport?: IdentityForwardingTransport
+  [trellisOperationMetadataKey]: TrellisOperationMetadata
+  [trellisOperationProjectionMetadataKey]: TrellisOperationProjectionMetadata
 }
 export function previewOf<
   TCtx,
@@ -484,6 +497,9 @@ export function previewOf<
 > & {
   id: string
   permission?: PermissionKeyHandle<string>
+  identityForwardingTransport?: IdentityForwardingTransport
+  [trellisOperationMetadataKey]: TrellisOperationMetadata
+  [trellisOperationProjectionMetadataKey]: TrellisOperationProjectionMetadata
 }
 export function previewOf(operation: any): any {
   if (!operation.preview) {
@@ -498,6 +514,9 @@ export function previewOf(operation: any): any {
     returns: operation.previewReturns,
     ...(operation.guard !== undefined ? { guard: operation.guard } : {}),
     ...(operation.permission !== undefined ? { permission: operation.permission } : {}),
+    ...(operation.identityForwardingTransport !== undefined
+      ? { identityForwardingTransport: operation.identityForwardingTransport }
+      : {}),
     load: operation.load,
     authorize: operation.authorize,
     handler: async (ctx, args, loaded) => await operation.preview!(ctx, args, loaded),

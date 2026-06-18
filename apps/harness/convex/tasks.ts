@@ -1,11 +1,9 @@
-import { operation } from '@lupinum/trellis/app'
+import { implementOperation } from '@lupinum/trellis/backend'
 
-import { addTask } from '../shared/schemas/task'
+import { addTaskDescriptor } from '../shared/schemas/task'
 import { mutation } from './functions'
 
-export const addTaskOp = operation.mutation({
-  id: 'tasks.add',
-  args: addTask.args,
+export const addTaskOp = implementOperation(addTaskDescriptor, {
   identityForwardingTransport: 'mcp',
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()

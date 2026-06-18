@@ -178,6 +178,7 @@ export default defineConfig({
           include: ['tests/e2e/**/*.e2e.test.ts'],
           testTimeout: 60000,
           fileParallelism: false,
+          maxWorkers: 1,
         },
       },
     ],

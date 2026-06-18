@@ -92,6 +92,16 @@ function toGeneratedApiPath(
   return [...modulePath, exportName]
 }
 
+function toConvexFunctionRef(apiPath: readonly string[]): string {
+  const exportName = apiPath.at(-1)
+  if (!exportName) {
+    throw new Error('Operation projection does not produce a Convex function ref.')
+  }
+
+  const modulePath = apiPath.slice(0, -1).join('/')
+  return modulePath ? `${modulePath}:${exportName}` : exportName
+}
+
 function toRegistryProjection(
   projection: OperationProjectionBindingMetadata,
   options: OperationRegistryBuildOptions = {},
@@ -104,7 +114,7 @@ function toRegistryProjection(
     projection: projection.projection,
     functionKind: projection.functionKind,
     apiPath,
-    functionRef: projection.targetFunctionRef,
+    functionRef: toConvexFunctionRef(apiPath),
   }
 }
 

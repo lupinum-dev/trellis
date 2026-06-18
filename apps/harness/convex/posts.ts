@@ -2,6 +2,7 @@ import { operation } from '@lupinum/trellis/app'
 import { defineArgs } from '@lupinum/trellis/args'
 import { can } from '@lupinum/trellis/auth'
 import {
+  implementOperation,
   operationEffect,
   operationIssue,
   operationPreview,
@@ -10,7 +11,12 @@ import {
 import { defineRecordAccess } from '@lupinum/trellis/workspace'
 import { v } from 'convex/values'
 
-import { createPost, deletePost, removePostDescriptor, updatePost } from '../shared/schemas/post'
+import {
+  createPostDescriptor,
+  deletePost,
+  removePostDescriptor,
+  updatePost,
+} from '../shared/schemas/post'
 import type { Doc, Id } from './_generated/dataModel'
 import type { AppIdentity } from './auth/appIdentity'
 import type { InternalHarnessCaller } from './auth/caller'
@@ -130,9 +136,7 @@ export const get = query.authenticated({
   },
 })
 
-export const createPostOp = operation.mutation({
-  id: 'posts.create',
-  args: createPost.args,
+export const createPostOp = implementOperation(createPostDescriptor, {
   executeFunctionRef: 'posts:create',
   identityForwardingTransport: 'mcp',
   handler: async (ctx, args) => {
@@ -209,15 +213,10 @@ export const removePostDirectOp = operation.mutation({
 
 export const remove = mutation.workspace(removePostDirectOp)
 
-export const removePostOp = operation.destructive({
-  id: removePostDescriptor.id,
-  name: removePostDescriptor.name,
-  args: removePostDescriptor.args,
-  returns: removePostDescriptor.returns,
-  previewReturns: removePostDescriptor.previewReturns,
+export const removePostOp = implementOperation(removePostDescriptor, {
   executeFunctionRef: 'posts:removeWithConfirmation',
+  identityForwardingTransport: 'mcp',
   permission: postDeletePermission,
-  safety: 'destructive-write',
   load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
     const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
@@ -259,16 +258,8 @@ export const removePostOp = operation.destructive({
   },
 })
 
-export const removeWithConfirmation = mutation.workspace({
-  ...removePostOp,
-  executeFunctionRef: 'posts:removeWithConfirmation',
-  identityForwardingTransport: 'mcp',
-})
-export const previewRemove = mutation.workspace({
-  ...previewOf(removePostOp),
-  executeFunctionRef: 'posts:previewRemove',
-  identityForwardingTransport: 'mcp',
-})
+export const removeWithConfirmation = mutation.workspace(removePostOp)
+export const previewRemove = mutation.workspace(previewOf(removePostOp))
 
 export const publishPostOp = operation.mutation({
   id: 'posts.publish',
