@@ -568,9 +568,61 @@ function createAgentMcpOperationProjectionFinding(inventory: TrellisCliInventory
   }
 }
 
+function createAgentMcpContractDescriptionFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const operationsById = new Map(
+    inventory.publicSurface.operations.map((operation) => [operation.id, operation]),
+  )
+  const operationSourcesForTools = (
+    tools: typeof inventory.publicSurface.tools,
+  ): TrellisCliInventorySourceLocation[] =>
+    tools
+      .map((tool) => (tool.operationId ? operationsById.get(tool.operationId)?.source : undefined))
+      .filter((source): source is TrellisCliInventorySourceLocation => source !== undefined)
+  const operationBackedTools = inventory.publicSurface.tools.filter(
+    (tool) =>
+      tool.source === 'operation' && tool.operationId && operationsById.has(tool.operationId),
+  )
+  const toolsWithoutDescriptions = operationBackedTools.filter((tool) => {
+    if (!tool.operationId) return false
+    const operation = operationsById.get(tool.operationId)
+    return !operation?.contract?.description?.trim()
+  })
+  const locations =
+    toolsWithoutDescriptions.length > 0
+      ? toolsWithoutDescriptions.map((tool) => tool.sourceLocation)
+      : operationBackedTools.map((tool) => tool.sourceLocation)
+
+  return {
+    id: 'agent-mcp-contract-descriptions',
+    category: 'advanced',
+    title: 'Agent MCP contract descriptions',
+    status: toolsWithoutDescriptions.length > 0 ? 'fail' : 'pass',
+    message:
+      operationBackedTools.length === 0
+        ? 'No resolvable operation-backed MCP tools were found in public-surface metadata.'
+        : toolsWithoutDescriptions.length > 0
+          ? `Found MCP-exposed operation-backed tools without contract descriptions at ${formatInventoryLocations(locations)}.`
+          : `Found ${operationBackedTools.length} operation-backed MCP tool${operationBackedTools.length === 1 ? '' : 's'} with contract descriptions.`,
+    fixHint:
+      toolsWithoutDescriptions.length > 0
+        ? 'Move MCP-exposed operation args into a shared `defineArgs({ description, args, meta })` contract, or add a description to the existing defineArgs contract used by the operation descriptor.'
+        : 'Keep MCP-exposed operation args backed by described shared defineArgs contracts.',
+    sources: [
+      findingInventorySource('publicSurface.tools', locations),
+      findingInventorySource(
+        'publicSurface.operations',
+        toolsWithoutDescriptions.length > 0
+          ? operationSourcesForTools(toolsWithoutDescriptions)
+          : operationSourcesForTools(operationBackedTools),
+      ),
+    ],
+  }
+}
+
 export function collectAgentDoctorFindings(inventory: TrellisCliInventory): DoctorFinding[] {
   return [
     createAgentMcpOperationMetadataFinding(inventory),
     createAgentMcpOperationProjectionFinding(inventory),
+    createAgentMcpContractDescriptionFinding(inventory),
   ]
 }

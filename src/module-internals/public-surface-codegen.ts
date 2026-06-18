@@ -39,6 +39,14 @@ export interface OperationDefinitionMetadata {
   name?: string
   kind: 'safe' | 'destructive'
   executeFunctionRef?: string
+  contract?: OperationContractMetadata
+}
+
+export interface OperationContractMetadata {
+  exportName: string
+  file: string
+  line: number
+  description?: string
 }
 
 export interface OperationProjectionBindingMetadata {
@@ -540,6 +548,74 @@ function readOperationHandleMetadata(
   return operationsByHandlePath.get(path.slice(1).join('.'))
 }
 
+function readDefineArgsObject(declaration: VariableDeclaration): ObjectLiteralExpression | null {
+  const initializer = unwrapExpression(declaration.getInitializer())
+  if (!initializer || !Node.isCallExpression(initializer)) return null
+  const callee = unwrapExpression(initializer.getExpression())
+  if (!callee || !Node.isIdentifier(callee) || callee.getText() !== 'defineArgs') return null
+
+  const [firstArg] = initializer.getArguments()
+  const definition = unwrapExpression(firstArg)
+  return definition && Node.isObjectLiteralExpression(definition) ? definition : null
+}
+
+function extractArgsDefinitions(
+  rootDir: string,
+  sourceFile: SourceFile,
+): OperationContractMetadata[] {
+  const argsDefinitions: OperationContractMetadata[] = []
+
+  for (const declaration of sourceFile.getVariableDeclarations()) {
+    const definition = readDefineArgsObject(declaration)
+    if (!definition) continue
+
+    argsDefinitions.push({
+      exportName: declaration.getName(),
+      file: toPosixPath(relative(rootDir, sourceFile.getFilePath())),
+      line: declaration.getNameNode().getStartLineNumber(),
+      ...(readStringProperty(definition, 'description')
+        ? { description: readStringProperty(definition, 'description') }
+        : {}),
+    })
+  }
+
+  return argsDefinitions
+}
+
+function createArgsDefinitionsByExport(
+  argsDefinitions: OperationContractMetadata[],
+): Map<string, OperationContractMetadata> {
+  const exportCounts = new Map<string, number>()
+  for (const argsDefinition of argsDefinitions) {
+    exportCounts.set(
+      argsDefinition.exportName,
+      (exportCounts.get(argsDefinition.exportName) ?? 0) + 1,
+    )
+  }
+
+  return new Map(
+    argsDefinitions
+      .filter((argsDefinition) => exportCounts.get(argsDefinition.exportName) === 1)
+      .map((argsDefinition) => [argsDefinition.exportName, argsDefinition]),
+  )
+}
+
+function readOperationContractMetadata(
+  definition: ObjectLiteralExpression,
+  argsDefinitionsByExport: Map<string, OperationContractMetadata>,
+): OperationContractMetadata | undefined {
+  const argsProperty = definition.getProperty('args')
+  if (!argsProperty || !Node.isPropertyAssignment(argsProperty)) return undefined
+  const initializer = unwrapExpression(argsProperty.getInitializer())
+  if (!initializer || !Node.isPropertyAccessExpression(initializer)) return undefined
+  if (initializer.getName() !== 'args') return undefined
+
+  const contractExpression = unwrapExpression(initializer.getExpression())
+  if (!contractExpression || !Node.isIdentifier(contractExpression)) return undefined
+
+  return argsDefinitionsByExport.get(contractExpression.getText())
+}
+
 type ReadOperationDefinitionResult = {
   definition: ObjectLiteralExpression
   kind?: 'safe' | 'destructive'
@@ -598,6 +674,7 @@ function readOperationDefinitionObject(
 function extractOperationDefinitions(
   rootDir: string,
   sourceFile: SourceFile,
+  argsDefinitionsByExport: Map<string, OperationContractMetadata>,
 ): OperationDefinitionMetadata[] {
   const operations: OperationDefinitionMetadata[] = []
 
@@ -608,6 +685,7 @@ function extractOperationDefinitions(
 
     const id = readStringProperty(definition, 'id')
     if (!id) continue
+    const contract = readOperationContractMetadata(definition, argsDefinitionsByExport)
 
     operations.push({
       exportName: declaration.getName(),
@@ -624,6 +702,7 @@ function extractOperationDefinitions(
       ...(readStringProperty(definition, 'executeFunctionRef')
         ? { executeFunctionRef: readStringProperty(definition, 'executeFunctionRef') }
         : {}),
+      ...(contract ? { contract } : {}),
     })
   }
 
@@ -1029,6 +1108,7 @@ export function extractPublicSurfaceCodegenMetadata(
   const toolInclude = [...(options.toolInclude ?? DEFAULT_MCP_TOOL_CODEGEN_INCLUDE)]
   const project = createProject(rootDir, [...operationInclude, ...toolInclude])
 
+  const argsDefinitions: OperationContractMetadata[] = []
   const operations: OperationDefinitionMetadata[] = []
   const projections: OperationProjectionBindingMetadata[] = []
   const tools: ToolDefinitionMetadata[] = []
@@ -1042,7 +1122,20 @@ export function extractPublicSurfaceCodegenMetadata(
       continue
     }
 
-    const fileOperations = extractOperationDefinitions(rootDir, sourceFile)
+    argsDefinitions.push(...extractArgsDefinitions(rootDir, sourceFile))
+  }
+
+  const argsDefinitionsByExport = createArgsDefinitionsByExport(argsDefinitions)
+
+  for (const sourceFile of project.getSourceFiles()) {
+    if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+    if (
+      isExcludedPath(toPosixPath(relative(rootDir, sourceFile.getFilePath())), operationExclude)
+    ) {
+      continue
+    }
+
+    const fileOperations = extractOperationDefinitions(rootDir, sourceFile, argsDefinitionsByExport)
 
     operations.push(...fileOperations)
   }

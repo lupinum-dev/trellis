@@ -345,12 +345,24 @@ describe('public surface codegen', () => {
 
   it('resolves generated operation handle paths in MCP tool metadata', () => {
     const rootDir = createFixture({
+      'shared/features/projects/contract.ts': `
+        import { defineArgs } from '@lupinum/trellis/args'
+        import { v } from 'convex/values'
+
+        export const createProject = defineArgs({
+          description: 'Create a workspace project.',
+          args: {
+            name: v.string(),
+          },
+        })
+      `,
       'shared/features/projects/operations.ts': `
         import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+        import { createProject } from './contract'
 
         export const createProjectDescriptor = defineOperationDescriptor({
           id: 'projects.create',
-          args: {},
+          args: createProject.args,
         })
       `,
       'convex/features/projects/domain.ts': `
@@ -381,6 +393,21 @@ describe('public surface codegen', () => {
 
     const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
 
+    expect(metadata.operations).toEqual([
+      {
+        contract: {
+          description: 'Create a workspace project.',
+          exportName: 'createProject',
+          file: 'shared/features/projects/contract.ts',
+          line: expect.any(Number),
+        },
+        exportName: 'createProjectDescriptor',
+        file: 'shared/features/projects/operations.ts',
+        id: 'projects.create',
+        kind: 'safe',
+        line: expect.any(Number),
+      },
+    ])
     expect(metadata.tools).toEqual([
       {
         file: 'server/mcp/tools/create-project.ts',

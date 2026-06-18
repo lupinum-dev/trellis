@@ -246,6 +246,11 @@ type DoctorInventoryJsonReport = {
         exportName: string
         kind: 'safe' | 'destructive'
         source: { path: string; line: number }
+        contract?: {
+          exportName: string
+          source: { path: string; line: number }
+          description?: string
+        }
       }>
       projections: Array<{
         operationId: string
@@ -3004,6 +3009,21 @@ export default tool.operation(purgeTodoOp, {
         }),
       ]),
     )
+    expect(report.inventory.publicSurface.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'todos.create',
+          contract: expect.objectContaining({
+            exportName: 'createTodo',
+            description: 'Create a workspace todo',
+            source: expect.objectContaining({
+              path: 'shared/features/todos/contract.ts',
+              line: expect.any(Number),
+            }),
+          }),
+        }),
+      ]),
+    )
     expect(report.findings.find((entry) => entry.id === 'agent-mcp-operation-metadata')).toEqual(
       expect.objectContaining({
         status: 'pass',
@@ -3014,6 +3034,12 @@ export default tool.operation(purgeTodoOp, {
       expect.objectContaining({
         status: 'pass',
         message: expect.stringContaining('required execute projections'),
+      }),
+    )
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-contract-descriptions')).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        message: expect.stringContaining('with contract descriptions'),
       }),
     )
   })
@@ -3145,6 +3171,75 @@ export default tool.operation(purgeTodoOp, {
         status: 'fail',
         message: expect.stringContaining('without complete generated projections'),
         fixHint: expect.stringContaining('rerun `trellis prepare`'),
+      }),
+    )
+  })
+
+  it('fails agent doctor when an MCP-exposed operation contract has no description', () => {
+    const appRoot = createTempDir('trellis-doctor-agent-missing-contract-description-')
+    mkdirSync(resolve(appRoot, '.nuxt/trellis'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, '.nuxt/trellis/public-surface.json'),
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'projects.create',
+              exportName: 'createProjectDescriptor',
+              kind: 'safe',
+              file: 'shared/features/projects/operations.ts',
+              line: 7,
+              contract: {
+                exportName: 'createProject',
+                file: 'shared/features/projects/contract.ts',
+                line: 5,
+              },
+            },
+          ],
+          projections: [
+            {
+              operationId: 'projects.create',
+              operationExportName: 'createProjectDescriptor',
+              exportName: 'createProject',
+              file: 'convex/features/projects/domain.ts',
+              line: 5,
+              projection: 'execute',
+              functionKind: 'mutation',
+              targetFunctionRef: 'projects.create',
+            },
+          ],
+          tools: [
+            {
+              name: 'create-project',
+              file: 'server/mcp/tools/create-project.ts',
+              line: 3,
+              source: 'operation',
+              operationId: 'projects.create',
+              operationExportName: 'createProjectDescriptor',
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string; fixHint: string }>
+    }
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'agent-mcp-contract-descriptions')).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        message: expect.stringContaining('without contract descriptions'),
+        fixHint: expect.stringContaining('defineArgs({ description'),
       }),
     )
   })

@@ -71,6 +71,11 @@ export interface TrellisCliInventoryPublicSurfaceOperation {
   exportName: string
   kind: 'safe' | 'destructive'
   source: TrellisCliInventorySourceLocation
+  contract?: {
+    exportName: string
+    source: TrellisCliInventorySourceLocation
+    description?: string
+  }
 }
 
 export interface TrellisCliInventoryPublicSurfaceProjection {
@@ -343,6 +348,23 @@ function validateGeneratedPublicSurfaceMetadata(value: unknown): string | null {
     if (!hasNumberProperty(operation, 'line')) {
       return `expected operations[${index}].line to be a number`
     }
+    if (operation.contract !== undefined) {
+      if (!isRecord(operation.contract)) {
+        return `expected operations[${index}].contract to be an object when present`
+      }
+      if (!hasStringProperty(operation.contract, 'exportName')) {
+        return `expected operations[${index}].contract.exportName to be a string`
+      }
+      if (!hasStringProperty(operation.contract, 'file')) {
+        return `expected operations[${index}].contract.file to be a string`
+      }
+      if (!hasNumberProperty(operation.contract, 'line')) {
+        return `expected operations[${index}].contract.line to be a number`
+      }
+      if (!hasOptionalStringProperty(operation.contract, 'description')) {
+        return `expected operations[${index}].contract.description to be a string when present`
+      }
+    }
   }
 
   for (const [index, projection] of value.projections.entries()) {
@@ -432,6 +454,17 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
       exportName: operation.exportName,
       kind: operation.kind,
       source: toMetadataLocation(operation.file, operation.line),
+      ...(operation.contract
+        ? {
+            contract: {
+              exportName: operation.contract.exportName,
+              source: toMetadataLocation(operation.contract.file, operation.contract.line),
+              ...(operation.contract.description
+                ? { description: operation.contract.description }
+                : {}),
+            },
+          }
+        : {}),
     })),
     projections: metadata.projections.map((projection) => ({
       operationId: projection.operationId,

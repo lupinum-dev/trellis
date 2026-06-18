@@ -3528,11 +3528,75 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   description diagnostics, record-id resolution/search/waiver diagnostics, and
   stale generated agent-context handling if such an artifact is introduced.
 
+## Slice 64: Agent Doctor Contract Descriptions
+
+### Proof
+
+- RFC 0013 requires `trellis doctor --agent` to report missing contract
+  descriptions for MCP-exposed args.
+- The runtime already uses `defineArgs({ description, args, meta })` as the
+  shared argument contract source, and the workspace-MCP starter already keeps
+  its operation descriptors on `args: createTodo.args`.
+- Before this slice, public-surface operation metadata did not retain the
+  `defineArgs(...)` contract description. A scanner proof for
+  `args: createProject.args` failed because the extracted operation had no
+  contract metadata.
+- A doctor proof with generated public-surface metadata also failed because no
+  `agent-mcp-contract-descriptions` finding existed.
+
+### Implementation
+
+- Extended public-surface operation metadata with an optional `contract` block
+  derived from static `defineArgs(...)` declarations.
+- The scanner now links operation definitions/descriptors whose `args` property
+  is a direct `contract.args` reference back to the matching `defineArgs`
+  export when the export name is unambiguous.
+- Generated `.nuxt/trellis/public-surface.json` validation now accepts and
+  validates the optional operation contract block.
+- CLI inventory maps operation contract metadata into relative source
+  locations for doctor/explain consumers.
+- Added `agent-mcp-contract-descriptions`, which fails `doctor --agent` when a
+  resolvable operation-backed MCP tool points at an operation whose shared
+  contract has no top-level description.
+
+### Verification
+
+- The scanner proof first failed because `createProjectDescriptor` had no
+  contract metadata, then passed after deriving metadata from `defineArgs`.
+- The agent doctor proof first failed because
+  `agent-mcp-contract-descriptions` was missing, then passed after adding the
+  finding.
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/module-internals/public-surface-codegen.ts src/cli/lib/inventory.ts src/cli/lib/inventory-findings.ts tests/unit/public-surface-codegen.test.ts tests/unit/cli-doctor.test.ts`.
+- CLI build passed: `pnpm run build:cli`.
+- Public-surface/codegen tests passed:
+  `pnpm vitest run --project=unit tests/unit/public-surface-codegen.test.ts tests/unit/public-surface-codegen-installer.test.ts tests/unit/operation-codegen-installer.test.ts tests/unit/operation-registry-codegen.test.ts`
+  reported 4 passing test files and 22 passing tests.
+- Full doctor suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` reported 1
+  passing test file and 66 passing tests.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Test lint passed: `pnpm run lint:tests`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This keeps contract metadata derived from existing shared contracts. It does
+  not introduce a new agent manifest, tool manifest, or duplicate contract
+  system.
+- A manual `doctor --agent --json` probe against the workspace-MCP starter now
+  shows `agent-mcp-contract-descriptions` passing and `todos.create` carrying
+  the `createTodo` contract description from
+  `shared/features/todos/contract.ts`.
+- This slice covers top-level operation contract descriptions. Field labels,
+  field descriptions, examples, and id-resolution metadata remain the next
+  contract-level work.
+
 ## Next Slice Candidates
 
-1. Extend `doctor --agent` with MCP argument contract description diagnostics
-   from existing `defineArgs(...)` / operation descriptor metadata.
-2. Add the record-id resolution/search/waiver warning required for MCP-exposed
+1. Add the record-id resolution/search/waiver warning required for MCP-exposed
    writes that accept record ids.
+2. Extend public-surface contract metadata beyond top-level descriptions:
+   field descriptions, examples, and id-resolution hints from `defineArgs`.
 3. Audit the remaining `release:verify` gates from the current branch and run
    the next broad gate that is likely to expose RFC-specific drift.
