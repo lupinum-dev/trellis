@@ -1,8 +1,10 @@
 import { relative, resolve } from 'node:path'
 
+import type { createResolver } from '@nuxt/kit'
 import { addTemplate, addTypeTemplate, updateTemplates } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
+import type { OperationHandleBindingInput } from '../module-internals/operation-handle-codegen.js'
 import {
   buildOperationRegistry,
   renderOperationRegistryGeneratedFiles,
@@ -24,6 +26,7 @@ import {
 
 interface InstallPermissionCodegenOptions {
   nuxt: Nuxt
+  resolver: ReturnType<typeof createResolver>
   include: string[]
 }
 
@@ -68,6 +71,9 @@ function renderOperationRegistryTemplate(
     operationRefsPath: string
     operationHandlesPath: string
     operationProjectionsPath: string
+    defineOperationHandleImport: string
+    projectOperationRefImport: string
+    runtimes: OperationHandleBindingInput['runtimes']
   },
 ): string {
   if (registry.operations.length === 0) {
@@ -80,10 +86,10 @@ function renderOperationRegistryTemplate(
     operationRefsPath: options.operationRefsPath,
     operationHandlesPath: options.operationHandlesPath,
     operationProjectionsPath: options.operationProjectionsPath,
-    projectOperationRefImport: '#trellis/mcp',
-    defineOperationHandleImport: '#trellis/mcp',
+    projectOperationRefImport: options.projectOperationRefImport,
+    defineOperationHandleImport: options.defineOperationHandleImport,
     apiImport: '#trellis/api',
-    runtimes: ['mcp'],
+    runtimes: options.runtimes,
   })
   const file = rendered.find((entry) => entry.path === path)
   if (!file) {
@@ -93,17 +99,40 @@ function renderOperationRegistryTemplate(
 }
 
 export function installPermissionCodegen(options: InstallPermissionCodegenOptions): void {
-  const { nuxt, include } = options
+  const { nuxt, resolver, include } = options
 
   const readMetadata = () => extractPermissionCodegenMetadata(nuxt.options.rootDir, include)
   const readPublicSurfaceMetadata = () => extractPublicSurfaceCodegenMetadata(nuxt.options.rootDir)
   const readOperationRegistry = () => buildOperationRegistry(readPublicSurfaceMetadata())
   const operationRefsFilename = 'trellis/operation-refs.ts'
-  const operationHandlesFilename = 'trellis/operation-handles/mcp.ts'
   const operationProjectionsFilename = 'trellis/operation-projections.ts'
+  const operationRuntimeFilename = 'trellis/operation-runtime.ts'
+  const operationHandleTargets = [
+    { runtime: 'client', filename: 'trellis/operation-handles/client.ts' },
+    { runtime: 'server', filename: 'trellis/operation-handles/server.ts' },
+    { runtime: 'testing', filename: 'trellis/operation-handles/testing.ts' },
+    { runtime: 'mcp', filename: 'trellis/operation-handles/mcp.ts' },
+  ] as const
   const operationRefsPath = templatePathForImports(nuxt, operationRefsFilename)
-  const operationHandlesPath = templatePathForImports(nuxt, operationHandlesFilename)
   const operationProjectionsPath = templatePathForImports(nuxt, operationProjectionsFilename)
+  const operationHandleTargetsWithPaths = operationHandleTargets.map((target) => ({
+    ...target,
+    path: templatePathForImports(nuxt, target.filename),
+  }))
+
+  const renderRegistryFile = (
+    path: string,
+    operationHandlesPath: string,
+    runtimes: OperationHandleBindingInput['runtimes'],
+  ) =>
+    renderOperationRegistryTemplate(readOperationRegistry(), path, {
+      operationRefsPath,
+      operationHandlesPath,
+      operationProjectionsPath,
+      defineOperationHandleImport: '#trellis/operation-runtime',
+      projectOperationRefImport: '#trellis/operation-runtime',
+      runtimes,
+    })
 
   addTypeTemplate({
     filename: 'types/trellis-permissions.d.ts',
@@ -140,34 +169,36 @@ export function installPermissionCodegen(options: InstallPermissionCodegenOption
     filename: operationRefsFilename,
     write: true,
     getContents: () =>
-      renderOperationRegistryTemplate(readOperationRegistry(), operationRefsPath, {
-        operationRefsPath,
-        operationHandlesPath,
-        operationProjectionsPath,
-      }),
+      renderRegistryFile(operationRefsPath, operationHandleTargetsWithPaths[0]!.path, ['client']),
   })
 
-  const operationHandlesTemplate = addTemplate({
-    filename: operationHandlesFilename,
+  const operationRuntimeTemplate = addTemplate({
+    filename: operationRuntimeFilename,
     write: true,
-    getContents: () =>
-      renderOperationRegistryTemplate(readOperationRegistry(), operationHandlesPath, {
-        operationRefsPath,
-        operationHandlesPath,
-        operationProjectionsPath,
-      }),
+    getContents: () => {
+      const operationMetadataPath = resolver.resolve('./runtime/functions/operation-metadata')
+      return `export { defineOperationHandle, projectOperationRef } from '${operationMetadataPath}'
+`
+    },
   })
-  nuxt.options.alias['#trellis/operations/mcp'] = operationHandlesTemplate.dst
+  nuxt.options.alias['#trellis/operation-runtime'] = operationRuntimeTemplate.dst
+
+  for (const target of operationHandleTargetsWithPaths) {
+    const operationHandlesTemplate = addTemplate({
+      filename: target.filename,
+      write: true,
+      getContents: () => renderRegistryFile(target.path, target.path, [target.runtime]),
+    })
+    nuxt.options.alias[`#trellis/operations/${target.runtime}`] = operationHandlesTemplate.dst
+  }
 
   const operationProjectionsTemplate = addTemplate({
     filename: operationProjectionsFilename,
     write: true,
     getContents: () =>
-      renderOperationRegistryTemplate(readOperationRegistry(), operationProjectionsPath, {
-        operationRefsPath,
-        operationHandlesPath,
-        operationProjectionsPath,
-      }),
+      renderRegistryFile(operationProjectionsPath, operationHandleTargetsWithPaths[0]!.path, [
+        'client',
+      ]),
   })
   nuxt.options.alias['#trellis/operation-projections'] = operationProjectionsTemplate.dst
 

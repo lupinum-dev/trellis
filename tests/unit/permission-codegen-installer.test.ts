@@ -43,6 +43,12 @@ function createNuxt(rootDir: string) {
   }
 }
 
+function createResolver() {
+  return {
+    resolve: (path: string) => `/resolved${path}`,
+  }
+}
+
 function getTemplate(filename: string): { getContents: () => string } {
   const call = nuxtKitMocks.addTemplate.mock.calls.find(([input]) => input.filename === filename)
   expect(call, filename).toBeDefined()
@@ -88,16 +94,26 @@ describe('permission codegen installer', () => {
 
     installPermissionCodegen({
       nuxt: nuxt as never,
+      resolver: createResolver() as never,
       include: [],
     })
 
     expect(nuxt.options.alias).toMatchObject({
+      '#trellis/operation-runtime': '/virtual/trellis/operation-runtime.ts',
+      '#trellis/operations/client': '/virtual/trellis/operation-handles/client.ts',
       '#trellis/operations/mcp': '/virtual/trellis/operation-handles/mcp.ts',
+      '#trellis/operations/server': '/virtual/trellis/operation-handles/server.ts',
+      '#trellis/operations/testing': '/virtual/trellis/operation-handles/testing.ts',
       '#trellis/operation-projections': '/virtual/trellis/operation-projections.ts',
     })
 
+    const runtimeSource = getTemplate('trellis/operation-runtime.ts').getContents()
+    expect(runtimeSource).toContain(
+      "export { defineOperationHandle, projectOperationRef } from '/resolved./runtime/functions/operation-metadata'",
+    )
+
     const refsSource = getTemplate('trellis/operation-refs.ts').getContents()
-    expect(refsSource).toContain("import { projectOperationRef } from '#trellis/mcp'")
+    expect(refsSource).toContain("import { projectOperationRef } from '#trellis/operation-runtime'")
     expect(refsSource).toContain("import { api } from '#trellis/api'")
     expect(refsSource).toContain("from '../../shared/features/projects/operations'")
     expect(refsSource).toContain('api.features.projects.domain.createProject')
@@ -105,13 +121,18 @@ describe('permission codegen installer', () => {
     expect(refsSource).toContain("functionRef: 'features/projects/domain:previewDeleteProject'")
     expect(refsSource).toContain("executeFunctionRef: 'features/projects/domain:deleteProject'")
 
-    const handlesSource = getTemplate('trellis/operation-handles/mcp.ts').getContents()
-    expect(handlesSource).toContain("import { defineOperationHandle } from '#trellis/mcp'")
-    expect(handlesSource).toContain("from '../../../shared/features/projects/operations'")
-    expect(handlesSource).toContain("from '../operation-refs'")
-    expect(handlesSource).toContain("executeOperation: 'mutation'")
-    expect(handlesSource).toContain("previewOperation: 'mutation'")
-    expect(handlesSource).toContain("'projects.delete': deleteProjectHandle")
+    for (const runtime of ['client', 'server', 'testing', 'mcp'] as const) {
+      const handlesSource = getTemplate(`trellis/operation-handles/${runtime}.ts`).getContents()
+      expect(handlesSource).toContain(
+        "import { defineOperationHandle } from '#trellis/operation-runtime'",
+      )
+      expect(handlesSource).toContain("from '../../../shared/features/projects/operations'")
+      expect(handlesSource).toContain("from '../operation-refs'")
+      expect(handlesSource).toContain("executeOperation: 'mutation'")
+      expect(handlesSource).toContain("previewOperation: 'mutation'")
+      expect(handlesSource).toContain(`runtimes: ['${runtime}']`)
+      expect(handlesSource).toContain("'projects.delete': deleteProjectHandle")
+    }
 
     const projectionsSource = getTemplate('trellis/operation-projections.ts').getContents()
     expect(projectionsSource).toContain(
@@ -135,6 +156,7 @@ describe('permission codegen installer', () => {
 
     installPermissionCodegen({
       nuxt: nuxt as never,
+      resolver: createResolver() as never,
       include: [],
     })
 
@@ -142,12 +164,14 @@ describe('permission codegen installer', () => {
       .toBe(`// AUTO-GENERATED. Do not edit.
 export {}
 `)
-    expect(getTemplate('trellis/operation-handles/mcp.ts').getContents())
-      .toBe(`// AUTO-GENERATED. Do not edit.
+    for (const runtime of ['client', 'server', 'testing', 'mcp'] as const) {
+      expect(getTemplate(`trellis/operation-handles/${runtime}.ts`).getContents())
+        .toBe(`// AUTO-GENERATED. Do not edit.
 export const operations = {
   byId: {},
 } as const
 `)
+    }
     expect(getTemplate('trellis/operation-projections.ts').getContents())
       .toBe(`// AUTO-GENERATED. Do not edit.
 import type { OperationProjectionRegistry } from '@lupinum/trellis/app'

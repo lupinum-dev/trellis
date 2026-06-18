@@ -1170,9 +1170,66 @@ loops.
 - If a future slice gives the harness generated runtime handles for these
   low-level cases, deleting the allow-list should be straightforward.
 
+## Slice 24: Nuxt Runtime Operation Handle Aliases
+
+### Proof
+
+- Inspected `installPermissionCodegen(...)` and confirmed it emitted only
+  `trellis/operation-handles/mcp.ts` and only aliased
+  `#trellis/operations/mcp`.
+- Inspected the generated refs path and found it imported
+  `projectOperationRef` from `#trellis/mcp`. That would make client, server, or
+  testing handle modules pull the MCP surface indirectly if we reused the refs
+  module unchanged.
+- Inspected runtime entrypoints and confirmed `defineOperationHandle` is
+  lightweight in `operation-metadata`, while app/server/testing entrypoints do
+  not expose it today. Adding a local generated alias is smaller than adding a
+  new package export only for generated internals.
+
+### Implementation
+
+- Added a generated `#trellis/operation-runtime` alias that re-exports only
+  `defineOperationHandle` and `projectOperationRef` from the lightweight
+  operation metadata runtime.
+- Changed generated operation refs to import `projectOperationRef` from
+  `#trellis/operation-runtime` instead of `#trellis/mcp`.
+- Made permission codegen emit runtime-specific handle modules and aliases:
+  `#trellis/operations/client`, `#trellis/operations/server`,
+  `#trellis/operations/testing`, and `#trellis/operations/mcp`.
+- Kept the existing shared-descriptor safety filter for runtime handle modules;
+  Convex-only operation definitions still do not leak into generated
+  cross-runtime handles.
+- Passed the Nuxt resolver into permission codegen so the local operation
+  runtime template can point at the real source module.
+
+### Verification
+
+- Permission-codegen installer tests passed and now assert all four runtime
+  handle aliases plus the neutral operation-runtime alias.
+- Neighboring codegen and boundary tests passed:
+  `pnpm vitest run --project=unit tests/unit/permission-codegen-installer.test.ts tests/unit/module-auto-imports.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts tests/unit/app-index-exports.test.ts tests/unit/server-index-exports.test.ts tests/unit/mcp-index-exports.test.ts`.
+- Focused formatting check passed for the installer, module entry, and updated
+  installer test.
+- Source lint and public surface checks passed:
+  `pnpm run lint:src:core`,
+  `pnpm run check:publish-surface`,
+  `pnpm run check:docs:api-surface`.
+
+### Notes
+
+- This slice creates the missing Nuxt alias surface for RFC runtime handles,
+  but it does not yet add client/server/testing convenience APIs such as
+  `useTrellisOperation`.
+- The generated handle modules remain intentionally filtered to operations with
+  shared descriptors. A later slice should decide whether minimal metadata-only
+  handles are needed for Convex-local operations without importing backend
+  implementation files.
+
 ## Next Slice Candidates
 
 1. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
-2. Start the broader registry-runtime work: filtered generated handles for
-   client/server/testing and `trellis prepare` lifecycle hardening.
+2. Add client/server/testing consumers for generated handles, starting with a
+   minimal `useTrellisOperation` proof for client handles.
+3. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
+   new runtime-specific generated modules.

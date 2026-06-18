@@ -119,6 +119,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (setup.permissionCodegenEnabled) {
       installPermissionCodegen({
         nuxt,
+        resolver,
         include: setup.permissionCodegenInclude,
       })
     }
