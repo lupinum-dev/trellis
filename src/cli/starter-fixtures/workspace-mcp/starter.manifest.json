@@ -8,6 +8,7 @@
     "README.md",
     "app/**",
     "convex/**/*.ts",
+    "generated/operation-projections.ts",
     "nuxt.config.ts",
     "package.json",
     "tsconfig.json",
@@ -22,6 +23,18 @@
     "node_modules/**",
     "coverage/**"
   ],
+  "generated": [
+    {
+      "kind": "operationRegistry",
+      "operationRefsPath": "generated/operation-refs.ts",
+      "operationHandlesPath": "generated/operation-handles/mcp.ts",
+      "operationProjectionsPath": "generated/operation-projections.ts",
+      "projectOperationRefImport": "@lupinum/trellis/mcp",
+      "defineOperationHandleImport": "@lupinum/trellis/mcp",
+      "apiImport": "../convex/_generated/api",
+      "runtimes": ["mcp"]
+    }
+  ],
   "generatedPaths": [
     ".env.example",
     ".gitignore",
@@ -33,6 +46,7 @@
     "convex/auth.config.ts",
     "convex/convex.config.ts",
     "convex/http.ts",
-    "convex/test.setup.ts"
+    "convex/test.setup.ts",
+    "generated/operation-projections.ts"
   ]
 }

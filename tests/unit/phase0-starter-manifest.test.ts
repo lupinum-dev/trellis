@@ -321,6 +321,7 @@ describe('fixture-backed beginner starter manifests', () => {
       'convex/permissions/context.ts',
       'convex/schema.ts',
       'convex/test.setup.ts',
+      'generated/operation-projections.ts',
       'nuxt.config.ts',
       'package.json',
       'server/api/.gitkeep',
@@ -361,6 +362,17 @@ describe('fixture-backed beginner starter manifests', () => {
     )
     const todosFeature = readFileSync(join(root, 'convex/features/todos/feature.ts'), 'utf8')
     const createTodoTool = readFileSync(join(root, 'server/mcp/tools/create-todo.ts'), 'utf8')
+    const functions = readFileSync(join(root, 'convex/functions.ts'), 'utf8')
+    const operationProjections = readFileSync(
+      join(root, 'generated/operation-projections.ts'),
+      'utf8',
+    )
+    expect(manifest.generated).toEqual([
+      expect.objectContaining({
+        kind: 'operationRegistry',
+        operationProjectionsPath: 'generated/operation-projections.ts',
+      }),
+    ])
     expect(todosDomain).toContain('query.workspace(listTodosOperation)')
     expect(todosDomain).toContain('mutation.workspace(createTodoOperation)')
     expect(sharedTodosOperations).toContain('defineOperationDescriptor')
@@ -377,7 +389,14 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(createTodoTool).not.toContain('executeOperationRef')
     expect(createTodoTool).not.toContain('#trellis/api')
     expect(createTodoTool).not.toContain('~~/convex/features/todos/operations')
+    expect(functions).toContain(
+      "import { operationProjectionRegistry } from '../generated/operation-projections'",
+    )
+    expect(functions).toContain('operationProjections: operationProjectionRegistry')
+    expect(operationProjections).toContain("'todos.create': 'features/todos/domain:create'")
+    expect(operationProjections).toContain("'todos.list': 'features/todos/domain:list'")
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
+    expect(manifest.generatedPaths).toContain('generated/operation-projections.ts')
   })
 
   it('generates workspace MCP operation handles from shared descriptors', () => {

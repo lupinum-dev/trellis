@@ -704,10 +704,63 @@ loops.
   `executeFunctionRef`, because the Convex-side import path for generated
   projection registries still needs a dedicated prepare/import wiring slice.
 
+## Slice 15: Workspace-MCP Starter Projection Registry Import
+
+### Proof
+
+- Added a failing source-fixture proof for the maintained `workspace-mcp`
+  starter: the starter should include a generated root
+  `generated/operation-projections.ts` file, `convex/functions.ts` should import
+  it with a relative Convex-safe path, and `defineTrellis(...)` should receive
+  `operationProjections: operationProjectionRegistry`.
+- Added a failing CLI-init proof against the built starter output. The initial
+  focused run failed because `trellis init --preset workspace-mcp` did not write
+  `generated/operation-projections.ts`.
+- The next CLI proof run exposed stale assertions expecting
+  `operation.query(...)` / `operation.mutation(...)` in the workspace-MCP todo
+  operation file, even though the starter had already moved to shared
+  descriptors plus `implementOperation(...)`.
+
+### Implementation
+
+- Added an operation-registry generated artifact declaration to the
+  `workspace-mcp` starter manifest, scoped so starter output includes only the
+  Convex-needed root `generated/operation-projections.ts` file instead of
+  duplicating root MCP refs/handles.
+- Marked `generated/operation-projections.ts` as generated starter output.
+- Added the generated projection registry file for the maintained
+  `workspace-mcp` source fixture.
+- Wired `src/cli/starter-fixtures/workspace-mcp/convex/functions.ts` to import
+  `operationProjectionRegistry` from `../generated/operation-projections` and
+  pass it into `defineTrellis(...)`.
+- Updated CLI-init assertions to match the current descriptor/implementation
+  operation shape.
+
+### Verification
+
+- Initial focused source-fixture proof failed as expected:
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts -t "workspace MCP starter fixture"`.
+- Initial focused CLI-init proof failed as expected:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts -t "first-class workspace MCP app"`.
+- After implementation and `pnpm run build:cli`, both focused proofs passed.
+- Adjacent suite passed:
+  `pnpm vitest run --project=unit tests/unit/phase0-starter-manifest.test.ts tests/unit/cli-add-resource.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/operation-registry-codegen.test.ts`.
+- `pnpm run build:cli`, `pnpm run lint:src:core`,
+  `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm exec oxfmt --check ...`, and `git diff --check` passed.
+
+### Notes
+
+- This proves the Convex-safe relative import path for maintained starter
+  output without relying on Nuxt aliases or `.nuxt` files inside Convex code.
+- The add-resource generator still cannot safely drop its generated
+  `executeFunctionRef` string until there is a refresh path for the root
+  projection registry after adding new operations to an existing app.
+
 ## Next Slice Candidates
 
-1. Add a Convex-safe generated projection-registry import path and wire starters
-   / add-resource output to pass it into `defineTrellis(...)`, then delete normal
-   app-authored `executeFunctionRef` strings.
+1. Add a CLI/module-owned refresh path for root `generated/operation-projections.ts`
+   after generated resources add new operation projections, then delete
+   add-resource `executeFunctionRef` output.
 2. Hard-cut maintained MCP examples to generated handles where the registry can
    own projection refs and MCP operation kinds.
