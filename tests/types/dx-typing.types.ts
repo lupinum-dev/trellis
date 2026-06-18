@@ -9,6 +9,7 @@ import type {
 import { defineTrellis, operation as appOperation, workspaceScope } from '../../src/runtime/app'
 import { defineArgs } from '../../src/runtime/args'
 import {
+  defineGuard,
   definePermission,
   type PermissionKeyHandle,
   type AuthIdentity,
@@ -20,6 +21,7 @@ import {
 } from '../../src/runtime/auth'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
+import { defineOperation as defineBackendOperation } from '../../src/runtime/functions'
 import { createIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
 import { createTestContext } from '../../src/runtime/testing'
 
@@ -174,6 +176,23 @@ const _createTaskOperation = appOperation.mutation({
   handler: async (_ctx, _args, _loaded) => null,
 })
 void _createTaskOperation
+
+const canUseBackendOperation = defineGuard<AppIdentity>('task.backend', (appIdentity) =>
+  Boolean(appIdentity),
+)
+const _guardedBackendOperation = defineBackendOperation({
+  id: 'tasks.backend',
+  name: 'tasks-backend',
+  kind: 'safe',
+  safety: 'bounded-write',
+  args: toolSchema.args,
+  guard: canUseBackendOperation,
+  handler: async (ctx: { appIdentity: () => Promise<AppIdentity> }) => {
+    const appIdentity = await ctx.appIdentity()
+    return appIdentity?.userId ?? null
+  },
+})
+void _guardedBackendOperation
 
 type WorkspaceId = string & { readonly __tableName: 'workspaces' }
 type WorkspaceActor = {

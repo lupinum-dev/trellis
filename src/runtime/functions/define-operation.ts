@@ -172,17 +172,23 @@ type InferActorFromCtx<TCtx> = TCtx extends {
 type InferActorFromGuard<TGuard> =
   TGuard extends StructuredGuard<unknown, infer TActor> ? TActor : never
 
-type InferOperationGuard<TDefinition extends OperationShape> = TDefinition extends {
-  guard: infer TGuard
+type InferOwnOperationGuard<TDefinition extends OperationShape> = TDefinition extends {
+  guard?: infer TGuard
 }
-  ? TGuard extends StructuredGuard<any, any>
-    ? TGuard
+  ? Exclude<TGuard, undefined> extends StructuredGuard<any, any>
+    ? Exclude<TGuard, undefined>
     : never
-  : TDefinition extends { permission: PermissionKeyHandle<string> }
+  : never
+
+type InferOperationGuard<TDefinition extends OperationShape> = [
+  InferOwnOperationGuard<TDefinition>,
+] extends [never]
+  ? TDefinition extends { permission: PermissionKeyHandle<string> }
     ? AuthRequiredGuard
     : TDefinition extends { scope: unknown }
       ? AuthRequiredGuard
       : never
+  : InferOwnOperationGuard<TDefinition>
 
 type InferOperationActor<TDefinition extends OperationShape> = FallbackIfUnknownOrNever<
   InferActorFromCtx<InferOperationCtx<TDefinition>>,
@@ -224,13 +230,11 @@ type ResolvedOperationBase<TDefinition extends OperationShape> = OperationDefini
   InferOperationPreview<TDefinition>
 >
 
-type ResolvedOperationGuardProperty<TDefinition extends OperationShape> = TDefinition extends {
-  guard: infer TGuard
-}
-  ? TGuard extends StructuredGuard<any, any>
-    ? { guard?: TGuard }
-    : { guard?: never }
-  : { guard?: never }
+type ResolvedOperationGuardProperty<TDefinition extends OperationShape> = [
+  InferOwnOperationGuard<TDefinition>,
+] extends [never]
+  ? { guard?: never }
+  : { guard?: InferOwnOperationGuard<TDefinition> }
 
 type ResolvedOperationDefinition<TDefinition extends OperationShape> = Omit<
   ResolvedOperationBase<TDefinition>,

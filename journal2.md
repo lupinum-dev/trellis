@@ -2668,12 +2668,80 @@ test/helpers.ts` had no matches except the candidate helper row before
   still exposes only the declared table capability, while the app fixture
   narrows to its local Convex writer type at the access edge.
 
+## Slice 49: Ginko Workflow Handles And Guarded Backend Operation Typing
+
+### Proof
+
+- While cutting the Ginko workflow vertical slice over to generated testing
+  operation handles, `pnpm run typecheck` in Ginko CMS exposed a Trellis type
+  inference bug: backend operations with a caller/app-identity guard were
+  inferred as guardless when spread into protected lane registration.
+- The root cause was `defineOperation(...)` guard inference looking for a
+  required `guard` property. Generic operation definitions carry `guard` as an
+  optional own property, so guarded backend operations collapsed to the
+  guardless branch and produced `guard?: never` / `undefined` conflicts.
+- The Ginko workflow test also still used local protocol knowledge for ordinary
+  product operations: create/save calls were routed through a function-ref map,
+  and destructive publish/unpublish/archive/rollback helpers manually paired
+  preview/execute Convex refs plus `_confirmationToken`.
+
+### Implementation
+
+- Updated backend operation type inference to derive an optional own structured
+  guard through `InferOwnOperationGuard<TDefinition>`.
+- Kept permission/scoped fallback inference intact: operations without their own
+  guard still infer the authenticated guard shape when they declare permission
+  or scope metadata.
+- Added a type regression for a guarded backend operation using
+  `defineGuard<AppIdentity>(...)` and `defineOperation(...)`.
+- Updated Ginko's workflow vertical slice to import generated testing handles
+  from `packages/convex/generated/operationHandles/testing`.
+- Routed create, save draft, publish, unpublish, archive, and rollback through
+  `owner.operation(operations.byId[...])`.
+- Removed the workflow test's local public-surface forwarding map and
+  `executeConfirmedOperation(...)` helper.
+
+### Verification
+
+- Trellis format check passed:
+  `pnpm exec oxfmt --check src/runtime/functions/define-operation.ts tests/types/dx-typing.types.ts`.
+- Trellis type contracts passed: `pnpm run test:types:contracts`.
+- Trellis public type surface passed: `pnpm run test:types:public`.
+- Trellis module build passed: `pnpm run build:module`.
+- Ginko workflow format check passed:
+  `pnpm exec oxfmt --check test/refactor/workflow-vertical-slice.test.ts`.
+- Ginko workflow vertical test passed:
+  `pnpm vitest run test/refactor/workflow-vertical-slice.test.ts` reported one
+  passing test file and 28 passing tests.
+- Ginko generated operation artifacts were current:
+  `pnpm run operations:check` reported status `ok`, 16 operations, 28
+  projections, and no out-of-date files.
+- Ginko typecheck passed: `pnpm run typecheck`.
+- Whitespace checks passed in both repos: `git diff --check`.
+
+### Notes
+
+- This preserves the hard-cut lane model. The fix only recognizes a backend
+  operation's own structured guard for descriptor typing; explicit lane
+  validation still rejects ambiguous guard authoring on lanes where Trellis owns
+  the guard.
+- Ginko still has remaining protocol leakage outside this workflow test:
+  `test/helpers.ts` keeps `handlerIdByFunctionRef` and destructive execute ref
+  maps, and the MCP project runtime still hand-binds `executeOperationRef(...)`
+  / `previewOperationRef(...)`.
+- The next slices should delete those consumer-owned protocol maps instead of
+  adding compatibility paths.
+
 ## Next Slice Candidates
 
-1. Push generated testing handles into Ginko CMS tests and delete
-   `handlerIdByFunctionRef` / destructive transport maps from the consumer.
-2. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
+1. Delete the remaining Ginko root test helper `handlerIdByFunctionRef` /
+   destructive transport maps by moving ordinary tests onto generated operation
+   handles or a Trellis-owned helper.
+2. Cut Ginko MCP project tools over to one-line generated operation binding so
+   ordinary tools no longer hand-bind `executeOperationRef(...)` /
+   `previewOperationRef(...)`.
+3. Add a first fail-closed stale-registry check outside Nuxt prepare so generated
    operation files can be validated by package/consumer tests without virtual
    aliases.
-3. Update RFC 0013 status and acceptance notes now that several implementation
+4. Update RFC 0013 status and acceptance notes now that several implementation
    slices are complete, while keeping remaining release gates explicit.
