@@ -3420,11 +3420,59 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   remaining explain/agent gaps are tool/file/feature explain and deeper
   `doctor --agent` diagnostics.
 
+## Slice 62: Explain Operation-Backed MCP Tools
+
+### Proof
+
+- RFC 0013 requires `trellis explain tool <name>` to work for
+  operation-backed tools.
+- Before this slice, `trellis explain` only accepted `app`, `operation`, and
+  `permission`. Running
+  `node dist/cli.mjs explain tool archive-task --cwd src/cli/starter-fixtures/workspace-mcp`
+  failed with the invalid-topic message.
+- The existing public-surface inventory already records MCP tool names,
+  binding source, source locations, and optional operation ids. Adding a second
+  tool manifest would have introduced drift.
+
+### Implementation
+
+- Added `trellis explain tool <name>` as an inventory-backed explain topic.
+- The tool report includes the MCP tool name, source kind, source location,
+  operation binding ids, and the matched operation/projections/feature refs
+  when the tool is operation-backed.
+- Missing tools now fail clearly with `tool-not-found` or `no-tools` and list
+  available MCP tool names.
+- Human-readable output shows the bound operation, projections, and feature
+  refs without requiring JSON.
+- Kept the implementation on the existing `collectTrellisCliInventory(...)`
+  path, including generated `.nuxt/trellis/public-surface.json` support from
+  Slice 59.
+
+### Verification
+
+- Formatter check passed:
+  `pnpm exec oxfmt --check src/cli/commands/explain.ts tests/unit/cli-explain.test.ts`.
+- CLI build passed: `pnpm run build:cli`.
+- Explain suite passed after the final rebuild:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts` reported 1
+  passing test file and 20 passing tests.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Test lint passed: `pnpm run lint:tests`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This closes the RFC acceptance item for `trellis explain tool <name>`.
+- The report remains derived from public-surface inventory; there is no new app
+  manifest, MCP tool manifest, or generated agent context artifact.
+- The remaining agent-facing CLI gap is now concentrated in `doctor --agent`
+  diagnostics and the later Ginko consumer proof.
+
 ## Next Slice Candidates
 
 1. Extend `trellis doctor --agent` around operation metadata, missing generated
    contracts, MCP argument-shape warnings, and privacy-safe agent context.
-2. Add `trellis explain tool <name>` for operation-backed tools from existing
-   public-surface inventory.
-3. Audit the remaining `release:verify` gates from the current branch and run
+2. Audit the remaining `release:verify` gates from the current branch and run
    the next broad gate that is likely to expose RFC-specific drift.
+3. Start the Ginko CMS protocol-map deletion proof against the local Trellis
+   tarball once the agent-facing doctor gap is closed.

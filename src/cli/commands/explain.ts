@@ -116,6 +116,48 @@ interface ExplainOperationMissingReport {
   }
 }
 
+interface ExplainToolReport {
+  schemaVersion: 1
+  cwd: string
+  tool: {
+    name: string
+    source: 'tool' | 'operation' | 'defineMcpTool'
+    sourceLocation: TrellisCliInventorySourceLocation
+    operationId?: string
+    operationExportName?: string
+    operation:
+      | {
+          status: 'matched'
+          id: string
+          exportName: string
+          kind: 'safe' | 'destructive'
+          source: TrellisCliInventorySourceLocation
+          projections: TrellisCliInventoryPublicSurfaceProjection[]
+          featureRefs: ExplainOperationReport['operation']['featureRefs']
+        }
+      | {
+          status: 'missing'
+          operationId: string
+          operationExportName?: string
+          message: string
+        }
+      | {
+          status: 'none'
+          message: string
+        }
+  }
+}
+
+interface ExplainToolMissingReport {
+  schemaVersion: 1
+  cwd: string
+  error: {
+    code: 'tool-not-found' | 'no-tools'
+    message: string
+    availableToolNames: string[]
+  }
+}
+
 interface ExplainPermissionReport {
   schemaVersion: 1
   cwd: string
@@ -169,6 +211,13 @@ function findOperation(
   return (
     inventory.publicSurface.operations.find((operation) => operation.id === operationId) ?? null
   )
+}
+
+function findTool(
+  inventory: TrellisCliInventory,
+  toolName: string,
+): TrellisCliInventoryPublicSurfaceTool | null {
+  return inventory.publicSurface.tools.find((tool) => tool.name === toolName) ?? null
 }
 
 function findOperationProjections(
@@ -378,6 +427,50 @@ function createOperationReport(
   }
 }
 
+function createToolReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  tool: TrellisCliInventoryPublicSurfaceTool,
+): ExplainToolReport {
+  const operation =
+    tool.operationId !== undefined ? findOperation(inventory, tool.operationId) : null
+  const operationReport =
+    operation !== null
+      ? {
+          status: 'matched' as const,
+          id: operation.id,
+          exportName: operation.exportName,
+          kind: operation.kind,
+          source: operation.source,
+          projections: findOperationProjections(inventory, operation.id),
+          featureRefs: findFeatureRefs(inventory, operation),
+        }
+      : tool.operationId !== undefined
+        ? {
+            status: 'missing' as const,
+            operationId: tool.operationId,
+            ...(tool.operationExportName ? { operationExportName: tool.operationExportName } : {}),
+            message: `Tool "${tool.name}" references operation "${tool.operationId}", but that operation was not found in inventory.`,
+          }
+        : {
+            status: 'none' as const,
+            message: `Tool "${tool.name}" is not operation-backed in public-surface inventory.`,
+          }
+
+  return {
+    schemaVersion: 1,
+    cwd,
+    tool: {
+      name: tool.name,
+      source: tool.source,
+      sourceLocation: tool.sourceLocation,
+      ...(tool.operationId ? { operationId: tool.operationId } : {}),
+      ...(tool.operationExportName ? { operationExportName: tool.operationExportName } : {}),
+      operation: operationReport,
+    },
+  }
+}
+
 function createPermissionReport(
   cwd: string,
   inventory: TrellisCliInventory,
@@ -417,6 +510,27 @@ function createMissingReport(
           ? 'No operations were found in inventory.'
           : `Operation "${operationId}" was not found in inventory.`,
       availableOperationIds,
+    },
+  }
+}
+
+function createMissingToolReport(
+  cwd: string,
+  inventory: TrellisCliInventory,
+  toolName: string,
+): ExplainToolMissingReport {
+  const availableToolNames = inventory.publicSurface.tools.map((tool) => tool.name)
+
+  return {
+    schemaVersion: 1,
+    cwd,
+    error: {
+      code: availableToolNames.length === 0 ? 'no-tools' : 'tool-not-found',
+      message:
+        availableToolNames.length === 0
+          ? 'No MCP tools were found in inventory.'
+          : `MCP tool "${toolName}" was not found in inventory.`,
+      availableToolNames,
     },
   }
 }
@@ -505,6 +619,44 @@ function renderOperationReport(report: ExplainOperationReport): void {
   }
 }
 
+function renderToolReport(report: ExplainToolReport): void {
+  const { tool } = report
+
+  process.stdout.write(`MCP tool ${tool.name}\n`)
+  process.stdout.write(`Source: ${tool.source} at ${formatLocation(tool.sourceLocation)}\n`)
+
+  if (tool.operation.status === 'matched') {
+    process.stdout.write(`Operation: ${tool.operation.id} (${tool.operation.kind})\n`)
+    process.stdout.write(`Operation export: ${tool.operation.exportName}\n`)
+    process.stdout.write(`Operation source: ${formatLocation(tool.operation.source)}\n`)
+    process.stdout.write('Projections:\n')
+    if (tool.operation.projections.length === 0) {
+      process.stdout.write('  none\n')
+    } else {
+      for (const projection of tool.operation.projections) {
+        process.stdout.write(
+          `  ${projection.projection}: ${projection.exportName} at ${formatLocation(projection.source)}\n`,
+        )
+      }
+    }
+
+    process.stdout.write('Feature refs:\n')
+    if (tool.operation.featureRefs.length === 0) {
+      process.stdout.write('  none\n')
+    } else {
+      for (const feature of tool.operation.featureRefs) {
+        process.stdout.write(
+          `  ${feature.exportName} (${feature.name}) at ${formatLocation(feature.source)}\n`,
+        )
+      }
+    }
+    return
+  }
+
+  process.stdout.write(`Operation: ${tool.operation.status}\n`)
+  process.stdout.write(`${tool.operation.message}\n`)
+}
+
 function renderPermissionReport(report: ExplainPermissionReport): void {
   const { permission } = report
 
@@ -548,6 +700,13 @@ function renderMissingReport(report: ExplainOperationMissingReport): void {
   }
 }
 
+function renderMissingToolReport(report: ExplainToolMissingReport): void {
+  process.stderr.write(`${report.error.message}\n`)
+  if (report.error.availableToolNames.length > 0) {
+    process.stderr.write(`Available MCP tools: ${report.error.availableToolNames.join(', ')}\n`)
+  }
+}
+
 function renderMissingPermissionReport(report: ExplainPermissionMissingReport): void {
   process.stderr.write(`${report.error.message}\n`)
   if (report.error.availablePermissionKeys.length > 0) {
@@ -567,7 +726,7 @@ export const explainCommand = defineCommand({
     topic: {
       type: 'positional',
       required: true,
-      description: 'Concept to explain. Supported: app, operation, permission',
+      description: 'Concept to explain. Supported: app, operation, tool, permission',
     },
     id: {
       type: 'positional',
@@ -597,9 +756,9 @@ export const explainCommand = defineCommand({
   },
   async run({ args }) {
     const topic = String(args.topic)
-    if (topic !== 'app' && topic !== 'operation' && topic !== 'permission') {
+    if (topic !== 'app' && topic !== 'operation' && topic !== 'tool' && topic !== 'permission') {
       throw new Error(
-        'Invalid explain topic. Use `trellis explain app`, `trellis explain operation <id>`, or `trellis explain permission <key>`.',
+        'Invalid explain topic. Use `trellis explain app`, `trellis explain operation <id>`, `trellis explain tool <name>`, or `trellis explain permission <key>`.',
       )
     }
 
@@ -649,6 +808,30 @@ export const explainCommand = defineCommand({
         process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
       } else {
         renderPermissionReport(report)
+      }
+
+      return 0
+    }
+
+    if (topic === 'tool') {
+      const tool = findTool(inventory, id)
+
+      if (!tool) {
+        const report = createMissingToolReport(cwd, inventory, id)
+        if (args.json) {
+          process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+        } else {
+          renderMissingToolReport(report)
+        }
+        process.exitCode = 1
+        return 1
+      }
+
+      const report = createToolReport(cwd, inventory, tool)
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+      } else {
+        renderToolReport(report)
       }
 
       return 0

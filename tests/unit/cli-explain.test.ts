@@ -117,6 +117,48 @@ type ExplainAppReport = {
   }
 }
 
+type ExplainToolReport = {
+  schemaVersion: 1
+  cwd: string
+  tool: {
+    name: string
+    source: 'tool' | 'operation' | 'defineMcpTool'
+    sourceLocation: { path: string; line: number }
+    operationId?: string
+    operationExportName?: string
+    operation:
+      | {
+          status: 'matched'
+          id: string
+          exportName: string
+          kind: 'safe' | 'destructive'
+          source: { path: string; line: number }
+          projections: Array<{
+            operationId: string
+            exportName: string
+            projection: 'preview' | 'execute'
+            source: { path: string; line: number }
+          }>
+          featureRefs: Array<{
+            exportName: string
+            name: string
+            file: string
+            source: { path: string; line: number }
+          }>
+        }
+      | {
+          status: 'missing'
+          operationId: string
+          operationExportName?: string
+          message: string
+        }
+      | {
+          status: 'none'
+          message: string
+        }
+  }
+}
+
 type ExplainMissingReport = {
   schemaVersion: 1
   cwd: string
@@ -124,6 +166,16 @@ type ExplainMissingReport = {
     code: 'operation-not-found' | 'no-operations'
     message: string
     availableOperationIds: string[]
+  }
+}
+
+type ExplainToolMissingReport = {
+  schemaVersion: 1
+  cwd: string
+  error: {
+    code: 'tool-not-found' | 'no-tools'
+    message: string
+    availableToolNames: string[]
   }
 }
 
@@ -506,6 +558,63 @@ describe('CLI explain', () => {
     expect(serialized).not.toContain('task_1')
   }, 30_000)
 
+  it('explains an operation-backed MCP tool as versioned JSON from inventory', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'tool', 'archive-task', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainToolReport>(result.stdout)
+    const serialized = JSON.stringify(report)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      tool: {
+        name: 'archive-task',
+        source: 'operation',
+        sourceLocation: {
+          path: 'server/mcp/tools/archive-task.ts',
+          line: expect.any(Number),
+        },
+        operationId: 'tasks.archive',
+        operationExportName: 'archiveTaskOp',
+        operation: {
+          status: 'matched',
+          id: 'tasks.archive',
+          exportName: 'archiveTaskOp',
+          kind: 'destructive',
+          source: {
+            path: 'convex/features/tasks/operations.ts',
+            line: expect.any(Number),
+          },
+          projections: expect.arrayContaining([
+            expect.objectContaining({
+              operationId: 'tasks.archive',
+              exportName: 'archiveTask',
+              projection: 'execute',
+            }),
+            expect.objectContaining({
+              operationId: 'tasks.archive',
+              exportName: 'previewArchiveTask',
+              projection: 'preview',
+            }),
+          ]),
+          featureRefs: [
+            expect.objectContaining({
+              exportName: 'tasksFeature',
+              name: 'tasks',
+              file: 'convex/features/tasks/feature.ts',
+            }),
+          ],
+        },
+      },
+    })
+    expect(serialized).not.toContain('Archive task')
+    expect(serialized).not.toContain('task_1')
+  }, 30_000)
+
   it('explains an operation from generated public-surface inventory', () => {
     const appRoot = createTempDir('trellis-explain-generated-surface-')
     writeAppFile(
@@ -601,6 +710,101 @@ describe('CLI explain', () => {
     })
   })
 
+  it('explains an operation-backed MCP tool from generated public-surface inventory', () => {
+    const appRoot = createTempDir('trellis-explain-generated-tool-')
+    writeAppFile(
+      appRoot,
+      '.nuxt/trellis/public-surface.json',
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'tasks.generated',
+              exportName: 'generatedTaskOp',
+              kind: 'safe',
+              file: 'shared/features/tasks/operations.ts',
+              line: 7,
+            },
+          ],
+          projections: [
+            {
+              operationId: 'tasks.generated',
+              operationExportName: 'generatedTaskOp',
+              exportName: 'generatedTask',
+              file: 'convex/features/tasks/domain.ts',
+              line: 11,
+              projection: 'execute',
+              functionKind: 'mutation',
+              targetFunctionRef: 'tasks.generated',
+            },
+          ],
+          tools: [
+            {
+              name: 'generated-task',
+              file: 'server/mcp/tools/generated-task.ts',
+              line: 3,
+              source: 'operation',
+              operationId: 'tasks.generated',
+              operationExportName: 'generatedTaskOp',
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(
+      ['explain', 'tool', 'generated-task', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainToolReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      tool: {
+        name: 'generated-task',
+        source: 'operation',
+        sourceLocation: {
+          path: 'server/mcp/tools/generated-task.ts',
+          line: 3,
+        },
+        operationId: 'tasks.generated',
+        operationExportName: 'generatedTaskOp',
+        operation: {
+          status: 'matched',
+          id: 'tasks.generated',
+          exportName: 'generatedTaskOp',
+          kind: 'safe',
+          source: {
+            path: 'shared/features/tasks/operations.ts',
+            line: 7,
+          },
+          projections: [
+            expect.objectContaining({
+              operationId: 'tasks.generated',
+              exportName: 'generatedTask',
+              projection: 'execute',
+              source: {
+                path: 'convex/features/tasks/domain.ts',
+                line: 11,
+              },
+            }),
+          ],
+          featureRefs: [],
+        },
+      },
+    })
+  })
+
   it('fails closed when generated public-surface inventory is malformed', () => {
     const appRoot = createTempDir('trellis-explain-invalid-generated-surface-')
     writeAppFile(appRoot, '.nuxt/trellis/public-surface.json', '{"operations":[]}\n')
@@ -633,6 +837,56 @@ describe('CLI explain', () => {
     expect(result.stdout).toContain('execute: archiveTask')
     expect(result.stdout).toContain('tasksFeature (tasks)')
     expect(result.stdout).toContain('archive-task: operation-backed')
+  })
+
+  it('renders a human-readable operation-backed MCP tool explanation', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'tool', 'archive-task', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).toBe(0)
+    expect(result.stdout).toContain('MCP tool archive-task')
+    expect(result.stdout).toContain('Source: operation at server/mcp/tools/archive-task.ts')
+    expect(result.stdout).toContain('Operation: tasks.archive (destructive)')
+    expect(result.stdout).toContain('Operation export: archiveTaskOp')
+    expect(result.stdout).toContain('preview: previewArchiveTask')
+    expect(result.stdout).toContain('execute: archiveTask')
+    expect(result.stdout).toContain('tasksFeature (tasks)')
+  })
+
+  it('fails clearly for an unknown MCP tool and lists available names', () => {
+    const appRoot = createPublicApp()
+    addOperationFixture(appRoot)
+
+    const result = runCli(['explain', 'tool', 'missing-tool', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<ExplainToolMissingReport>(result.stdout)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report).toEqual({
+      schemaVersion: 1,
+      cwd: appRoot,
+      error: {
+        code: 'tool-not-found',
+        message: 'MCP tool "missing-tool" was not found in inventory.',
+        availableToolNames: ['archive-task'],
+      },
+    })
+  })
+
+  it('reports when no MCP tools exist', () => {
+    const appRoot = createTempDir('trellis-explain-empty-tools-')
+
+    const result = runCli(['explain', 'tool', 'archive-task', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<ExplainToolMissingReport>(result.stdout)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(report.error).toEqual({
+      code: 'no-tools',
+      message: 'No MCP tools were found in inventory.',
+      availableToolNames: [],
+    })
   })
 
   it('fails clearly for an unknown operation and lists available ids', () => {
