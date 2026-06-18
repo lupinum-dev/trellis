@@ -3261,7 +3261,77 @@ confirmationMode: 'transport' })` and the transport mutation lane, so a
   remaining acceptance gates: explain/doctor inventory wiring, starter
   typecheck/build, Ginko consumer proof, and full `release:verify` remain open.
 
+## Slice 59: Prefer Generated Public-Surface Inventory In CLI
+
+### Proof
+
+- `trellis explain` and doctor JSON both consume `collectTrellisCliInventory`.
+  Before this slice, that collector always rescanned app source with
+  `extractPublicSurfaceCodegenMetadata(project.cwd)`.
+- Slice 56 made `.nuxt/trellis/public-surface.json` the always-on generated
+  public-surface inventory, but CLI inventory ignored it. That left two
+  possible app-surface views after Nuxt prepare.
+- A generated-only explain fixture proved the gap: an app with only
+  `.nuxt/trellis/public-surface.json` could not be explained by the CLI source
+  scan even though the generated inventory contained the operation, projection,
+  and MCP tool.
+- The adjacent doctor suite also exposed a stale hard-cut issue: the MCP add
+  command did not copy the same descriptor-backed todos files as the
+  `workspace-mcp` preset, so the composed ladder path could keep old direct
+  operation exports next to the new shared descriptors.
+
+### Implementation
+
+- Updated CLI inventory to prefer `.nuxt/trellis/public-surface.json` when the
+  generated file exists, with targeted fail-close validation for malformed
+  generated metadata.
+- Kept source scanning as the fallback only for pre-prepare apps where the
+  generated public-surface inventory does not exist yet.
+- Added explain coverage for a generated-only public-surface inventory and for
+  malformed generated inventory failing instead of silently falling back.
+- Updated `add mcp` starter composition to overwrite the todos domain, feature,
+  barrel, operations, permissions, functions, generated operation projections,
+  and shared descriptor/permission files from the `workspace-mcp` preset.
+- Updated doctor expectations to match the current descriptor-backed
+  workspace-MCP starter surface.
+
+### Verification
+
+- Formatter check passed for touched CLI and test files:
+  `pnpm exec oxfmt --check src/cli/lib/init.ts src/cli/lib/inventory.ts tests/unit/cli-explain.test.ts tests/unit/cli-doctor.test.ts`.
+- CLI build passed: `pnpm run build:cli`.
+- Explain suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts` reported 11
+  passing tests.
+- Focused preset/ladder equivalence proof passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts -t "keeps presets mechanically equivalent"`
+  reported 1 passing test.
+- Full doctor suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-doctor.test.ts` reported 62
+  passing tests.
+- Starter fixture doctor gate passed:
+  `pnpm run check:starter-fixtures:doctor` reported public, personal,
+  workspace, and workspace-mcp starter doctor passes with 0 warnings and 0
+  failures.
+- Core source lint passed: `pnpm run lint:src:core`.
+- Test lint passed: `pnpm run lint:tests`.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- This does not add a new inventory source. It makes the CLI consume the
+  generated inventory after Nuxt prepare and keeps the source scan only as the
+  pre-prepare fallback.
+- Malformed generated inventory is treated as drift and fails close.
+- `trellis explain app --json` still needs its broader versioned app-report
+  work; this slice only fixes the current operation/permission inventory path
+  used by explain and doctor.
+
 ## Next Slice Candidates
 
-1. Audit whether `trellis explain app --json` should consume the always-on
-   public-surface inventory artifact instead of only static CLI inventory.
+1. Implement the broader `trellis explain app --json` versioned report from
+   existing inventory without introducing a handwritten app manifest.
+2. Extend `trellis doctor --agent` around operation metadata, missing generated
+   contracts, MCP argument-shape warnings, and privacy-safe agent context.
+3. Run starter fixture typecheck/build gates against the descriptor-backed
+   workspace-MCP hard cutover.

@@ -280,6 +280,118 @@ describe('CLI explain', () => {
     expect(serialized).not.toContain('task_1')
   }, 30_000)
 
+  it('explains an operation from generated public-surface inventory', () => {
+    const appRoot = createTempDir('trellis-explain-generated-surface-')
+    writeAppFile(
+      appRoot,
+      '.nuxt/trellis/public-surface.json',
+      `${JSON.stringify(
+        {
+          include: {
+            operations: ['convex/**/*.ts', 'shared/**/*.ts'],
+            tools: ['server/mcp/tools/**/*.ts'],
+          },
+          operations: [
+            {
+              id: 'tasks.generated',
+              exportName: 'generatedTaskOp',
+              kind: 'safe',
+              file: 'shared/features/tasks/operations.ts',
+              line: 7,
+            },
+          ],
+          projections: [
+            {
+              operationId: 'tasks.generated',
+              operationExportName: 'generatedTaskOp',
+              exportName: 'generatedTask',
+              file: 'convex/features/tasks/domain.ts',
+              line: 11,
+              projection: 'execute',
+              functionKind: 'mutation',
+              targetFunctionRef: 'tasks.generated',
+            },
+          ],
+          tools: [
+            {
+              name: 'generated-task',
+              file: 'server/mcp/tools/generated-task.ts',
+              line: 3,
+              source: 'operation',
+              operationId: 'tasks.generated',
+              operationExportName: 'generatedTaskOp',
+            },
+          ],
+          diagnostics: [],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runCli(
+      ['explain', 'operation', 'tasks.generated', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainOperationReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      operation: {
+        id: 'tasks.generated',
+        exportName: 'generatedTaskOp',
+        kind: 'safe',
+        source: {
+          path: 'shared/features/tasks/operations.ts',
+          line: 7,
+        },
+        projections: [
+          expect.objectContaining({
+            operationId: 'tasks.generated',
+            exportName: 'generatedTask',
+            projection: 'execute',
+            source: {
+              path: 'convex/features/tasks/domain.ts',
+              line: 11,
+            },
+          }),
+        ],
+        mcpTools: {
+          status: 'matched',
+          tools: [
+            expect.objectContaining({
+              name: 'generated-task',
+              operationId: 'tasks.generated',
+              operationExportName: 'generatedTaskOp',
+              source: 'operation',
+            }),
+          ],
+        },
+        featureRefs: [],
+      },
+    })
+  })
+
+  it('fails closed when generated public-surface inventory is malformed', () => {
+    const appRoot = createTempDir('trellis-explain-invalid-generated-surface-')
+    writeAppFile(appRoot, '.nuxt/trellis/public-surface.json', '{"operations":[]}\n')
+
+    const result = runCli(
+      ['explain', 'operation', 'tasks.generated', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).not.toBe(0)
+    expect(output).toContain(
+      'Invalid generated public surface inventory at .nuxt/trellis/public-surface.json',
+    )
+    expect(output).toContain('expected include to be an object')
+  })
+
   it('renders a human-readable operation explanation', () => {
     const appRoot = createPublicApp()
     addOperationFixture(appRoot)

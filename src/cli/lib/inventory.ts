@@ -1,9 +1,13 @@
-import { relative } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { relative, resolve } from 'node:path'
 
 import { Node, Project, SyntaxKind } from 'ts-morph'
 
 import { extractPermissionCodegenMetadata } from '../../module-internals/permissions-codegen.js'
-import { extractPublicSurfaceCodegenMetadata } from '../../module-internals/public-surface-codegen.js'
+import {
+  extractPublicSurfaceCodegenMetadata,
+  type PublicSurfaceCodegenMetadata,
+} from '../../module-internals/public-surface-codegen.js'
 import {
   findConvexAuthSource,
   findConvexHttpSource,
@@ -280,8 +284,147 @@ function toMetadataLocation(file: string, line: number): TrellisCliInventorySour
   }
 }
 
+const generatedPublicSurfaceInventoryPath = '.nuxt/trellis/public-surface.json'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hasStringProperty(value: Record<string, unknown>, property: string): boolean {
+  return typeof value[property] === 'string'
+}
+
+function hasOptionalStringProperty(value: Record<string, unknown>, property: string): boolean {
+  return value[property] === undefined || typeof value[property] === 'string'
+}
+
+function hasNumberProperty(value: Record<string, unknown>, property: string): boolean {
+  return typeof value[property] === 'number' && Number.isFinite(value[property])
+}
+
+function validateStringArray(value: unknown, property: string): string | null {
+  if (!Array.isArray(value)) return `expected ${property} to be an array`
+  if (value.some((entry) => typeof entry !== 'string')) {
+    return `expected ${property} to contain only strings`
+  }
+  return null
+}
+
+function validateGeneratedPublicSurfaceMetadata(value: unknown): string | null {
+  if (!isRecord(value)) return 'expected a metadata object'
+
+  const include = value.include
+  if (!isRecord(include)) return 'expected include to be an object'
+
+  const invalidOperationInclude = validateStringArray(include.operations, 'include.operations')
+  if (invalidOperationInclude) return invalidOperationInclude
+
+  const invalidToolInclude = validateStringArray(include.tools, 'include.tools')
+  if (invalidToolInclude) return invalidToolInclude
+
+  if (!Array.isArray(value.operations)) return 'expected operations to be an array'
+  if (!Array.isArray(value.projections)) return 'expected projections to be an array'
+  if (!Array.isArray(value.tools)) return 'expected tools to be an array'
+  if (!Array.isArray(value.diagnostics)) return 'expected diagnostics to be an array'
+
+  for (const [index, operation] of value.operations.entries()) {
+    if (!isRecord(operation)) return `expected operations[${index}] to be an object`
+    if (!hasStringProperty(operation, 'id'))
+      return `expected operations[${index}].id to be a string`
+    if (!hasStringProperty(operation, 'exportName')) {
+      return `expected operations[${index}].exportName to be a string`
+    }
+    if (operation.kind !== 'safe' && operation.kind !== 'destructive') {
+      return `expected operations[${index}].kind to be safe or destructive`
+    }
+    if (!hasStringProperty(operation, 'file')) {
+      return `expected operations[${index}].file to be a string`
+    }
+    if (!hasNumberProperty(operation, 'line')) {
+      return `expected operations[${index}].line to be a number`
+    }
+  }
+
+  for (const [index, projection] of value.projections.entries()) {
+    if (!isRecord(projection)) return `expected projections[${index}] to be an object`
+    if (!hasStringProperty(projection, 'operationId')) {
+      return `expected projections[${index}].operationId to be a string`
+    }
+    if (!hasStringProperty(projection, 'operationExportName')) {
+      return `expected projections[${index}].operationExportName to be a string`
+    }
+    if (!hasStringProperty(projection, 'exportName')) {
+      return `expected projections[${index}].exportName to be a string`
+    }
+    if (projection.projection !== 'execute' && projection.projection !== 'preview') {
+      return `expected projections[${index}].projection to be execute or preview`
+    }
+    if (
+      projection.functionKind !== 'query' &&
+      projection.functionKind !== 'mutation' &&
+      projection.functionKind !== 'action'
+    ) {
+      return `expected projections[${index}].functionKind to be query, mutation, or action`
+    }
+    if (!hasStringProperty(projection, 'targetFunctionRef')) {
+      return `expected projections[${index}].targetFunctionRef to be a string`
+    }
+    if (!hasStringProperty(projection, 'file')) {
+      return `expected projections[${index}].file to be a string`
+    }
+    if (!hasNumberProperty(projection, 'line')) {
+      return `expected projections[${index}].line to be a number`
+    }
+  }
+
+  for (const [index, tool] of value.tools.entries()) {
+    if (!isRecord(tool)) return `expected tools[${index}] to be an object`
+    if (!hasStringProperty(tool, 'name')) return `expected tools[${index}].name to be a string`
+    if (!hasStringProperty(tool, 'file')) return `expected tools[${index}].file to be a string`
+    if (!hasNumberProperty(tool, 'line')) return `expected tools[${index}].line to be a number`
+    if (tool.source !== 'tool' && tool.source !== 'operation' && tool.source !== 'defineMcpTool') {
+      return `expected tools[${index}].source to be tool, operation, or defineMcpTool`
+    }
+    if (!hasOptionalStringProperty(tool, 'operationId')) {
+      return `expected tools[${index}].operationId to be a string when present`
+    }
+    if (!hasOptionalStringProperty(tool, 'operationExportName')) {
+      return `expected tools[${index}].operationExportName to be a string when present`
+    }
+  }
+
+  return null
+}
+
+function readGeneratedPublicSurfaceMetadata(
+  project: ProjectInspection,
+): PublicSurfaceCodegenMetadata | null {
+  const path = resolve(project.cwd, generatedPublicSurfaceInventoryPath)
+  if (!existsSync(path)) return null
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not parse JSON.'
+    throw new Error(
+      `Invalid generated public surface inventory at ${generatedPublicSurfaceInventoryPath}: ${message}`,
+    )
+  }
+
+  const invalidReason = validateGeneratedPublicSurfaceMetadata(parsed)
+  if (invalidReason) {
+    throw new Error(
+      `Invalid generated public surface inventory at ${generatedPublicSurfaceInventoryPath}: ${invalidReason}.`,
+    )
+  }
+
+  return parsed as PublicSurfaceCodegenMetadata
+}
+
 function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['publicSurface'] {
-  const metadata = extractPublicSurfaceCodegenMetadata(project.cwd)
+  const metadata =
+    readGeneratedPublicSurfaceMetadata(project) ?? extractPublicSurfaceCodegenMetadata(project.cwd)
 
   return {
     operations: metadata.operations.map((operation) => ({

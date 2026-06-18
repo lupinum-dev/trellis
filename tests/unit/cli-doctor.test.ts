@@ -709,8 +709,8 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(mcpKeys).toContain('ctx.publicWrite.touch')
     expect(mcpKeys).toContain("query.public({ ...validateMcpKeyOp, reads: ['mcpKeys', 'users'] })")
     expect(mcpKeys).toContain('mutation.public(touchMcpKeyOp)')
-    expect(operationProjections).toContain("'todos.create': 'features/todos/domain:create'")
-    expect(operationProjections).toContain("'todos.list': 'features/todos/domain:list'")
+    expect(operationProjections).toContain("'todos.create': 'todos.create'")
+    expect(operationProjections).toContain("'todos.list': 'todos.list'")
     expectNoOldBackendSurface(functions, 'workspace convex/functions.ts')
     expectNoOldBackendSurface(todos, 'workspace todos domain')
     expectNoOldBackendSurface(mcpKeys, 'workspace MCP keys domain')
@@ -769,10 +769,12 @@ describe('CLI doctor', { timeout: cliDoctorTestTimeoutMs }, () => {
     expect(existsSync(resolve(appRoot, 'server/mcp/.gitkeep'))).toBe(false)
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
     const todoOperations = read(resolve(appRoot, 'convex/features/todos/operations.ts'))
-    expect(todoOperations).toContain('operation.query({')
-    expect(todoOperations).toContain('operation.mutation({')
-    expect(todos).toContain('query.workspace(listTodosOp)')
-    expect(todos).toContain('mutation.workspace(createTodoOp)')
+    expect(todoOperations).toContain('implementOperation(listTodosDescriptor')
+    expect(todoOperations).toContain('implementOperation(createTodoDescriptor')
+    expect(todoOperations).not.toContain('operation.query({')
+    expect(todoOperations).not.toContain('operation.mutation({')
+    expect(todos).toContain('query.workspace(listTodosOperation)')
+    expect(todos).toContain('mutation.workspace(createTodoOperation)')
     expectNoOldBackendSurface(todos, 'workspace-mcp todos domain')
   })
 
@@ -1321,10 +1323,33 @@ export default defineNuxtPlugin((nuxtApp) => {
         })
       }
       expect(report.inventory.publicSurface.operations).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ id: 'todos.list', exportName: 'listTodosOp', kind: 'safe' }),
-          expect.objectContaining({ id: 'todos.create', exportName: 'createTodoOp', kind: 'safe' }),
-        ]),
+        expect.arrayContaining(
+          starter.mcp
+            ? [
+                expect.objectContaining({
+                  id: 'todos.list',
+                  exportName: 'listTodosDescriptor',
+                  kind: 'safe',
+                }),
+                expect.objectContaining({
+                  id: 'todos.create',
+                  exportName: 'createTodoDescriptor',
+                  kind: 'safe',
+                }),
+              ]
+            : [
+                expect.objectContaining({
+                  id: 'todos.list',
+                  exportName: 'listTodosOp',
+                  kind: 'safe',
+                }),
+                expect.objectContaining({
+                  id: 'todos.create',
+                  exportName: 'createTodoOp',
+                  kind: 'safe',
+                }),
+              ],
+        ),
       )
       expect(report.inventory.publicSurface.projections).toEqual(
         expect.arrayContaining([

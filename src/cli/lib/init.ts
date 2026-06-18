@@ -65,6 +65,11 @@ const mcpAddFixturePaths = [
   'AGENTS.md',
   'README.md',
   'app/features/workspace/components/WorkspaceStarterPage.vue',
+  'convex/features/todos/domain.ts',
+  'convex/features/todos/feature.ts',
+  'convex/features/todos/index.ts',
+  'convex/features/todos/operations.ts',
+  'convex/features/todos/permissions.ts',
   'server/middleware/mcp-auth.ts',
   'server/lib/mcp-invalid-bearer-throttle.ts',
   'server/mcp/index.ts',
@@ -72,12 +77,22 @@ const mcpAddFixturePaths = [
   'server/mcp/tools/list-todos.ts',
   'server/mcp/tools/create-todo.ts',
   'convex/features/mcpKeys/domain.ts',
+  'convex/functions.ts',
+  'generated/operation-projections.ts',
+  'shared/features/todos/operations.ts',
+  'shared/features/todos/permissions.ts',
 ] as const
 
 const mcpAddOverwritePaths = new Set<string>([
   'AGENTS.md',
   'README.md',
   'app/features/workspace/components/WorkspaceStarterPage.vue',
+  'convex/features/todos/domain.ts',
+  'convex/features/todos/feature.ts',
+  'convex/features/todos/index.ts',
+  'convex/features/todos/operations.ts',
+  'convex/features/todos/permissions.ts',
+  'convex/functions.ts',
 ])
 
 const workspaceAddFixturePaths = [
