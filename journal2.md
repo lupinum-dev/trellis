@@ -474,8 +474,61 @@ loops.
   supporting alternate public paths. Convex function API paths remain derived
   from the direct function module that owns the lane export.
 
+## Slice 11: Module Registry Generated Artifacts
+
+### Proof
+
+- Added a failing installer-level proof that `installPermissionCodegen(...)`
+  should emit registry-derived operation refs and MCP handles into Nuxt templates
+  and expose a consumer alias.
+- The initial focused run failed because the installer only registered
+  permission/public-surface artifacts and `#trellis/permissions`; operation
+  refs/handles existed only in starter-fixture generation.
+
+### Implementation
+
+- Wired the existing operation registry renderer into
+  `installPermissionCodegen(...)`, reusing the same public-surface scan as the
+  type/json metadata output.
+- Added Nuxt templates:
+  `trellis/operation-refs.ts` and `trellis/operation-handles/mcp.ts`.
+- Added `#trellis/operations/mcp` as the generated MCP handle alias.
+- Used physical `.nuxt/...` template paths for relative import calculation so
+  generated handles import runtime-neutral shared descriptors correctly.
+- Kept empty apps working by emitting empty generated operation modules when no
+  operations are defined.
+- Hard-cut the phase0 fixture away from projection re-exports in
+  `convex/features/projects/index.ts`; the stricter re-export diagnostic exposed
+  that the fixture was no longer canonical.
+- Tightened the registry diagnostic gate for strict type checking.
+
+### Verification
+
+- Initial proof run failed as expected:
+  `pnpm vitest run --project=unit tests/unit/permission-codegen-installer.test.ts`.
+- After implementation,
+  `pnpm vitest run --project=unit tests/unit/permission-codegen-installer.test.ts`
+  passed.
+- The first broader generated-output run exposed the phase0 projection re-export
+  violation; after deleting the projection re-export,
+  `pnpm vitest run --project=unit tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts`
+  passed.
+- Focused suite passed:
+  `pnpm vitest run --project=unit tests/unit/permission-codegen-installer.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/phase0-workspace-mcp-fixture.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/module-validation.test.ts tests/unit/module-setup.test.ts`.
+- `pnpm run lint:src:core`, `pnpm run test:types:public`,
+  `pnpm run test:types:contracts`, `pnpm exec oxfmt --check ...`, and
+  `git diff --check` passed.
+
+### Notes
+
+- This intentionally uses the existing `permissions.codegen` switch because it
+  already owns public-surface scanning and generated registry metadata. A
+  separate operation-codegen flag would add another source of truth before a
+  concrete product requirement exists.
+- The generated MCP handle alias is the canonical greenfield import target for
+  operation-backed MCP tools once starters/examples are hard-cut.
+
 ## Next Slice Candidates
 
-1. Wire registry-generated artifacts into Nuxt/module prepare output.
-2. Hard-cut remaining starter resources and examples to generated handles where
+1. Hard-cut remaining starter resources and examples to generated handles where
    the registry can own projection refs and MCP operation kinds.

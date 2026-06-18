@@ -208,7 +208,7 @@ function renderOperationRefsModuleFromRegistry(
 
 export function buildOperationRegistry(metadata: PublicSurfaceCodegenMetadata): OperationRegistry {
   if (metadata.diagnostics.length > 0) {
-    const [firstDiagnostic] = metadata.diagnostics
+    const firstDiagnostic = metadata.diagnostics[0]!
     throw new Error(
       `Cannot build operation registry with unsupported projection syntax at ${firstDiagnostic.file}:${firstDiagnostic.line}. ${firstDiagnostic.message}`,
     )
