@@ -1102,11 +1102,45 @@ loops.
   internals, tests/fixtures, harness coverage, and the component mini-CMS bridge
   boundary classified in Slice 18.
 
+## Slice 22: Normal Example Execute Ref Guard
+
+### Proof
+
+- A source scan after Slices 19-21 showed normal maintained examples no longer
+  contain `executeFunctionRef`; only the intentionally classified component
+  mini-CMS bridge example still does.
+- Manual scans are not enough for the RFC hard-cut path. The invariant needs to
+  run in the existing security-focused boundary test so future example edits
+  cannot reintroduce app-authored execute refs unnoticed.
+
+### Implementation
+
+- Added a unit assertion that recursively scans normal maintained example source
+  roots and fails if any app-authored `executeFunctionRef` string appears.
+- Excluded build/generated directories and excluded the component mini-CMS
+  bridge example, which remains covered by the explicit bridge-boundary
+  classification test.
+
+### Verification
+
+- MCP boundary and normal-example execute-ref guard passed:
+  `pnpm vitest run --project=unit tests/unit/mcp-descriptor-boundary.test.ts`.
+- Focused formatting check passed for the boundary test and journal files.
+
+### Notes
+
+- This does not ban `executeFunctionRef` from Trellis internals, generated
+  projection metadata, focused runtime tests, harness coverage, or the
+  mini-CMS bridge boundary.
+- The guard is intentionally scoped to normal maintained examples, matching the
+  RFC acceptance criterion instead of overreaching into advanced package and
+  bridge surfaces before their replacement design exists.
+
 ## Next Slice Candidates
 
-1. Add or tighten a source-policy assertion that normal maintained examples do
-   not reintroduce app-authored `executeFunctionRef` strings.
-2. Review harness explicit operation refs and decide which are advanced test
+1. Review harness explicit operation refs and decide which are advanced test
    coverage versus deletion targets.
-3. Define the bridge-generated operation handle shape needed to replace
+2. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.
+3. Start the broader registry-runtime work: filtered generated handles for
+   client/server/testing and `trellis prepare` lifecycle hardening.

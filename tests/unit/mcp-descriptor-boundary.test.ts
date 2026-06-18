@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs'
+import { extname, relative, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
@@ -30,6 +30,45 @@ const generatedProjectionRegistryExamples = [
   'examples/05-visibility-access',
   'examples/07-mcp-reference',
 ] as const
+
+const normalMaintainedExampleRoots = [
+  'examples/03-team-workspace',
+  'examples/04-saas-platform',
+  'examples/05-visibility-access',
+  'examples/06-multi-workspace',
+  'examples/07-mcp-reference',
+] as const
+
+const ignoredExampleSourceDirectories = new Set([
+  '.convex',
+  '.nuxt',
+  '_generated',
+  'dist',
+  'generated',
+  'node_modules',
+])
+
+function collectExampleSourceFiles(root: string): string[] {
+  const files: string[] = []
+  const walk = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (!ignoredExampleSourceDirectories.has(entry.name)) {
+          walk(resolve(directory, entry.name))
+        }
+        continue
+      }
+
+      const file = resolve(directory, entry.name)
+      if (['.ts', '.tsx', '.vue'].includes(extname(file))) {
+        files.push(file)
+      }
+    }
+  }
+
+  walk(root)
+  return files
+}
 
 describe('MCP operation boundary', () => {
   it('keeps the MCP reference app on generated operation handles', () => {
@@ -113,5 +152,15 @@ describe('MCP operation boundary', () => {
         readFileSync(resolve(exampleRoot, 'generated/operation-projections.ts'), 'utf8'),
       )
     }
+  })
+
+  it('keeps normal maintained examples free of app-authored execute refs', () => {
+    const offenders = normalMaintainedExampleRoots.flatMap((example) =>
+      collectExampleSourceFiles(resolve(process.cwd(), example))
+        .filter((file) => readFileSync(file, 'utf8').includes('executeFunctionRef'))
+        .map((file) => relative(process.cwd(), file)),
+    )
+
+    expect(offenders).toEqual([])
   })
 })
