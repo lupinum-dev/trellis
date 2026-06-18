@@ -147,64 +147,60 @@ function renderMetadataDescriptor(
   return lines
 }
 
-function renderHandle(handle: OperationHandleBindingInput): string[] {
-  const lines = [
-    `export const ${handle.exportName} = defineOperationHandle(${metadataDescriptorName(handle)}, {`,
-    `  executeRef: ${handle.executeRefName},`,
-  ]
+const formatStableCallHeaderLength = 100
 
+function renderHandleOptions(handle: OperationHandleBindingInput, indent: string): string[] {
+  const lines = [`${indent}executeRef: ${handle.executeRefName},`]
   if (handle.previewRefName) {
-    lines.push(`  previewRef: ${handle.previewRefName},`)
+    lines.push(`${indent}previewRef: ${handle.previewRefName},`)
   }
 
   if (handle.executeOperation) {
-    lines.push(`  executeOperation: '${handle.executeOperation}',`)
+    lines.push(`${indent}executeOperation: '${handle.executeOperation}',`)
   }
 
   if (handle.previewOperation) {
-    lines.push(`  previewOperation: '${handle.previewOperation}',`)
+    lines.push(`${indent}previewOperation: '${handle.previewOperation}',`)
   }
 
   if (handle.projection && handle.projection !== 'default-app') {
-    lines.push(`  projection: '${handle.projection}',`)
+    lines.push(`${indent}projection: '${handle.projection}',`)
   }
 
   if (handle.runtimes && handle.runtimes.length > 0) {
-    lines.push(`  runtimes: [${handle.runtimes.map((runtime) => `'${runtime}'`).join(', ')}],`)
+    lines.push(
+      `${indent}runtimes: [${handle.runtimes.map((runtime) => `'${runtime}'`).join(', ')}],`,
+    )
   }
 
-  lines.push('})')
   return lines
 }
 
-function renderRuntimeImportHandle(handle: OperationHandleBindingInput): string[] {
-  const lines = [
-    `export const ${handle.exportName} = defineOperationHandle(${handle.descriptorName}, {`,
-    `  executeRef: ${handle.executeRefName},`,
+function renderOperationHandleDefinition(
+  handle: OperationHandleBindingInput,
+  descriptorName: string,
+): string[] {
+  const inlineHeader = `export const ${handle.exportName} = defineOperationHandle(${descriptorName}, {`
+  if (inlineHeader.length <= formatStableCallHeaderLength) {
+    return [inlineHeader, ...renderHandleOptions(handle, '  '), '})']
+  }
+
+  return [
+    `export const ${handle.exportName} = defineOperationHandle(`,
+    `  ${descriptorName},`,
+    `  {`,
+    ...renderHandleOptions(handle, '    '),
+    `  },`,
+    `)`,
   ]
+}
 
-  if (handle.previewRefName) {
-    lines.push(`  previewRef: ${handle.previewRefName},`)
-  }
+function renderHandle(handle: OperationHandleBindingInput): string[] {
+  return renderOperationHandleDefinition(handle, metadataDescriptorName(handle))
+}
 
-  if (handle.executeOperation) {
-    lines.push(`  executeOperation: '${handle.executeOperation}',`)
-  }
-
-  if (handle.previewOperation) {
-    lines.push(`  previewOperation: '${handle.previewOperation}',`)
-  }
-
-  if (handle.projection && handle.projection !== 'default-app') {
-    lines.push(`  projection: '${handle.projection}',`)
-  }
-
-  if (handle.runtimes && handle.runtimes.length > 0) {
-    lines.push(`  runtimes: [${handle.runtimes.map((runtime) => `'${runtime}'`).join(', ')}],`)
-  }
-
-  lines.push('})')
-  return lines
+function renderRuntimeImportHandle(handle: OperationHandleBindingInput): string[] {
+  return renderOperationHandleDefinition(handle, handle.descriptorName)
 }
 
 export function renderOperationHandlesModule(input: OperationHandlesModuleInput): string {
