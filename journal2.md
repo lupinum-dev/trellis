@@ -1479,12 +1479,75 @@ loops.
   run directly in this worktree. The targeted generator and boundary tests cover
   the changed contract.
 
+## Slice 29: Package-Root Relative Import Extensions
+
+### Proof
+
+- Continued the Ginko CMS consumer migration with generated testing handles for
+  publish/unpublish destructive operations.
+- After Slice 28 fixed forwarding target metadata, the next consumer proof
+  reached TypeScript's Node16/Nodenext resolver. Ginko's generated package-root
+  files failed because relative imports were emitted without runtime `.js`
+  extensions:
+  `src/generated/operation-refs.ts` imported `../_generated/api` and
+  `src/generated/operation-handles/testing.ts` imported `../operation-refs`.
+- Confirmed this is not a Nuxt virtual-alias problem. It is specific to
+  package-root concrete TypeScript output that is typechecked under Node-style
+  ESM resolution.
+
+### Implementation
+
+- Added an opt-in `relativeImportExtension?: '' | '.js'` option to operation
+  registry generated files.
+- Kept the default extensionless so existing Nuxt virtual/starter artifacts do
+  not change.
+- Wired the option through generated descriptor imports and generated handle
+  imports, including the handle-to-refs import.
+- Added a package-root generated-metadata test that models Ginko's concrete
+  output: `../_generated/api.js` plus `../operation-refs.js`, while still
+  proving generated metadata does not runtime-import Convex implementation
+  files.
+
+### Verification
+
+- Focused Trellis registry test passed:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts`.
+- Neighboring Trellis generated-operation tests passed:
+  `pnpm vitest run --project=unit tests/unit/operation-registry-codegen.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/permission-codegen-installer.test.ts tests/unit/phase0-starter-manifest.test.ts tests/unit/operation-ref-codegen.test.ts tests/unit/mcp-descriptor-boundary.test.ts`.
+- Trellis build/lint/type/surface gates passed:
+  `pnpm run build:module`, `pnpm run lint:src:core`,
+  `pnpm run lint:src:runtime:functions-mcp`,
+  `pnpm run lint:src:runtime:rest`, `pnpm run lint:tests`,
+  `pnpm run test:types:public`, `pnpm run test:types:contracts`,
+  `pnpm run check:publish-surface`, and
+  `pnpm run check:docs:api-surface`.
+- Formatting and whitespace checks passed:
+  `pnpm run format:check` and `git diff --check`.
+- Regenerated Ginko CMS operation files from the local Trellis source with
+  `relativeImportExtension: '.js'`: 16 operations, 28 projections, no scanner
+  diagnostics.
+- Ginko CMS consumer proof passed:
+  `pnpm vitest run test/component/entries/publish.test.ts` and
+  `pnpm run typecheck`.
+
+### Notes
+
+- This is an explicit concrete-output option, not a compatibility shim. The
+  caller chooses it only when writing package-root files that TypeScript will
+  resolve as Node ESM.
+- The generated testing handles now let Ginko's publish test call
+  `owner.operation(operations.byId[...]).preview/execute(...)` without raw
+  transport execute refs.
+- The next slice should move this from manual generation toward the durable
+  prepare/codegen lifecycle and continue deleting Ginko's remaining raw
+  transport execute usage.
+
 ## Next Slice Candidates
 
-1. Continue the Ginko CMS destructive test migration from transport execute refs
+1. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
+   runtime-specific generated modules.
+2. Continue the Ginko CMS destructive test migration from transport execute refs
    to generated testing operation handles, then delete the corresponding helper
    maps.
-2. Harden `trellis prepare` lifecycle and stale registry diagnostics around the
-   runtime-specific generated modules.
 3. Define the bridge-generated operation handle shape needed to replace
    component mini-CMS explicit refs without bypassing host bridge authority.

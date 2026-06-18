@@ -52,6 +52,7 @@ export interface OperationRegistryGeneratedFilesOptions {
   operationDescriptorTypeImport?: string
   operationProjectionRegistryImport?: string
   apiImport: string
+  relativeImportExtension?: '' | '.js'
   runtimes?: OperationHandleBindingInput['runtimes']
   descriptorMode?: 'runtime-import' | 'generated-metadata'
 }
@@ -189,16 +190,18 @@ function withoutExtension(path: string): string {
   return path.replace(/\.[cm]?[jt]sx?$/u, '')
 }
 
-function toRelativeImport(fromFile: string, toFile: string): string {
+function toRelativeImport(fromFile: string, toFile: string, extension: '' | '.js' = ''): string {
   const fromDirectory = posix.dirname(fromFile)
   const relativePath = posix.relative(fromDirectory, withoutExtension(toFile))
-  if (relativePath.startsWith('.')) return relativePath
-  return `./${relativePath}`
+  const importPath = `${relativePath}${extension}`
+  if (importPath.startsWith('.')) return importPath
+  return `./${importPath}`
 }
 
 function descriptorImportsFor(
   operations: readonly OperationRegistryOperation[],
   fromFile: string,
+  extension: '' | '.js' = '',
 ): { from: string; names: string[] }[] {
   const namesByFile = new Map<string, Set<string>>()
   for (const operation of operations) {
@@ -210,7 +213,7 @@ function descriptorImportsFor(
   return [...namesByFile.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([file, names]) => ({
-      from: toRelativeImport(fromFile, file),
+      from: toRelativeImport(fromFile, file, extension),
       names: [...names].sort((left, right) => left.localeCompare(right)),
     }))
 }
@@ -224,6 +227,7 @@ function renderOperationRefsModuleFromRegistry(
     | 'operationDescriptorTypeImport'
     | 'operationRefsPath'
     | 'projectOperationRefImport'
+    | 'relativeImportExtension'
   >,
 ): string {
   if (registry.operations.length === 0) {
@@ -243,6 +247,7 @@ function renderOperationRefsModuleFromRegistry(
     for (const descriptorImport of descriptorImportsFor(
       registry.operations,
       options.operationRefsPath,
+      options.relativeImportExtension,
     )) {
       lines.push(renderImport(descriptorImport.names, descriptorImport.from))
     }
@@ -525,9 +530,14 @@ export function renderOperationRegistryGeneratedFiles(
               descriptorImports: descriptorImportsFor(
                 handleRegistry.operations,
                 options.operationHandlesPath,
+                options.relativeImportExtension,
               ),
               descriptorMode: options.descriptorMode,
-              refsImport: toRelativeImport(options.operationHandlesPath, options.operationRefsPath),
+              refsImport: toRelativeImport(
+                options.operationHandlesPath,
+                options.operationRefsPath,
+                options.relativeImportExtension,
+              ),
               descriptors: handleRegistry.operations.map((operation) => operation.exportName),
               refs: refs.map((ref) => ref.exportName),
               handles: buildOperationHandleBindingsFromRegistry(handleRegistry, {

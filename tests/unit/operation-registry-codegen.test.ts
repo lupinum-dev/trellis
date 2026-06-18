@@ -417,13 +417,14 @@ describe('operation registry codegen', () => {
       { convexSourceRoot: 'src' },
     )
     const rendered = renderOperationRegistryGeneratedFiles(registry, {
-      apiImport: '../_generated/api',
+      apiImport: '../_generated/api.js',
       defineOperationHandleImport: '@lupinum/trellis/mcp',
       descriptorMode: 'generated-metadata',
       operationDescriptorTypeImport: '@lupinum/trellis/backend',
       operationHandlesPath: 'src/generated/operation-handles/testing.ts',
       operationRefsPath: 'src/generated/operation-refs.ts',
       projectOperationRefImport: '@lupinum/trellis/mcp',
+      relativeImportExtension: '.js',
       runtimes: ['testing'],
     })
     const byPath = new Map(rendered.map((file) => [file.path, file.content]))
@@ -459,6 +460,7 @@ describe('operation registry codegen', () => {
     expect(byPath.get('src/generated/operation-refs.ts')).toContain(
       'api.entries.publish.publishEntryOperationExecute',
     )
+    expect(byPath.get('src/generated/operation-refs.ts')).toContain("from '../_generated/api.js'")
     expect(byPath.get('src/generated/operation-refs.ts')).toContain(
       'const __publishEntryOperationDescriptor = {',
     )
@@ -474,6 +476,9 @@ describe('operation registry codegen', () => {
     )
     expect(byPath.get('src/generated/operation-handles/testing.ts')).toContain(
       "runtimes: ['testing']",
+    )
+    expect(byPath.get('src/generated/operation-handles/testing.ts')).toContain(
+      "from '../operation-refs.js'",
     )
     expect(byPath.get('src/generated/operation-handles/testing.ts')).not.toContain(
       "from '../../entries/publish'",
