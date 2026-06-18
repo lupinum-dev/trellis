@@ -58,6 +58,8 @@ interface ExplainAppReport {
     operations: Array<{
       id: string
       kind: 'safe' | 'destructive'
+      exposure?: 'backend-only'
+      backendOnlyReason?: string
       exportName?: string
       source?: TrellisCliInventorySourceLocation
       projections: Array<{
@@ -90,6 +92,8 @@ interface ExplainOperationReport {
     id: string
     exportName: string
     kind: 'safe' | 'destructive'
+    exposure?: 'backend-only'
+    backendOnlyReason?: string
     source: TrellisCliInventorySourceLocation
     projections: TrellisCliInventoryPublicSurfaceProjection[]
     mcpTools: {
@@ -131,6 +135,8 @@ interface ExplainToolReport {
           id: string
           exportName: string
           kind: 'safe' | 'destructive'
+          exposure?: 'backend-only'
+          backendOnlyReason?: string
           source: TrellisCliInventorySourceLocation
           projections: TrellisCliInventoryPublicSurfaceProjection[]
           featureRefs: ExplainOperationReport['operation']['featureRefs']
@@ -215,6 +221,8 @@ interface ExplainFeatureReport {
       id: string
       exportName: string
       kind: 'safe' | 'destructive'
+      exposure?: 'backend-only'
+      backendOnlyReason?: string
       source: TrellisCliInventorySourceLocation
       projections: TrellisCliInventoryPublicSurfaceProjection[]
       mcpTools: TrellisCliInventoryPublicSurfaceTool[]
@@ -260,6 +268,8 @@ interface ExplainFileReport {
       id: string
       exportName: string
       kind: 'safe' | 'destructive'
+      exposure?: 'backend-only'
+      backendOnlyReason?: string
       source: TrellisCliInventorySourceLocation
     }>
     projections: TrellisCliInventoryPublicSurfaceProjection[]
@@ -465,6 +475,10 @@ function createAppOperationReport(
   const base = {
     id: operation.id,
     kind: operation.kind,
+    ...(operation.exposure ? { exposure: operation.exposure } : {}),
+    ...(operation.backendOnlyReason && privacy !== 'public'
+      ? { backendOnlyReason: operation.backendOnlyReason }
+      : {}),
     projections,
     mcpTools,
   }
@@ -539,6 +553,8 @@ function createOperationReport(
       id: operation.id,
       exportName: operation.exportName,
       kind: operation.kind,
+      ...(operation.exposure ? { exposure: operation.exposure } : {}),
+      ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
       source: operation.source,
       projections: findOperationProjections(inventory, operation.id),
       mcpTools: {
@@ -567,6 +583,10 @@ function createToolReport(
           id: operation.id,
           exportName: operation.exportName,
           kind: operation.kind,
+          ...(operation.exposure ? { exposure: operation.exposure } : {}),
+          ...(operation.backendOnlyReason
+            ? { backendOnlyReason: operation.backendOnlyReason }
+            : {}),
           source: operation.source,
           projections: findOperationProjections(inventory, operation.id),
           featureRefs: findFeatureRefs(inventory, operation),
@@ -643,6 +663,8 @@ function createFeatureReport(
       id: operation.id,
       exportName: operation.exportName,
       kind: operation.kind,
+      ...(operation.exposure ? { exposure: operation.exposure } : {}),
+      ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
       source: operation.source,
       projections: findOperationProjections(inventory, operation.id),
       mcpTools: findOperationMcpTools(inventory, operation),
@@ -716,6 +738,8 @@ function createFileReport(
       id: operation.id,
       exportName: operation.exportName,
       kind: operation.kind,
+      ...(operation.exposure ? { exposure: operation.exposure } : {}),
+      ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
       source: operation.source,
     }))
   const projections = inventory.publicSurface.projections.filter((projection) =>
@@ -857,6 +881,12 @@ function renderOperationReport(report: ExplainOperationReport): void {
 
   process.stdout.write(`Operation ${operation.id}\n`)
   process.stdout.write(`Kind: ${operation.kind}\n`)
+  if (operation.exposure) {
+    process.stdout.write(`Exposure: ${operation.exposure}\n`)
+  }
+  if (operation.backendOnlyReason) {
+    process.stdout.write(`Backend-only reason: ${operation.backendOnlyReason}\n`)
+  }
   process.stdout.write(`Export: ${operation.exportName}\n`)
   process.stdout.write(`Source: ${formatLocation(operation.source)}\n`)
   process.stdout.write('Projections:\n')
@@ -902,6 +932,12 @@ function renderToolReport(report: ExplainToolReport): void {
 
   if (tool.operation.status === 'matched') {
     process.stdout.write(`Operation: ${tool.operation.id} (${tool.operation.kind})\n`)
+    if (tool.operation.exposure) {
+      process.stdout.write(`Operation exposure: ${tool.operation.exposure}\n`)
+    }
+    if (tool.operation.backendOnlyReason) {
+      process.stdout.write(`Backend-only reason: ${tool.operation.backendOnlyReason}\n`)
+    }
     process.stdout.write(`Operation export: ${tool.operation.exportName}\n`)
     process.stdout.write(`Operation source: ${formatLocation(tool.operation.source)}\n`)
     process.stdout.write('Projections:\n')

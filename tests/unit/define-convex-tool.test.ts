@@ -739,6 +739,44 @@ describe('Destructive confirmation payload validation', () => {
     expect(tool.annotations?.destructiveHint).toBe(true)
   })
 
+  it('rejects backend-only operations in normal MCP operation bindings', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'posts.retention-purge',
+      name: 'RetentionPurge',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      safety: 'destructive-write',
+      exposure: 'backend-only',
+      backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+    } as never)
+    const execute = projectOperationRef(descriptor, 'execute', {} as never)
+    const preview = projectOperationRef(descriptor, 'preview', {} as never)
+
+    const mcp = defineMcpApp({
+      resolveCaller: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      resolveAccess: allowPostOperationAccess,
+      callConvex: async () => ({
+        query: async () => deletePostPreview(),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+      scopeKey: () => 'global',
+    })
+
+    expect(() =>
+      mcp.tool.operation(descriptor, {
+        execute,
+        preview,
+      }),
+    ).toThrow('backend-only')
+  })
+
   it('requires explicit tenant binding for destructive MCP confirmations', () => {
     const operation = defineOperation({
       id: 'delete-post',

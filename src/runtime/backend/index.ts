@@ -63,6 +63,7 @@ export type {
   OperationHandleProjection,
   OperationHandleRuntime,
   OperationIdOf,
+  OperationExposure,
   OperationKind,
   OperationMetadataDefinition,
   OperationExecutionsById,

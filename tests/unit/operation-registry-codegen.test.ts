@@ -604,6 +604,65 @@ describe('operation registry codegen', () => {
     )
   })
 
+  it('excludes backend-only destructive operations from normal generated-metadata handles', () => {
+    const rootDir = createFixture({
+      'src/retention/purge.ts': `
+        import { defineOperation } from '@lupinum/trellis/backend'
+        import { callerMutation } from '../functions'
+
+        export const purgeExpiredEntriesOperation = defineOperation({
+          id: 'retention.purge-expired-entries',
+          kind: 'destructive',
+          exposure: 'backend-only',
+          backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+          args: {},
+          handler: async () => null,
+        })
+
+        export const purgeExpiredEntries = callerMutation.protected(purgeExpiredEntriesOperation)
+      `,
+      'src/functions.ts': `
+        export const callerMutation = { protected: (definition: unknown) => definition }
+      `,
+    })
+
+    const registry = buildOperationRegistry(
+      extractPublicSurfaceCodegenMetadata(rootDir, {
+        operationInclude: ['src/**/*.ts'],
+        projectionRoots: [{ name: 'callerMutation', functionKind: 'mutation' }],
+      }),
+      { convexSourceRoot: 'src' },
+    )
+    const rendered = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '../_generated/api.js',
+      defineOperationHandleImport: '@lupinum/trellis/backend',
+      descriptorMode: 'generated-metadata',
+      operationDescriptorTypeImport: '@lupinum/trellis/backend',
+      operationHandlesPath: 'src/generated/operation-handles/client.ts',
+      operationRefsPath: 'src/generated/operation-refs.ts',
+      projectOperationRefImport: '@lupinum/trellis/backend',
+      relativeImportExtension: '.js',
+      runtimes: ['client'],
+    })
+    const byPath = new Map(rendered.map((file) => [file.path, file.content]))
+
+    expect(registry.operations).toEqual([
+      expect.objectContaining({
+        id: 'retention.purge-expired-entries',
+        kind: 'destructive',
+        exposure: 'backend-only',
+        backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+      }),
+    ])
+    expect(byPath.get('src/generated/operation-refs.ts')).not.toContain(
+      'retention.purge-expired-entries',
+    )
+    expect(byPath.get('src/generated/operation-handles/client.ts')).not.toContain(
+      'retention.purge-expired-entries',
+    )
+    expect(byPath.get('src/generated/operation-handles/client.ts')).toContain('byId: {}')
+  })
+
   it('renders explicit executeFunctionRef for execute projections with operation id overrides', () => {
     const rootDir = createFixture({
       'src/entries/publish.ts': `

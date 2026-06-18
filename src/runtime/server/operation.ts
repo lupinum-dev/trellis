@@ -72,6 +72,9 @@ function assertServerOperationHandle(operation: OperationHandle): void {
       `serverOperation(${operation.id}) requires a handle generated for the server runtime.`,
     )
   }
+  if (operation.exposure === 'backend-only') {
+    throw new Error(`serverOperation(${operation.id}) cannot use a backend-only operation handle.`)
+  }
 }
 
 function requireProjectionKind(

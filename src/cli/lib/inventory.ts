@@ -70,6 +70,8 @@ export interface TrellisCliInventoryPublicSurfaceOperation {
   id: string
   exportName: string
   kind: 'safe' | 'destructive'
+  exposure?: 'backend-only'
+  backendOnlyReason?: string
   source: TrellisCliInventorySourceLocation
   contract?: {
     exportName: string
@@ -381,6 +383,12 @@ function validateGeneratedPublicSurfaceMetadata(value: unknown): string | null {
     if (operation.kind !== 'safe' && operation.kind !== 'destructive') {
       return `expected operations[${index}].kind to be safe or destructive`
     }
+    if (operation.exposure !== undefined && operation.exposure !== 'backend-only') {
+      return `expected operations[${index}].exposure to be backend-only when present`
+    }
+    if (!hasOptionalStringProperty(operation, 'backendOnlyReason')) {
+      return `expected operations[${index}].backendOnlyReason to be a string when present`
+    }
     if (!hasStringProperty(operation, 'file')) {
       return `expected operations[${index}].file to be a string`
     }
@@ -514,6 +522,8 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
       id: operation.id,
       exportName: operation.exportName,
       kind: operation.kind,
+      ...(operation.exposure ? { exposure: operation.exposure } : {}),
+      ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
       source: toMetadataLocation(operation.file, operation.line),
       ...(operation.contract
         ? {

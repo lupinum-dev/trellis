@@ -4388,11 +4388,97 @@ pnpm run smoke:cms` passed. The short temp path avoids the local Node 26/Nuxt
 - `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
   not part of this workpackage.
 
+## Slice 78: Backend-Only Destructive Exposure
+
+### Proof
+
+- RFC 0013 requires backend-only destructive operations to be explicit, reasoned,
+  visible in doctor/explain, excluded from normal client/MCP/server/product-test
+  handles, and blocked from normal MCP operation binding.
+- Added failing proofs for:
+  - `defineOperationDescriptor(...)` requiring `backendOnlyReason` when
+    `exposure: 'backend-only'` is present
+  - `defineOperationHandle(...)` refusing backend-only descriptors for normal
+    runtimes such as MCP
+  - the generated-metadata operation registry excluding backend-only destructive
+    operations from normal client handles while allowing them to omit preview
+    projections
+  - `tool.operation(...)` rejecting backend-only operations
+  - `trellis explain operation ...` showing backend-only exposure and reason
+  - `trellis doctor` surfacing backend-only inventory without normal
+    missing-preview/tool warnings
+  - `trellis doctor --agent` failing when an MCP tool exposes a backend-only
+    operation
+- Initial focused proofs failed as expected:
+  - descriptor tests did not throw for missing `backendOnlyReason` or normal MCP
+    handle generation
+  - registry codegen still failed every destructive operation without preview
+  - MCP binding accepted backend-only descriptors because no exposure metadata
+    existed
+
+### Implementation
+
+- Added `OperationExposure = 'backend-only'` to operation metadata,
+  descriptors, direct operations, generated metadata descriptors, and public
+  type barrels.
+- Centralized backend-only validation in operation metadata:
+  - backend-only is only valid for destructive operations
+  - `backendOnlyReason` is required and non-empty
+  - `backendOnlyReason` without `exposure: 'backend-only'` is rejected
+- Changed generated operation registry handling:
+  - backend-only destructive operations may omit preview projections
+  - backend-only operations are filtered out of normal runtime handle modules
+  - internal-only handle generation marks them as `projection: 'internal'`
+  - generated metadata descriptors preserve exposure and reason
+- Added runtime fail-closed checks:
+  - MCP operation binding rejects backend-only operations
+  - client composables require client handles
+  - server operation adapter rejects forged backend-only server handles
+  - normal testing helpers reject backend-only handles and require testing
+    runtime handles
+- Extended public-surface inventory, generated inventory validation, doctor, and
+  explain to carry and report backend-only exposure metadata.
+- Updated docs to teach backend-only destructive operations as the narrow
+  reasoned exception and to state that backend-only operations are not MCP
+  tools.
+
+### Verification
+
+- Focused proof rerun passed:
+  `pnpm vitest run --project=unit tests/unit/operation-descriptor.test.ts tests/unit/operation-registry-codegen.test.ts tests/unit/define-convex-tool.test.ts`
+  reported 3 passing files and 52 passing tests.
+- Full explain/doctor suite passed:
+  `pnpm vitest run --project=unit tests/unit/cli-explain.test.ts tests/unit/cli-doctor.test.ts`
+  reported 2 passing files and 97 passing tests.
+- Runtime adapter proofs passed:
+  `pnpm vitest run --project=unit tests/unit/server-operation.test.ts tests/unit/testing.test.ts`.
+- Nuxt composable proof passed:
+  `pnpm vitest run --project=nuxt tests/nuxt/useTrellisOperation.nuxt.test.ts`.
+- Type contract and public type checks passed:
+  `pnpm run test:types:contracts && pnpm run test:types:public`.
+- Focused lint passed across touched runtime, module-internals, CLI, and test
+  files.
+- Formatter check passed across touched source, docs, and test files.
+- CLI build passed: `pnpm run build:cli`.
+- Module build and publish-surface checks passed:
+  `pnpm run build:module && pnpm run check:publish-surface`.
+- Docs API surface check passed: `pnpm run check:docs:api-surface`.
+- Security gate passed: `pnpm run test:security` reported 26 passing files and
+  299 passing tests.
+- Whitespace check passed: `git diff --check`.
+
+### Notes
+
+- Direct ESLint against docs markdown is not a useful verifier in the raw repo
+  state because `apps/docs/eslint.config.mjs` imports `.nuxt/eslint.config.mjs`
+  before the docs app is prepared. The docs files were formatter-checked and
+  covered by the repo API/security checks above.
+- This closes the RFC backend-only destructive exposure requirement without a
+  second manifest, compatibility path, or new advanced projection system.
+- `dream-spec.md` and `plan-vnext.md` still have unrelated local edits and are
+  not part of this workpackage.
+
 ## Next Slice Candidates
 
-1. Close the backend-only destructive exposure requirement with explicit
-   metadata, doctor/explain visibility, and filtered handle generation, if the
-   current operation registry cannot already prove it.
-2. After the remaining RFC slices are implemented, rerun full
-   `pnpm run release:verify`, regenerate local tarballs, and rerun the CMS and
-   i18n consumer proofs.
+1. Run the final full `pnpm run release:verify` gate on the completed RFC tree.
+2. Regenerate local tarballs, then rerun the CMS and i18n consumer proofs.

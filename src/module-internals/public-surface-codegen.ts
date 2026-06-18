@@ -38,6 +38,8 @@ export interface OperationDefinitionMetadata {
   id: string
   name?: string
   kind: 'safe' | 'destructive'
+  exposure?: 'backend-only'
+  backendOnlyReason?: string
   executeFunctionRef?: string
   contract?: OperationContractMetadata
 }
@@ -841,6 +843,12 @@ function extractOperationDefinitions(
         operationDefinition.kind ??
         (readStringProperty(definition, 'kind') as 'safe' | 'destructive' | undefined) ??
         'safe',
+      ...(readStringProperty(definition, 'exposure') === 'backend-only'
+        ? { exposure: 'backend-only' as const }
+        : {}),
+      ...(readStringProperty(definition, 'backendOnlyReason')
+        ? { backendOnlyReason: readStringProperty(definition, 'backendOnlyReason')! }
+        : {}),
       ...(readStringProperty(definition, 'executeFunctionRef')
         ? { executeFunctionRef: readStringProperty(definition, 'executeFunctionRef') }
         : {}),

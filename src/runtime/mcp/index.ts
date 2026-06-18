@@ -106,6 +106,7 @@ export type {
   OperationHandleFunctionKind,
   OperationHandleProjection,
   OperationHandleRuntime,
+  OperationExposure,
 } from '../functions/operation-metadata.js'
 
 export type { CreateMcpConvexCallerOptions } from './create-mcp-convex-caller.js'

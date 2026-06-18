@@ -10,6 +10,8 @@ import {
 
 export type OperationKind = 'safe' | 'destructive'
 
+export type OperationExposure = 'backend-only'
+
 export type McpWriteSafety =
   | 'read'
   | 'bounded-write'
@@ -21,6 +23,8 @@ export type TrellisOperationMetadata = {
   id?: string
   name?: string
   kind: OperationKind
+  exposure?: OperationExposure
+  backendOnlyReason?: string
   permissionKey?: string
   safety?: McpWriteSafety
 }
@@ -56,7 +60,61 @@ type OperationMetadataCarrier = {
   id?: string
   name?: string
   kind?: OperationKind
+  exposure?: OperationExposure
+  backendOnlyReason?: string
   executeFunctionRef?: string
+}
+
+function requireBackendOnlyReason(reason: string | undefined): string {
+  if (reason && reason.trim().length > 0) return reason
+  throw new Error('Backend-only operations require a non-empty backendOnlyReason.')
+}
+
+export function resolveOperationExposureMetadata(definition: {
+  kind?: OperationKind
+  exposure?: OperationExposure
+  backendOnlyReason?: string
+}): { exposure?: OperationExposure; backendOnlyReason?: string } {
+  if (definition.exposure === undefined) {
+    if (definition.backendOnlyReason !== undefined) {
+      throw new Error('backendOnlyReason requires exposure: "backend-only".')
+    }
+    return {}
+  }
+
+  if (definition.exposure !== 'backend-only') {
+    throw new Error('Operation exposure must be "backend-only" when present.')
+  }
+
+  if ((definition.kind ?? 'safe') !== 'destructive') {
+    throw new Error('exposure: "backend-only" is only valid for destructive operations.')
+  }
+
+  return {
+    exposure: 'backend-only',
+    backendOnlyReason: requireBackendOnlyReason(definition.backendOnlyReason),
+  }
+}
+
+function assertBackendOnlyHandleRuntime(
+  descriptor: OperationDescriptor,
+  options: {
+    projection?: OperationHandleProjection
+    runtimes?: readonly OperationHandleRuntime[]
+  },
+): void {
+  if (descriptor.exposure !== 'backend-only') return
+
+  const runtimes = options.runtimes ?? (['mcp', 'testing'] as const)
+  const projection = options.projection ?? 'default-app'
+  const isInternalOnly = runtimes.length === 1 && runtimes[0] === 'internal'
+  const isInternalProjection = projection === 'internal' || projection === 'service'
+
+  if (isInternalOnly && isInternalProjection) return
+
+  throw new Error(
+    `Operation handle "${descriptor.id}" is backend-only and can only be generated for an internal runtime with an internal/service projection.`,
+  )
 }
 
 export type OperationDescriptor<
@@ -78,6 +136,8 @@ export type OperationDescriptor<
   readonly returns?: TReturns
   readonly previewReturns?: TPreviewReturns
   readonly safety?: McpWriteSafety
+  readonly exposure?: OperationExposure
+  readonly backendOnlyReason?: string
   readonly [trellisOperationMetadataKey]: TrellisOperationMetadata
 }
 
@@ -137,11 +197,16 @@ export function defineOperationHandle<
     throw new Error('defineOperationHandle(...) requires a descriptor with a non-empty id.')
   }
 
-  if (descriptor.kind === 'destructive' && options.previewRef === undefined) {
+  if (
+    descriptor.kind === 'destructive' &&
+    descriptor.exposure !== 'backend-only' &&
+    options.previewRef === undefined
+  ) {
     throw new Error(
       `defineOperationHandle(${descriptor.id}) requires a previewRef for destructive operations.`,
     )
   }
+  assertBackendOnlyHandleRuntime(descriptor, options)
 
   const metadata = getOperationMetadata(descriptor)
 
@@ -167,6 +232,8 @@ export type OperationMetadataDefinition<
   name?: string
   kind?: OperationKind
   args?: TArgs
+  exposure?: OperationExposure
+  backendOnlyReason?: string
   [trellisOperationMetadataKey]: TrellisOperationMetadata
 }
 
@@ -178,11 +245,19 @@ export function defineOperationMetadata<
   name?: string
   kind?: OperationKind
   args?: TArgs
+  exposure?: OperationExposure
+  backendOnlyReason?: string
 }): OperationMetadataDefinition<TId, TArgs> {
+  const exposure = resolveOperationExposureMetadata({
+    kind: definition.kind ?? 'safe',
+    exposure: definition.exposure,
+    backendOnlyReason: definition.backendOnlyReason,
+  })
   const metadata = {
     id: definition.id,
     name: definition.name,
     kind: definition.kind ?? 'safe',
+    ...exposure,
   } satisfies TrellisOperationMetadata
 
   if (metadata.kind === 'destructive' && !metadata.id) {
@@ -195,6 +270,7 @@ export function defineOperationMetadata<
       name: definition.name,
       kind: metadata.kind,
       args: definition.args,
+      ...exposure,
     },
     {
       [trellisOperationMetadataKey]: metadata,
@@ -217,18 +293,26 @@ export function defineOperationDescriptor<
   returns?: TReturns
   previewReturns?: TPreviewReturns
   safety?: McpWriteSafety
+  exposure?: OperationExposure
+  backendOnlyReason?: string
 }): OperationDescriptor<TId, TArgs, TPermission, TReturns, TPreviewReturns> {
   if (definition.id.trim().length === 0) {
     throw new Error('defineOperationDescriptor(...) requires a non-empty operation id.')
   }
 
   const kind = definition.kind ?? 'safe'
+  const exposure = resolveOperationExposureMetadata({
+    kind,
+    exposure: definition.exposure,
+    backendOnlyReason: definition.backendOnlyReason,
+  })
   const permissionKey =
     definition.permission === undefined ? undefined : resolvePermissionKey(definition.permission)
   const metadata = {
     id: definition.id,
     name: definition.name,
     kind,
+    ...exposure,
     ...(permissionKey ? { permissionKey } : {}),
     ...(definition.safety ? { safety: definition.safety } : {}),
   } satisfies TrellisOperationMetadata
@@ -248,6 +332,7 @@ export function defineOperationDescriptor<
     ...(definition.returns ? { returns: definition.returns } : {}),
     ...(definition.previewReturns ? { previewReturns: definition.previewReturns } : {}),
     ...(definition.safety ? { safety: definition.safety } : {}),
+    ...exposure,
     [trellisOperationMetadataKey]: metadata,
   }
 }
@@ -292,12 +377,16 @@ export function getOperationMetadata(operation: {
   id?: string
   name?: string
   kind?: OperationKind
+  exposure?: OperationExposure
+  backendOnlyReason?: string
 }): TrellisOperationMetadata {
   return (
     operation[trellisOperationMetadataKey] ?? {
       id: operation.id,
       name: operation.name,
       kind: operation.kind ?? 'safe',
+      ...(operation.exposure ? { exposure: operation.exposure } : {}),
+      ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
     }
   )
 }

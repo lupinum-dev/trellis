@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { definePermission, definePermissionKey } from '../../src/runtime/auth'
 import {
   defineOperationDescriptor,
+  defineOperationHandle,
   getOperationMetadata,
   implementOperation,
   operationPreview,
@@ -187,5 +188,62 @@ describe('operation descriptors', () => {
         handler: async () => null,
       } as never),
     ).toThrow('implementOperation(...) does not accept protected-lane guard metadata')
+  })
+
+  it('requires explicit backend-only reason metadata', () => {
+    expect(() =>
+      defineOperationDescriptor({
+        id: 'projects.retention-purge',
+        kind: 'destructive',
+        args: { id: v.string() },
+        exposure: 'backend-only',
+      } as never),
+    ).toThrow('backendOnlyReason')
+
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.retention-purge',
+      kind: 'destructive',
+      args: { id: v.string() },
+      exposure: 'backend-only',
+      backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+    } as never)
+
+    expect(descriptor).toMatchObject({
+      exposure: 'backend-only',
+      backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+    })
+    expect(getOperationMetadata(descriptor)).toMatchObject({
+      id: 'projects.retention-purge',
+      kind: 'destructive',
+      exposure: 'backend-only',
+      backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+    })
+  })
+
+  it('blocks backend-only descriptors from normal runtime handles', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.retention-purge',
+      kind: 'destructive',
+      args: { id: v.string() },
+      exposure: 'backend-only',
+      backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+    } as never)
+
+    expect(() =>
+      defineOperationHandle(descriptor, {
+        executeRef: {} as never,
+        previewRef: {} as never,
+        runtimes: ['mcp'],
+      }),
+    ).toThrow('backend-only')
+
+    expect(() =>
+      defineOperationHandle(descriptor, {
+        executeRef: {} as never,
+        previewRef: {} as never,
+        projection: 'internal',
+        runtimes: ['internal'],
+      }),
+    ).not.toThrow()
   })
 })

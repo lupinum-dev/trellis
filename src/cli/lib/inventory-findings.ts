@@ -197,6 +197,37 @@ function createDestructiveOperationFinding(inventory: TrellisCliInventory): Doct
   }
 }
 
+function createBackendOnlyOperationFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const operations = inventory.publicSurface.operations.filter(
+    (operation) => operation.exposure === 'backend-only',
+  )
+  const operationsMissingReason = operations.filter(
+    (operation) => !operation.backendOnlyReason?.trim(),
+  )
+  const locations =
+    operationsMissingReason.length > 0
+      ? operationsMissingReason.map((operation) => operation.source)
+      : operations.map((operation) => operation.source)
+
+  return {
+    id: 'backend-only-operation-inventory',
+    category: 'advanced',
+    title: 'Backend-only operation inventory',
+    status: operationsMissingReason.length > 0 ? 'fail' : 'pass',
+    message:
+      operations.length === 0
+        ? 'No backend-only operations were found in public-surface metadata.'
+        : operationsMissingReason.length > 0
+          ? `Found backend-only operations without reason metadata at ${formatInventoryLocations(locations)}.`
+          : `Found ${operations.length} backend-only operation${operations.length === 1 ? '' : 's'} with reason metadata in ${formatInventoryLocations(locations)}.`,
+    fixHint:
+      operationsMissingReason.length > 0
+        ? 'Add a human-readable backendOnlyReason next to exposure: "backend-only".'
+        : 'Keep backend-only operations rare, reasoned, and out of client/MCP/server/test handle generation.',
+    sources: [findingInventorySource('publicSurface.operations', locations)],
+  }
+}
+
 function serviceSubjectHasUnsafeAccess(service: TrellisCliInventoryServiceSubject): boolean {
   const metadata = service.metadata
   return (
@@ -288,7 +319,7 @@ function createMcpDestructiveOperationBindingFinding(
 
 function createOperationToolAgreementFinding(inventory: TrellisCliInventory): DoctorFinding {
   const destructiveOperations = inventory.publicSurface.operations.filter(
-    (operation) => operation.kind === 'destructive',
+    (operation) => operation.kind === 'destructive' && operation.exposure !== 'backend-only',
   )
   const operationBackedTools = inventory.publicSurface.tools.filter(
     (tool) => tool.source === 'operation',
@@ -395,7 +426,7 @@ function createDestructiveOperationPreviewProjectionFinding(
   inventory: TrellisCliInventory,
 ): DoctorFinding {
   const destructiveOperations = inventory.publicSurface.operations.filter(
-    (operation) => operation.kind === 'destructive',
+    (operation) => operation.kind === 'destructive' && operation.exposure !== 'backend-only',
   )
   const previewOperationIds = new Set(
     inventory.publicSurface.projections
@@ -463,6 +494,7 @@ export function collectInventoryDoctorFindings(inventory: TrellisCliInventory): 
     createServerAuthNoneFinding(inventory),
     createCrossTenantEscapeFinding(inventory),
     createDestructiveOperationFinding(inventory),
+    createBackendOnlyOperationFinding(inventory),
     createServiceSubjectAccessFinding(inventory),
     createDestructiveOperationPreviewProjectionFinding(inventory),
     createMcpRateLimitStoreFinding(inventory),
@@ -565,6 +597,41 @@ function createAgentMcpOperationProjectionFinding(inventory: TrellisCliInventory
         inventory.publicSurface.projections.map((projection) => projection.source),
       ),
     ],
+  }
+}
+
+function createAgentMcpBackendOnlyExposureFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const operationsById = new Map(
+    inventory.publicSurface.operations.map((operation) => [operation.id, operation]),
+  )
+  const operationBackedTools = inventory.publicSurface.tools.filter(
+    (tool) => tool.source === 'operation' && tool.operationId,
+  )
+  const backendOnlyTools = operationBackedTools.filter((tool) => {
+    if (!tool.operationId) return false
+    return operationsById.get(tool.operationId)?.exposure === 'backend-only'
+  })
+  const locations =
+    backendOnlyTools.length > 0
+      ? backendOnlyTools.map((tool) => tool.sourceLocation)
+      : operationBackedTools.map((tool) => tool.sourceLocation)
+
+  return {
+    id: 'agent-mcp-backend-only-exposure',
+    category: 'advanced',
+    title: 'Agent MCP backend-only exposure',
+    status: backendOnlyTools.length > 0 ? 'fail' : 'pass',
+    message:
+      operationBackedTools.length === 0
+        ? 'No operation-backed MCP tools were found in public-surface metadata.'
+        : backendOnlyTools.length > 0
+          ? `Found MCP tools exposing backend-only operations at ${formatInventoryLocations(locations)}.`
+          : 'No operation-backed MCP tools expose backend-only operations.',
+    fixHint:
+      backendOnlyTools.length > 0
+        ? 'Remove the MCP tool binding or change the operation to a normal shared operation with preview, permission, contract, and agent-facing id resolution metadata.'
+        : 'Keep backend-only operations out of MCP tool bindings.',
+    sources: [findingInventorySource('publicSurface.tools', locations)],
   }
 }
 
@@ -754,6 +821,7 @@ function createAgentMcpRecordIdResolutionFinding(inventory: TrellisCliInventory)
 export function collectAgentDoctorFindings(inventory: TrellisCliInventory): DoctorFinding[] {
   return [
     createAgentMcpOperationMetadataFinding(inventory),
+    createAgentMcpBackendOnlyExposureFinding(inventory),
     createAgentMcpOperationProjectionFinding(inventory),
     createAgentMcpContractDescriptionFinding(inventory),
     createAgentMcpRecordIdResolutionFinding(inventory),

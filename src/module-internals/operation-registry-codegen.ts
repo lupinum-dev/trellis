@@ -30,6 +30,8 @@ export interface OperationRegistryOperation {
   line: number
   name?: string
   kind: 'safe' | 'destructive'
+  exposure?: 'backend-only'
+  backendOnlyReason?: string
   execute: OperationRegistryProjection
   preview?: OperationRegistryProjection
 }
@@ -128,6 +130,8 @@ function toMutableRegistryOperation(
     line: operation.line,
     ...(operation.name ? { name: operation.name } : {}),
     kind: operation.kind,
+    ...(operation.exposure ? { exposure: operation.exposure } : {}),
+    ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
   }
 }
 
@@ -180,11 +184,23 @@ function operationHandleRegistryFor(
   registry: OperationRegistry,
   options: OperationRegistryGeneratedFilesOptions,
 ): OperationRegistry {
-  if (!shouldUseRuntimeNeutralHandles(options) || options.descriptorMode === 'generated-metadata') {
+  if (!shouldUseRuntimeNeutralHandles(options)) {
     return registry
   }
+
+  const internalBackendOnlyHandles =
+    options.runtimes?.length === 1 && options.runtimes[0] === 'internal'
+
+  const operations = registry.operations.filter((operation) => {
+    if (operation.exposure === 'backend-only') {
+      return internalBackendOnlyHandles
+    }
+
+    return options.descriptorMode === 'generated-metadata' || operation.file.startsWith('shared/')
+  })
+
   return {
-    operations: registry.operations.filter((operation) => operation.file.startsWith('shared/')),
+    operations,
   }
 }
 
@@ -359,6 +375,10 @@ function renderOperationMetadataDescriptor(
 
   lines.push(
     `  kind: '${operation.kind}',`,
+    ...(operation.exposure ? [`  exposure: '${operation.exposure}',`] : []),
+    ...(operation.backendOnlyReason
+      ? [`  backendOnlyReason: ${renderStringLiteral(operation.backendOnlyReason)},`]
+      : []),
     `  args: {},`,
     `} as unknown as import('${operationDescriptorTypeImport}').OperationDescriptor<${renderStringLiteral(operation.id)}>`,
   )
@@ -451,7 +471,24 @@ export function buildOperationRegistry(
         throw new Error(`Operation "${operation.id}" requires exactly one execute projection.`)
       }
 
-      if (operation.kind === 'destructive' && !operation.preview) {
+      if (operation.exposure === 'backend-only') {
+        if (operation.kind !== 'destructive') {
+          throw new Error(
+            `Operation "${operation.id}" uses backend-only exposure, which is only valid for destructive operations.`,
+          )
+        }
+        if (!operation.backendOnlyReason?.trim()) {
+          throw new Error(
+            `Backend-only operation "${operation.id}" requires a non-empty backendOnlyReason.`,
+          )
+        }
+      }
+
+      if (
+        operation.kind === 'destructive' &&
+        operation.exposure !== 'backend-only' &&
+        !operation.preview
+      ) {
         throw new Error(
           `Destructive operation "${operation.id}" requires exactly one preview projection.`,
         )
@@ -502,6 +539,8 @@ export function buildOperationHandleBindingsFromRegistry(
     operationId: operation.id,
     ...(operation.name ? { operationName: operation.name } : {}),
     operationKind: operation.kind,
+    ...(operation.exposure ? { exposure: operation.exposure } : {}),
+    ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
     descriptorName: operation.exportName,
     executeRefName: getOperationRefExportName(operation, operation.execute),
     ...(operation.preview
@@ -509,6 +548,7 @@ export function buildOperationHandleBindingsFromRegistry(
       : {}),
     executeOperation: operation.execute.functionKind,
     ...(operation.preview ? { previewOperation: operation.preview.functionKind } : {}),
+    ...(operation.exposure === 'backend-only' ? { projection: 'internal' as const } : {}),
     ...(options.runtimes ? { runtimes: options.runtimes } : {}),
   }))
 }

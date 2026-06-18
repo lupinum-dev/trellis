@@ -20,6 +20,7 @@ import { getFunctionName } from '../convex/shared/convex-shared.js'
 import type { AnyConvexFunction } from '../convex/shared/convex-shared.js'
 import { hashConfirmationToken } from '../functions/confirmation-token.js'
 import {
+  getOperationMetadata,
   getOperationProjectionMetadata,
   type OperationHandle,
   type OperationHandleFunctionKind,
@@ -675,6 +676,18 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       type Args = OperationArgs<TOperation>
       type Result = OperationResult<TOperation>
       type Preview = OperationPreviewResult<TOperation>
+
+      const metadata = getOperationMetadata(operation)
+      if (metadata.exposure === 'backend-only') {
+        throw new Error(
+          `Operation "${operation.id}" is backend-only and cannot be called through normal product test helpers.`,
+        )
+      }
+      if (!operation.runtimes.includes('testing')) {
+        throw new Error(
+          `Operation "${operation.id}" requires a handle generated for the testing runtime.`,
+        )
+      }
 
       return {
         preview: async (args: Args): Promise<Preview> => {

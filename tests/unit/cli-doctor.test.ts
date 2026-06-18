@@ -245,6 +245,8 @@ type DoctorInventoryJsonReport = {
         id: string
         exportName: string
         kind: 'safe' | 'destructive'
+        exposure?: 'backend-only'
+        backendOnlyReason?: string
         source: { path: string; line: number }
         contract?: {
           exportName: string
@@ -2841,6 +2843,133 @@ export const executePurgeTodo = mutation.authenticated(purgeTodoOp)
     expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')?.status).toBe(
       'pass',
     )
+  })
+
+  it('surfaces backend-only operations without normal MCP preview/tool warnings', () => {
+    const cwd = createTempDir('trellis-doctor-backend-only-operation-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
+    ])
+
+    writeFileSync(
+      resolve(appRoot, 'convex/features/todos/operations.ts'),
+      `
+import { defineOperation } from '@lupinum/trellis/backend'
+import { mutation } from '../../functions'
+
+export const purgeExpiredTodosOp = defineOperation({
+  id: 'todos.purge-expired',
+  kind: 'destructive',
+  exposure: 'backend-only',
+  backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+  args: {},
+  handler: async () => null,
+})
+
+export const purgeExpiredTodos = mutation.authenticated(purgeExpiredTodosOp)
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.inventory.publicSurface.operations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'todos.purge-expired',
+          kind: 'destructive',
+          exposure: 'backend-only',
+          backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+        }),
+      ]),
+    )
+    expect(
+      report.findings.find((entry) => entry.id === 'backend-only-operation-inventory'),
+    ).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('backend-only operation'),
+    })
+    expect(
+      report.findings.find((entry) => entry.id === 'destructive-operation-preview-projection')
+        ?.status,
+    ).toBe('pass')
+    expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')?.status).toBe(
+      'pass',
+    )
+  })
+
+  it('fails agent doctor when MCP exposes a backend-only operation', () => {
+    const cwd = createTempDir('trellis-doctor-backend-only-mcp-exposure-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
+    ])
+
+    writeFileSync(
+      resolve(appRoot, 'convex/features/todos/operations.ts'),
+      `
+import { defineOperation } from '@lupinum/trellis/backend'
+import { mutation } from '../../functions'
+
+export const purgeExpiredTodosOp = defineOperation({
+  id: 'todos.purge-expired',
+  kind: 'destructive',
+  exposure: 'backend-only',
+  backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+  args: {},
+  handler: async () => null,
+})
+
+export const purgeExpiredTodos = mutation.authenticated(purgeExpiredTodosOp)
+`.trimStart(),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/purge-expired-todos.ts'),
+      `
+import { purgeExpiredTodosOp, purgeExpiredTodos } from '~~/convex/features/todos/operations'
+import { tool } from '../runtime'
+
+export default tool.operation(purgeExpiredTodosOp, {
+  execute: purgeExpiredTodos,
+  meta: {
+    name: 'purge-expired-todos',
+  },
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--agent', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+
+    expect(result.status).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(
+      report.findings.find((entry) => entry.id === 'agent-mcp-backend-only-exposure'),
+    ).toMatchObject({
+      status: 'fail',
+      message: expect.stringContaining('backend-only operations'),
+    })
   })
 
   it('warns when MCP is enabled and destructive operations have no operation-backed tool', () => {

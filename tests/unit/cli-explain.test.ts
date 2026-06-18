@@ -18,6 +18,8 @@ type ExplainOperationReport = {
     id: string
     exportName: string
     kind: 'safe' | 'destructive'
+    exposure?: 'backend-only'
+    backendOnlyReason?: string
     source: { path: string; line: number }
     projections: Array<{
       operationId: string
@@ -97,6 +99,8 @@ type ExplainAppReport = {
     operations: Array<{
       id: string
       kind: 'safe' | 'destructive'
+      exposure?: 'backend-only'
+      backendOnlyReason?: string
       exportName?: string
       source?: { path: string; line: number }
       projections: Array<{
@@ -132,6 +136,8 @@ type ExplainToolReport = {
           id: string
           exportName: string
           kind: 'safe' | 'destructive'
+          exposure?: 'backend-only'
+          backendOnlyReason?: string
           source: { path: string; line: number }
           projections: Array<{
             operationId: string
@@ -433,6 +439,28 @@ export default tool.operation(archiveTaskOp, {
   )
 }
 
+function addBackendOnlyOperationFixture(appRoot: string): void {
+  writeAppFile(
+    appRoot,
+    'convex/features/retention/operations.ts',
+    `
+import { defineOperation } from '@lupinum/trellis/backend'
+import { mutation } from '../../functions'
+
+export const purgeExpiredEntriesOp = defineOperation({
+  id: 'retention.purge-expired-entries',
+  kind: 'destructive',
+  exposure: 'backend-only',
+  backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+  args: {},
+  handler: async () => null,
+})
+
+export const purgeExpiredEntries = mutation.authenticated(purgeExpiredEntriesOp)
+`.trimStart(),
+  )
+}
+
 describe('CLI explain', () => {
   it('explains the app as public JSON without local paths', () => {
     const appRoot = createPublicApp()
@@ -645,6 +673,51 @@ describe('CLI explain', () => {
     })
     expect(serialized).not.toContain('Archive task')
     expect(serialized).not.toContain('task_1')
+  }, 30_000)
+
+  it('explains backend-only operation exposure and reason', () => {
+    const appRoot = createPublicApp()
+    addBackendOnlyOperationFixture(appRoot)
+
+    const result = runCli(
+      ['explain', 'operation', 'retention.purge-expired-entries', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<ExplainOperationReport>(result.stdout)
+
+    expect(result.status, output).toBe(0)
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      cwd: appRoot,
+      operation: {
+        id: 'retention.purge-expired-entries',
+        exportName: 'purgeExpiredEntriesOp',
+        kind: 'destructive',
+        exposure: 'backend-only',
+        backendOnlyReason: 'Retention cleanup runs from a verified service job.',
+        projections: [
+          expect.objectContaining({
+            operationId: 'retention.purge-expired-entries',
+            exportName: 'purgeExpiredEntries',
+            projection: 'execute',
+          }),
+        ],
+        mcpTools: {
+          status: 'none',
+        },
+      },
+    })
+
+    const human = runCli(
+      ['explain', 'operation', 'retention.purge-expired-entries', '--cwd', appRoot],
+      repoRoot,
+    )
+    expect(human.status, `${human.stdout}\n${human.stderr}`).toBe(0)
+    expect(human.stdout).toContain('Exposure: backend-only')
+    expect(human.stdout).toContain(
+      'Backend-only reason: Retention cleanup runs from a verified service job.',
+    )
   }, 30_000)
 
   it('explains an operation-backed MCP tool as versioned JSON from inventory', () => {

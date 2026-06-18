@@ -29,6 +29,11 @@ export function assertOperationBinding(
   if (!metadata.id) {
     throw new Error('tool.operation(...) requires an operation with an `id`.')
   }
+  if (metadata.exposure === 'backend-only') {
+    throw new Error(
+      `tool.operation(${metadata.name ?? metadata.id}) cannot expose backend-only operation "${metadata.id}" through MCP.`,
+    )
+  }
 
   const executeTarget = getOperationProjectionMetadata(executeRef as Record<PropertyKey, unknown>)
   if (!executeTarget) {

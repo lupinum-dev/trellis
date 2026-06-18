@@ -3,6 +3,8 @@ export interface OperationHandleBindingInput {
   operationId: string
   operationName?: string
   operationKind?: 'safe' | 'destructive'
+  exposure?: 'backend-only'
+  backendOnlyReason?: string
   descriptorName: string
   executeRefName: string
   previewRefName?: string
@@ -140,6 +142,10 @@ function renderMetadataDescriptor(
 
   lines.push(
     `  kind: '${handle.operationKind}',`,
+    ...(handle.exposure ? [`  exposure: '${handle.exposure}',`] : []),
+    ...(handle.backendOnlyReason
+      ? [`  backendOnlyReason: ${renderStringLiteral(handle.backendOnlyReason)},`]
+      : []),
     `  args: {},`,
     `} as unknown as import('${operationDescriptorTypeImport}').OperationDescriptor<${renderStringLiteral(handle.operationId)}>`,
   )

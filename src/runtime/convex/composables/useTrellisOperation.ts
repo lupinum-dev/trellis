@@ -184,6 +184,12 @@ export function useTrellisOperation<TOperation extends OperationHandle>(
   type Result = OperationResult<TOperation>
   type Preview = OperationPreviewResult<TOperation>
 
+  if (!operation.runtimes.includes('client')) {
+    throw new Error(
+      `useTrellisOperation(${operation.id}) requires a handle generated for the client runtime.`,
+    )
+  }
+
   const executeCall = useOperationCommand<Args, Result>(
     operation.executeRef,
     operation.executeOperation,

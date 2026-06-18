@@ -136,6 +136,7 @@ export type {
   OperationHandleProjection,
   OperationHandleRuntime,
   OperationMetadataDefinition,
+  OperationExposure,
   OperationPreviewEffect,
   OperationPreviewEnvelope,
   OperationPreviewIssue,

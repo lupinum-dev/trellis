@@ -14,9 +14,11 @@ import type {
 } from './define-handler.js'
 import {
   getOperationMetadata,
+  resolveOperationExposureMetadata,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
   type McpWriteSafety,
+  type OperationExposure,
   type OperationKind,
   type OperationDescriptor,
   type TrellisOperationMetadata,
@@ -60,6 +62,7 @@ export type {
   OperationHandleProjection,
   OperationHandleRuntime,
   OperationMetadataDefinition,
+  OperationExposure,
   OperationKind,
   OperationIdOf,
   OperationProjectionRef,
@@ -117,6 +120,8 @@ export type OperationDefinition<
         identityForwardingTransport?: IdentityForwardingTransport
         permission?: PermissionKeyHandle<string>
         safety?: McpWriteSafety
+        exposure?: OperationExposure
+        backendOnlyReason?: string
         preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
         previewReturns?: GenericValidator
         [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -141,6 +146,8 @@ export type OperationShape = {
   identityForwardingTransport?: IdentityForwardingTransport
   permission?: PermissionKeyHandle<string>
   safety?: McpWriteSafety
+  exposure?: OperationExposure
+  backendOnlyReason?: string
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
 }
@@ -262,7 +269,16 @@ type ContextBoundOperationShape<TCtx> = Omit<OperationShape, 'handler' | 'load' 
 
 type DescriptorBoundOperationShape = Omit<
   OperationShape,
-  'id' | 'kind' | 'args' | 'guard' | 'permission' | 'safety' | 'returns' | 'previewReturns'
+  | 'id'
+  | 'kind'
+  | 'args'
+  | 'guard'
+  | 'permission'
+  | 'safety'
+  | 'returns'
+  | 'previewReturns'
+  | 'exposure'
+  | 'backendOnlyReason'
 > & {
   id?: string
   kind?: OperationKind
@@ -272,6 +288,8 @@ type DescriptorBoundOperationShape = Omit<
   safety?: McpWriteSafety
   returns?: GenericValidator
   previewReturns?: GenericValidator
+  exposure?: OperationExposure
+  backendOnlyReason?: string
 }
 
 type DescriptorBoundOperationDefinition<
@@ -302,12 +320,19 @@ type DefineOperationFn = {
 function defineOperationImpl<const TDefinition extends OperationShape>(
   definition: ValidateOperationDefinition<TDefinition>,
 ): DefinedOperation<TDefinition> {
+  const kind = definition.kind ?? 'safe'
+  const exposure = resolveOperationExposureMetadata({
+    kind,
+    exposure: definition.exposure,
+    backendOnlyReason: definition.backendOnlyReason,
+  })
   const permissionKey =
     definition.permission === undefined ? undefined : resolvePermissionKey(definition.permission)
   const metadata = {
     id: definition.id,
     name: definition.name,
-    kind: definition.kind ?? 'safe',
+    kind,
+    ...exposure,
     ...(permissionKey ? { permissionKey } : {}),
     ...(definition.safety ? { safety: definition.safety } : {}),
   } satisfies TrellisOperationMetadata
@@ -393,6 +418,13 @@ export function implementOperation<
     definition.previewReturns,
   )
   assertDescriptorValue(descriptor, 'safety', descriptor.safety, definition.safety)
+  assertDescriptorValue(descriptor, 'exposure', descriptor.exposure, definition.exposure)
+  assertDescriptorValue(
+    descriptor,
+    'backendOnlyReason',
+    descriptor.backendOnlyReason,
+    definition.backendOnlyReason,
+  )
   assertDescriptorGuard(definition)
   assertDescriptorPermission(descriptor, definition)
 
@@ -412,6 +444,12 @@ export function implementOperation<
       ? { permission: definition.permission ?? descriptor.permission }
       : {}),
     ...(descriptor.safety !== undefined ? { safety: definition.safety ?? descriptor.safety } : {}),
+    ...(descriptor.exposure !== undefined
+      ? { exposure: definition.exposure ?? descriptor.exposure }
+      : {}),
+    ...(descriptor.backendOnlyReason !== undefined
+      ? { backendOnlyReason: definition.backendOnlyReason ?? descriptor.backendOnlyReason }
+      : {}),
     ...(descriptor.returns !== undefined ? { returns: descriptor.returns } : {}),
     ...(descriptor.previewReturns !== undefined
       ? { previewReturns: descriptor.previewReturns }
