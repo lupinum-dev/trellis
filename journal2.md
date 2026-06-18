@@ -1658,6 +1658,47 @@ loops.
 - The Trellis package itself has no runtime code change in this slice; the
   framework change was proven by the generated files and consumer test commit.
 
+## Slice 32: Delete Dead Ginko Transport Helper Rows
+
+### Proof
+
+- Searched Ginko tests for the remaining transport execute helper map keys.
+- Confirmed `deleteAssetTransportExecute`, `deleteSiteDataBlockTransportExecute`,
+  and the already-cut-over `archiveEntryTransportExecute` had no test/helper
+  call sites. They remained only as backend exports or generated Convex type
+  entries.
+- Kept the helper map rows that still have active direct transport callers:
+  publish, unpublish, rollback, revert-draft-to-published, and delete-entry.
+
+### Implementation
+
+- In Ginko CMS commit `1c110df`, removed the unused
+  `deleteAssetTransportExecute` and `deleteSiteDataBlockTransportExecute`
+  translation rows from `test/helpers.ts`.
+
+### Verification
+
+- Ginko focused behavior proof passed:
+  `pnpm vitest run test/component/assets.test.ts test/component/site-data.test.ts test/component/entries/publish.test.ts`
+  reported 36 passing tests.
+- Ginko package type/build proof passed:
+  `pnpm run typecheck`.
+- Trellis generated-registry drift proof against Ginko passed:
+  `node /Users/matthias/Git/workspace/trellis/dist/cli.mjs operations generate ... --check --json`
+  reported status `ok`, 16 operations, 28 projections, and no out-of-date
+  files.
+- Ginko whitespace proof passed:
+  `git diff --check`.
+
+### Notes
+
+- This slice only deletes helper protocol knowledge that is already unused; it
+  does not hide or shim the remaining transport execute paths.
+- The next high-value Ginko migration target is a family with many active direct
+  calls, likely publish/versioning or entry tree deletion, so the remaining map
+  rows can continue shrinking from real caller removal rather than speculative
+  cleanup.
+
 ## Next Slice Candidates
 
 1. Continue the Ginko CMS destructive test migration from transport execute refs
