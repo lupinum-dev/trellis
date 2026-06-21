@@ -147,6 +147,7 @@ import ArticleCard from '~~/app/features/visibility-access/components/ArticleCar
 import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { articleCreate, enrollmentManage } from '#trellis/permissions'
 
 const route = useRoute()
@@ -164,31 +165,11 @@ const { data: articles } = await useConvexQuery(api.features.articles.domain.lis
   knowledgeBaseId: kbId,
 })
 
-const publishKB = useConvexMutation(api.features.knowledgeBases.domain.publish, {
-  onSuccess: () => toast.add({ title: 'Knowledge base published', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
-})
-const seedArticles = useConvexMutation(api.features.articles.domain.seed, {
-  onSuccess: () => toast.add({ title: 'Demo articles seeded', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not seed articles', description: error.message, color: 'error' }),
-})
-const enrollUser = useConvexMutation(api.features.knowledgeBases.domain.enrollByEmail, {
-  onSuccess: () => toast.add({ title: 'User enrolled', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not enroll user', description: error.message, color: 'error' }),
-})
-const createArticle = useConvexMutation(api.features.articles.domain.create, {
-  onSuccess: () => toast.add({ title: 'Article created', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create article', description: error.message, color: 'error' }),
-})
-const publishArticle = useConvexMutation(api.features.articles.domain.publish, {
-  onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not publish article', description: error.message, color: 'error' }),
-})
+const publishKB = useTrellisOperation(operations.knowledgeBases.publish)
+const seedArticles = useTrellisOperation(operations.articles.seedDemo)
+const enrollUser = useTrellisOperation(operations.knowledgeBases.enrollByEmail)
+const createArticle = useTrellisOperation(operations.articles.create)
+const publishArticle = useTrellisOperation(operations.articles.publish)
 
 const enrollForm = reactive({ email: '' })
 const articleForm = reactive({
@@ -205,34 +186,79 @@ const parentArticleOptions = computed(() =>
 )
 
 async function handlePublish() {
-  await publishKB({ id: kbId })
+  try {
+    await publishKB.execute({ id: kbId })
+    toast.add({ title: 'Knowledge base published', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not publish',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleSeed() {
-  await seedArticles({ knowledgeBaseId: kbId })
+  try {
+    await seedArticles.execute({ knowledgeBaseId: kbId })
+    toast.add({ title: 'Demo articles seeded', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not seed articles',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleEnroll() {
-  await enrollUser({ knowledgeBaseId: kbId, email: enrollForm.email })
-  enrollForm.email = ''
+  try {
+    await enrollUser.execute({ knowledgeBaseId: kbId, email: enrollForm.email })
+    toast.add({ title: 'User enrolled', color: 'success' })
+    enrollForm.email = ''
+  } catch (error) {
+    toast.add({
+      title: 'Could not enroll user',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handlePublishArticle(articleId: string) {
-  await publishArticle({ id: articleId as Id<'articles'> })
+  try {
+    await publishArticle.execute({ id: articleId as Id<'articles'> })
+    toast.add({ title: 'Article published', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not publish article',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleCreateArticle() {
-  await createArticle({
-    knowledgeBaseId: kbId,
-    title: articleForm.title,
-    body: articleForm.body,
-    visibility: articleForm.visibility,
-    parentArticleId: articleForm.parentArticleId,
-    internalNotes: articleForm.internalNotes || undefined,
-  })
-  articleForm.title = ''
-  articleForm.body = ''
-  articleForm.internalNotes = ''
-  articleForm.parentArticleId = undefined
+  try {
+    await createArticle.execute({
+      knowledgeBaseId: kbId,
+      title: articleForm.title,
+      body: articleForm.body,
+      visibility: articleForm.visibility,
+      parentArticleId: articleForm.parentArticleId,
+      internalNotes: articleForm.internalNotes || undefined,
+    })
+    toast.add({ title: 'Article created', color: 'success' })
+    articleForm.title = ''
+    articleForm.body = ''
+    articleForm.internalNotes = ''
+    articleForm.parentArticleId = undefined
+  } catch (error) {
+    toast.add({
+      title: 'Could not create article',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

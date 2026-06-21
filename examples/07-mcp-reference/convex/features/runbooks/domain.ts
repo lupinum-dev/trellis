@@ -1,34 +1,28 @@
-import { previewOf, workspaceScope } from '@lupinum/trellis/app'
+import { previewOf } from '@lupinum/trellis/app'
 import {
   can,
-  deny,
   enforce,
   loadTenantResource as loadResource,
-  requireAuth,
-  requireRecord,
 } from '@lupinum/trellis/auth'
-import { implementOperation } from '@lupinum/trellis/backend'
 
 import {
   getRunbook,
   listRunbooks,
   searchRunbooks,
 } from '../../../shared/features/runbooks/contract'
-import {
-  createRunbookDescriptor,
-  getWorkspaceRunbookDescriptor,
-  listWorkspaceRunbooksDescriptor,
-  updateRunbookDescriptor,
-  workspaceOverviewDescriptor,
-} from '../../../shared/features/runbooks/operations'
 import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import type { AppIdentity } from '../../auth/appIdentity'
-import { getAppIdentity } from '../../auth/appIdentity'
+import type { QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../functions'
-import { canUpdateRunbook } from './checks'
-import { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
-import { runbookCreate, runbookPublish, runbookRead } from './permissions'
+import {
+  bulkRemoveRunbooksOp,
+  createRunbookOp,
+  getWorkspaceRunbookOp,
+  listWorkspaceRunbooksOp,
+  removeRunbookOp,
+  updateRunbookOp,
+  workspaceOverviewOp,
+} from './operations'
+import { runbookRead } from './permissions'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './recordAccess'
 
 function toPublicRunbook(runbook: {
@@ -71,31 +65,6 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
-type WorkspaceQueryCtx = QueryCtx & {
-  workspaceId: Id<'workspaces'>
-  appIdentity: () => Promise<AppIdentity>
-}
-type WorkspaceMutationCtx = MutationCtx & {
-  workspaceId: Id<'workspaces'>
-  appIdentity: () => Promise<AppIdentity>
-}
-type RunbookIdArgs = { id: Id<'runbooks'> }
-type CreateRunbookArgs = {
-  title: string
-  summary: string
-  content: string
-  visibility?: 'public' | 'workspace' | 'draft'
-  tags?: string[]
-}
-type UpdateRunbookArgs = {
-  id: Id<'runbooks'>
-  title?: string
-  summary?: string
-  content?: string
-  visibility?: 'public' | 'workspace' | 'draft'
-  tags?: string[]
-}
-type LoadedRunbook = { runbook: Doc<'runbooks'> }
 type ReadDb = Pick<QueryCtx['db'], 'get' | 'query'>
 
 export const listPublic = query.public({
@@ -154,21 +123,6 @@ export const searchPublic = query.public({
   },
 })
 
-export const listWorkspaceRunbooksOp = implementOperation(listWorkspaceRunbooksDescriptor, {
-  scope: workspaceScope(),
-  permission: runbookRead,
-  handler: async (ctx: WorkspaceQueryCtx) => {
-    const appIdentity = await ctx.appIdentity()
-    const runbooks = await ctx.db
-      .query('runbooks')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
-      .order('desc')
-      .collect()
-
-    return workspaceRunbookCapabilities.attach(appIdentity, runbooks)
-  },
-})
-
 export const listWorkspace = query.workspace(listWorkspaceRunbooksOp)
 
 export const get = query.public({
@@ -219,89 +173,9 @@ export const get = query.public({
   },
 })
 
-export const getWorkspaceRunbookOp = implementOperation(getWorkspaceRunbookDescriptor, {
-  scope: workspaceScope(),
-  permission: runbookRead,
-  handler: async (ctx: WorkspaceQueryCtx, args: RunbookIdArgs) => {
-    const appIdentity = await ctx.appIdentity()
-    const runbook = await ctx.db.get(args.id)
-    if (!runbook) return null
-
-    return workspaceRunbookCapabilities.attach(
-      appIdentity,
-      loadResource(appIdentity, runbook, 'Runbook'),
-    )
-  },
-})
-
 export const getWorkspace = query.workspace(getWorkspaceRunbookOp)
 
-export const createRunbookOp = implementOperation(createRunbookDescriptor, {
-  scope: workspaceScope(),
-  permission: runbookCreate,
-  handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookArgs) => {
-    const appIdentity = await ctx.appIdentity()
-    requireAuth(appIdentity)
-
-    const visibility = args.visibility ?? 'draft'
-    if (visibility === 'public' && !can(appIdentity, runbookPublish.check)) {
-      throw deny('Only owners and admins can create public runbooks.')
-    }
-
-    const now = Date.now()
-    return await ctx.db.insert('runbooks', {
-      title: args.title,
-      summary: args.summary,
-      content: args.content,
-      visibility,
-      tags: args.tags ?? [],
-      ownerId: appIdentity.userId as Id<'users'>,
-      workspaceId: ctx.workspaceId,
-      createdAt: now,
-      updatedAt: now,
-      ...(visibility === 'public' ? { publishedAt: now } : {}),
-    })
-  },
-})
-
 export const create = mutation.workspace(createRunbookOp)
-
-export const updateRunbookOp = implementOperation(updateRunbookDescriptor, {
-  scope: workspaceScope(),
-  permission: runbookCreate,
-  load: async (ctx: WorkspaceMutationCtx, args: RunbookIdArgs): Promise<LoadedRunbook> => {
-    const runbook = await ctx.db.get(args.id)
-    requireRecord(runbook, 'Runbook')
-    return { runbook }
-  },
-  authorize: {
-    check: (_actor: AppIdentity, { runbook }: LoadedRunbook) => canUpdateRunbook(runbook),
-  },
-  handler: async (
-    ctx: WorkspaceMutationCtx,
-    args: UpdateRunbookArgs,
-    { runbook }: LoadedRunbook,
-  ) => {
-    const appIdentity = await ctx.appIdentity()
-    requireAuth(appIdentity)
-    const nextVisibility = args.visibility ?? runbook.visibility
-    if (nextVisibility === 'public' && !can(appIdentity, runbookPublish.check)) {
-      throw deny('Only owners and admins can publish runbooks.')
-    }
-
-    await ctx.db.patch(args.id, {
-      ...(args.title !== undefined ? { title: args.title } : {}),
-      ...(args.summary !== undefined ? { summary: args.summary } : {}),
-      ...(args.content !== undefined ? { content: args.content } : {}),
-      ...(args.tags !== undefined ? { tags: args.tags } : {}),
-      ...(args.visibility !== undefined ? { visibility: args.visibility } : {}),
-      updatedAt: Date.now(),
-      ...(nextVisibility === 'public' && runbook.visibility !== 'public'
-        ? { publishedAt: Date.now() }
-        : {}),
-    })
-  },
-})
 
 export const update = mutation.workspace(updateRunbookOp)
 
@@ -309,25 +183,5 @@ export const previewRemove = mutation.workspace(previewOf(removeRunbookOp))
 export const remove = mutation.workspace(removeRunbookOp)
 export const previewBulkRemove = mutation.workspace(previewOf(bulkRemoveRunbooksOp))
 export const bulkRemove = mutation.workspace(bulkRemoveRunbooksOp)
-
-export const workspaceOverviewOp = implementOperation(workspaceOverviewDescriptor, {
-  scope: workspaceScope(),
-  permission: runbookRead,
-  handler: async (ctx: WorkspaceQueryCtx) => {
-    const runbooks = await ctx.db
-      .query('runbooks')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
-      .order('desc')
-      .collect()
-
-    return {
-      total: runbooks.length,
-      public: runbooks.filter((runbook) => runbook.visibility === 'public').length,
-      workspaceOnly: runbooks.filter((runbook) => runbook.visibility === 'workspace').length,
-      drafts: runbooks.filter((runbook) => runbook.visibility === 'draft').length,
-      recentTitles: runbooks.slice(0, 5).map((runbook) => runbook.title),
-    }
-  },
-})
 
 export const workspaceOverview = query.workspace(workspaceOverviewOp)

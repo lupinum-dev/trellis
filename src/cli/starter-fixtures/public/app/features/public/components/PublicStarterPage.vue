@@ -2,26 +2,27 @@
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const title = ref('')
 
 const { data: todos } = await useConvexQuery(api.features.todos.domain.list, {})
-const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
-const toggleTodo = useConvexMutation(api.features.todos.domain.toggle)
-const removeTodo = useConvexMutation(api.features.todos.domain.remove)
+const createTodoOperation = useTrellisOperation(operations.todos.create)
+const toggleTodoOperation = useTrellisOperation(operations.todos.toggle)
+const removeTodoOperation = useTrellisOperation(operations.todos.remove)
 
 async function handleCreateTodo() {
   const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodoMutation(parsed.data)
+  await createTodoOperation.execute(parsed.data)
   title.value = ''
 }
 
 async function handleRemoveTodo(todo: { _id: string; title: string }) {
   if (!confirm(`Delete "${todo.title}"?`)) return
 
-  await removeTodo({ id: todo._id as never })
+  await removeTodoOperation.execute({ id: todo._id as never })
 }
 </script>
 
@@ -33,7 +34,7 @@ async function handleRemoveTodo(todo: { _id: string; title: string }) {
     <div style="display: grid; gap: 16px">
       <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a todo" />
-        <button :disabled="createTodoMutation.pending.value" @click="handleCreateTodo">Add</button>
+        <button :disabled="createTodoOperation.pending.value" @click="handleCreateTodo">Add</button>
       </div>
 
       <ul style="display: grid; gap: 8px; padding-left: 20px">
@@ -42,11 +43,11 @@ async function handleRemoveTodo(todo: { _id: string; title: string }) {
             <input
               type="checkbox"
               :checked="todo.completed"
-              @change="toggleTodo({ id: todo._id })"
+              @change="toggleTodoOperation.execute({ id: todo._id })"
             />
             <span>{{ todo.title }}</span>
           </label>
-          <button :disabled="removeTodo.pending.value" @click="handleRemoveTodo(todo)">
+          <button :disabled="removeTodoOperation.pending.value" @click="handleRemoveTodo(todo)">
             Delete
           </button>
         </li>

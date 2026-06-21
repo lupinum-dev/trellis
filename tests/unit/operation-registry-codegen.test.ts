@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { operationIdToHandlePath } from '../../src/module-internals/operation-handle-codegen'
 import {
   buildOperationHandleBindingsFromRegistry,
   buildOperationRefBindingsFromRegistry,
@@ -23,6 +24,15 @@ function createFixture(files: Record<string, string>) {
 }
 
 describe('operation registry codegen', () => {
+  it('preserves camelCase operation namespaces in ergonomic handle paths', () => {
+    expect(operationIdToHandlePath('knowledgeBases.enroll-by-email')).toEqual([
+      'knowledgeBases',
+      'enrollByEmail',
+    ])
+    expect(operationIdToHandlePath('shareTokens.create')).toEqual(['shareTokens', 'create'])
+    expect(operationIdToHandlePath('articles.seed-demo')).toEqual(['articles', 'seedDemo'])
+  })
+
   it('derives registry projections from canonical lane exports', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
@@ -241,6 +251,7 @@ describe('operation registry codegen', () => {
           name: 'archiveTask',
           kind: 'destructive',
           args: { id: v.string() },
+          allowForwardingFrom: 'mcp',
           previewReturns: operationPreviewValidator({
             confirm: v.object({ id: v.string() }),
           }),
@@ -330,6 +341,19 @@ describe('operation registry codegen', () => {
         content: expect.stringContaining("'tasks.archive': 'features/tasks/domain:archiveTask'"),
       },
     ])
+
+    const generatedMetadata = renderOperationRegistryGeneratedFiles(registry, {
+      apiImport: '../../convex/_generated/api',
+      defineOperationHandleImport: '@lupinum/trellis/mcp',
+      descriptorMode: 'generated-metadata',
+      operationHandlesPath: '.trellis/generated/operation-handles/mcp.ts',
+      operationRefsPath: '.trellis/generated/operation-refs.ts',
+      projectOperationRefImport: '@lupinum/trellis/mcp',
+      runtimes: ['mcp', 'testing'],
+    })
+    expect(
+      generatedMetadata.find((file) => file.path.endsWith('/operation-handles/mcp.ts'))?.content,
+    ).toContain("allowForwardingFrom: 'mcp'")
   })
 
   it('renders host bridge operation handles from explicit projection wrappers', () => {

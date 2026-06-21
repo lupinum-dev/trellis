@@ -4,8 +4,10 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useNuxtApp, useRouter } from '#imports'
 
-import { useAuthBootstrapRuntimeState } from '../auth/client/auth-bootstrap-state.js'
-import { useConvexAuth } from '../auth/composables/useConvexAuth.js'
+import {
+  shouldWaitForAuthBootstrapToken,
+  useAuthBootstrapRuntimeState,
+} from '../auth/client/auth-bootstrap-state.js'
 import type { AccessContextBase } from '../auth/define-access-context.js'
 import type {
   PermissionKeyHandle,
@@ -13,7 +15,9 @@ import type {
 } from '../auth/define-permission.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { hasConvexAuthRuntime } from '../auth/internal/auth-runtime.js'
+import { useConvexAuthController } from '../auth/internal/useConvexAuthController.js'
 import { createConvexQueryState } from '../convex/query/query-runtime.js'
+import { getConvexRuntimeConfig } from '../convex/shared/runtime-config.js'
 import { usePermissionDevtoolsState } from '../devtools/state.js'
 import type { NoInfer } from '../types/type-utils.js'
 
@@ -88,17 +92,27 @@ function useAccessContextState<
   TContext extends AuthContext = InferredAuthContext<Query>,
 >(query: Query, configuredQueryName: string) {
   const nuxtApp = useNuxtApp()
-  const authState = hasConvexAuthRuntime(nuxtApp) ? useConvexAuth() : null
+  const convexConfig = getConvexRuntimeConfig()
+  const authState = hasConvexAuthRuntime(nuxtApp) ? useConvexAuthController() : null
   const authBootstrapState = useAuthBootstrapRuntimeState()
 
   const shouldWaitForBootstrap = computed<boolean>(() => {
-    if (!authState?.isAuthenticated.value) return false
-    return authBootstrapState.value.status === 'pending'
+    if (!authState) return false
+    if (authState.pending.value && convexConfig.auth.bootstrap.enabled) return true
+    if (!authState.isAuthenticated.value) return false
+    return shouldWaitForAuthBootstrapToken(authBootstrapState.value, authState.token.value, {
+      required: convexConfig.auth.bootstrap.enabled,
+    })
   })
   const queryArgs = computed<Record<string, never> | undefined>(() =>
     shouldWaitForBootstrap.value ? undefined : {},
   )
-  const queryState = createConvexQueryState(query, queryArgs, undefined, true).resultData
+  const queryState = createConvexQueryState(
+    query,
+    queryArgs,
+    { server: !convexConfig.auth.bootstrap.enabled },
+    true,
+  ).resultData
   const { data, error } = queryState
   const pending = computed<boolean>(() => queryState.pending.value || shouldWaitForBootstrap.value)
   const rawCtx = computed<TContext | null>(() => data.value as TContext | null)
@@ -108,7 +122,7 @@ function useAccessContextState<
       return value
     }
 
-    if (authState.isPending.value || !authState.isAuthenticated.value) {
+    if (authState.pending.value || !authState.isAuthenticated.value) {
       return null
     }
 
@@ -140,7 +154,7 @@ function useAccessContextState<
 
       if (
         !authState?.isAuthenticated.value ||
-        authState.isPending.value ||
+        authState.pending.value ||
         shouldWaitForBootstrap.value ||
         ctx.value ||
         warnedAboutNullCtx
@@ -151,7 +165,7 @@ function useAccessContextState<
       delayedNullWarningTimer = setTimeout(() => {
         if (
           !authState?.isAuthenticated.value ||
-          authState.isPending.value ||
+          authState.pending.value ||
           shouldWaitForBootstrap.value ||
           ctx.value ||
           warnedAboutNullCtx

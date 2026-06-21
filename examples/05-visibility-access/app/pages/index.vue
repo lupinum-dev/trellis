@@ -303,6 +303,7 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import {
   articlePermissionMatrix,
   kbCreate,
@@ -320,20 +321,8 @@ const signInForm = reactive({ email: '', password: '' })
 const createWorkspaceForm = reactive({ name: '', slug: '' })
 const kbForm = reactive({ title: '' })
 
-const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation, {
-  onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
-})
-const createKB = useConvexMutation(api.features.knowledgeBases.domain.create, {
-  onSuccess: () => toast.add({ title: 'Knowledge base created', color: 'success' }),
-  onError: (error) =>
-    toast.add({
-      title: 'Could not create knowledge base',
-      description: error.message,
-      color: 'error',
-    }),
-})
+const createWorkspace = useTrellisOperation(operations.workspaces.create)
+const createKB = useTrellisOperation(operations.knowledgeBases.create)
 const kbArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: knowledgeBases } = await useConvexQuery(
   api.features.knowledgeBases.domain.list,
@@ -375,14 +364,32 @@ async function handleSignOut() {
 }
 
 async function handleCreateWorkspace() {
-  await createWorkspace({
-    name: createWorkspaceForm.name,
-    slug: createWorkspaceForm.slug,
-  })
+  try {
+    await createWorkspace.execute({
+      name: createWorkspaceForm.name,
+      slug: createWorkspaceForm.slug,
+    })
+    toast.add({ title: 'Workspace created', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not create workspace',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleCreateKB() {
-  await createKB({ title: kbForm.title })
-  kbForm.title = ''
+  try {
+    await createKB.execute({ title: kbForm.title })
+    toast.add({ title: 'Knowledge base created', color: 'success' })
+    kbForm.title = ''
+  } catch (error) {
+    toast.add({
+      title: 'Could not create knowledge base',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

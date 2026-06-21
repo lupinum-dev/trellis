@@ -31,7 +31,9 @@
       "operationProjectionsPath": "generated/operation-projections.ts",
       "projectOperationRefImport": "@lupinum/trellis/mcp",
       "defineOperationHandleImport": "@lupinum/trellis/mcp",
+      "operationDescriptorTypeImport": "@lupinum/trellis/backend",
       "apiImport": "../convex/_generated/api",
+      "descriptorMode": "generated-metadata",
       "runtimes": ["mcp"]
     }
   ],

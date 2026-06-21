@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const props = defineProps<{
   selectedIds: Id<'tasks'>[]
@@ -12,23 +12,28 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
-const bulkUpdate = useConvexMutation(api.features.tasks.domain.bulkUpdateStatus, {
-  onError: (error) =>
-    toast.add({ title: 'Bulk update failed', description: error.message, color: 'error' }),
-})
+const bulkUpdate = useTrellisOperation(operations.tasks.bulkUpdateStatus)
 
 async function markDone() {
-  const result = await bulkUpdate({
-    ids: props.selectedIds,
-    status: 'done',
-  })
+  try {
+    const result = await bulkUpdate.execute({
+      ids: props.selectedIds,
+      status: 'done',
+    })
 
-  const message = result.skipped.length
-    ? `${result.updated} updated, ${result.skipped.length} skipped.`
-    : `Updated ${result.updated} task(s).`
+    const message = result.skipped.length
+      ? `${result.updated} updated, ${result.skipped.length} skipped.`
+      : `Updated ${result.updated} task(s).`
 
-  toast.add({ title: message, color: 'success', icon: 'i-lucide-check-check' })
-  emit('cleared')
+    toast.add({ title: message, color: 'success', icon: 'i-lucide-check-check' })
+    emit('cleared')
+  } catch (error) {
+    toast.add({
+      title: 'Bulk update failed',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>
 

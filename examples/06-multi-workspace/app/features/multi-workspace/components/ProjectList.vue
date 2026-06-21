@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 defineProps<{
   projects: Array<{ _id: Id<'projects'>; name: string; status: string }> | null
@@ -73,23 +73,33 @@ defineProps<{
 const toast = useToast()
 const projectName = ref('')
 
-const createProject = useConvexMutation(api.features.projects.domain.create, {
-  onSuccess: () => toast.add({ title: 'Project created', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create project', description: error.message, color: 'error' }),
-})
-const toggleStatus = useConvexMutation(api.features.projects.domain.toggleStatus, {
-  onSuccess: () => toast.add({ title: 'Project status updated', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not update status', description: error.message, color: 'error' }),
-})
+const createProject = useTrellisOperation(operations.projects.create)
+const toggleStatus = useTrellisOperation(operations.projects.toggleStatus)
 
 async function handleCreate() {
-  await createProject({ name: projectName.value })
-  projectName.value = ''
+  try {
+    await createProject.execute({ name: projectName.value })
+    toast.add({ title: 'Project created', color: 'success' })
+    projectName.value = ''
+  } catch (error) {
+    toast.add({
+      title: 'Could not create project',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleToggle(id: Id<'projects'>) {
-  await toggleStatus({ id })
+  try {
+    await toggleStatus.execute({ id })
+    toast.add({ title: 'Project status updated', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not update status',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

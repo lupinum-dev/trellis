@@ -5,6 +5,7 @@ export interface OperationHandleBindingInput {
   operationKind?: 'safe' | 'destructive'
   exposure?: 'backend-only'
   backendOnlyReason?: string
+  allowForwardingFrom?: 'server' | 'webhook' | 'mcp' | 'bridge'
   descriptorName: string
   executeRefName: string
   previewRefName?: string
@@ -39,13 +40,12 @@ function renderImport(names: readonly string[], from: string): string {
 }
 
 function toCamelCase(segment: string): string {
-  return segment
-    .split(/[^a-zA-Z0-9]+/u)
-    .filter(Boolean)
+  const parts = segment.split(/[^a-zA-Z0-9]+/u).filter(Boolean)
+  return parts
     .map((part, index) => {
-      const lower = part.toLowerCase()
-      if (index === 0) return lower
-      return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`
+      const normalized = `${part.slice(0, 1).toLowerCase()}${part.slice(1)}`
+      if (index === 0) return normalized
+      return `${normalized.slice(0, 1).toUpperCase()}${normalized.slice(1)}`
     })
     .join('')
 }
@@ -145,6 +145,9 @@ function renderMetadataDescriptor(
     ...(handle.exposure ? [`  exposure: '${handle.exposure}',`] : []),
     ...(handle.backendOnlyReason
       ? [`  backendOnlyReason: ${renderStringLiteral(handle.backendOnlyReason)},`]
+      : []),
+    ...(handle.allowForwardingFrom
+      ? [`  allowForwardingFrom: '${handle.allowForwardingFrom}',`]
       : []),
     `  args: {},`,
     `} as unknown as import('${operationDescriptorTypeImport}').OperationDescriptor<${renderStringLiteral(handle.operationId)}>`,

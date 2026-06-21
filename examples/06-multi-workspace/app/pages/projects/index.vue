@@ -5,5 +5,7 @@ definePageMeta({ convexAuth: true })
 </script>
 
 <template>
-  <WorkspaceProjectsPage />
+  <ClientOnly>
+    <WorkspaceProjectsPage />
+  </ClientOnly>
 </template>

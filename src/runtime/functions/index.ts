@@ -27,6 +27,7 @@ import { can, deny, type open } from '../auth/index.js'
 import {
   getIdentityForwarding,
   setIdentityForwardingContext,
+  type IdentityForwardingTransport,
   type IdentityForwardingKeyInput,
 } from '../identity-forwarding/index.js'
 import {
@@ -172,6 +173,7 @@ type UnsafeDefinition = {
   id?: string
   executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  allowForwardingFrom?: IdentityForwardingTransport
 }
 type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
   ? ObjectType<TArgsValidator>
@@ -363,6 +365,7 @@ type IdentityForwardingCustomizationExtra = {
   executeFunctionRef?: string
   identityForwardingTarget?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  allowForwardingFrom?: IdentityForwardingTransport
   trellisBackendLane?: TrellisBackendLane
   publicReadTables?: readonly string[]
   crossTenant?: StructuredCrossTenantCapability<object, Record<string, unknown>, unknown>
@@ -996,6 +999,7 @@ type StructuredDefinitionObject = Record<string | symbol, unknown> & {
   handler?: unknown
   id?: string
   identityForwardingTransport?: unknown
+  allowForwardingFrom?: unknown
   load?: unknown
   preview?: unknown
 }
@@ -1703,7 +1707,7 @@ async function createContextWithRuntime<
   const ctxWithIdentityForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
   setIdentityForwardingContext(ctxWithIdentityForwarding, rawAppArgs, {
     expectedKeyOverride: options.identityForwardingKey,
-    expectedTransport: extra?.identityForwardingTransport ?? 'server',
+    expectedTransport: getAllowedIdentityForwardingTransport(extra),
     ...(identityForwardingTarget ? { expectedFunctionRef: identityForwardingTarget } : {}),
   })
   await assertNoOperationExecuteEnvelopeReplay(ctx, ctxWithIdentityForwarding, options)
@@ -2202,6 +2206,12 @@ function getIdentityForwardingTarget(
   extra: IdentityForwardingCustomizationExtra | undefined,
 ): string | undefined {
   return extra?.identityForwardingTarget ?? extra?.executeFunctionRef ?? extra?.id
+}
+
+function getAllowedIdentityForwardingTransport(
+  extra: IdentityForwardingCustomizationExtra | undefined,
+): IdentityForwardingTransport {
+  return extra?.allowForwardingFrom ?? extra?.identityForwardingTransport ?? 'server'
 }
 
 function getDestructivePreviewPath(
@@ -3200,6 +3210,9 @@ function buildStructuredMutationRuntime<
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
+      ...(definition.allowForwardingFrom
+        ? { identityForwardingTransport: definition.allowForwardingFrom }
+        : {}),
       args: {
         ...definition.args,
         _confirmationToken: v.optional(v.string()),
@@ -3587,6 +3600,9 @@ function buildStructuredTransportMutationRuntime<
       ),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
+        : {}),
+      ...(definition.allowForwardingFrom
+        ? { identityForwardingTransport: definition.allowForwardingFrom }
         : {}),
       load: originalLoad
         ? async (

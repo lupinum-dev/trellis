@@ -2,6 +2,7 @@
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { todoCreate } from '#trellis/permissions'
 
 const { isAuthenticated, isPending, signOut, sessionUser } = useConvexAuth()
@@ -17,8 +18,8 @@ const title = ref('')
 const todoArgs = computed(() => (ready.value ? {} : undefined))
 const { data: todos } = await useConvexQuery(api.features.todos.domain.list, todoArgs)
 
-const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation)
-const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
+const createWorkspaceOperation = useTrellisOperation(operations.workspaces.create)
+const createTodoOperation = useTrellisOperation(operations.todos.create)
 const canCreate = can(todoCreate)
 
 async function handleSignIn() {
@@ -37,14 +38,14 @@ async function handleSignUp() {
 }
 
 async function handleCreateWorkspace() {
-  await createWorkspace({ name: workspaceName.value.trim() || 'My workspace' })
+  await createWorkspaceOperation.execute({ name: workspaceName.value.trim() || 'My workspace' })
 }
 
 async function handleCreateTodo() {
   const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodoMutation(parsed.data)
+  await createTodoOperation.execute(parsed.data)
   title.value = ''
 }
 </script>
@@ -73,7 +74,7 @@ async function handleCreateTodo() {
         first workspace.
       </p>
       <input v-model="workspaceName" type="text" placeholder="Workspace name" />
-      <button :disabled="createWorkspace.pending.value" @click="handleCreateWorkspace">
+      <button :disabled="createWorkspaceOperation.pending.value" @click="handleCreateWorkspace">
         Create workspace
       </button>
     </div>
@@ -83,7 +84,7 @@ async function handleCreateTodo() {
       <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a workspace todo" />
         <button
-          :disabled="createTodoMutation.pending.value || !canCreate"
+          :disabled="createTodoOperation.pending.value || !canCreate"
           @click="handleCreateTodo"
         >
           Add

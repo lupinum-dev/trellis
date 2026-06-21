@@ -5,7 +5,7 @@
  */
 /// <reference types="vite/client" />
 
-import { requireDelegationBinding } from '@lupinum/trellis/backend'
+import { requireDelegationBinding, type ActingFor } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -29,7 +29,7 @@ function createCtx() {
 
 function webhookService(
   ctx: ReturnType<typeof createCtx>,
-  actingFor: { subject: string } & Record<string, unknown>,
+  actingFor: ActingFor,
 ) {
   return ctx.asService('todo-sync-webhook', {
     actingFor,
@@ -42,7 +42,7 @@ function webhookService(
 async function createTodoFromWebhook(
   ctx: ReturnType<typeof createCtx>,
   args: Record<string, unknown>,
-  actingFor: { subject: string } & Record<string, unknown>,
+  actingFor: ActingFor,
 ) {
   return await webhookService(ctx, actingFor).mutation(
     api.features.todos.webhooks.processTodoSyncWebhookMutation,
@@ -339,7 +339,7 @@ describe('webhook idempotency', () => {
       title: 'Expired webhook todo',
     }
     const actingFor = {
-      subject: `user:${team.users.member.id}`,
+      subject: `user:${team.users.member.id}` as const,
       grantSource: 'workspace-service-policy',
       issuer: 'trellis://server',
       serviceId: 'todo-sync-webhook',

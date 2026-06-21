@@ -7,6 +7,7 @@ import {
   type AnyMutationFunction,
   type AnyQueryFunction,
 } from '../convex/shared/convex-shared.js'
+import type { IdentityForwardingTransport } from '../identity-forwarding/envelope.js'
 
 export type OperationKind = 'safe' | 'destructive'
 
@@ -27,6 +28,7 @@ export type TrellisOperationMetadata = {
   backendOnlyReason?: string
   permissionKey?: string
   safety?: McpWriteSafety
+  allowForwardingFrom?: IdentityForwardingTransport
 }
 
 export type TrellisOperationProjectionMetadata = {
@@ -63,6 +65,7 @@ type OperationMetadataCarrier = {
   exposure?: OperationExposure
   backendOnlyReason?: string
   executeFunctionRef?: string
+  allowForwardingFrom?: IdentityForwardingTransport
 }
 
 function requireBackendOnlyReason(reason: string | undefined): string {
@@ -138,6 +141,7 @@ export type OperationDescriptor<
   readonly safety?: McpWriteSafety
   readonly exposure?: OperationExposure
   readonly backendOnlyReason?: string
+  readonly allowForwardingFrom?: IdentityForwardingTransport
   readonly [trellisOperationMetadataKey]: TrellisOperationMetadata
 }
 
@@ -234,6 +238,7 @@ export type OperationMetadataDefinition<
   args?: TArgs
   exposure?: OperationExposure
   backendOnlyReason?: string
+  allowForwardingFrom?: IdentityForwardingTransport
   [trellisOperationMetadataKey]: TrellisOperationMetadata
 }
 
@@ -247,6 +252,7 @@ export function defineOperationMetadata<
   args?: TArgs
   exposure?: OperationExposure
   backendOnlyReason?: string
+  allowForwardingFrom?: IdentityForwardingTransport
 }): OperationMetadataDefinition<TId, TArgs> {
   const exposure = resolveOperationExposureMetadata({
     kind: definition.kind ?? 'safe',
@@ -258,6 +264,9 @@ export function defineOperationMetadata<
     name: definition.name,
     kind: definition.kind ?? 'safe',
     ...exposure,
+    ...(definition.allowForwardingFrom
+      ? { allowForwardingFrom: definition.allowForwardingFrom }
+      : {}),
   } satisfies TrellisOperationMetadata
 
   if (metadata.kind === 'destructive' && !metadata.id) {
@@ -271,6 +280,9 @@ export function defineOperationMetadata<
       kind: metadata.kind,
       args: definition.args,
       ...exposure,
+      ...(definition.allowForwardingFrom
+        ? { allowForwardingFrom: definition.allowForwardingFrom }
+        : {}),
     },
     {
       [trellisOperationMetadataKey]: metadata,
@@ -295,6 +307,7 @@ export function defineOperationDescriptor<
   safety?: McpWriteSafety
   exposure?: OperationExposure
   backendOnlyReason?: string
+  allowForwardingFrom?: IdentityForwardingTransport
 }): OperationDescriptor<TId, TArgs, TPermission, TReturns, TPreviewReturns> {
   if (definition.id.trim().length === 0) {
     throw new Error('defineOperationDescriptor(...) requires a non-empty operation id.')
@@ -315,6 +328,9 @@ export function defineOperationDescriptor<
     ...exposure,
     ...(permissionKey ? { permissionKey } : {}),
     ...(definition.safety ? { safety: definition.safety } : {}),
+    ...(definition.allowForwardingFrom
+      ? { allowForwardingFrom: definition.allowForwardingFrom }
+      : {}),
   } satisfies TrellisOperationMetadata
 
   if (metadata.kind === 'destructive' && !metadata.id) {
@@ -333,6 +349,9 @@ export function defineOperationDescriptor<
     ...(definition.previewReturns ? { previewReturns: definition.previewReturns } : {}),
     ...(definition.safety ? { safety: definition.safety } : {}),
     ...exposure,
+    ...(definition.allowForwardingFrom
+      ? { allowForwardingFrom: definition.allowForwardingFrom }
+      : {}),
     [trellisOperationMetadataKey]: metadata,
   }
 }
@@ -379,6 +398,7 @@ export function getOperationMetadata(operation: {
   kind?: OperationKind
   exposure?: OperationExposure
   backendOnlyReason?: string
+  allowForwardingFrom?: IdentityForwardingTransport
 }): TrellisOperationMetadata {
   return (
     operation[trellisOperationMetadataKey] ?? {
@@ -387,6 +407,9 @@ export function getOperationMetadata(operation: {
       kind: operation.kind ?? 'safe',
       ...(operation.exposure ? { exposure: operation.exposure } : {}),
       ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
+      ...(operation.allowForwardingFrom
+        ? { allowForwardingFrom: operation.allowForwardingFrom }
+        : {}),
     }
   )
 }

@@ -60,7 +60,7 @@
           <UButton
             data-testid="task-submit"
             type="submit"
-            :loading="createTaskMutation.pending.value"
+            :loading="createTask.pending.value"
             leading-icon="i-lucide-plus"
           >
             Add task
@@ -105,6 +105,7 @@ import { computed, reactive, ref } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { projectArchive, projectRead, taskCreate } from '#trellis/permissions'
 
 import BoardColumn from './BoardColumn.vue'
@@ -117,7 +118,6 @@ useAuthGuard({
 
 const route = useRoute()
 const toast = useToast()
-const convex = useConvex()
 const { can } = useAccess()
 const canArchive = can(projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
@@ -128,21 +128,9 @@ const taskForm = reactive({
 })
 const selectedIds = ref<Id<'tasks'>[]>([])
 
-const createTaskMutation = useConvexMutation(api.features.tasks.domain.create, {
-  onSuccess: () => toast.add({ title: 'Task created', color: 'success', icon: 'i-lucide-check' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create task', description: error.message, color: 'error' }),
-})
-const archiveProject = useConvexMutation(api.features.projects.domain.archive, {
-  onSuccess: () => {
-    toast.add({ title: 'Project archived', color: 'success', icon: 'i-lucide-archive' })
-    navigateTo('/')
-  },
-  onError: (error) =>
-    toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
-})
+const createTask = useTrellisOperation(operations.tasks.create)
+const archiveProject = useTrellisOperation(operations.projects.archive)
 const canCreateTask = can(taskCreate)
-type ArchiveProjectExecuteArgs = { id: Id<'projects'>; _confirmationToken: string }
 
 const { data: project } = await useConvexQuery(
   api.features.projects.domain.get,
@@ -174,32 +162,45 @@ const inProgressTasks = computed(
 const doneTasks = computed(() => tasks.value?.filter((task) => task.status === 'done') ?? [])
 
 async function handleCreateTask() {
-  await createTaskMutation({
-    projectId: projectId.value,
-    title: taskForm.title,
-    priority: taskForm.priority,
-  })
-  taskForm.title = ''
-  taskForm.priority = 'medium'
+  try {
+    await createTask.execute({
+      projectId: projectId.value,
+      title: taskForm.title,
+      priority: taskForm.priority,
+    })
+    toast.add({ title: 'Task created', color: 'success', icon: 'i-lucide-check' })
+    taskForm.title = ''
+    taskForm.priority = 'medium'
+  } catch (error) {
+    toast.add({
+      title: 'Could not create task',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleArchiveProject() {
-  const preview = await convex.mutation(api.features.projects.domain.previewArchiveProject, {
-    id: projectId.value,
-  })
-  const token = preview.confirmation?.token
-  if (!token) {
+  try {
+    const preview = await archiveProject.preview({ id: projectId.value })
+    if (!preview.confirmation) {
+      toast.add({
+        title: 'Could not archive project',
+        description: 'Preview the destructive change again before confirming.',
+        color: 'error',
+      })
+      return
+    }
+    await archiveProject.execute({ id: projectId.value }, { confirmation: preview.confirmation })
+    toast.add({ title: 'Project archived', color: 'success', icon: 'i-lucide-archive' })
+    await navigateTo('/')
+  } catch (error) {
     toast.add({
       title: 'Could not archive project',
-      description: 'Preview the destructive change again before confirming.',
+      description: error instanceof Error ? error.message : String(error),
       color: 'error',
     })
-    return
   }
-  await archiveProject({
-    id: projectId.value,
-    _confirmationToken: token,
-  } as ArchiveProjectExecuteArgs)
 }
 
 function toggleSelected(id: Id<'tasks'>) {

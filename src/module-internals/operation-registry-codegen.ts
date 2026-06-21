@@ -32,6 +32,7 @@ export interface OperationRegistryOperation {
   kind: 'safe' | 'destructive'
   exposure?: 'backend-only'
   backendOnlyReason?: string
+  allowForwardingFrom?: 'server' | 'webhook' | 'mcp' | 'bridge'
   execute: OperationRegistryProjection
   preview?: OperationRegistryProjection
 }
@@ -132,6 +133,9 @@ function toMutableRegistryOperation(
     kind: operation.kind,
     ...(operation.exposure ? { exposure: operation.exposure } : {}),
     ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
+    ...(operation.allowForwardingFrom
+      ? { allowForwardingFrom: operation.allowForwardingFrom }
+      : {}),
   }
 }
 
@@ -180,6 +184,13 @@ function shouldUseRuntimeNeutralHandles(options: OperationRegistryGeneratedFiles
   return (options.runtimes?.length ?? 0) > 0
 }
 
+function canImportRuntimeOperationDefinitions(
+  options: OperationRegistryGeneratedFilesOptions,
+): boolean {
+  const runtimes = options.runtimes ?? []
+  return runtimes.length > 0 && !runtimes.includes('client')
+}
+
 function operationHandleRegistryFor(
   registry: OperationRegistry,
   options: OperationRegistryGeneratedFilesOptions,
@@ -196,7 +207,11 @@ function operationHandleRegistryFor(
       return internalBackendOnlyHandles
     }
 
-    return options.descriptorMode === 'generated-metadata' || operation.file.startsWith('shared/')
+    return (
+      options.descriptorMode === 'generated-metadata' ||
+      operation.file.startsWith('shared/') ||
+      canImportRuntimeOperationDefinitions(options)
+    )
   })
 
   return {
@@ -379,6 +394,9 @@ function renderOperationMetadataDescriptor(
     ...(operation.backendOnlyReason
       ? [`  backendOnlyReason: ${renderStringLiteral(operation.backendOnlyReason)},`]
       : []),
+    ...(operation.allowForwardingFrom
+      ? [`  allowForwardingFrom: '${operation.allowForwardingFrom}',`]
+      : []),
     `  args: {},`,
     `} as unknown as import('${operationDescriptorTypeImport}').OperationDescriptor<${renderStringLiteral(operation.id)}>`,
   )
@@ -541,6 +559,9 @@ export function buildOperationHandleBindingsFromRegistry(
     operationKind: operation.kind,
     ...(operation.exposure ? { exposure: operation.exposure } : {}),
     ...(operation.backendOnlyReason ? { backendOnlyReason: operation.backendOnlyReason } : {}),
+    ...(operation.allowForwardingFrom
+      ? { allowForwardingFrom: operation.allowForwardingFrom }
+      : {}),
     descriptorName: operation.exportName,
     executeRefName: getOperationRefExportName(operation, operation.execute),
     ...(operation.preview

@@ -54,6 +54,7 @@ type AnyBuilder = (definition: {
   publicReadTables?: readonly string[]
   executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  allowForwardingFrom?: 'server' | 'webhook' | 'mcp' | 'bridge'
   crossTenant?: unknown
   publicWrite?: unknown
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -290,6 +291,7 @@ type HandlerDefinition<
   >
   executeFunctionRef?: string
   identityForwardingTransport?: 'server' | 'webhook' | 'mcp' | 'bridge'
+  allowForwardingFrom?: 'server' | 'webhook' | 'mcp' | 'bridge'
   trellisBackendLane?: 'public' | 'session' | 'authenticated' | 'workspace' | 'protected'
   publicReadTables?: readonly string[]
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -537,6 +539,9 @@ function createStructuredBuilder<
       ...(forwardingTarget ? { identityForwardingTarget: forwardingTarget } : {}),
       ...(definition.identityForwardingTransport
         ? { identityForwardingTransport: definition.identityForwardingTransport }
+        : {}),
+      ...(definition.allowForwardingFrom
+        ? { identityForwardingTransport: definition.allowForwardingFrom }
         : {}),
       ...(definition.crossTenant ? { crossTenant: definition.crossTenant } : {}),
       ...(definition.publicWrite ? { publicWrite: definition.publicWrite } : {}),

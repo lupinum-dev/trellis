@@ -47,3 +47,19 @@ export function fingerprintAuthBootstrapToken(token: string): string {
   }
   return hash.toString(16).padStart(8, '0')
 }
+
+export function shouldWaitForAuthBootstrapToken(
+  bootstrap: AuthBootstrapRuntimeState,
+  token: string | null,
+  options?: { required?: boolean },
+): boolean {
+  if (bootstrap.status === 'disabled' || bootstrap.status === 'failed') return false
+  if (options?.required === true && bootstrap.status !== 'ensured') return true
+  if (bootstrap.status === 'not-installed' && !bootstrap.mutationName) {
+    return options?.required === true
+  }
+  if (!token) return true
+
+  const tokenHash = fingerprintAuthBootstrapToken(token)
+  return bootstrap.status !== 'ensured' || bootstrap.lastEnsuredTokenHash !== tokenHash
+}

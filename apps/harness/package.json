@@ -10,7 +10,7 @@
     "@convex-dev/better-auth": "^0.12.2",
     "@lupinum/trellis": "workspace:*",
     "better-auth": "1.6.11",
-    "convex": "1.38.0",
+    "convex": "1.41.0",
     "nuxt": "4.4.8",
     "vue": "^3.5.34",
     "vue-router": "^5.0.7",

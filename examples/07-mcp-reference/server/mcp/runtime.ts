@@ -10,7 +10,7 @@ import { api } from '#trellis/api'
 import { defineMcpApp, deniedMcpAccessSnapshot } from '#trellis/mcp'
 import { requireDelegationBinding } from '#trellis/server'
 
-import { mcpRateLimitStore } from './rate-limit-store'
+import { mcpRateLimitStore } from '../utils/mcp-rate-limit-store'
 
 type McpAuthContext = {
   keyId?: string

@@ -15,8 +15,10 @@ import {
 import type { MutationStatus } from '../../utils/types.js'
 import { useConvexAction, type UseConvexActionReturn } from './useConvexAction.js'
 import { useConvexMutation, type UseConvexMutationReturn } from './useConvexMutation.js'
+import { executeConvexQuery } from './useConvexQuery.js'
 
 type AnyOperationFunctionRef = FunctionReference<'query' | 'mutation' | 'action'>
+type AnyQueryFunctionRef = FunctionReference<'query'>
 type AnyCommandFunctionRef = FunctionReference<'mutation'> | FunctionReference<'action'>
 type AnyMutationFunctionRef = FunctionReference<'mutation'>
 type UnknownArgs = Record<string, unknown>
@@ -50,6 +52,12 @@ type OperationPreviewResult<TOperation extends OperationHandle> =
 type OperationCommandReturn<TArgs extends UnknownArgs, TResult> =
   | UseConvexMutationReturn<TArgs, TResult>
   | UseConvexActionReturn<TArgs, TResult>
+
+type OperationPreviewReturn<TArgs extends UnknownArgs, TResult> = Pick<
+  UseConvexMutationReturn<TArgs, TResult>,
+  'data' | 'status' | 'pending' | 'error' | 'reset'
+> &
+  ((args: TArgs) => Promise<TResult>)
 
 export type UseTrellisOperationConfirmation =
   | OperationPreviewConfirmation
@@ -104,6 +112,18 @@ function assertMutationRef(
   assertCommandRef(refValue, operationId, projection)
 }
 
+function assertQueryRef(
+  refValue: unknown,
+  operationId: string,
+  projection: 'execute' | 'preview',
+): asserts refValue is AnyQueryFunctionRef {
+  if (refValue && typeof refValue === 'object') return
+
+  throw new Error(
+    `useTrellisOperation(${operationId}) requires a ${projection} Convex query reference.`,
+  )
+}
+
 function unsupportedKind(operationId: string, projection: 'execute' | 'preview', kind: string) {
   return new Error(
     `useTrellisOperation(${operationId}) does not support ${projection} ${kind} projections yet.`,
@@ -139,7 +159,41 @@ function useOperationPreview<TArgs extends UnknownArgs, TResult>(
   refValue: unknown,
   kind: OperationHandleFunctionKind | undefined,
   operationId: string,
-): UseConvexMutationReturn<TArgs, TResult> {
+): OperationPreviewReturn<TArgs, TResult> {
+  if (kind === 'query') {
+    assertQueryRef(refValue, operationId, 'preview')
+    const data = ref<TResult | undefined>(undefined) as Ref<TResult | undefined>
+    const error = ref<Error | null>(null)
+    const status = ref<MutationStatus>('idle')
+    const pending = computed(() => status.value === 'pending')
+    const reset = () => {
+      data.value = undefined
+      error.value = null
+      status.value = 'idle'
+    }
+    const run = (async (args: TArgs): Promise<TResult> => {
+      status.value = 'pending'
+      error.value = null
+      try {
+        const result = await executeConvexQuery(refValue, args, { subscribe: false })
+        data.value = result as TResult
+        status.value = 'success'
+        return result as TResult
+      } catch (cause) {
+        const nextError = cause instanceof Error ? cause : new Error(String(cause))
+        error.value = nextError
+        status.value = 'error'
+        throw nextError
+      }
+    }) as OperationPreviewReturn<TArgs, TResult>
+    run.data = data
+    run.error = error
+    run.status = computed(() => status.value)
+    run.pending = pending
+    run.reset = reset
+    return run
+  }
+
   if (kind !== undefined && kind !== 'mutation') {
     throw unsupportedKind(operationId, 'preview', kind)
   }

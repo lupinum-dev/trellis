@@ -326,6 +326,7 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import {
   commentPermissionMatrix,
   projectCreate,
@@ -360,22 +361,8 @@ const projectForm = reactive({
   summary: '',
 })
 
-const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation, {
-  onSuccess: () =>
-    toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
-})
-const createProject = useConvexMutation(api.features.projects.domain.create, {
-  onSuccess: () =>
-    toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' }),
-  onError: (error) =>
-    toast.add({
-      title: 'Cannot create project',
-      description: error.message,
-      color: 'error',
-    }),
-})
+const createWorkspace = useTrellisOperation(operations.workspaces.create)
+const createProject = useTrellisOperation(operations.projects.create)
 const projectArgs = computed(() => (workspaceId.value ? {} : undefined))
 const {
   results: projects,
@@ -422,18 +409,36 @@ async function handleSignOut() {
 }
 
 async function handleCreateWorkspace() {
-  await createWorkspace({
-    name: createWorkspaceForm.name,
-    slug: createWorkspaceForm.slug,
-  })
+  try {
+    await createWorkspace.execute({
+      name: createWorkspaceForm.name,
+      slug: createWorkspaceForm.slug,
+    })
+    toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not create workspace',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handleCreateProject() {
-  await createProject({
-    name: projectForm.name,
-    summary: projectForm.summary || undefined,
-  })
-  projectForm.name = ''
-  projectForm.summary = ''
+  try {
+    await createProject.execute({
+      name: projectForm.name,
+      summary: projectForm.summary || undefined,
+    })
+    toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' })
+    projectForm.name = ''
+    projectForm.summary = ''
+  } catch (error) {
+    toast.add({
+      title: 'Cannot create project',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

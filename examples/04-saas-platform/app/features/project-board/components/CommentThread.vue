@@ -2,6 +2,7 @@
 import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { commentCreate } from '#trellis/permissions'
 
 import FileAttachment from './FileAttachment.vue'
@@ -15,12 +16,7 @@ const toast = useToast()
 const { can } = useAccess()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
-const createCommentMutation = useConvexMutation(api.features.comments.domain.create, {
-  onSuccess: () =>
-    toast.add({ title: 'Comment added', color: 'success', icon: 'i-lucide-message-square-plus' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not post comment', description: error.message, color: 'error' }),
-})
+const createComment = useTrellisOperation(operations.comments.create)
 const canCreateComment = can(commentCreate)
 
 function resolveName(userId: string) {
@@ -37,14 +33,23 @@ const {
 )
 
 async function handleSubmit() {
-  await createCommentMutation({
-    taskId: props.taskId,
-    body: body.value,
-    attachmentStorageId: attachmentStorageId.value ?? undefined,
-  })
+  try {
+    await createComment.execute({
+      taskId: props.taskId,
+      body: body.value,
+      attachmentStorageId: attachmentStorageId.value ?? undefined,
+    })
 
-  body.value = ''
-  attachmentStorageId.value = null
+    toast.add({ title: 'Comment added', color: 'success', icon: 'i-lucide-message-square-plus' })
+    body.value = ''
+    attachmentStorageId.value = null
+  } catch (error) {
+    toast.add({
+      title: 'Could not post comment',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>
 
@@ -94,7 +99,7 @@ async function handleSubmit() {
       <UButton
         data-testid="comment-submit"
         type="submit"
-        :loading="createCommentMutation.pending.value"
+        :loading="createComment.pending.value"
         leading-icon="i-lucide-message-square-plus"
       >
         Add comment

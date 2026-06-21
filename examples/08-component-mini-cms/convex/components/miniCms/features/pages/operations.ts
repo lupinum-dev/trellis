@@ -1,15 +1,17 @@
-import { requireRecord } from '@lupinum/trellis/auth'
 import {
-  implementOperation,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
+  operationPreviewValidator,
   previewOf,
-} from '@lupinum/trellis/backend'
+} from '@lupinum/trellis/app'
+import { requireRecord } from '@lupinum/trellis/auth'
+import { v } from 'convex/values'
 
-import { publishPageDescriptor } from '../../../../../shared/features/pages/operations'
+import { publishPage, publishPreviewValidator } from '../../../../../shared/features/pages/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 
 type PublishPageArgs = { id: string }
 type LoadedPage = { page: Doc<'pages'> }
@@ -20,9 +22,26 @@ type PageOperationCtx = {
   }
 }
 
-export const publishPageOp = implementOperation(publishPageDescriptor, {
+export const publishPageOp = operation.destructive({
+  id: 'pages.publish',
+  args: publishPage.args,
+  returns: v.object({
+    pageId: v.string(),
+    published: v.boolean(),
+  }),
+  safety: 'external-side-effect',
+  previewReturns: operationPreviewValidator({
+    details: publishPreviewValidator,
+    confirm: v.object({
+      operation: v.literal('pages.publish'),
+      targetId: v.string(),
+      affectedCounts: v.object({
+        pages: v.number(),
+      }),
+    }),
+  }),
   executeFunctionRef: 'features/pages/domain:publish',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   load: async (ctx: PageOperationCtx, args: PublishPageArgs): Promise<LoadedPage> => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
     requireRecord(page, 'Page')
@@ -72,8 +91,8 @@ export const publishPageOp = implementOperation(publishPageDescriptor, {
   },
 })
 
-export const previewPublish = query.authenticated({
+export const previewPublish = mutation.authenticated({
   ...previewOf(publishPageOp),
   executeFunctionRef: 'features/pages/operations:previewPublish',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
 })

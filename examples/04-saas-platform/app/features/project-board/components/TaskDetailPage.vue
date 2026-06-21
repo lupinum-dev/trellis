@@ -71,6 +71,7 @@ import { computed } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { taskAssign } from '#trellis/permissions'
 
 import CommentThread from './CommentThread.vue'
@@ -130,16 +131,21 @@ function resolveName(userId: string | undefined) {
   return memberNames.value.get(userId) ?? `Member ${userId.slice(0, 8)}…`
 }
 
-const assignTaskMutation = useConvexMutation(api.features.tasks.domain.assign, {
-  onSuccess: () => toast.add({ title: 'Assignee updated', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not assign task', description: error.message, color: 'error' }),
-})
+const assignTask = useTrellisOperation(operations.tasks.assign)
 
 async function handleAssign(value: string | undefined) {
-  await assignTaskMutation({
-    id: taskId.value,
-    assigneeId: value as Id<'users'> | undefined,
-  })
+  try {
+    await assignTask.execute({
+      id: taskId.value,
+      assigneeId: value as Id<'users'> | undefined,
+    })
+    toast.add({ title: 'Assignee updated', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not assign task',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

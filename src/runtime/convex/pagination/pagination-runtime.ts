@@ -121,6 +121,7 @@ export function createConvexPaginatedQueryState<
   const initialNumItems = options?.initialNumItems ?? 10
   const server = options?.server ?? queryDefaults?.server ?? true
   const subscribe = options?.subscribe ?? queryDefaults?.subscribe ?? true
+  const authMode = convexConfig.auth.enabled ? 'auto' : 'none'
   const keepPreviousData = options?.keepPreviousData ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
   const logger = createRuntimeObserver(runtimeConfig.public.convex ?? {}, { transport: 'browser' })
@@ -205,7 +206,7 @@ export function createConvexPaginatedQueryState<
     isSkipped,
     server,
     subscribe,
-    authMode: 'auto',
+    authMode,
     resolveImmediately,
     dedupe: 'defer',
     onSubscribe: () => {
@@ -222,7 +223,7 @@ export function createConvexPaginatedQueryState<
           immediate: resolveImmediately,
           server,
           subscribe,
-          auth: 'auto',
+          auth: authMode,
         },
       })
     },
@@ -410,7 +411,7 @@ export function createConvexPaginatedQueryState<
       query,
       args: buildPageArgs(paginationOpts),
       subscribe: opts.subscribe ?? subscribe,
-      authMode: 'auto',
+      authMode,
       functionName: fnName,
     })
   }

@@ -90,6 +90,23 @@ function signBridgeForwardingInput(input: string, key: string): string {
   return base64UrlEncodeBytes(hmac(sha256, utf8Bytes(key), utf8Bytes(input)))
 }
 
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function hashBridgeConfirmationToken(token: string): string {
+  return toHex(sha256(utf8Bytes(canonicalJson({ token }))))
+}
+
+function getBridgeOperationConfirmationJti(
+  operation: BridgeForwardingPurpose,
+  args: Record<string, unknown>,
+): string | undefined {
+  return operation === 'operation-execute' && typeof args._confirmationToken === 'string'
+    ? hashBridgeConfirmationToken(args._confirmationToken)
+    : undefined
+}
+
 function getBridgeReplayMode(operation: BridgeForwardingPurpose) {
   if (operation === 'query') return undefined
   if (operation === 'operation-execute') return 'operation-confirmation'
@@ -184,6 +201,7 @@ export interface CreateBridgeForwardingEnvelopeOptions {
   functionRef: string
   args: Record<string, unknown>
   signedArgs?: Record<string, unknown>
+  jti?: string
   jtiPrefix?: string
 }
 
@@ -202,7 +220,8 @@ export function createBridgeForwardingEnvelope(
   options: CreateBridgeForwardingEnvelopeOptions,
 ): string {
   const subject = resolveBridgeCallerSubject(options.caller)
-  const jti = options.jtiPrefix ? `${options.jtiPrefix}-${createBridgeJti()}` : createBridgeJti()
+  const jti =
+    options.jti ?? (options.jtiPrefix ? `${options.jtiPrefix}-${createBridgeJti()}` : createBridgeJti())
   const purpose = options.operation
   const replayMode = getBridgeReplayMode(options.operation)
   const keyId =
@@ -257,6 +276,7 @@ function createBridgeIdentityForwardingFields(
       caller,
       args,
       signedArgs: options?.signedArgs,
+      jti: getBridgeOperationConfirmationJti(operation, args),
       operation,
       functionRef,
     }),

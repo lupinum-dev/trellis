@@ -52,7 +52,7 @@
             Publish article
           </UButton>
           <UButton
-            v-if="article.status === 'published' && article._access !== 'edit'"
+            v-if="canCompleteArticle"
             color="success"
             variant="soft"
             leading-icon="i-lucide-check-circle"
@@ -80,6 +80,7 @@ import ShareLinkDialog from '~~/app/features/visibility-access/components/ShareL
 import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { articleCreate, shareCreate } from '#trellis/permissions'
 
 const route = useRoute()
@@ -93,6 +94,9 @@ const backLink = computed(() => (kbId ? `/kb/${kbId}` : '/'))
 const { can } = useAccess()
 const canShare = can(shareCreate)
 const canPublish = can(articleCreate)
+const canCompleteArticle = computed(
+  () => !shareToken && article.value?.status === 'published' && article.value._access !== 'edit',
+)
 
 const workspaceArticleQuery = await useConvexQuery(
   api.features.articles.domain.view,
@@ -109,23 +113,32 @@ const error = computed(() =>
   shareToken ? sharedArticleQuery.error.value : workspaceArticleQuery.error.value,
 )
 
-const markCompleted = useConvexMutation(api.features.articles.domain.markCompleted, {
-  onSuccess: () => toast.add({ title: 'Marked as completed', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not mark completed', description: error.message, color: 'error' }),
-})
-
-const publishArticle = useConvexMutation(api.features.articles.domain.publish, {
-  onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
-})
+const markCompleted = useTrellisOperation(operations.articles.markCompleted)
+const publishArticle = useTrellisOperation(operations.articles.publish)
 
 async function handleComplete() {
-  await markCompleted({ articleId })
+  try {
+    await markCompleted.execute({ articleId })
+    toast.add({ title: 'Marked as completed', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not mark completed',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function handlePublish() {
-  await publishArticle({ id: articleId })
+  try {
+    await publishArticle.execute({ id: articleId })
+    toast.add({ title: 'Article published', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not publish',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

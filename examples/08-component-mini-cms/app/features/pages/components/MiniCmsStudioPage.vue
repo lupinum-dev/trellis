@@ -157,7 +157,7 @@
               </div>
               <UButton
                 type="submit"
-                :loading="createPageMutation.pending.value"
+                :loading="createPageOperation.pending.value"
                 leading-icon="i-lucide-plus"
               >
                 Create draft
@@ -233,7 +233,7 @@
               <div class="flex flex-col gap-3 md:flex-row">
                 <UButton
                   type="submit"
-                  :loading="saveDraftMutation.pending.value"
+                  :loading="saveDraftOperation.pending.value"
                   leading-icon="i-lucide-save"
                 >
                   Save draft
@@ -242,7 +242,7 @@
                   type="button"
                   color="primary"
                   variant="soft"
-                  :loading="publishPageAction.pending.value"
+                  :loading="publishPageOperation.pending.value"
                   leading-icon="i-lucide-rocket"
                   @click="handlePublish"
                 >
@@ -287,6 +287,7 @@ import * as z from 'zod'
 import { createPage, saveDraft } from '~~/shared/features/pages/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const { isAuthenticated, isPending, sessionUser, signOut } = useConvexAuth()
 const client = useBetterAuthClient()
@@ -394,16 +395,16 @@ watch(
   { immediate: true },
 )
 
-const createPageMutation = useConvexMutation(api.features.pages.domain.create)
-const saveDraftMutation = useConvexMutation(api.features.pages.domain.save)
-const publishPageAction = useConvexAction(api.features.pages.domain.publishAction)
+const createPageOperation = useTrellisOperation(operations.pages.create)
+const saveDraftOperation = useTrellisOperation(operations.pages.saveDraft)
+const publishPageOperation = useTrellisOperation(operations.pages.publish)
 
 const uiError = computed(
   () =>
     pagesError.value?.message ||
-    createPageMutation.error.value?.message ||
-    saveDraftMutation.error.value?.message ||
-    publishPageAction.error.value?.message ||
+    createPageOperation.error.value?.message ||
+    saveDraftOperation.error.value?.message ||
+    publishPageOperation.error.value?.message ||
     '',
 )
 
@@ -429,7 +430,7 @@ async function handleCreatePage() {
   })
   if (!parsed.success) return
 
-  const id = await createPageMutation(parsed.data)
+  const id = await createPageOperation.execute(parsed.data)
 
   selectedId.value = id
   createForm.title = ''
@@ -446,11 +447,17 @@ async function handleSaveDraft() {
   })
   if (!parsed.success) return
 
-  await saveDraftMutation(parsed.data)
+  await saveDraftOperation.execute(parsed.data)
 }
 
 async function handlePublish() {
   if (!selectedId.value) return
-  await publishPageAction({ id: selectedId.value })
+  const preview = await publishPageOperation.preview({ id: selectedId.value })
+  if (!preview.confirmation) return
+
+  await publishPageOperation.execute(
+    { id: selectedId.value },
+    { confirmation: preview.confirmation },
+  )
 }
 </script>

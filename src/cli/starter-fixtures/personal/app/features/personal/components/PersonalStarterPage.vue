@@ -2,6 +2,7 @@
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const { isAuthenticated, isPending, signOut, sessionUser } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useBetterAuthSignIn()
@@ -13,8 +14,8 @@ const title = ref('')
 
 const todoArgs = computed(() => (isAuthenticated.value ? {} : undefined))
 const { data: todos } = await useConvexQuery(api.features.todos.domain.list, todoArgs)
-const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
-const toggleTodo = useConvexMutation(api.features.todos.domain.toggle)
+const createTodoOperation = useTrellisOperation(operations.todos.create)
+const toggleTodoOperation = useTrellisOperation(operations.todos.toggle)
 
 async function handleSignIn() {
   await signIn({
@@ -35,7 +36,7 @@ async function handleCreateTodo() {
   const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodoMutation(parsed.data)
+  await createTodoOperation.execute(parsed.data)
   title.value = ''
 }
 </script>
@@ -62,7 +63,7 @@ async function handleCreateTodo() {
       <p>Signed in as {{ sessionUser?.email ?? sessionUser?.displayName ?? 'user' }}</p>
       <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a todo" />
-        <button :disabled="createTodoMutation.pending.value" @click="handleCreateTodo">Add</button>
+        <button :disabled="createTodoOperation.pending.value" @click="handleCreateTodo">Add</button>
         <button @click="signOut()">Sign out</button>
       </div>
 
@@ -72,7 +73,7 @@ async function handleCreateTodo() {
             <input
               type="checkbox"
               :checked="todo.completed"
-              @change="toggleTodo({ id: todo._id })"
+              @change="toggleTodoOperation.execute({ id: todo._id })"
             />
             <span>{{ todo.title }}</span>
           </label>

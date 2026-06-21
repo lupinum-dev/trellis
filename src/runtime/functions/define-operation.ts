@@ -118,6 +118,7 @@ export type OperationDefinition<
         kind?: OperationKind
         executeFunctionRef?: string
         identityForwardingTransport?: IdentityForwardingTransport
+        allowForwardingFrom?: IdentityForwardingTransport
         permission?: PermissionKeyHandle<string>
         safety?: McpWriteSafety
         exposure?: OperationExposure
@@ -144,6 +145,7 @@ export type OperationShape = {
   kind?: OperationKind
   executeFunctionRef?: string
   identityForwardingTransport?: IdentityForwardingTransport
+  allowForwardingFrom?: IdentityForwardingTransport
   permission?: PermissionKeyHandle<string>
   safety?: McpWriteSafety
   exposure?: OperationExposure
@@ -335,6 +337,9 @@ function defineOperationImpl<const TDefinition extends OperationShape>(
     ...exposure,
     ...(permissionKey ? { permissionKey } : {}),
     ...(definition.safety ? { safety: definition.safety } : {}),
+    ...(definition.allowForwardingFrom
+      ? { allowForwardingFrom: definition.allowForwardingFrom }
+      : {}),
   } satisfies TrellisOperationMetadata
 
   if (metadata.kind === 'destructive' && !metadata.id) {
@@ -342,6 +347,9 @@ function defineOperationImpl<const TDefinition extends OperationShape>(
   }
 
   return Object.assign(definition, {
+    ...(definition.allowForwardingFrom
+      ? { identityForwardingTransport: definition.allowForwardingFrom }
+      : {}),
     [trellisOperationMetadataKey]: metadata,
     ...(metadata.id
       ? {
@@ -450,6 +458,9 @@ export function implementOperation<
     ...(descriptor.backendOnlyReason !== undefined
       ? { backendOnlyReason: definition.backendOnlyReason ?? descriptor.backendOnlyReason }
       : {}),
+    ...(descriptor.allowForwardingFrom !== undefined
+      ? { allowForwardingFrom: definition.allowForwardingFrom ?? descriptor.allowForwardingFrom }
+      : {}),
     ...(descriptor.returns !== undefined ? { returns: descriptor.returns } : {}),
     ...(descriptor.previewReturns !== undefined
       ? { previewReturns: descriptor.previewReturns }
@@ -476,6 +487,7 @@ export function previewOf<
     authorize?: unknown
     executeFunctionRef?: string
     identityForwardingTransport?: IdentityForwardingTransport
+    allowForwardingFrom?: IdentityForwardingTransport
     [trellisOperationMetadataKey]?: TrellisOperationMetadata
     [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
   },
@@ -498,6 +510,7 @@ export function previewOf<
   guard?: never
   permission?: TDefinition['permission']
   identityForwardingTransport?: IdentityForwardingTransport
+  allowForwardingFrom?: IdentityForwardingTransport
   [trellisOperationMetadataKey]: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]: TrellisOperationProjectionMetadata
 }
@@ -536,6 +549,7 @@ export function previewOf<
   id: string
   permission?: PermissionKeyHandle<string>
   identityForwardingTransport?: IdentityForwardingTransport
+  allowForwardingFrom?: IdentityForwardingTransport
   [trellisOperationMetadataKey]: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]: TrellisOperationProjectionMetadata
 }
@@ -554,6 +568,12 @@ export function previewOf(operation: any): any {
     ...(operation.permission !== undefined ? { permission: operation.permission } : {}),
     ...(operation.identityForwardingTransport !== undefined
       ? { identityForwardingTransport: operation.identityForwardingTransport }
+      : {}),
+    ...(operation.allowForwardingFrom !== undefined
+      ? {
+          allowForwardingFrom: operation.allowForwardingFrom,
+          identityForwardingTransport: operation.allowForwardingFrom,
+        }
       : {}),
     load: operation.load,
     authorize: operation.authorize,

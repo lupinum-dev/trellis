@@ -244,7 +244,11 @@
                           <UInput v-model="createWorkspaceForm.slug" required />
                         </div>
 
-                        <UButton type="submit" block :loading="createWorkspace.pending.value">
+                        <UButton
+                          type="submit"
+                          block
+                          :loading="createWorkspaceOperation.pending.value"
+                        >
                           Create workspace
                         </UButton>
                       </form>
@@ -304,7 +308,7 @@
                             </div>
                             <UButton
                               type="submit"
-                              :loading="createRunbookMutation.pending.value"
+                              :loading="createRunbookOperation.pending.value"
                               :disabled="!canCreateRunbook"
                             >
                               Create runbook
@@ -466,7 +470,7 @@ curl {{ endpointBase }}/mcp \
                             </p>
                             <UButton
                               type="submit"
-                              :loading="createKey.pending.value"
+                              :loading="createKeyOperation.pending.value"
                               :disabled="!canManageMcp || !selectedMcpBoundUser"
                             >
                               Issue MCP key
@@ -534,8 +538,12 @@ curl {{ endpointBase }}/mcp \
                                   size="xs"
                                   color="error"
                                   variant="soft"
-                                  :disabled="key.status === 'revoked' || !canManageMcp"
-                                  @click="revokeKey({ id: key._id })"
+                                  :disabled="
+                                    revokeKeyOperation.pending.value ||
+                                    key.status === 'revoked' ||
+                                    !canManageMcp
+                                  "
+                                  @click="handleRevokeMcpKey(key._id)"
                                 >
                                   Revoke
                                 </UButton>
@@ -622,6 +630,7 @@ import type { Id } from '~~/convex/_generated/dataModel'
 import { selectMcpBoundUser } from '~~/shared/features/mcpKeys/bound-user'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { mcpManage, runbookCreate } from '#trellis/permissions'
 
 const { sessionUser, signOut } = useConvexAuth()
@@ -694,12 +703,12 @@ const verifyVariant = ref<'success' | 'error'>('success')
 const verifyingKey = ref(false)
 const requestUrl = useRequestURL()
 
-const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation)
-const createRunbookMutation = useConvexMutation(api.features.runbooks.domain.create)
-const updateRunbookMutation = useConvexMutation(api.features.runbooks.domain.update)
-const deleteRunbookMutation = useConvexMutation(api.features.runbooks.domain.remove)
-const createKey = useConvexMutation(api.features.mcpKeys.domain.create)
-const revokeKey = useConvexMutation(api.features.mcpKeys.domain.revoke)
+const createWorkspaceOperation = useTrellisOperation(operations.workspaces.create)
+const createRunbookOperation = useTrellisOperation(operations.runbooks.create)
+const updateRunbookOperation = useTrellisOperation(operations.runbooks.update)
+const deleteRunbookOperation = useTrellisOperation(operations.runbooks.remove)
+const createKeyOperation = useTrellisOperation(operations.byId['mcpKeys.create'])
+const revokeKeyOperation = useTrellisOperation(operations.byId['mcpKeys.revoke'])
 
 const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
   api.features.runbooks.domain.listPublic,
@@ -770,12 +779,13 @@ const appError = computed(
     workspaceRunbooksError.value?.message ||
     mcpKeysError.value?.message ||
     mcpKeyUsersError.value?.message ||
-    createRunbookMutation.error.value?.message ||
-    updateRunbookMutation.error.value?.message ||
-    deleteRunbookMutation.error.value?.message ||
-    createKey.error.value?.message ||
-    revokeKey.error.value?.message ||
-    createWorkspace.error.value?.message ||
+    createRunbookOperation.error.value?.message ||
+    updateRunbookOperation.error.value?.message ||
+    deleteRunbookOperation.error.value?.message ||
+    deleteRunbookOperation.previewError.value?.message ||
+    createKeyOperation.error.value?.message ||
+    revokeKeyOperation.error.value?.message ||
+    createWorkspaceOperation.error.value?.message ||
     '',
 )
 
@@ -823,14 +833,14 @@ async function handleSignOut() {
 }
 
 async function handleCreateWorkspace() {
-  await createWorkspace({
+  await createWorkspaceOperation.execute({
     name: createWorkspaceForm.name,
     slug: createWorkspaceForm.slug,
   })
 }
 
 async function handleCreateRunbook() {
-  await createRunbookMutation({
+  await createRunbookOperation.execute({
     title: createRunbookForm.title,
     summary: createRunbookForm.summary,
     content: createRunbookForm.content,
@@ -846,11 +856,14 @@ async function handleSetVisibility(
   id: Id<'runbooks'>,
   visibility: 'public' | 'workspace' | 'draft',
 ) {
-  await updateRunbookMutation({ id, visibility })
+  await updateRunbookOperation.execute({ id, visibility })
 }
 
 async function handleDeleteRunbook(id: Id<'runbooks'>) {
-  await deleteRunbookMutation({ id })
+  const preview = await deleteRunbookOperation.preview({ id })
+  if (!preview.confirmation) return
+
+  await deleteRunbookOperation.execute({ id }, { confirmation: preview.confirmation })
 }
 
 async function handleCreateMcpKey() {
@@ -863,7 +876,7 @@ async function handleCreateMcpKey() {
   const hash = await hashToken(token)
   const prefix = `${token.slice(0, 14)}...`
 
-  await createKey({
+  await createKeyOperation.execute({
     name: createKeyForm.name,
     boundUserId: boundUserId as Id<'users'>,
     prefix,
@@ -871,6 +884,10 @@ async function handleCreateMcpKey() {
   })
 
   createdKeySecret.value = token
+}
+
+async function handleRevokeMcpKey(id: Id<'mcpKeys'>) {
+  await revokeKeyOperation.execute({ id })
 }
 
 async function handleVerifyKey() {

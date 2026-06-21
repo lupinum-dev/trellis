@@ -271,6 +271,42 @@ describe('createComponentBridge', () => {
     await expect(customized.ctx.caller()).resolves.toEqual(caller)
   })
 
+  it('binds operation-execute bridge replay to the confirmation token hash', async () => {
+    const { createBridgeForwardingArgs } =
+      await import('../../packages/trellis-bridge/src/component')
+    const { hashConfirmationToken } = await import('../../src/runtime/functions/confirmation-token')
+    const { verifyIdentityForwardingEnvelope } = await import('../../src/runtime/identity-forwarding')
+
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const args = {
+      id: 'page_1',
+      _confirmationToken: 'trellis-confirm-v1.test-token',
+    }
+    const signedArgs = createBridgeForwardingArgs(
+      args,
+      caller,
+      'bridge-secret',
+      'operation-execute',
+      'component.publish' as never,
+    )
+
+    const payload = verifyIdentityForwardingEnvelope(
+      (signedArgs as { _trellisForwarding: string })._trellisForwarding,
+      {
+        keys: { default: 'bridge-secret' },
+        expectedIssuer: bridgeIssuer,
+        expectedAudience: bridgeAudience,
+        expectedPurpose: 'operation-execute',
+        expectedTransport: 'bridge',
+        functionRef: 'component.publish',
+        args,
+      },
+    )
+
+    expect(payload.replayMode).toBe('operation-confirmation')
+    await expect(hashConfirmationToken(args._confirmationToken)).resolves.toBe(payload.jti)
+  })
+
   it('forwards the resolved caller unchanged for internal action bridges', async () => {
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')

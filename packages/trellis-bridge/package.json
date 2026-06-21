@@ -54,11 +54,12 @@
   },
   "devDependencies": {
     "@lupinum/trellis": "workspace:^",
-    "convex": "1.38.0"
+    "convex": "^1.41.0",
+    "convex-helpers": "^0.1.117"
   },
   "peerDependencies": {
     "@lupinum/trellis": "workspace:^",
-    "convex": "^1.38.0",
+    "convex": "^1.41.0",
     "convex-helpers": "^0.1.117"
   },
   "engines": {

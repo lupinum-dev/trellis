@@ -226,6 +226,7 @@ import { computed, reactive } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { projectPermissionMatrix } from '#trellis/permissions'
 
 import AgencyPortfolio from './AgencyPortfolio.vue'
@@ -260,11 +261,7 @@ const permissionMatrix: PermissionMatrixRow[] = [
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
 
-const switchWorkspace = useConvexMutation(api.features.workspaces.domain.switchWorkspace, {
-  onSuccess: () => toast.add({ title: 'Workspace switched', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not switch workspace', description: error.message, color: 'error' }),
-})
+const switchWorkspace = useTrellisOperation(operations.workspaces.switch)
 const workspaceArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: accessibleWorkspaces } = await useConvexQuery(
   api.features.workspaces.domain.listAccessibleWorkspaces,
@@ -310,6 +307,15 @@ async function handleSignOut() {
 }
 
 async function handleSwitchWorkspace(workspaceId: Id<'workspaces'>) {
-  await switchWorkspace({ workspaceId })
+  try {
+    await switchWorkspace.execute({ workspaceId })
+    toast.add({ title: 'Workspace switched', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not switch workspace',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

@@ -33,18 +33,23 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 
-import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const toast = useToast()
 const createForm = reactive({ name: '', slug: '' })
 
-const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation, {
-  onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
-})
+const createWorkspace = useTrellisOperation(operations.workspaces.create)
 
 async function handleCreate() {
-  await createWorkspace(createForm)
+  try {
+    await createWorkspace.execute(createForm)
+    toast.add({ title: 'Workspace created', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not create workspace',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>

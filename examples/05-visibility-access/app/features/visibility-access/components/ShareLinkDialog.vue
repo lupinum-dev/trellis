@@ -32,7 +32,7 @@
 import { ref, computed } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const props = defineProps<{
   articleId: Id<'articles'>
@@ -43,11 +43,7 @@ const level = ref<'view' | 'comment' | 'edit'>('view')
 const expiresIn = ref('none')
 const generatedToken = ref<string | null>(null)
 
-const createToken = useConvexMutation(api.features.articles.domain.createShareToken, {
-  onSuccess: () => toast.add({ title: 'Share link generated', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not create share link', description: error.message, color: 'error' }),
-})
+const createToken = useTrellisOperation(operations.shareTokens.create)
 
 const levelOptions = ['view', 'comment', 'edit']
 const expiryOptions = [
@@ -65,12 +61,21 @@ const shareUrl = computed(() => {
 
 async function handleCreate() {
   const expiresInMs = expiresIn.value !== 'none' ? Number(expiresIn.value) : undefined
-  const token = await createToken({
-    articleId: props.articleId,
-    level: level.value,
-    expiresInMs,
-  })
-  generatedToken.value = token
+  try {
+    const token = await createToken.execute({
+      articleId: props.articleId,
+      level: level.value,
+      expiresInMs,
+    })
+    generatedToken.value = token
+    toast.add({ title: 'Share link generated', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not create share link',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 
 async function copyLink() {

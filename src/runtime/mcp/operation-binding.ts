@@ -34,6 +34,11 @@ export function assertOperationBinding(
       `tool.operation(${metadata.name ?? metadata.id}) cannot expose backend-only operation "${metadata.id}" through MCP.`,
     )
   }
+  if (metadata.allowForwardingFrom !== 'mcp') {
+    throw new Error(
+      `tool.operation(${metadata.name ?? metadata.id}) requires operation allowForwardingFrom: 'mcp'.`,
+    )
+  }
 
   const executeTarget = getOperationProjectionMetadata(executeRef as Record<PropertyKey, unknown>)
   if (!executeTarget) {

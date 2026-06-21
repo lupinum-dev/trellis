@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 import type { BoardTask } from '../types/board-task'
 
@@ -17,8 +17,8 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
-const convex = useConvex()
-type RemoveTaskExecuteArgs = { id: Id<'tasks'>; _confirmationToken: string }
+const moveTask = useTrellisOperation(operations.tasks.moveToColumn)
+const deleteTask = useTrellisOperation(operations.tasks.remove)
 
 const priorityColor = computed(() => {
   if (props.task.priority === 'high') return 'error'
@@ -36,41 +36,38 @@ function resolveName(userId: string) {
   return props.memberNames?.get(userId) ?? `Member ${userId.slice(0, 8)}…`
 }
 
-const moveTask = useConvexMutation(api.features.tasks.domain.moveToColumn, {
-  optimisticUpdate: (ctx, args) => {
-    ctx
-      .query(api.features.tasks.domain.listByProject, { projectId: props.projectId })
-      .update(
-        (tasks) =>
-          tasks?.map((task: BoardTask) =>
-            task._id === args.id ? { ...task, status: args.status } : task,
-          ) ?? [],
-      )
-  },
-  onError: (error) =>
-    toast.add({ title: 'Could not move task', description: error.message, color: 'error' }),
-})
-
-const deleteTask = useConvexMutation(api.features.tasks.domain.remove, {
-  onSuccess: () => toast.add({ title: 'Task deleted', color: 'success', icon: 'i-lucide-trash-2' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not delete task', description: error.message, color: 'error' }),
-})
-
-async function handleDeleteTask() {
-  const preview = await convex.mutation(api.features.tasks.domain.previewRemoveTask, {
-    id: props.task._id,
-  })
-  const token = preview.confirmation?.token
-  if (!token) {
+async function handleMoveTask() {
+  try {
+    await moveTask.execute({ id: props.task._id, status: nextStatus() })
+  } catch (error) {
     toast.add({
-      title: 'Could not delete task',
-      description: 'Preview the destructive change again before confirming.',
+      title: 'Could not move task',
+      description: error instanceof Error ? error.message : String(error),
       color: 'error',
     })
-    return
   }
-  await deleteTask({ id: props.task._id, _confirmationToken: token } as RemoveTaskExecuteArgs)
+}
+
+async function handleDeleteTask() {
+  try {
+    const preview = await deleteTask.preview({ id: props.task._id })
+    if (!preview.confirmation) {
+      toast.add({
+        title: 'Could not delete task',
+        description: 'Preview the destructive change again before confirming.',
+        color: 'error',
+      })
+      return
+    }
+    await deleteTask.execute({ id: props.task._id }, { confirmation: preview.confirmation })
+    toast.add({ title: 'Task deleted', color: 'success', icon: 'i-lucide-trash-2' })
+  } catch (error) {
+    toast.add({
+      title: 'Could not delete task',
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 }
 </script>
 
@@ -109,7 +106,7 @@ async function handleDeleteTask() {
         variant="soft"
         color="neutral"
         leading-icon="i-lucide-arrow-right"
-        @click="moveTask({ id: props.task._id, status: nextStatus() })"
+        @click="handleMoveTask"
       >
         Move to {{ nextStatus().replace('_', ' ') }}
       </UButton>

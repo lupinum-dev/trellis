@@ -11,7 +11,7 @@ export const processTodoSyncWebhookOp = operation.mutation({
   id: 'todos.process-sync-webhook',
   executeFunctionRef: 'features/todos/webhooks:processTodoSyncWebhookMutation',
   args: processTodoSyncWebhookContract.args,
-  identityForwardingTransport: 'webhook',
+  allowForwardingFrom: 'webhook',
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
     requireAuth(appIdentity)

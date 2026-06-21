@@ -38,6 +38,10 @@ const publishResultValidator = v.object({
   pageId: v.string(),
   published: v.boolean(),
 })
+const publishExecuteArgs = {
+  ...publishPageSchema.args,
+  _confirmationToken: v.optional(v.string()),
+}
 const publishPreviewResultValidator = operationPreviewValidator({
   details: publishPreviewValidator,
   confirm: v.object({
@@ -202,7 +206,7 @@ if (!action) throw new Error('Component mini CMS bridge requires an action build
 
 const publishActionProjection = action.public({
   id: 'features/pages/domain:publishAction',
-  args: publishPageSchema.args,
+  args: publishExecuteArgs,
   returns: publishResultValidator,
   handler: async (ctx, args) =>
     await ctx.runMutation(
@@ -221,18 +225,17 @@ export const publishAction = executeOperationRef(publishPageDescriptor, publishA
   functionRef: 'features/pages/domain:publishAction',
 }) as typeof publishActionProjection
 
-const previewPublishProjection = query.public({
+const previewPublishProjection = mutation.public({
   id: 'features/pages/domain:previewPublish',
-  reads: [],
   args: publishPageSchema.args,
   returns: publishPreviewResultValidator,
   handler: async (ctx, args) =>
-    await ctx.runQuery(
+    await ctx.runMutation(
       bridgeApi.previewPublish,
       await bridgeForwardingArgs(
         ctx,
         args,
-        'query',
+        'mutation',
         bridgeApi.previewPublish,
         'features/pages/operations:previewPublish',
       ),

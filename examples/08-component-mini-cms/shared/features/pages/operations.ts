@@ -43,6 +43,7 @@ export const createPageDescriptor = defineOperationDescriptor({
   args: createPage.args,
   returns: v.string(),
   safety: 'bounded-write',
+  allowForwardingFrom: 'mcp',
 })
 
 export const saveDraftDescriptor = defineOperationDescriptor({
@@ -50,6 +51,7 @@ export const saveDraftDescriptor = defineOperationDescriptor({
   args: saveDraft.args,
   returns: v.null(),
   safety: 'bounded-write',
+  allowForwardingFrom: 'mcp',
 })
 
 export const publishPageDescriptor = defineOperationDescriptor({
@@ -71,4 +73,5 @@ export const publishPageDescriptor = defineOperationDescriptor({
       }),
     }),
   }),
+  allowForwardingFrom: 'mcp',
 })

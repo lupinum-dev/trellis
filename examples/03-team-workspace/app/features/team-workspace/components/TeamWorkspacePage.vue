@@ -172,8 +172,8 @@
                     <UInput v-model="createWorkspaceForm.slug" type="text" required />
                   </div>
 
-                  <UButton type="submit" block :loading="createWorkspace.pending.value">
-                    {{ createWorkspace.pending.value ? 'Creating...' : 'Create workspace' }}
+                  <UButton type="submit" block :loading="createWorkspaceOperation.pending.value">
+                    {{ createWorkspaceOperation.pending.value ? 'Creating...' : 'Create workspace' }}
                   </UButton>
                 </form>
               </UCard>
@@ -186,8 +186,8 @@
                     <div>
                       <h3 class="text-lg font-semibold">Workspace todos</h3>
                       <p class="text-sm text-muted mt-1">
-                        The list query is a raw Convex query, and the handler applies the tenant
-                        boundary explicitly.
+                        Product writes use generated operation handles. The backend operation owns
+                        tenant scope, permissions, and destructive confirmation.
                       </p>
                     </div>
                   </div>
@@ -200,11 +200,11 @@
                       placeholder="Visible to everyone in your workspace"
                       class="flex-1"
                       required
-                      :disabled="createTodoMutation.pending.value || !canCreate"
+                      :disabled="createTodoOperation.pending.value || !canCreate"
                     />
                     <UButton
                       type="submit"
-                      :loading="createTodoMutation.pending.value"
+                      :loading="createTodoOperation.pending.value"
                       :disabled="!canCreate"
                       leading-icon="i-lucide-plus"
                     >
@@ -260,8 +260,8 @@
                         size="xs"
                         square
                         aria-label="Delete todo"
-                        :disabled="!todo._can.delete"
-                        @click="removeTodo({ id: todo._id })"
+                        :disabled="removeTodoOperation.pending.value || !todo._can.delete"
+                        @click="handleRemoveTodo(todo._id)"
                       />
                     </li>
                   </ul>
@@ -286,6 +286,7 @@ import type { Role } from '~~/convex/auth/appIdentity'
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 import { todoCreate, todoPermissionMatrix } from '#trellis/permissions'
 
 const { sessionUser, signOut } = useConvexAuth()
@@ -359,10 +360,10 @@ const createWorkspaceForm = reactive({
 
 const title = ref('')
 
-const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation)
-const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
-const updateTodo = useConvexMutation(api.features.todos.domain.setCompleted)
-const removeTodo = useConvexMutation(api.features.todos.domain.remove)
+const createWorkspaceOperation = useTrellisOperation(operations.workspaces.create)
+const createTodoOperation = useTrellisOperation(operations.todos.create)
+const updateTodoOperation = useTrellisOperation(operations.todos.setCompleted)
+const removeTodoOperation = useTrellisOperation(operations.todos.remove)
 
 const todoArgs = computed(() => (workspaceId.value ? {} : undefined))
 const {
@@ -391,10 +392,11 @@ const permissionMatrix: PermissionMatrixRow[] = [...todoPermissionMatrix, ...rec
 const todoError = computed(
   () =>
     todosError.value?.message ||
-    createTodoMutation.error.value?.message ||
-    updateTodo.error.value?.message ||
-    removeTodo.error.value?.message ||
-    createWorkspace.error.value?.message ||
+    createTodoOperation.error.value?.message ||
+    updateTodoOperation.error.value?.message ||
+    removeTodoOperation.error.value?.message ||
+    removeTodoOperation.previewError.value?.message ||
+    createWorkspaceOperation.error.value?.message ||
     '',
 )
 
@@ -415,7 +417,7 @@ async function handleSignOut() {
 }
 
 async function handleCreateWorkspace() {
-  await createWorkspace({
+  await createWorkspaceOperation.execute({
     name: createWorkspaceForm.name,
     slug: createWorkspaceForm.slug,
   })
@@ -425,14 +427,21 @@ async function handleCreateTodo() {
   const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodoMutation(parsed.data)
+  await createTodoOperation.execute(parsed.data)
   title.value = ''
 }
 
 async function handleToggle(id: Id<'todos'>, completed: boolean) {
-  await updateTodo({
+  await updateTodoOperation.execute({
     id,
     completed,
   })
+}
+
+async function handleRemoveTodo(id: Id<'todos'>) {
+  const preview = await removeTodoOperation.preview({ id })
+  if (!preview.confirmation) return
+
+  await removeTodoOperation.execute({ id }, { confirmation: preview.confirmation })
 }
 </script>

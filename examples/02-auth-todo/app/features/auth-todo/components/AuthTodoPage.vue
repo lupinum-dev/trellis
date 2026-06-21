@@ -127,11 +127,11 @@
                 placeholder="Only your account should see this"
                 class="flex-1"
                 required
-                :disabled="createTodoMutation.pending.value || !actorReady"
+                :disabled="createTodoOperation.pending.value || !actorReady"
               />
               <UButton
                 type="submit"
-                :loading="createTodoMutation.pending.value"
+                :loading="createTodoOperation.pending.value"
                 :disabled="!actorReady"
                 leading-icon="i-lucide-plus"
               >
@@ -151,7 +151,7 @@
                   :ui="{
                     label: todo.completed ? 'line-through text-muted' : '',
                   }"
-                  @update:model-value="toggleTodo({ id: todo._id })"
+                  @update:model-value="toggleTodoOperation.execute({ id: todo._id })"
                 />
                 <UButton
                   icon="i-lucide-trash-2"
@@ -160,7 +160,8 @@
                   size="xs"
                   square
                   aria-label="Delete todo"
-                  @click="removeTodo({ id: todo._id })"
+                  :disabled="removeTodoOperation.pending.value"
+                  @click="removeTodoOperation.execute({ id: todo._id })"
                 />
               </li>
             </ul>
@@ -182,6 +183,7 @@ import * as z from 'zod'
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const { isAuthenticated, isPending, sessionUser, signOut } = useConvexAuth()
 const client = useBetterAuthClient()
@@ -243,9 +245,9 @@ type SignUpSchema = z.output<typeof signUpSchema>
 type SignInSchema = z.output<typeof signInSchema>
 
 const title = ref('')
-const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
-const toggleTodo = useConvexMutation(api.features.todos.domain.toggle)
-const removeTodo = useConvexMutation(api.features.todos.domain.remove)
+const createTodoOperation = useTrellisOperation(operations.todos.create)
+const toggleTodoOperation = useTrellisOperation(operations.todos.toggle)
+const removeTodoOperation = useTrellisOperation(operations.todos.remove)
 
 const actorReady = computed(() => isAuthenticated.value)
 const todoArgs = computed(() => (isAuthenticated.value && actorReady.value ? {} : undefined))
@@ -258,9 +260,9 @@ const {
 const todoError = computed(
   () =>
     todosError.value?.message ||
-    createTodoMutation.error.value?.message ||
-    toggleTodo.error.value?.message ||
-    removeTodo.error.value?.message ||
+    createTodoOperation.error.value?.message ||
+    toggleTodoOperation.error.value?.message ||
+    removeTodoOperation.error.value?.message ||
     '',
 )
 
@@ -321,7 +323,7 @@ async function handleCreateTodo() {
   const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodoMutation(parsed.data)
+  await createTodoOperation.execute(parsed.data)
   title.value = ''
 }
 </script>

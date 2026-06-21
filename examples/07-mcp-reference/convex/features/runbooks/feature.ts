@@ -1,14 +1,14 @@
 import { defineFeature } from '@lupinum/trellis/workspace'
 
 import {
-  bulkRemoveRunbooksDescriptor,
-  createRunbookDescriptor,
-  getWorkspaceRunbookDescriptor,
-  listWorkspaceRunbooksDescriptor,
-  removeRunbookDescriptor,
-  updateRunbookDescriptor,
-  workspaceOverviewDescriptor,
-} from '../../../shared/features/runbooks/operations'
+  bulkRemoveRunbooksOp,
+  createRunbookOp,
+  getWorkspaceRunbookOp,
+  listWorkspaceRunbooksOp,
+  removeRunbookOp,
+  updateRunbookOp,
+  workspaceOverviewOp,
+} from './operations'
 import { runbookPermissions } from './permissions'
 import { runbookTables } from './schema'
 
@@ -17,12 +17,12 @@ export const runbooksFeature = defineFeature({
   schema: runbookTables,
   permissions: runbookPermissions,
   operations: [
-    listWorkspaceRunbooksDescriptor,
-    getWorkspaceRunbookDescriptor,
-    createRunbookDescriptor,
-    updateRunbookDescriptor,
-    removeRunbookDescriptor,
-    bulkRemoveRunbooksDescriptor,
-    workspaceOverviewDescriptor,
+    listWorkspaceRunbooksOp,
+    getWorkspaceRunbookOp,
+    createRunbookOp,
+    updateRunbookOp,
+    removeRunbookOp,
+    bulkRemoveRunbooksOp,
+    workspaceOverviewOp,
   ],
 })

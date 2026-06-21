@@ -15,7 +15,7 @@
     "@iconify-json/lucide": "^1.2.107",
     "@lupinum/trellis": "workspace:*",
     "@nuxt/ui": "^4.7.1",
-    "convex": "1.38.0",
+    "convex": "1.41.0",
     "nuxt": "4.4.8",
     "tailwindcss": "^4.3.0"
   },

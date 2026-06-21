@@ -1,34 +1,77 @@
 import {
   blockedOperationPreview,
+  operation,
   operationEffect,
   operationIssue,
   operationPreview,
+  operationPreviewValidator,
   workspaceScope,
 } from '@lupinum/trellis/app'
-import { can } from '@lupinum/trellis/auth'
-import { implementOperation } from '@lupinum/trellis/backend'
+import {
+  can,
+  deny,
+  loadTenantResource as loadResource,
+  requireAuth,
+  requireRecord,
+} from '@lupinum/trellis/auth'
+import { v } from 'convex/values'
 
 import {
-  bulkRemoveRunbooksDescriptor,
-  removeRunbookDescriptor,
-} from '../../../shared/features/runbooks/operations'
+  bulkDeleteRunbooks,
+  createRunbook,
+  deleteRunbook,
+  getRunbook,
+  listRunbooks,
+  updateRunbook,
+} from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx } from '../../_generated/server'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
-import { canDeleteRunbook } from './checks'
-import { runbookBulkDelete, runbookDelete } from './permissions'
+import { canDeleteRunbook, canUpdateRunbook } from './checks'
+import {
+  runbookBulkDelete,
+  runbookCreate,
+  runbookDelete,
+  runbookPublish,
+  runbookRead,
+} from './permissions'
+import { workspaceRunbookCapabilities } from './recordAccess'
+
+type WorkspaceQueryCtx = QueryCtx & {
+  workspaceId: Id<'workspaces'>
+  appIdentity: () => Promise<AppIdentity>
+}
 
 type WorkspaceMutationCtx = MutationCtx & {
   workspaceId: Id<'workspaces'>
   appIdentity: () => Promise<AppIdentity>
 }
 
-type DeleteRunbookArgs = {
+type RunbookIdArgs = {
   id: Id<'runbooks'>
 }
 
+type DeleteRunbookArgs = RunbookIdArgs
+
 type BulkDeleteRunbooksArgs = {
   ids: Id<'runbooks'>[]
+}
+
+type CreateRunbookArgs = {
+  title: string
+  summary: string
+  content: string
+  visibility?: 'public' | 'workspace' | 'draft'
+  tags?: string[]
+}
+
+type UpdateRunbookArgs = {
+  id: Id<'runbooks'>
+  title?: string
+  summary?: string
+  content?: string
+  visibility?: 'public' | 'workspace' | 'draft'
+  tags?: string[]
 }
 
 type LoadedRunbook = {
@@ -39,9 +82,132 @@ type LoadedBulkRunbooks = {
   found: Doc<'runbooks'>[]
 }
 
-export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
+export const listWorkspaceRunbooksOp = operation.query({
+  id: 'runbooks.list-workspace',
+  args: listRunbooks.args,
+  allowForwardingFrom: 'mcp',
+  scope: workspaceScope(),
+  permission: runbookRead,
+  handler: async (ctx: WorkspaceQueryCtx) => {
+    const appIdentity = await ctx.appIdentity()
+    const runbooks = await ctx.db
+      .query('runbooks')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
+      .order('desc')
+      .collect()
+
+    return workspaceRunbookCapabilities.attach(appIdentity, runbooks)
+  },
+})
+
+export const getWorkspaceRunbookOp = operation.query({
+  id: 'runbooks.get-workspace',
+  args: getRunbook.args,
+  allowForwardingFrom: 'mcp',
+  scope: workspaceScope(),
+  permission: runbookRead,
+  handler: async (ctx: WorkspaceQueryCtx, args: RunbookIdArgs) => {
+    const appIdentity = await ctx.appIdentity()
+    const runbook = await ctx.db.get(args.id)
+    if (!runbook) return null
+
+    return workspaceRunbookCapabilities.attach(
+      appIdentity,
+      loadResource(appIdentity, runbook, 'Runbook'),
+    )
+  },
+})
+
+export const createRunbookOp = operation.mutation({
+  id: 'runbooks.create',
+  args: createRunbook.args,
+  allowForwardingFrom: 'mcp',
+  scope: workspaceScope(),
+  permission: runbookCreate,
+  safety: 'bounded-write',
+  handler: async (ctx: WorkspaceMutationCtx, args: CreateRunbookArgs) => {
+    const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
+
+    const visibility = args.visibility ?? 'draft'
+    if (visibility === 'public' && !can(appIdentity, runbookPublish.check)) {
+      throw deny('Only owners and admins can create public runbooks.')
+    }
+
+    const now = Date.now()
+    return await ctx.db.insert('runbooks', {
+      title: args.title,
+      summary: args.summary,
+      content: args.content,
+      visibility,
+      tags: args.tags ?? [],
+      ownerId: appIdentity.userId as Id<'users'>,
+      workspaceId: ctx.workspaceId,
+      createdAt: now,
+      updatedAt: now,
+      ...(visibility === 'public' ? { publishedAt: now } : {}),
+    })
+  },
+})
+
+export const updateRunbookOp = operation.mutation({
+  id: 'runbooks.update',
+  args: updateRunbook.args,
+  allowForwardingFrom: 'mcp',
+  scope: workspaceScope(),
+  permission: runbookCreate,
+  safety: 'bounded-write',
+  load: async (ctx: WorkspaceMutationCtx, args: RunbookIdArgs): Promise<LoadedRunbook> => {
+    const runbook = await ctx.db.get(args.id)
+    requireRecord(runbook, 'Runbook')
+    return { runbook }
+  },
+  authorize: {
+    check: (_actor: AppIdentity, { runbook }: LoadedRunbook) => canUpdateRunbook(runbook),
+  },
+  handler: async (
+    ctx: WorkspaceMutationCtx,
+    args: UpdateRunbookArgs,
+    { runbook }: LoadedRunbook,
+  ) => {
+    const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
+    const nextVisibility = args.visibility ?? runbook.visibility
+    if (nextVisibility === 'public' && !can(appIdentity, runbookPublish.check)) {
+      throw deny('Only owners and admins can publish runbooks.')
+    }
+
+    await ctx.db.patch(args.id, {
+      ...(args.title !== undefined ? { title: args.title } : {}),
+      ...(args.summary !== undefined ? { summary: args.summary } : {}),
+      ...(args.content !== undefined ? { content: args.content } : {}),
+      ...(args.tags !== undefined ? { tags: args.tags } : {}),
+      ...(args.visibility !== undefined ? { visibility: args.visibility } : {}),
+      updatedAt: Date.now(),
+      ...(nextVisibility === 'public' && runbook.visibility !== 'public'
+        ? { publishedAt: Date.now() }
+        : {}),
+    })
+  },
+})
+
+export const removeRunbookOp = operation.destructive({
+  id: 'runbooks.remove',
+  args: deleteRunbook.args,
+  allowForwardingFrom: 'mcp',
+  returns: v.null(),
   scope: workspaceScope(),
   permission: runbookDelete,
+  safety: 'destructive-write',
+  previewReturns: operationPreviewValidator({
+    confirm: v.object({
+      operation: v.literal('runbooks.remove'),
+      targetId: v.id('runbooks'),
+      affectedCounts: v.object({
+        runbooks: v.number(),
+      }),
+    }),
+  }),
   load: async (ctx: WorkspaceMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     if (!runbook) throw new Error('Runbook not found.')
@@ -72,9 +238,55 @@ export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
   },
 })
 
-export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescriptor, {
+export const workspaceOverviewOp = operation.query({
+  id: 'runbooks.workspace-overview',
+  args: listRunbooks.args,
+  allowForwardingFrom: 'mcp',
+  scope: workspaceScope(),
+  permission: runbookRead,
+  handler: async (ctx: WorkspaceQueryCtx) => {
+    const runbooks = await ctx.db
+      .query('runbooks')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', ctx.workspaceId))
+      .order('desc')
+      .collect()
+
+    return {
+      total: runbooks.length,
+      public: runbooks.filter((runbook) => runbook.visibility === 'public').length,
+      workspaceOnly: runbooks.filter((runbook) => runbook.visibility === 'workspace').length,
+      drafts: runbooks.filter((runbook) => runbook.visibility === 'draft').length,
+      recentTitles: runbooks.slice(0, 5).map((runbook) => runbook.title),
+    }
+  },
+})
+
+export const bulkRemoveRunbooksOp = operation.destructive({
+  id: 'runbooks.bulkRemove',
+  args: bulkDeleteRunbooks.args,
+  allowForwardingFrom: 'mcp',
+  returns: v.object({
+    deleted: v.number(),
+    skipped: v.array(
+      v.object({
+        id: v.string(),
+        reason: v.string(),
+      }),
+    ),
+    total: v.number(),
+  }),
   scope: workspaceScope(),
   permission: runbookBulkDelete,
+  safety: 'destructive-write',
+  previewReturns: operationPreviewValidator({
+    confirm: v.object({
+      operation: v.literal('runbooks.bulkRemove'),
+      targetIds: v.array(v.id('runbooks')),
+      affectedCounts: v.object({
+        runbooks: v.number(),
+      }),
+    }),
+  }),
   load: async (
     ctx: WorkspaceMutationCtx,
     args: BulkDeleteRunbooksArgs,

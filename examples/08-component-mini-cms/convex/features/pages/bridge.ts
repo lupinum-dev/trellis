@@ -23,6 +23,7 @@ import {
   saveDraft,
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
+import { env } from '../../_generated/server'
 import { caller } from '../../auth/caller'
 
 const miniCmsComponents = (componentsGeneric() as any).miniCms.features.pages
@@ -38,8 +39,14 @@ const bridge = createComponentBridge(
   },
   {
     caller,
+    identityForwardingKey: () => env.CONVEX_IDENTITY_FORWARDING_KEY,
   },
 )
+
+const publishExecuteArgs = {
+  ...publishPage.args,
+  _confirmationToken: v.optional(v.string()),
+}
 
 const miniCmsBridge = bridge.from({
   listPublished: {
@@ -89,14 +96,14 @@ const miniCmsBridge = bridge.from({
     component: miniCmsComponents.domain.publish,
     functionRef: 'features/pages/domain:publish',
     forwardingPurpose: 'operation-execute',
-    args: publishPage.args,
+    args: publishExecuteArgs,
     returns: v.object({
       pageId: v.string(),
       published: v.boolean(),
     }),
   },
   previewPublish: {
-    operation: 'internalQuery',
+    operation: 'internalMutation',
     component: miniCmsComponents.operations.previewPublish,
     functionRef: 'features/pages/operations:previewPublish',
     args: publishPage.args,

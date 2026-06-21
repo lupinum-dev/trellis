@@ -17,11 +17,18 @@ function ref(metadata?: TrellisOperationProjectionMetadata) {
   ) as never
 }
 
+const mcpOperation = {
+  id: 'boards.archive',
+  name: 'archiveBoard',
+  kind: 'destructive',
+  allowForwardingFrom: 'mcp',
+} as const
+
 describe('mcp operation binding', () => {
   it('accepts matching execute and preview refs', () => {
     expect(() =>
       assertOperationBinding(
-        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        mcpOperation,
         ref({ operationId: 'boards.archive', projection: 'execute' }),
         ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
@@ -29,7 +36,7 @@ describe('mcp operation binding', () => {
   })
 
   it('keeps Convex function refs on projected operation refs', () => {
-    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+    const operation = mcpOperation
     const execute = projectOperationRef(
       operation,
       'execute',
@@ -47,7 +54,7 @@ describe('mcp operation binding', () => {
   })
 
   it('infers Convex function names on projected operation refs', () => {
-    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+    const operation = mcpOperation
     const execute = projectOperationRef(operation, 'execute', {
       [Symbol.for('functionName')]: 'features/boards/domain:archiveBoard',
     })
@@ -72,7 +79,7 @@ describe('mcp operation binding', () => {
       )
     }
 
-    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+    const operation = mcpOperation
     const execute = projectOperationRef(operation, 'execute', proxyRef())
     const preview = projectOperationRef(operation, 'preview', proxyRef())
 
@@ -105,7 +112,7 @@ describe('mcp operation binding', () => {
       return value
     }
 
-    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+    const operation = mcpOperation
 
     expect(() =>
       assertOperationBinding(
@@ -119,7 +126,7 @@ describe('mcp operation binding', () => {
   it('rejects execute refs without operation metadata', () => {
     expect(() =>
       assertOperationBinding(
-        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        mcpOperation,
         ref(),
         ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
@@ -129,7 +136,7 @@ describe('mcp operation binding', () => {
   it('rejects destructive operation bindings without preview refs', () => {
     expect(() =>
       assertOperationBinding(
-        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        mcpOperation,
         ref({ operationId: 'boards.archive', projection: 'execute' }),
       ),
     ).toThrow(/requires a preview ref for destructive operations/)
@@ -138,7 +145,7 @@ describe('mcp operation binding', () => {
   it('rejects mismatched execute refs', () => {
     expect(() =>
       assertOperationBinding(
-        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        mcpOperation,
         ref({ operationId: 'boards.delete', projection: 'execute' }),
         ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
@@ -148,11 +155,21 @@ describe('mcp operation binding', () => {
   it('rejects preview refs with the wrong projection', () => {
     expect(() =>
       assertOperationBinding(
-        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        mcpOperation,
         ref({ operationId: 'boards.archive', projection: 'execute' }),
         ref({ operationId: 'boards.archive', projection: 'execute' }),
       ),
     ).toThrow(/does not match operation id "boards.archive"/)
+  })
+
+  it('rejects operations not explicitly allowed for MCP identity forwarding', () => {
+    expect(() =>
+      assertOperationBinding(
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        ref({ operationId: 'boards.archive', projection: 'execute' }),
+        ref({ operationId: 'boards.archive', projection: 'preview' }),
+      ),
+    ).toThrow(/requires operation allowForwardingFrom: 'mcp'/)
   })
 
   it('formats default tool names from operation names', () => {

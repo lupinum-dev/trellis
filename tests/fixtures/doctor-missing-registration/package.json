@@ -4,7 +4,7 @@
   "type": "module",
   "dependencies": {
     "@lupinum/trellis": "workspace:*",
-    "convex": "1.38.0",
+    "convex": "1.41.0",
     "nuxt": "4.4.8"
   }
 }

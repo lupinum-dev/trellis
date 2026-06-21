@@ -1,16 +1,19 @@
-import { implementOperation } from '@lupinum/trellis/backend'
+import { operation } from '@lupinum/trellis/app'
+import { v } from 'convex/values'
 
 import {
-  createPageDescriptor,
-  getPublishedPageDescriptor,
-  listDraftPagesDescriptor,
-  listPublishedPagesDescriptor,
-  listStudioPagesDescriptor,
-  saveDraftDescriptor,
-} from '../../../../../shared/features/pages/operations'
+  createPage,
+  getPublishedPage,
+  listDraftPages,
+  listPublishedPages,
+  listStudioPages,
+  publishedPageValidator,
+  saveDraft,
+  studioPageValidator,
+} from '../../../../../shared/features/pages/contract'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { mutation, query, transportMutation } from '../../functions'
+import { mutation, query } from '../../functions'
 import { publishPageOp } from './operations'
 
 type CreatePageArgs = { slug: string; title: string; draftBody?: string }
@@ -68,9 +71,12 @@ function toStudioPage(page: {
   }
 }
 
-export const listPublishedPagesOp = implementOperation(listPublishedPagesDescriptor, {
+export const listPublishedPagesOp = operation.query({
+  id: 'pages.list-published',
+  args: listPublishedPages.args,
+  returns: v.array(publishedPageValidator),
   executeFunctionRef: 'features/pages/domain:listPublished',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   reads: ['pages'],
   handler: async (ctx) => {
     const pages = await ctx.db
@@ -85,9 +91,12 @@ export const listPublishedPagesOp = implementOperation(listPublishedPagesDescrip
 
 export const listPublished = query.public(listPublishedPagesOp)
 
-export const getPublishedPageOp = implementOperation(getPublishedPageDescriptor, {
+export const getPublishedPageOp = operation.query({
+  id: 'pages.get-published',
+  args: getPublishedPage.args,
+  returns: v.union(publishedPageValidator, v.null()),
   executeFunctionRef: 'features/pages/domain:getPublished',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   reads: ['pages'],
   handler: async (ctx, args: GetPublishedPageArgs) => {
     const page = await ctx.db
@@ -102,9 +111,12 @@ export const getPublishedPageOp = implementOperation(getPublishedPageDescriptor,
 
 export const getPublished = query.public(getPublishedPageOp)
 
-export const listStudioPagesOp = implementOperation(listStudioPagesDescriptor, {
+export const listStudioPagesOp = operation.query({
+  id: 'pages.list-studio',
+  args: listStudioPages.args,
+  returns: v.array(studioPageValidator),
   executeFunctionRef: 'features/pages/domain:listStudio',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   handler: async (ctx: QueryCtx) => {
     const pages = await ctx.db.query('pages').order('desc').collect()
     return pages.map(toStudioPage)
@@ -113,9 +125,12 @@ export const listStudioPagesOp = implementOperation(listStudioPagesDescriptor, {
 
 export const listStudio = query.authenticated(listStudioPagesOp)
 
-export const listDraftPagesOp = implementOperation(listDraftPagesDescriptor, {
+export const listDraftPagesOp = operation.query({
+  id: 'pages.list-draft',
+  args: listDraftPages.args,
+  returns: v.array(studioPageValidator),
   executeFunctionRef: 'features/pages/domain:listDraft',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   handler: async (ctx: QueryCtx) => {
     const pages = await ctx.db
       .query('pages')
@@ -129,9 +144,13 @@ export const listDraftPagesOp = implementOperation(listDraftPagesDescriptor, {
 
 export const listDraft = query.authenticated(listDraftPagesOp)
 
-export const createPageOp = implementOperation(createPageDescriptor, {
+export const createPageOp = operation.mutation({
+  id: 'pages.create',
+  args: createPage.args,
+  returns: v.string(),
+  safety: 'bounded-write',
   executeFunctionRef: 'features/pages/domain:create',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   handler: async (ctx: ManagePagesMutationCtx, args: CreatePageArgs) => {
     const appIdentity = await ctx.appIdentity()
     const authorId =
@@ -158,9 +177,13 @@ export const createPageOp = implementOperation(createPageDescriptor, {
 
 export const create = mutation.authenticated(createPageOp)
 
-export const saveDraftOp = implementOperation(saveDraftDescriptor, {
+export const saveDraftOp = operation.mutation({
+  id: 'pages.save-draft',
+  args: saveDraft.args,
+  returns: v.null(),
+  safety: 'bounded-write',
   executeFunctionRef: 'features/pages/domain:save',
-  identityForwardingTransport: 'bridge',
+  allowForwardingFrom: 'bridge',
   handler: async (ctx: MutationCtx, args: SaveDraftArgs) => {
     await ctx.db.patch(args.id as Id<'pages'>, {
       slug: args.slug.trim(),
@@ -174,4 +197,4 @@ export const saveDraftOp = implementOperation(saveDraftDescriptor, {
 
 export const save = mutation.authenticated(saveDraftOp)
 
-export const publish = transportMutation.authenticated(publishPageOp)
+export const publish = mutation.authenticated(publishPageOp)

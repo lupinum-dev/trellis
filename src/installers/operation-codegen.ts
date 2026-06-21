@@ -71,6 +71,8 @@ export function installOperationCodegen(options: InstallOperationCodegenOptions)
         operationRefsPath,
         projectOperationRefImport: '#trellis/operation-runtime',
         apiImport: '#trellis/api',
+        operationDescriptorTypeImport: '#trellis/operation-runtime',
+        descriptorMode: 'generated-metadata',
       }),
   })
 
@@ -86,6 +88,8 @@ export function installOperationCodegen(options: InstallOperationCodegenOptions)
   nuxt.options.alias['#trellis/operation-runtime'] = operationRuntimeTemplate.dst
 
   for (const target of operationHandleTargetsWithPaths) {
+    const descriptorMode =
+      target.runtime === 'client' ? 'generated-metadata' : 'runtime-import'
     const operationHandlesTemplate = addTemplate({
       filename: target.filename,
       write: true,
@@ -96,6 +100,8 @@ export function installOperationCodegen(options: InstallOperationCodegenOptions)
           projectOperationRefImport: '#trellis/operation-runtime',
           defineOperationHandleImport: '#trellis/operation-runtime',
           apiImport: '#trellis/api',
+          operationDescriptorTypeImport: '#trellis/operation-runtime',
+          descriptorMode,
           runtimes: [target.runtime] as OperationHandleBindingInput['runtimes'],
         }),
     })

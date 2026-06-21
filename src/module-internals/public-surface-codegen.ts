@@ -40,6 +40,7 @@ export interface OperationDefinitionMetadata {
   kind: 'safe' | 'destructive'
   exposure?: 'backend-only'
   backendOnlyReason?: string
+  allowForwardingFrom?: 'server' | 'webhook' | 'mcp' | 'bridge'
   executeFunctionRef?: string
   contract?: OperationContractMetadata
 }
@@ -848,6 +849,15 @@ function extractOperationDefinitions(
         : {}),
       ...(readStringProperty(definition, 'backendOnlyReason')
         ? { backendOnlyReason: readStringProperty(definition, 'backendOnlyReason')! }
+        : {}),
+      ...(readStringProperty(definition, 'allowForwardingFrom')
+        ? {
+            allowForwardingFrom: readStringProperty(definition, 'allowForwardingFrom') as
+              | 'server'
+              | 'webhook'
+              | 'mcp'
+              | 'bridge',
+          }
         : {}),
       ...(readStringProperty(definition, 'executeFunctionRef')
         ? { executeFunctionRef: readStringProperty(definition, 'executeFunctionRef') }

@@ -11,8 +11,14 @@ import {
   type Ref,
 } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
+import {
+  shouldWaitForAuthBootstrapToken,
+  useAuthBootstrapRuntimeState,
+} from '../../auth/client/auth-bootstrap-state.js'
+import { hasConvexAuthRuntime } from '../../auth/internal/auth-runtime.js'
+import { useConvexAuthController } from '../../auth/internal/useConvexAuthController.js'
 import {
   appendDevtoolsEvent,
   registerDevtoolsQuery,
@@ -86,10 +92,12 @@ export function createConvexQueryState<
   type RawT = FunctionReturnType<Query>
 
   const config = useRuntimeConfig()
+  const nuxtApp = useNuxtApp()
   const convexConfig = getConvexRuntimeConfig()
   const defaults = convexConfig.query
   const server = options?.server ?? defaults?.server ?? true
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
+  const authMode = convexConfig.auth.enabled ? 'auto' : 'none'
   const keepPreviousData = options?.keepPreviousData ?? false
   const fnName = getFunctionName(query)
   const logger = createRuntimeObserver(config.public.convex ?? {}, { transport: 'browser' })
@@ -99,10 +107,27 @@ export function createConvexQueryState<
     if (rawArgs == null) return {} as FunctionArgs<Query>
     return rawArgs as FunctionArgs<Query>
   })
+  const auth =
+    convexConfig.auth.enabled && hasConvexAuthRuntime(nuxtApp) ? useConvexAuthController() : null
+  const authBootstrap = convexConfig.auth.enabled ? useAuthBootstrapRuntimeState() : null
+  const isWaitingForAuthBootstrap = computed(() => {
+    if (!auth || !authBootstrap) return false
+    if (auth.pending.value && convexConfig.auth.bootstrap.enabled) return true
+    if (!auth.isAuthenticated.value) return false
+    return shouldWaitForAuthBootstrapToken(authBootstrap.value, auth.token.value, {
+      required: convexConfig.auth.bootstrap.enabled,
+    })
+  })
 
   const isSkipped = computed(() => {
     const rawArgs = args === undefined ? {} : toValue(args)
-    return rawArgs == null
+    return rawArgs == null || isWaitingForAuthBootstrap.value
+  })
+  const skipReason = computed(() => {
+    const rawArgs = args === undefined ? {} : toValue(args)
+    if (rawArgs == null) return 'nullish-args'
+    if (isWaitingForAuthBootstrap.value) return 'auth-bootstrap'
+    return null
   })
 
   assertConvexComposableScope(
@@ -138,7 +163,7 @@ export function createConvexQueryState<
     isSkipped,
     server,
     subscribe,
-    authMode: 'auto',
+    authMode,
     resolveImmediately,
     dedupe: 'defer',
     defaultValue: () =>
@@ -169,7 +194,7 @@ export function createConvexQueryState<
           immediate: resolveImmediately,
           server,
           subscribe,
-          auth: 'auto',
+          auth: authMode,
         },
       })
     },
@@ -209,20 +234,20 @@ export function createConvexQueryState<
   })
 
   watch(
-    isSkipped,
-    (skipped) => {
-      if (!skipped) return
+    skipReason,
+    (reason) => {
+      if (!reason) return
       logger.query({
         name: fnName,
         event: 'skip',
-        reason: 'nullish-args',
+        reason,
       })
       appendDevtoolsEvent({
         kind: 'query',
         phase: 'skip',
         operationId: `skipped:${fnName}`,
         name: fnName,
-        reason: 'nullish-args',
+        reason,
       })
     },
     { immediate: true },
@@ -277,7 +302,9 @@ export function createConvexQueryState<
       error: resource.error,
       refresh: resource.refresh,
       clear: resource.clear,
-      pending: resource.pending as Ref<boolean>,
+      pending: computed(
+        () => resource.pending.value || isWaitingForAuthBootstrap.value,
+      ) as Ref<boolean>,
       status: resource.status as Ref<QueryStatus>,
       isStale: isStale as Ref<boolean>,
     },

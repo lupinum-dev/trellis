@@ -280,8 +280,12 @@ export function convexLocalConfigPath(cwd) {
   return path.join(cwd, '.convex', 'local', 'default', 'config.json')
 }
 
+export function convexLocalDefaultDir(cwd) {
+  return path.join(cwd, '.convex', 'local', 'default')
+}
+
 export function convexLocalSqlitePath(cwd) {
-  return path.join(cwd, '.convex', 'local', 'default', 'convex_local_backend.sqlite3')
+  return path.join(convexLocalDefaultDir(cwd), 'convex_local_backend.sqlite3')
 }
 
 export function readConvexLocalConfig(
@@ -300,6 +304,13 @@ export function readConvexLocalConfig(
 
 export function writeConvexLocalConfig(cwd, config, { writeFileSyncFn = writeFileSync } = {}) {
   writeFileSyncFn(convexLocalConfigPath(cwd), `${JSON.stringify(config)}\n`, 'utf8')
+}
+
+export function isLegacyAnonymousLocalConfig(config) {
+  return (
+    config?.deploymentName === 'anonymous-agent' ||
+    (typeof config?.adminKey === 'string' && config.adminKey.startsWith('anonymous-agent|'))
+  )
 }
 
 export async function selectLocalPortPair({
@@ -335,6 +346,7 @@ export function syncConvexLocalConfigPortPair(
 ) {
   const config = readConvexLocalConfigFn(cwd)
   if (!config) return
+  if (isLegacyAnonymousLocalConfig(config)) return
 
   const hasMatchingPorts = config.ports?.cloud === port && config.ports?.site === port + 1
   const hasMatchingFingerprint =
@@ -781,10 +793,6 @@ export function createExampleLocalEnv({
   }
   const existingLocalEnv = readLocalEnvFileFn(cwd)
   const appOwnedLocalEnv = stripLocalRuntimeEnvKeys(existingLocalEnv)
-  const existingConvexDeployment =
-    typeof existingLocalEnv.CONVEX_DEPLOYMENT === 'string'
-      ? { CONVEX_DEPLOYMENT: existingLocalEnv.CONVEX_DEPLOYMENT }
-      : {}
   const generatedSecretEnv = resolveGeneratedSecretEnvValues(exampleDefaults, existingLocalEnv)
   const localRuntimeEnv = buildLocalRuntimeEnv({
     port,
@@ -799,7 +807,6 @@ export function createExampleLocalEnv({
     localRuntimeEnv,
     bootstrapLocalEnvFileValues: {
       ...appOwnedLocalEnv,
-      ...existingConvexDeployment,
       ...generatedSecretEnv,
     },
     localEnvFileValues: {
@@ -852,6 +859,10 @@ export async function runExampleDev({
   const storedConvexLocalConfig = readConvexLocalConfigFn(cwd)
   const configuredPorts = storedConvexLocalConfig?.ports
   await clearPortsFn([desiredNuxtPort, configuredPorts?.cloud, configuredPorts?.site], { stdout })
+
+  if (isLegacyAnonymousLocalConfig(storedConvexLocalConfig)) {
+    rmSyncFn(convexLocalDefaultDir(cwd), { recursive: true, force: true })
+  }
 
   const port = await selectLocalPortPair({
     cwd,
@@ -922,16 +933,7 @@ export async function runExampleDev({
 
   const convex = spawnFn(
     'pnpm',
-    workspacePnpmArgs(cwd, [
-      'exec',
-      'convex',
-      'dev',
-      '--local',
-      '--local-cloud-port',
-      String(port),
-      '--local-site-port',
-      String(port + 1),
-    ]),
+    workspacePnpmArgs(cwd, ['exec', 'convex', 'dev']),
     {
       cwd: REPO_ROOT,
       env: convexEnv,

@@ -6,6 +6,7 @@ import {
   queryGeneric as generatedQuery,
 } from 'convex/server'
 
+import { env } from './_generated/server'
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/caller'
 
 export type MiniCmsActor =
@@ -35,6 +36,16 @@ export async function getAppIdentityFromCaller(
   }
 }
 
+async function requirePublishIdentity(ctx: {
+  appIdentity: () => Promise<MiniCmsActor | null>
+}): Promise<Extract<MiniCmsActor, { kind: 'editor' | 'agent' }>> {
+  const actor = await ctx.appIdentity()
+  if (!actor || actor.kind === 'viewer') {
+    throw new Error('Publish confirmation requires an editor or agent identity.')
+  }
+  return actor
+}
+
 export const { action, mutation, query, transportMutation } = defineTrellis(
   {
     action: generatedAction,
@@ -44,10 +55,17 @@ export const { action, mutation, query, transportMutation } = defineTrellis(
   {
     caller,
     appIdentity: getAppIdentityFromCaller,
-    identityForwardingKey: process.env.CONVEX_IDENTITY_FORWARDING_KEY,
+    identityForwardingKey: () => env.CONVEX_IDENTITY_FORWARDING_KEY,
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',
+      previewConfirmation: {
+        callerKey: async (ctx) => {
+          const actor = await requirePublishIdentity(ctx)
+          return actor.kind === 'editor' ? `editor:${actor.authKey}` : `agent:${actor.agentId}`
+        },
+        scopeKey: async (_ctx, args) => `page:${String(args.id)}`,
+      },
     },
     trustedReplay: {
       table: 'trustedReplay',

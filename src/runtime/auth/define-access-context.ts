@@ -129,7 +129,7 @@ export function defineAccessContext<TOptions extends AccessContextOptions>(
     permissions: options.permissions,
     ...(options.crossTenant ? { crossTenant: options.crossTenant } : {}),
     handler: async (ctx: MergedCtx<TOptions>) => {
-      const appIdentity = await options.resolve(ctx as ResolveCtx<TOptions>)
+      const appIdentity = await resolveAccessContextIdentity(options, ctx as ResolveCtx<TOptions>)
       if (!appIdentity) return null
       const resolvedActor = appIdentity as NonNullable<AppIdentityForResolve<TOptions>>
 
@@ -166,6 +166,28 @@ export function defineAccessContext<TOptions extends AccessContextOptions>(
       } as AccessContextHandlerResult<TOptions['permissions'], AccessContextExtension<TOptions>>
     },
   }
+}
+
+async function resolveAccessContextIdentity<TOptions extends AccessContextOptions>(
+  options: TOptions,
+  ctx: ResolveCtx<TOptions>,
+): Promise<AppIdentityForResolve<TOptions> | null> {
+  try {
+    return await options.resolve(ctx)
+  } catch (error) {
+    if (isMissingTrellisUserRowError(error)) return null
+    throw error
+  }
+}
+
+function isMissingTrellisUserRowError(error: unknown): boolean {
+  if (!(error instanceof ConvexError)) return false
+  const data = error.data as { code?: unknown; message?: unknown } | undefined
+  return (
+    data?.code === 'NOT_FOUND' &&
+    typeof data.message === 'string' &&
+    data.message.includes('Expected a Trellis users row')
+  )
 }
 
 function assertNoReservedExtensionKeys(extra: AccessContextExtensionShape) {

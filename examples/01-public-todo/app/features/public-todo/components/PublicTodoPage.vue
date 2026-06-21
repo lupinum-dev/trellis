@@ -20,11 +20,11 @@
             placeholder="Write something small and concrete"
             class="flex-1"
             required
-            :disabled="createTodoMutation.pending.value"
+            :disabled="createTodoOperation.pending.value"
           />
           <UButton
             type="submit"
-            :loading="createTodoMutation.pending.value"
+            :loading="createTodoOperation.pending.value"
             leading-icon="i-lucide-plus"
           >
             Add
@@ -66,7 +66,7 @@
               :model-value="todo.completed"
               :label="todo.title"
               :ui="{ label: todo.completed ? 'line-through text-muted' : '' }"
-              @update:model-value="toggleTodo({ id: todo._id })"
+              @update:model-value="toggleTodoOperation.execute({ id: todo._id })"
             />
             <UButton
               icon="i-lucide-trash-2"
@@ -75,7 +75,8 @@
               size="xs"
               square
               aria-label="Delete todo"
-              @click="removeTodo({ id: todo._id })"
+              :disabled="removeTodoOperation.pending.value"
+              @click="removeTodoOperation.execute({ id: todo._id })"
             />
           </li>
         </ul>
@@ -89,12 +90,13 @@ import { computed, ref } from 'vue'
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { operations } from '#trellis/operations/client'
 
 const { data: todos, pending, error } = await useConvexQuery(api.features.todos.domain.list, {})
 
-const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
-const toggleTodo = useConvexMutation(api.features.todos.domain.toggle)
-const removeTodo = useConvexMutation(api.features.todos.domain.remove)
+const createTodoOperation = useTrellisOperation(operations.todos.create)
+const toggleTodoOperation = useTrellisOperation(operations.todos.toggle)
+const removeTodoOperation = useTrellisOperation(operations.todos.remove)
 
 const title = ref('')
 const todoItems = computed(() => todos.value ?? [])
@@ -102,9 +104,9 @@ const todoItems = computed(() => todos.value ?? [])
 const queryError = computed(() => error.value?.message ?? '')
 const mutationError = computed(
   () =>
-    createTodoMutation.error.value?.message ||
-    toggleTodo.error.value?.message ||
-    removeTodo.error.value?.message ||
+    createTodoOperation.error.value?.message ||
+    toggleTodoOperation.error.value?.message ||
+    removeTodoOperation.error.value?.message ||
     '',
 )
 
@@ -112,7 +114,7 @@ async function handleCreate() {
   const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodoMutation(parsed.data)
+  await createTodoOperation.execute(parsed.data)
   title.value = ''
 }
 </script>

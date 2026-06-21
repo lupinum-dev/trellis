@@ -237,7 +237,7 @@
     "@vitest/browser-playwright": "^4.1.6",
     "ai": "^6.0.182",
     "changelogen": "^0.6.2",
-    "convex": "1.38.0",
+    "convex": "^1.41.0",
     "convex-helpers": "^0.1.117",
     "convex-test": "^0.0.52",
     "convex-vite-plugin": "^0.4.0",
@@ -264,7 +264,7 @@
   },
   "peerDependencies": {
     "@nuxtjs/mcp-toolkit": "^0.16.1",
-    "convex": "^1.38.0",
+    "convex": "^1.41.0",
     "convex-helpers": "^0.1.117",
     "convex-test": "^0.0.52",
     "zod": "^4.4.3"

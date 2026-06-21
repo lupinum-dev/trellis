@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Generated `ComponentApi` utility.
  *
@@ -22,155 +23,246 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
-    pages: {
-      createPage: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          draftBody?: string;
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-          slug: string;
-          title: string;
-        },
-        string,
-        Name
-      >;
-      getPublishedPage: FunctionReference<
-        "query",
-        "internal",
-        {
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-          slug: string;
-        },
-        {
-          _id: string;
-          authorId: string;
-          body: string;
-          publishedAt: number | null;
-          slug: string;
-          status: "draft" | "published";
-          title: string;
-          updatedAt: number;
-        } | null,
-        Name
-      >;
-      listDraftPages: FunctionReference<
-        "query",
-        "internal",
-        {
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-        },
-        Array<{
-          _id: string;
-          authorId: string;
-          draftBody: string;
-          publishedAt: number | null;
-          publishedBody: string;
-          slug: string;
-          status: "draft" | "published";
-          title: string;
-          updatedAt: number;
-        }>,
-        Name
-      >;
-      listPublishedPages: FunctionReference<
-        "query",
-        "internal",
-        {
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-        },
-        Array<{
-          _id: string;
-          authorId: string;
-          body: string;
-          publishedAt: number | null;
-          slug: string;
-          status: "draft" | "published";
-          title: string;
-          updatedAt: number;
-        }>,
-        Name
-      >;
-      listStudioPages: FunctionReference<
-        "query",
-        "internal",
-        {
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-        },
-        Array<{
-          _id: string;
-          authorId: string;
-          draftBody: string;
-          publishedAt: number | null;
-          publishedBody: string;
-          slug: string;
-          status: "draft" | "published";
-          title: string;
-          updatedAt: number;
-        }>,
-        Name
-      >;
-      previewPublishPage: FunctionReference<
-        "query",
-        "internal",
-        {
-          id: string;
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-        },
-        {
-          affects?: { pages: number };
-          blocked?: boolean;
-          summary: string;
-          warn?: string;
-        },
-        Name
-      >;
-      publishPage: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          id: string;
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-        },
-        { pageId: string; published: boolean },
-        Name
-      >;
-      saveDraft: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          draftBody: string;
-          id: string;
-          principal?:
-            | { kind: "anonymous" }
-            | { kind: "user"; userId: string }
-            | { agentId: string; kind: "agent" };
-          slug: string;
-          title: string;
-        },
-        null,
-        Name
-      >;
+    features: {
+      pages: {
+        domain: {
+          create: FunctionReference<
+            "mutation",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+              draftBody?: string;
+              slug: string;
+              title: string;
+            },
+            string,
+            Name
+          >;
+          getPublished: FunctionReference<
+            "query",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+              slug: string;
+            },
+            {
+              _id: string;
+              authorId: string;
+              body: string;
+              publishedAt: number | null;
+              slug: string;
+              status: "draft" | "published";
+              title: string;
+              updatedAt: number;
+            } | null,
+            Name
+          >;
+          listDraft: FunctionReference<
+            "query",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+            },
+            Array<{
+              _id: string;
+              authorId: string;
+              draftBody: string;
+              publishedAt: number | null;
+              publishedBody: string;
+              slug: string;
+              status: "draft" | "published";
+              title: string;
+              updatedAt: number;
+            }>,
+            Name
+          >;
+          listPublished: FunctionReference<
+            "query",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+            },
+            Array<{
+              _id: string;
+              authorId: string;
+              body: string;
+              publishedAt: number | null;
+              slug: string;
+              status: "draft" | "published";
+              title: string;
+              updatedAt: number;
+            }>,
+            Name
+          >;
+          listStudio: FunctionReference<
+            "query",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+            },
+            Array<{
+              _id: string;
+              authorId: string;
+              draftBody: string;
+              publishedAt: number | null;
+              publishedBody: string;
+              slug: string;
+              status: "draft" | "published";
+              title: string;
+              updatedAt: number;
+            }>,
+            Name
+          >;
+          publish: FunctionReference<
+            "mutation",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _confirmationToken?: string;
+              _trellisForwarding?: string;
+              id: string;
+            },
+            { pageId: string; published: boolean },
+            Name
+          >;
+          save: FunctionReference<
+            "mutation",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+              draftBody: string;
+              id: string;
+              slug: string;
+              title: string;
+            },
+            null,
+            Name
+          >;
+        };
+        operations: {
+          previewPublish: FunctionReference<
+            "mutation",
+            "internal",
+            {
+              __trellis?: {
+                correlationId: string;
+                originTransport:
+                  | "browser"
+                  | "nuxt-server"
+                  | "convex"
+                  | "mcp"
+                  | "service"
+                  | "webhook";
+                requestId?: string;
+              };
+              _trellisForwarding?: string;
+              id: string;
+            },
+            {
+              allowed: boolean;
+              blockers: Array<{ code: string; details?: any; message: string }>;
+              confirm: {
+                affectedCounts: { pages: number };
+                operation: "pages.publish";
+                targetId: string;
+              };
+              confirmation?: { expiresAt: number; token: string };
+              details?: {
+                affects?: { pages: number };
+                blocked?: boolean;
+                summary: string;
+                warn?: string;
+              };
+              effects: Array<{
+                count?: number;
+                details?: any;
+                kind: string;
+                summary: string;
+                target?: string;
+              }>;
+              summary: string;
+              version?: any;
+              warnings: Array<{ code: string; details?: any; message: string }>;
+            },
+            Name
+          >;
+        };
+      };
     };
   };

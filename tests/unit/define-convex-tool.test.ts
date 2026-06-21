@@ -657,6 +657,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -695,6 +696,7 @@ describe('Destructive confirmation payload validation', () => {
       },
       identityForwardingTransport: 'mcp',
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -711,6 +713,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       safety: 'destructive-write',
+      allowForwardingFrom: 'mcp',
     })
     const execute = projectOperationRef(descriptor, 'execute', {} as never)
     const preview = projectOperationRef(descriptor, 'preview', {} as never)
@@ -748,6 +751,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       safety: 'destructive-write',
+      allowForwardingFrom: 'mcp',
       exposure: 'backend-only',
       backendOnlyReason: 'Retention cleanup runs from a verified service job.',
     } as never)
@@ -786,6 +790,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -820,6 +825,7 @@ describe('Destructive confirmation payload validation', () => {
       kind: 'safe',
       permission,
       safety: 'bounded-write',
+      allowForwardingFrom: 'mcp',
       args: {
         id: v.string(),
       },
@@ -889,6 +895,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -933,6 +940,7 @@ describe('Destructive confirmation payload validation', () => {
       kind: 'destructive',
       args: {},
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => ({
         allowed: true,
         summary: 'Delete post',
@@ -997,6 +1005,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview({ version: { rev: previewVersion } }),
       handler: async () => ({ ok: true }),
     })
@@ -1062,6 +1071,7 @@ describe('Destructive confirmation payload validation', () => {
         message: v.optional(v.string()),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1135,6 +1145,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1200,6 +1211,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
@@ -1271,6 +1283,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       permission: postOperationPermission,
+      allowForwardingFrom: 'mcp',
       preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })

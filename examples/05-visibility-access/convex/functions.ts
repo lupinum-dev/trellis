@@ -4,6 +4,7 @@ import { operationProjectionRegistry } from '../generated/operation-projections'
 import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getAppIdentity, type AppIdentity } from './auth/appIdentity'
+import { caller } from './auth/caller'
 import { sharedTables, tenantTables } from './features'
 
 const isolatedTables = [...tenantTables] as TableNames[]
@@ -20,6 +21,7 @@ async function requirePreviewIdentity(ctx: {
 export const { mutation, query, unsafe } = defineTrellis(
   { query: generatedQuery, mutation: generatedMutation },
   {
+    caller,
     appIdentity: getAppIdentity,
     isolation: {
       tables: isolatedTables,

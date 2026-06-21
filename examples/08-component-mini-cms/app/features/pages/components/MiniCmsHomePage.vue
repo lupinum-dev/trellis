@@ -16,9 +16,6 @@
             <UButton to="/studio" color="neutral" variant="soft" trailing-icon="i-lucide-pencil">
               Open studio
             </UButton>
-            <UButton to="/mcp" color="primary" variant="soft" trailing-icon="i-lucide-bot">
-              Optional MCP view
-            </UButton>
           </div>
         </div>
       </header>

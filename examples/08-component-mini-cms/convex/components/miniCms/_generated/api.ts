@@ -8,13 +8,12 @@
  * @module
  */
 
-import type * as functions from "../functions.js";
-import type * as features from "../features/index.js";
+import type * as features_index from "../features/index.js";
 import type * as features_pages_domain from "../features/pages/domain.js";
 import type * as features_pages_feature from "../features/pages/feature.js";
 import type * as features_pages_index from "../features/pages/index.js";
 import type * as features_pages_operations from "../features/pages/operations.js";
-import type * as features_pages_schema from "../features/pages/schema.js";
+import type * as functions from "../functions.js";
 
 import type {
   ApiFromModules,
@@ -24,13 +23,12 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
-  functions: typeof functions;
-  features: typeof features;
+  "features/index": typeof features_index;
   "features/pages/domain": typeof features_pages_domain;
   "features/pages/feature": typeof features_pages_feature;
   "features/pages/index": typeof features_pages_index;
   "features/pages/operations": typeof features_pages_operations;
-  "features/pages/schema": typeof features_pages_schema;
+  functions: typeof functions;
 }> = anyApi as any;
 
 /**
